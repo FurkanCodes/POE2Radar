@@ -57,7 +57,10 @@ public sealed class RadarApp : IDisposable
     private readonly object _atlasLock = new();
     private readonly HashSet<nint> _atlasSel = new();   // selected node element addresses (from the dashboard)
     private bool _atlasOpen;
-    private List<AtlasMark> _atlasMarks = new();         // tracked/arrowed nodes to highlight (rings + arrows)
+    private List<AtlasMark> _atlasMarks = new();         // built each world tick (tick thread only)
+    private IReadOnlyList<AtlasMark> _atlasMarksPublish = Array.Empty<AtlasMark>(); // snapshot for render thread
+    private IReadOnlyList<NumVec2> _atlasRoutePublish = Array.Empty<NumVec2>();
+    private List<AtlasTagCatalogEntry> _atlasTagCatalog = new(); // distinct tags/maps for overlay Settings → Atlas
     private DateTime _nextInspectAt = DateTime.MinValue; // F10 hotkey debounce
     // F10 route workflow (manual, no memory-marker dependency): 1st F10 sets START tile, 2nd sets END tile
     // (and routes between them through the connection graph), 3rd resets. Stored by GRID coord so they
@@ -67,11 +70,15 @@ public sealed class RadarApp : IDisposable
     private NumVec2? _atlasStartPt, _atlasEndPt; // start/end in canvas relPos (for the markers), per tick
     private List<NumVec2> _atlasRoute = new();   // graph path start→end in canvas relPos (empty if none)
     private DateTime _atlasGoodAt = DateTime.MinValue; // last tick we read nodes — debounces transient misses
-    private long _lastAtlasSig;          // view+inputs signature — when unchanged, marks/route stay frozen (no arrow jitter)
+    private long _lastAtlasContentSig;   // highlight/tag/catalog signature — skips tag-catalog rebuild only (not positions)
     private bool _builtAtlasOnce;        // marks built at least once this atlas session
     // Live atlas zoom (= canvas/node scale @ +0x130; 0.85 max-out … larger zoomed in). relPos is read
     // live (pan baked in) and the projection scales by this zoom, so rings track pan AND zoom.
     private volatile float _atlasZoom = 0.85f;
+    private List<Poe2Atlas.AtlasNodeLive> _atlasNodesCache = new();
+    private readonly object _atlasNodesCacheLock = new();
+    private Poe2Live.MapViews _cachedMaps;
+    private float _atlasUpdateMs;
     private volatile UpdateChecker.Result? _update;   // GitHub version check (best-effort, set async at startup)
     // Atlas projection is derived live from the game window height (UIscale = winH/1600 × live zoom) in
     // AtlasProjection — resolution-correct, no calibration. (The 1080p reference: scale = (1080/1600)×0.85
@@ -505,7 +512,16 @@ public sealed class RadarApp : IDisposable
                     player.Y * POE2Radar.Core.Pathfinding.GridConstants.GridToWorld,
                     0f);
             playerTerrainHeight = _live.PlayerTerrainHeight(localPlayer);
-            maps = _live.ReadMaps(inGameState, areaInstance, windowWidth, windowHeight);
+            // Close atlas overlay on the render tick (~60 Hz), not only the 30 Hz world tick.
+            if (_atlasOpen && !_atlas.IsAtlasOpen(inGameState))
+                CloseAtlasSession();
+            if (!_atlasOpen)
+            {
+                maps = _live.ReadMaps(inGameState, areaInstance, windowWidth, windowHeight);
+                _cachedMaps = maps;
+            }
+            else
+                maps = _cachedMaps;
             _areaCode = _live.AreaCode(areaInstance);
             MaybeMigratePerTypeRules();
             // Player name reads a StdWString (allocates a string) — read it only when the local-player
@@ -519,112 +535,90 @@ public sealed class RadarApp : IDisposable
             {
                 var worldStart = Stopwatch.GetTimestamp();
                 _worldAt = now;
-                _charLevel = _live.PlayerLevel(localPlayer);   // changes ~never; 30 Hz is plenty
-                _terrain ??= _live.Terrain(areaInstance);
 
-                var entitiesStart = Stopwatch.GetTimestamp();
-                _entities = _live.Entities(areaInstance);
-                entitiesMs = ElapsedMs(entitiesStart);
-
-                // Drop the local player's own entity — it lives in the AwakeEntities map like any
-                // other Player, but the dedicated center blip already represents "you" (gated by
-                // ShowPlayerBlip). Without this, a Player-category dot renders at map-center even with
-                // the blip off. Filtering here (not the renderer) keeps the nav builder and HTTP API
-                // consistent, and still leaves party members visible as Player dots.
-                if (localPlayer != 0)
-                    _entities = _entities.Where(e => e.Address != localPlayer).ToList();
-                // Drop user-hidden entities once, here — so the renderer, nav-target builder, and the
-                // published RadarState (HTTP API) all see the same filtered list. Cull by metadata.
-                if (_hidden.Count > 0)
-                    _entities = _entities.Where(e => !_hidden.IsHidden(e.Metadata)).ToList();
-                if (_settings.EntityDrawRadiusGrid > 0)
-                    _entities = _entities.Where(e => NumVec2.Distance(e.Grid, player) <= _settings.EntityDrawRadiusGrid).ToList();
-                // If the user edited the custom landmark patterns, drop the cached per-area scan so it
-                // rebuilds with the new patterns this tick (otherwise it only refreshes on zone change).
-                if (_landmarkPatterns.Generation != _landmarkGen)
-                {
-                    _landmarkGen = _landmarkPatterns.Generation;
-                    _live.InvalidateLandmarks();
-                }
-                // A changed display ruleset can add/remove "Tile" rules that surface tiles — rebuild.
-                if (_ruleEngine.Generation != _displayRulesGen)
-                {
-                    _displayRulesGen = _ruleEngine.Generation;
-                    _live.InvalidateLandmarks();
-                }
-                // Curated-landmark edits (Landmarks tab) change what surfaces + the labels — rebuild.
-                if (_landmarkStore.Generation != _landmarkStoreGen)
-                {
-                    _landmarkStoreGen = _landmarkStore.Generation;
-                    _live.InvalidateLandmarks();
-                }
-                // Live-apply a changed cluster radius (dashboard/config edit) the same way.
-                if (_settings.LandmarkClusterGap != _appliedClusterGap)
-                {
-                    _appliedClusterGap = _settings.LandmarkClusterGap;
-                    _live.LandmarkClusterGap = _appliedClusterGap;
-                    _live.InvalidateLandmarks();
-                }
-                _landmarks = _live.Landmarks(areaInstance); // cached per area in Poe2Live
-
-                // Decide which mobs get an HP bar + their style ONCE here (rule resolve + colour parse) —
-                // the per-render-frame path then only re-reads position/HP for this small set.
-                BuildHpSpecs();
-
-                // Atlas F10 route — ReadNodes is cheap when the atlas is closed (it gates on the atlas
-                // panel's visible bit before any whole-tree scan), so this is safe each world tick.
+                var atlasStart = Stopwatch.GetTimestamp();
                 UpdateAtlas(inGameState);
+                _atlasUpdateMs = (float)ElapsedMs(atlasStart);
 
-                // Rebuild the unified navigation-target list (tiles + entity POIs) for this tick.
-                _navTargets = BuildNavTargets(player);
-                RefreshTargetSnapshots(_navTargets);
-
-                // On a zone change: drop the (now-stale) selection, then apply the persistent
-                // auto-nav patterns against the new zone's targets. Keyed off the AreaInstance
-                // address (a fresh object per area), same signal the per-area caches use.
-                if (areaInstance != _navTargetsArea)
+                if (!_atlasOpen)
                 {
-                    _navTargetsArea = areaInstance;
-                    OnAreaChanged();
+                    _charLevel = _live.PlayerLevel(localPlayer);   // changes ~never; 30 Hz is plenty
+                    _terrain ??= _live.Terrain(areaInstance);
+
+                    var entitiesStart = Stopwatch.GetTimestamp();
+                    _entities = _live.Entities(areaInstance);
+                    entitiesMs = ElapsedMs(entitiesStart);
+
+                    if (localPlayer != 0)
+                        _entities = _entities.Where(e => e.Address != localPlayer).ToList();
+                    if (_hidden.Count > 0)
+                        _entities = _entities.Where(e => !_hidden.IsHidden(e.Metadata)).ToList();
+                    if (_settings.EntityDrawRadiusGrid > 0)
+                        _entities = _entities.Where(e => NumVec2.Distance(e.Grid, player) <= _settings.EntityDrawRadiusGrid).ToList();
+                    if (_landmarkPatterns.Generation != _landmarkGen)
+                    {
+                        _landmarkGen = _landmarkPatterns.Generation;
+                        _live.InvalidateLandmarks();
+                    }
+                    if (_ruleEngine.Generation != _displayRulesGen)
+                    {
+                        _displayRulesGen = _ruleEngine.Generation;
+                        _live.InvalidateLandmarks();
+                    }
+                    if (_landmarkStore.Generation != _landmarkStoreGen)
+                    {
+                        _landmarkStoreGen = _landmarkStore.Generation;
+                        _live.InvalidateLandmarks();
+                    }
+                    if (_settings.LandmarkClusterGap != _appliedClusterGap)
+                    {
+                        _appliedClusterGap = _settings.LandmarkClusterGap;
+                        _live.LandmarkClusterGap = _appliedClusterGap;
+                        _live.InvalidateLandmarks();
+                    }
+                    _landmarks = _live.Landmarks(areaInstance);
+
+                    BuildHpSpecs();
+
+                    _navTargets = BuildNavTargets(player);
+                    RefreshTargetSnapshots(_navTargets);
+
+                    if (areaInstance != _navTargetsArea)
+                    {
+                        _navTargetsArea = areaInstance;
+                        OnAreaChanged();
+                    }
+
+                    PruneCompletedTargets();
+                    AutoSelectNavigable(player);
+                    MaintainRoutes(player);
+
+                    _selectedSnapshot = SnapshotSelection();
+                    _legend = BuildLegend(_selectedSnapshot, player);
                 }
-
-                // Auto-deselect entity targets the game has marked complete (e.g. a looted expedition):
-                // they're already gone from the map + nav-target list, but the still-present (faded)
-                // entity would otherwise keep resolving, so the route would keep pathing to it.
-                PruneCompletedTargets();
-
-                AutoSelectNavigable(player);
-
-                // Per-tick route maintenance (draw-only, NO A* on this thread). For each selected
-                // target: cheaply advance its cursor; fire a BACKGROUND replan only on a real trigger.
-                // Then drain finished routes and rebuild _selectedPaths from the trackers' cursors.
-                MaintainRoutes(player);
-
-                // Selection snapshot + legend are render inputs that change only with the selection /
-                // nav-target list — rebuild them here (30 Hz) rather than every render frame.
-                _selectedSnapshot = SnapshotSelection();
-                _legend = BuildLegend(_selectedSnapshot, player);
                 worldMs = ElapsedMs(worldStart);
             }
 
-            // EVERY render frame (not just world ticks): refresh the live position + HP of each HP-bar mob
-            // so the bars track moving monsters smoothly. Cheap — two tiny reads per bar via cached
-            // component addresses; only the ~dozens of bar mobs, never the full entity map.
-            var hpBarsStart = Stopwatch.GetTimestamp();
-            var hpFrame = new List<HpBarTarget>(_hpSpecs.Count);
-            foreach (var spec in _hpSpecs)
+            if (!_atlasOpen)
             {
-                if (!_live.TryLiveBar(spec.Entity, out var w, out var cur, out var max, out var esCur, out var esMax) || max <= 0 || cur <= 0) continue;
-                var esFrac = esMax > 0 && esCur > 0 ? Math.Clamp((float)esCur / esMax, 0f, 1f) : 0f;
-                hpFrame.Add(new HpBarTarget(w, Math.Clamp((float)cur / max, 0f, 1f), esFrac, spec.Width, spec.Fill, spec.BorderWidth, spec.Border));
+                var hpBarsStart = Stopwatch.GetTimestamp();
+                var hpFrame = new List<HpBarTarget>(_hpSpecs.Count);
+                foreach (var spec in _hpSpecs)
+                {
+                    if (!_live.TryLiveBar(spec.Entity, out var w, out var cur, out var max, out var esCur, out var esMax) || max <= 0 || cur <= 0) continue;
+                    var esFrac = esMax > 0 && esCur > 0 ? Math.Clamp((float)esCur / esMax, 0f, 1f) : 0f;
+                    hpFrame.Add(new HpBarTarget(w, Math.Clamp((float)cur / max, 0f, 1f), esFrac, spec.Width, spec.Fill, spec.BorderWidth, spec.Border));
+                }
+                _hpFrame = hpFrame;
+                hpBarsMs = ElapsedMs(hpBarsStart);
             }
-            _hpFrame = hpFrame; // publish the fresh list (never mutate the previously-published one)
-            hpBarsMs = ElapsedMs(hpBarsStart);
+            else if (_hpFrame.Count > 0)
+                _hpFrame = Array.Empty<HpBarTarget>();
         }
         else
         {
             _selectedPaths = new List<SelectedPath>();
-            _atlasOpen = false;
+            if (_atlasOpen) CloseAtlasSession();
             if (_hpFrame.Count > 0) _hpFrame = Array.Empty<HpBarTarget>();
             if (_hpSpecs.Count > 0) _hpSpecs.Clear();
         }
@@ -696,7 +690,15 @@ public sealed class RadarApp : IDisposable
             Resolve: _resolveEntity,
             ResolveTile: _resolveTileDraw,
             AtlasOpen: _atlasOpen,
-            AtlasNodes: _atlasMarks,
+            AtlasNodes: _atlasMarksPublish,
+            AtlasShowOnScreenNodes: _settings.AtlasShowOnScreenNodes,
+            AtlasTrackedOnly: (_settings.AtlasHighlightTags?.Count ?? 0) > 0,
+            AtlasShowNames: _settings.AtlasShowNames,
+            AtlasRevealFog: _settings.AtlasRevealFog,
+            AtlasOffScreenArrows: _settings.AtlasOffScreenArrows,
+            AtlasIconScale: _settings.AtlasIconScale,
+            AtlasLabelScale: _settings.AtlasLabelScale,
+            AtlasTagCatalog: _atlasOpen ? _atlasTagCatalog : null,
             // Projection: derived live from the window height (UIscale = winH/1600) × live zoom. relPos is
             // read live so pan is already handled; the zoom term is folded into the scale. atlasProj is the
             // 8-coeff homography layout {h0..h7}. This is what makes non-1080p resolutions line up.
@@ -711,12 +713,13 @@ public sealed class RadarApp : IDisposable
             // F10 route: START/END markers + the graph path between them.
             AtlasStart: (_atlasOpen && _settings.AtlasShowRoute) ? _atlasStartPt : null,
             AtlasEnd: (_atlasOpen && _settings.AtlasShowRoute) ? _atlasEndPt : null,
-            AtlasRoute: (_atlasOpen && _settings.AtlasShowRoute && _atlasRoute.Count >= 2) ? _atlasRoute : null);
+            AtlasRoute: (_atlasOpen && _settings.AtlasShowRoute && _atlasRoutePublish.Count >= 2) ? _atlasRoutePublish : null);
         // The overlay is only visible while PoE2 is foreground (Render draws nothing otherwise). Skip
         // the whole draw + UpdateLayeredWindow blit when unfocused — but render once on the focus-loss
         // transition so the last visible frame is cleared rather than left frozen on screen.
         _imguiOverlay?.UpdateContext(ctx);
-        _perf.RecordRender(0, 0, 0, 0, 0, 0, 0);
+        var atlasDrawMs = _imguiOverlay?.LastAtlasDrawMs ?? 0f;
+        _perf.RecordRender(0, 0, 0, 0, 0, 0, atlasDrawMs);
 
         _perfSnapshot = _perf.RecordFrame(
             tickMs: ElapsedMs(tickStart),
@@ -1833,7 +1836,13 @@ public sealed class RadarApp : IDisposable
         // Anchor the scan to the live game-heap slab (the catalog shares the arena with AreaInstance).
         var d = _atlas.Read(_lastAreaInstance);
         // Live node graph (atlas nodes are UiElements) — summary + the locally-visible highlight set.
-        var nodes = _inGameStateForApi != 0 ? _atlas.ReadNodes(_inGameStateForApi) : new List<Poe2Atlas.AtlasNodeLive>();
+        List<Poe2Atlas.AtlasNodeLive> nodes;
+        lock (_atlasNodesCacheLock)
+            nodes = _atlasNodesCache.Count > 0
+                ? new List<Poe2Atlas.AtlasNodeLive>(_atlasNodesCache)
+                : _inGameStateForApi != 0
+                    ? _atlas.ReadNodes(_inGameStateForApi, AtlasNodeReadMode.Light)
+                    : new List<Poe2Atlas.AtlasNodeLive>();
         var vis = nodes.Where(n => n.Visible).ToList();
         return new
         {
@@ -1883,80 +1892,124 @@ public sealed class RadarApp : IDisposable
     /// <summary>Read the live atlas nodes and update the F10 route. Cheap when the atlas is closed (ReadNodes
     /// returns empty via its visibility gate). When open, tracks the live zoom (for projection) and rebuilds
     /// the START/END markers + route path. Rides over transient empty reads so the route doesn't flicker.</summary>
+    /// <summary>Signature for highlight-rule / tag-catalog work only. Node relPos must be re-read every tick
+    /// (pan rewrites +0x118 live) — never use view position to skip mark/route rebuild.</summary>
+    private long ComputeAtlasContentSig(int nodeCount)
+    {
+        int selCnt; lock (_atlasLock) selCnt = _atlasSel.Count;
+        unchecked
+        {
+            long h = nodeCount;
+            h = (h * 31) ^ (_atlas.AllTagsResolved ? 1 : 0);
+            h = (h * 31) ^ (_settings.AtlasHighlightTags?.Count ?? 0);
+            h = (h * 31) ^ (_settings.AtlasArrowTags?.Count ?? 0);
+            h = (h * 31) ^ selCnt;
+            h = (h * 31) ^ (_settings.AtlasShowOnScreenNodes ? 1 : 0);
+            h = (h * 31) ^ (_settings.AtlasShowNames ? 1 : 0);
+            h = (h * 31) ^ (_settings.AtlasRevealFog ? 1 : 0);
+            h = (h * 31) ^ (_settings.AtlasOffScreenArrows ? 1 : 0);
+            return h;
+        }
+    }
+
+    /// <summary>Atlas UI closed — hide overlay, free node snapshot, reset route state.</summary>
+    private void CloseAtlasSession()
+    {
+        _atlasOpen = false;
+        _builtAtlasOnce = false;
+        _lastAtlasContentSig = 0;
+        _atlas.ClearSession();
+        lock (_atlasNodesCacheLock) _atlasNodesCache = new();
+        _atlasMarks.Clear();
+        _atlasMarksPublish = Array.Empty<AtlasMark>();
+        _atlasRoutePublish = Array.Empty<NumVec2>();
+        if (_atlasTagCatalog.Count > 0) _atlasTagCatalog = new();
+        _atlasRoute = new();
+        _atlasStartPt = null;
+        _atlasEndPt = null;
+        _atlasStartGrid = null;
+        _atlasGoalGrid = null;
+        _loggedRoute = null;
+    }
+
     private void UpdateAtlas(nint inGameState)
     {
-        var nodes = _atlas.ReadNodes(inGameState);
+        if (!_atlas.IsAtlasOpen(inGameState))
+        {
+            if (_atlasOpen || _atlasMarksPublish.Count > 0) CloseAtlasSession();
+            return;
+        }
+
+        var readMode = _builtAtlasOnce && _atlas.AllTagsResolved
+            ? AtlasNodeReadMode.Positions
+            : AtlasNodeReadMode.Full;
+        var nodes = _atlas.ReadNodes(inGameState, readMode);
         if (nodes.Count == 0)
         {
-            // Empty read: ride over TRANSIENT misses (a node read hiccupping ~1×/sec was the ~0.1s route
-            // flicker) so the route doesn't blink out. Treat the atlas as CLOSED only when the panel's visible
-            // bit reads closed AND we've had no good read for a short grace — that absorbs both the node-read
-            // miss and a racy visible-bit read, while still clearing promptly on a real close.
-            var stillOpen = _atlas.IsAtlasOpen(inGameState) || (DateTime.UtcNow - _atlasGoodAt).TotalSeconds < 0.4;
-            if (_atlasOpen && stillOpen) return;             // keep last marks/route — no flicker
-            _atlasOpen = false; _builtAtlasOnce = false; _lastAtlasSig = 0;   // force a rebuild on reopen
-            if (_atlasMarks.Count > 0) _atlasMarks = new();
-            _atlasRoute = new(); _atlasStartPt = _atlasEndPt = null;   // (manual START/END grids persist)
+            var panelOpen = _atlas.IsAtlasOpen(inGameState);
+            var transient = panelOpen && (DateTime.UtcNow - _atlasGoodAt).TotalSeconds < 0.4;
+            if (_atlasOpen && transient) return;
+            if (_atlasOpen || _atlasMarksPublish.Count > 0) CloseAtlasSession();
             return;
         }
         _atlasGoodAt = DateTime.UtcNow;
         _atlasOpen = true;
-        // Live zoom = the nodes' shared canvas scale (+0x130). Use the median (robust to a stray 0/odd node).
-        // Drives both the ring projection and the route projection (relPos × winH/1600 × zoom).
+        lock (_atlasNodesCacheLock)
+        {
+            if (readMode == AtlasNodeReadMode.Full)
+                _atlasNodesCache = new List<Poe2Atlas.AtlasNodeLive>(nodes);
+            else if (_atlasNodesCache.Count == 0)
+                _atlasNodesCache = new List<Poe2Atlas.AtlasNodeLive>(nodes);
+        }
+
         var scales = nodes.Where(n => n.Scale > 0.01f).Select(n => n.Scale).OrderBy(s => s).ToList();
         if (scales.Count > 0) _atlasZoom = scales[scales.Count / 2];
 
-        // ARROW JITTER FIX — freeze the marks when the atlas view is static. PoE2 doesn't keep CULLED
-        // (off-screen) UI elements' relPos cleanly updated, so off-screen nodes' positions are noisy — which
-        // is why the off-screen ARROWS jitter while on-screen rings (properly laid out) stay still. Arrows
-        // are only a direction hint, so we don't need to re-read them every tick: build a signature from the
-        // live zoom + the centroid of FIRMLY on-screen nodes (stable when idle) + the inputs that affect the
-        // marks (route endpoints, rule/selection counts). If it's unchanged, KEEP the previous marks/route
-        // frozen → no jitter. Rebuild only when the view pans/zooms or an input changes. (Stay live until tag
-        // resolution finishes so all default highlights get seeded first.)
-        var ow = OverlayWidth;
-        var oh = OverlayHeight;
-        float pscale = (oh > 0 ? oh / 1600f : 0.675f) * (_atlasZoom > 0.01f ? _atlasZoom : 0.85f);
-        double cxSum = 0, cySum = 0; int onCount = 0; float vw = ow, vh = oh; const float vm = 80f;
-        foreach (var n in nodes)
-        {
-            float sx = n.X * pscale, sy = n.Y * pscale;
-            if (sx > vm && sx < vw - vm && sy > vm && sy < vh - vm) { cxSum += n.X; cySum += n.Y; onCount++; }
-        }
-        long viewSig = onCount == 0 ? 0
-            : (long)Math.Round(cxSum / onCount) * 73856093L
-            ^ (long)Math.Round(cySum / onCount) * 19349663L
-            ^ (long)Math.Round(_atlasZoom * 2000f) * 83492791L;
-        int selCnt; lock (_atlasLock) selCnt = _atlasSel.Count;
-        long inputSig = (long)(_atlasStartGrid?.GetHashCode() ?? 0)
-            ^ ((long)(_atlasGoalGrid?.GetHashCode() ?? 0) << 1)
-            ^ ((long)(_settings.AtlasHighlightTags?.Count ?? 0) << 20)
-            ^ ((long)(_settings.AtlasArrowTags?.Count ?? 0) << 28)
-            ^ ((long)selCnt << 36)
-            ^ (_settings.AtlasDrawAll ? 1L << 44 : 0L);
-        long sig = viewSig * 2654435761L ^ inputSig;
-        if (_builtAtlasOnce && _atlas.AllTagsResolved && sig == _lastAtlasSig)
-            return;   // view + inputs unchanged → marks/route stay frozen (off-screen arrows don't jitter)
-        _lastAtlasSig = sig; _builtAtlasOnce = true;
+        var contentSig = ComputeAtlasContentSig(nodes.Count);
+        var catalogStale = !_builtAtlasOnce || contentSig != _lastAtlasContentSig;
+        _lastAtlasContentSig = contentSig;
+        _builtAtlasOnce = true;
 
         HashSet<nint> sel; lock (_atlasLock) sel = new HashSet<nint>(_atlasSel);
 
-        // One-time default: track + arrow every Citadel (high-value, usually off-screen) until the user
-        // edits the rules from the dashboard. Boss is intentionally NOT defaulted (too common). Wait until
-        // tag resolution has caught up (it's budget-limited per tick) so we seed ALL citadels, not just the
-        // first batch resolved.
-        if (!_settings.AtlasRulesInitialized && _atlas.AllTagsResolved)
+        if (catalogStale)
         {
-            var cit = nodes.Where(n => !string.IsNullOrEmpty(n.MapName) && n.MapName.Contains("Citadel", StringComparison.OrdinalIgnoreCase))
-                           .Select(n => n.MapName).Distinct().ToList();
-            if (cit.Count > 0)
+            // One-time default: track + arrow every Citadel until the user edits rules. Wait until tag
+            // resolution has caught up so we seed ALL citadels, not just the first batch resolved.
+            if (!_settings.AtlasRulesInitialized && _atlas.AllTagsResolved)
             {
-                _settings.AtlasHighlightTags = new List<string>(cit);
-                _settings.AtlasArrowTags = new List<string>(cit);
-                foreach (var c in cit) _settings.AtlasHighlightColors[c] = "#e0b341"; // Citadel gold
-                _settings.AtlasRulesInitialized = true;
-                _settings.Save();
+                var cit = nodes.Where(n => !string.IsNullOrEmpty(n.MapName) && n.MapName.Contains("Citadel", StringComparison.OrdinalIgnoreCase))
+                               .Select(n => n.MapName).Distinct().ToList();
+                if (cit.Count > 0)
+                {
+                    _settings.AtlasHighlightTags = new List<string>(cit);
+                    _settings.AtlasArrowTags = new List<string>(cit);
+                    foreach (var c in cit) _settings.AtlasHighlightColors[c] = "#e0b341"; // Citadel gold
+                    _settings.AtlasRulesInitialized = true;
+                    _settings.Save();
+                }
             }
+
+            var tagCounts = new Dictionary<string, (string Kind, int Count)>(StringComparer.OrdinalIgnoreCase);
+            foreach (var n in nodes)
+            {
+                if (!string.IsNullOrEmpty(n.MapName))
+                {
+                    if (!tagCounts.TryGetValue(n.MapName, out var e)) tagCounts[n.MapName] = ("map", 1);
+                    else tagCounts[n.MapName] = (e.Kind, e.Count + 1);
+                }
+                if (n.Tags is { Count: > 0 })
+                    foreach (var t in n.Tags)
+                        if (!string.IsNullOrEmpty(t))
+                        {
+                            if (!tagCounts.TryGetValue(t, out var e)) tagCounts[t] = ("tag", 1);
+                            else tagCounts[t] = (e.Kind, e.Count + 1);
+                        }
+            }
+            _atlasTagCatalog = tagCounts
+                .Select(kv => new AtlasTagCatalogEntry(kv.Key, kv.Value.Kind, kv.Value.Count))
+                .OrderByDescending(e => e.Count).ThenBy(e => e.Key, StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         // A node matches a rule set if its map name or one of its content tags is in the set; returns the
@@ -1970,7 +2023,11 @@ public sealed class RadarApp : IDisposable
             if (nd.Tags is { Count: > 0 }) foreach (var t in nd.Tags) if (set.Contains(t)) return t;
             return null;
         }
-        var marks = new List<AtlasMark>(128);
+
+        var trackedOnly = hlTrack.Count > 0;
+
+        if (_atlasMarks.Capacity < nodes.Count) _atlasMarks.Capacity = nodes.Count;
+        _atlasMarks.Clear();
         foreach (var n in nodes)
         {
             var selected = sel.Contains(n.Element);
@@ -1978,16 +2035,21 @@ public sealed class RadarApp : IDisposable
             var mArrow = Match(hlArrow, n);
             var isTracked = selected || mTrack != null;
             var isArrow = mArrow != null;
-            // ONLY tracked/arrow maps are drawn (the point: surface content the game hides). AtlasDrawAll
-            // debug overrides this to draw every node.
-            if (!_settings.AtlasDrawAll && !isTracked && !isArrow) continue;
+            if (trackedOnly)
+            {
+                if (!isTracked) continue;
+            }
+            else if (!_settings.AtlasShowOnScreenNodes && !isTracked && !isArrow) continue;
             var matched = mTrack ?? mArrow;
-            var label = matched ?? (n.Tags is { Count: > 0 } ? n.Tags[0] : (string.IsNullOrEmpty(n.MapName) ? null : n.MapName));
             string? color = matched != null && _settings.AtlasHighlightColors.TryGetValue(matched, out var c) ? c : null;
-            marks.Add(new AtlasMark(n.X, n.Y, isTracked, n.HasContent, n.Visited, n.Unlocked, n.Biome, n.IconType, label, color, isArrow));
+            var mapName = string.IsNullOrEmpty(n.MapName) ? null : n.MapName;
+            var tier = AtlasEndgameCatalog.Classify(n.MapName, n.Tags);
+            _atlasMarks.Add(new AtlasMark(n.X, n.Y, isTracked, n.HasContent, n.Visited, n.Unlocked, n.Visible,
+                n.Biome, n.IconType, mapName, matched, color, isArrow, tier));
         }
-        _atlasMarks = marks;
         BuildAtlasRoute(nodes);
+        _atlasMarksPublish = new List<AtlasMark>(_atlasMarks);
+        _atlasRoutePublish = new List<NumVec2>(_atlasRoute);
     }
 
     /// <summary>Resolve the F10 START/END grid coords to canvas-space (relPos) points for the markers, and —
@@ -2004,10 +2066,14 @@ public sealed class RadarApp : IDisposable
         var gridToRel = new Dictionary<(int, int), NumVec2>(nodes.Count);
         foreach (var n in nodes) gridToRel[n.Grid] = new NumVec2(n.X, n.Y);
 
-        if (_atlasStartGrid is { } s && gridToRel.TryGetValue(s, out var sp)) _atlasStartPt = sp;
+        var startGrid = _atlasStartGrid;
+        if (startGrid is null && _settings.AtlasUseCurrentStart)
+            startGrid = _atlas.CurrentNodeGrid();
+
+        if (startGrid is { } s && gridToRel.TryGetValue(s, out var sp)) _atlasStartPt = sp;
         if (_atlasGoalGrid is { } g && gridToRel.TryGetValue(g, out var gp)) _atlasEndPt = gp;
 
-        if (_atlasStartGrid is { } start && _atlasGoalGrid is { } goal)
+        if (startGrid is { } start && _atlasGoalGrid is { } goal)
         {
             var path = _atlas.FindPath(start, goal);
             if (path != null) foreach (var p in path) if (gridToRel.TryGetValue(p, out var rp)) _atlasRoute.Add(rp);

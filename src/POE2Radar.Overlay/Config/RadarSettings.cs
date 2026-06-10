@@ -63,6 +63,9 @@ public sealed class RadarSettings
     // ── One-time: refresh Abyss/Object matchers + catalog-first resolve (gates, troves). ──
     public bool EndgameMechanicsV2Migrated { get; set; } = false;
 
+    // ── One-time: atlas display settings upgrade (AtlasDrawAll → AtlasShowOnScreenNodes). ──
+    public bool AtlasDisplayMigrated { get; set; } = false;
+
     // ── Global multiplier on map icon sprite scale (PNG from icons.png). ──
     public float GlobalIconScale { get; set; } = 1.25f;
 
@@ -115,25 +118,37 @@ public sealed class RadarSettings
     // correct everywhere with no calibration. (The old F10/F11 homography calibration + its AtlasScale/
     // Off/Shear/Pers/CalibZoom settings were removed; F10 now inspects the tile under the cursor.)
 
-    // Atlas highlight rules: only nodes whose content tags include one of these are drawn in-game (the
-    // point is to surface content the game hides by default). Set live from the dashboard Atlas tab.
-    // Matched case-insensitively against each node's resolved content tags (e.g. "Breach", "Powerful Map Boss").
+    // Atlas highlight rules: optional accent layer (ring colour, route tracking). Matched case-insensitively
+    // against each node's content tags (e.g. "Breach") or map name. Edited in overlay Settings → Atlas.
     public List<string> AtlasHighlightTags { get; set; } = new();
     // Tags with the off-screen ARROW enabled: when a matching map is outside render distance, an edge
     // arrow points toward it (for hunting high-value maps you can't zoom out to). Independent of tracking.
     public List<string> AtlasArrowTags { get; set; } = new();
     // Per-rule ring colour (tag → "#RRGGBB"), so each highlighted map draws in its filter's category
-    // colour in-game (Citadel gold, Boss red, …). Set from the dashboard alongside AtlasHighlightTags.
+    // colour in-game (Citadel gold, Boss red, …).
     public Dictionary<string, string> AtlasHighlightColors { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     // Seeded-defaults guard: false until the atlas rules have been initialized once (either by seeding
-    // the Citadel defaults when nodes are first read, or by any dashboard edit). Stops re-seeding.
+    // the Citadel defaults when nodes are first read, or by any overlay/dashboard edit). Stops re-seeding.
     public bool AtlasRulesInitialized { get; set; }
-    // DEBUG: draw EVERY atlas node (overriding the highlight-only rule) — for offset/coverage diagnostics.
-    // Off by default: normally only nodes matching AtlasHighlightTags (or manually selected) are drawn.
+    // Legacy JSON key — migrated to AtlasShowOnScreenNodes on load; not shown in UI.
     public bool AtlasDrawAll { get; set; } = false;
+    // Draw every atlas node on-screen. When any Track highlight is active, only tracked nodes are shown instead.
+    public bool AtlasShowOnScreenNodes { get; set; } = true;
+    // Label on-screen nodes with map name (+ highlight tag when matched).
+    public bool AtlasShowNames { get; set; } = true;
+    // Fogged/hidden nodes drawn at full opacity with a distinct tint instead of near-invisible.
+    public bool AtlasRevealFog { get; set; } = true;
+    // Off-screen edge arrows for arrow-tagged highlights only (e.g. Citadels).
+    public bool AtlasOffScreenArrows { get; set; } = true;
+    // Atlas-only icon sprite scale (does not affect zone map icons).
+    public float AtlasIconScale { get; set; } = 1.0f;
+    // Atlas map-name label chip scale (text + chip body).
+    public float AtlasLabelScale { get; set; } = 1.0f;
     // Atlas routing: F10 over a tile sets it as the route destination; the overlay draws the shortest path
     // (through the node connection graph) from the player's current node to it. On by default.
     public bool AtlasShowRoute { get; set; } = true;
+    // When no manual F10 START is set, route from the player's current atlas tile (live marker read).
+    public bool AtlasUseCurrentStart { get; set; } = true;
 
     // ── Auto-flask thresholds + per-flask cooldowns (milliseconds). ──
     // What the (single) life-flask key triggers on: "Health" watches HP% only (default — unchanged
@@ -269,6 +284,14 @@ public sealed class RadarSettings
         if (AutoNavPatterns is not null)
             for (var i = 0; i < AutoNavPatterns.Count; i++)
                 if (IsStaleExp(AutoNavPatterns[i])) { AutoNavPatterns[i] = precise; changed = true; }
+
+        // Atlas display: legacy AtlasDrawAll → show-on-screen; first upgrade enables the new defaults.
+        if (!AtlasDisplayMigrated)
+        {
+            if (AtlasDrawAll) AtlasShowOnScreenNodes = true;
+            AtlasDisplayMigrated = true;
+            changed = true;
+        }
 
         return changed;
     }

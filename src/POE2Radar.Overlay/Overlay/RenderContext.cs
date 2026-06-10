@@ -70,9 +70,31 @@ public readonly record struct MapFrame(
 /// so the bar tracks the moving monster smoothly. The renderer just projects + fills.</summary>
 public readonly record struct HpBarTarget(Vector3 World, float Frac, float EsFrac, float Width, uint Fill, float BorderWidth, uint Border);
 
-/// <summary>One atlas node to highlight. <see cref="X"/>/<see cref="Y"/> are the node's canvas-space
-/// RelativePos; the renderer projects them to screen via the atlas transform (scale + offset).</summary>
-public readonly record struct AtlasMark(float X, float Y, bool Selected, bool HasContent, bool Visited, bool Unlocked, int Biome, int IconType, string? Label = null, string? Color = null, bool Arrow = false);
+/// <summary>Endgame atlas tier for icon/label accent (Return of the Ancients / 0.5).</summary>
+public enum AtlasEndgameTier : byte
+{
+    None = 0,
+    BossContent = 1,
+    Fortress = 2,
+    Enigma = 3,
+    Citadel = 4,
+    KeyHalls = 5,
+    Pinnacle = 6,
+}
+
+/// <summary>One atlas node to draw. <see cref="X"/>/<see cref="Y"/> are canvas-space RelativePos;
+/// the renderer projects them to screen via the atlas transform (scale + offset).</summary>
+public readonly record struct AtlasMark(
+    float X, float Y, bool Selected, bool HasContent, bool Visited, bool Unlocked, bool Visible,
+    int Biome, int IconType,
+    string? MapName = null,
+    string? HighlightLabel = null,
+    string? Color = null,
+    bool Arrow = false,
+    AtlasEndgameTier EndgameTier = AtlasEndgameTier.None);
+
+/// <summary>Distinct atlas tag or map name for the overlay Settings → Atlas filter picker.</summary>
+public readonly record struct AtlasTagCatalogEntry(string Key, string Kind, int Count);
 
 /// <summary>What the PoE2 renderer needs each frame. Built fresh by <see cref="RadarApp"/>.</summary>
 public sealed record RenderContext(
@@ -148,7 +170,15 @@ public sealed record RenderContext(
     Func<string, Web.DisplayRule?>? ResolveTile = null,
     // ── Atlas overlay (takes precedence over the minimap/radar when the Atlas screen is open). ──
     bool AtlasOpen = false,                       // the Atlas screen is open → draw atlas highlights + route, suppress radar
-    IReadOnlyList<AtlasMark>? AtlasNodes = null,   // tracked/arrowed nodes to highlight (canvas-space coords)
+    IReadOnlyList<AtlasMark>? AtlasNodes = null,   // atlas nodes to draw (canvas-space coords)
+    bool AtlasShowOnScreenNodes = true,
+    bool AtlasTrackedOnly = false,
+    bool AtlasShowNames = true,
+    bool AtlasRevealFog = true,
+    bool AtlasOffScreenArrows = true,
+    float AtlasIconScale = 1f,
+    float AtlasLabelScale = 1f,
+    IReadOnlyList<AtlasTagCatalogEntry>? AtlasTagCatalog = null,
     // Atlas canvas→screen homography coefficients (h0..h7; h8=1). Shear/persp 0 ⇒ plain affine.
     float AtlasScale = 0.5f,   // h0
     float AtlasScaleY = 0.5f,  // h4

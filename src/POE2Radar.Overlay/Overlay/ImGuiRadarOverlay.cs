@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Numerics;
 using ImGuiNET;
 using POE2Radar.Core.Game;
@@ -43,6 +44,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private string _hidePatternInput = "";
     private string _typeSearch = "";
     private string _ruleSearch = "";
+    private string _atlasTagFilter = "";
+    private readonly List<MapLabelCandidate> _atlasLabelScratch = new(256);
     private int _spritePickerRuleIndex = -1;
     private bool _bindingHideHotkey;
     private bool _bindingTrackHotkey;
@@ -78,6 +81,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     public int OverlayWidth => _width;
     public int OverlayHeight => _height;
+    public float LastAtlasDrawMs { get; private set; }
 
     public void UpdateContext(RenderContext ctx) => _ctx = ctx;
 
@@ -147,8 +151,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                         DrawPathsWorld(dl, ctx);
                 }
 
-                DrawNameplates(dl, ctx);
-                DrawPathLabels(dl, ctx);
+                if (!ctx.AtlasOpen)
+                {
+                    DrawNameplates(dl, ctx);
+                    DrawPathLabels(dl, ctx);
+                }
             }
 
             if (inGame)
@@ -227,14 +234,24 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     // ── Atlas overlay ──
 
-    private static void DrawAtlas(ImDrawListPtr dl, RenderContext ctx)
+    private void DrawAtlas(ImDrawListPtr dl, RenderContext ctx)
     {
+        var sw = Stopwatch.GetTimestamp();
         var W = ctx.WindowWidth;
         var H = ctx.WindowHeight;
         float h0 = ctx.AtlasScale, h1 = ctx.AtlasShearX, h2 = ctx.AtlasOffX,
               h3 = ctx.AtlasShearY, h4 = ctx.AtlasScaleY, h5 = ctx.AtlasOffY,
               h6 = ctx.AtlasPersX, h7 = ctx.AtlasPersY;
         float ccx = W * 0.5f, ccy = H * 0.5f;
+        var iconScale = ctx.AtlasIconScale;
+        var labelScale = ctx.AtlasLabelScale;
+
+        NumVec2 ProjAtlas(NumVec2 p)
+        {
+            var pw = h6 * p.X + h7 * p.Y + 1f;
+            if (MathF.Abs(pw) < 1e-6f) pw = 1f;
+            return new NumVec2((h0 * p.X + h1 * p.Y + h2) / pw, (h3 * p.X + h4 * p.Y + h5) / pw);
+        }
 
         var route = ctx.AtlasRoute;
         if (route is { Count: >= 2 })
@@ -259,6 +276,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
         if (ctx.AtlasNodes is { Count: > 0 } marks)
         {
+            _atlasLabelScratch.Clear();
+            var labelCandidates = _atlasLabelScratch;
             foreach (var n in marks)
             {
                 var w = h6 * n.X + h7 * n.Y + 1f;
@@ -266,18 +285,70 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 var sx = (h0 * n.X + h1 * n.Y + h2) / w;
                 var sy = (h3 * n.X + h4 * n.Y + h5) / w;
                 var onScreen = sx >= 0 && sx <= W && sy >= 0 && sy <= H;
-                var col = string.IsNullOrEmpty(n.Color) ? ColorU32(59, 219, 255, 1f) : ColorU32(n.Color, 0.95f);
-                if (!onScreen) { if (n.Arrow) DrawAtlasArrow(dl, sx, sy, ccx, ccy, W, H, col, n.Label); continue; }
+
+                var colHex = string.IsNullOrEmpty(n.Color)
+                    ? n.Selected || n.Arrow ? "#3BDBFF"
+                    : !n.Visible && ctx.AtlasRevealFog ? "#9CB8D4"
+                    : n.HasContent && !n.Visited ? "#FF9E42" : "#6EEB87"
+                    : n.Color;
+                float opacity = n.Visible
+                    ? n.Visited ? 0.75f : 0.95f
+                    : ctx.AtlasRevealFog ? 0.95f : n.Selected || n.Arrow ? 0.55f : 0.45f;
+                var col = ColorU32(colHex, opacity);
+
+                if (!onScreen)
+                {
+                    if (ctx.AtlasOffScreenArrows && n.Arrow && n.HighlightLabel is { Length: > 0 } offLabel)
+                        DrawAtlasArrow(dl, sx, sy, ccx, ccy, W, H, col, offLabel);
+                    continue;
+                }
+
+                if (ctx.AtlasTrackedOnly && !n.Selected && string.IsNullOrEmpty(n.HighlightLabel) && string.IsNullOrEmpty(n.Color)) continue;
+                else if (!ctx.AtlasShowOnScreenNodes && !n.Selected && !n.Arrow && string.IsNullOrEmpty(n.Color)) continue;
+
                 var c = new NumVec2(sx, sy);
-                if (n.Selected || n.Arrow) { dl.AddCircle(c, 18f, col, 0, 3f); dl.AddCircle(c, 9f, col, 0, 2f); }
-                else if (n.IconType > 0) dl.AddCircle(c, 7f, ColorU32(255, 230, 51, 0.9f), 0, 2f);
-                else if (n.Visited) { dl.AddCircle(c, 16f, ColorU32(255, 51, 255, 1f), 0, 3f); dl.AddCircle(c, 8f, ColorU32(255, 51, 255, 1f), 0, 2f); }
-                else dl.AddCircle(c, 11f, n.HasContent ? ColorU32(255, 158, 66, 0.95f) : ColorU32(110, 232, 135, 0.85f), 0, 2f);
-                if (n.Label != null)
-                    dl.AddText(new NumVec2(sx + 11f, sy - 9f), ColorU32(255, 255, 255, 0.9f), n.Label);
+                var sprite = SpriteCatalog.AtlasNode(n.IconType, n.Biome);
+                var baseSize = n.Selected || n.Arrow ? 11f : 9f;
+                var tierMul = n.EndgameTier switch
+                {
+                    AtlasEndgameTier.Pinnacle => 1.15f,
+                    AtlasEndgameTier.KeyHalls => 1.10f,
+                    _ => 1f,
+                };
+                var size = baseSize * tierMul;
+                var accentRing = n.EndgameTier is AtlasEndgameTier.Pinnacle or AtlasEndgameTier.KeyHalls;
+                if (IconAtlas.TryResolve(sprite, null, out var tex))
+                {
+                    var half = size * iconScale;
+                    dl.AddImage(tex.TextureId, new NumVec2(c.X - half, c.Y - half), new NumVec2(c.X + half, c.Y + half), tex.UV0, tex.UV1, col);
+                    if (n.Selected || n.Arrow || !string.IsNullOrEmpty(n.Color) || accentRing)
+                        dl.AddCircle(c, half + 3f, col, 0, accentRing ? 3f : 2f);
+                }
+                else
+                    dl.AddCircleFilled(c, size, col, 12);
+
+                string? chipText = null;
+                if (ctx.AtlasShowNames)
+                    chipText = n.HighlightLabel ?? n.MapName;
+                else if (n.HighlightLabel is { Length: > 0 })
+                    chipText = n.HighlightLabel;
+                if (chipText is { Length: > 0 } && ctx.AtlasShowNames)
+                {
+                    if (n.EndgameTier == AtlasEndgameTier.Pinnacle) chipText = "★ " + chipText;
+                    else if (n.EndgameTier == AtlasEndgameTier.KeyHalls) chipText = "◆ " + chipText;
+                }
+                if (chipText is { Length: > 0 })
+                {
+                    var textCol = ColorU32(colHex, Math.Min(1f, opacity + 0.05f));
+                    labelCandidates.Add(new MapLabelCandidate(c, chipText, textCol, col));
+                }
             }
+
+            if (labelCandidates.Count > 0)
+                DrawAtlasLabelChips(dl, labelCandidates, 0f, 0f, W, H, labelScale);
         }
-        NumVec2 ProjAtlas(NumVec2 p) { var pw = h6 * p.X + h7 * p.Y + 1f; if (MathF.Abs(pw) < 1e-6f) pw = 1f; return new NumVec2((h0 * p.X + h1 * p.Y + h2) / pw, (h3 * p.X + h4 * p.Y + h5) / pw); }
+
+        LastAtlasDrawMs = (float)Stopwatch.GetElapsedTime(sw).TotalMilliseconds;
     }
 
     private static void DrawAtlasArrow(ImDrawListPtr dl, float sx, float sy, float cx, float cy, float W, float H, uint col, string? label)
@@ -644,15 +715,15 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private const float LabelChipBodyH = LabelChipRowH - 2f;
     private const float MapLabelChipMarginPx = 6f;
 
-    private static float LabelChipWidth(string text) =>
-        Math.Min(text.Length * 7.2f + 21f, 240f);
+    private static float LabelChipWidth(string text, float scale = 1f) =>
+        Math.Min(text.Length * 7.2f * scale + 21f * scale, 240f * scale);
 
-    private static void GetSoloChipRect(MapLabelCandidate c, out float left, out float top, out float right, out float bottom)
+    private static void GetSoloChipRect(MapLabelCandidate c, out float left, out float top, out float right, out float bottom, float labelScale = 1f)
     {
-        left = c.Pos.X + 7f;
-        top = c.Pos.Y - 7f;
-        right = left + LabelChipWidth(c.Text);
-        bottom = top + LabelChipBodyH;
+        left = c.Pos.X + 7f * labelScale;
+        top = c.Pos.Y - 7f * labelScale;
+        right = left + LabelChipWidth(c.Text, labelScale);
+        bottom = top + LabelChipBodyH * labelScale;
     }
 
     private static bool LayoutRectsOverlap(
@@ -661,50 +732,80 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         float margin)
         => l1 - margin < r2 && r1 + margin > l2 && t1 - margin < b2 && b1 + margin > t2;
 
-    private static void DrawLabelChip(ImDrawListPtr dl, float left, float top, string text, uint textColor, uint swatchColor)
+    private static void DrawLabelChip(ImDrawListPtr dl, float left, float top, string text, uint textColor, uint swatchColor, float scale = 1f)
     {
-        var textW = LabelChipWidth(text);
-        var bottom = top + LabelChipBodyH;
+        var bodyH = LabelChipBodyH * scale;
+        var textW = LabelChipWidth(text, scale);
+        var bottom = top + bodyH;
         dl.AddRectFilled(new NumVec2(left, top), new NumVec2(left + textW, bottom), ColorU32(13, 13, 13, 0.82f));
         dl.AddRect(new NumVec2(left, top), new NumVec2(left + textW, bottom), ColorU32(56, 56, 56, 0.22f), 0, 0, 1f);
-        var swatchY = top + (LabelChipBodyH - 7f) * 0.5f;
-        dl.AddRectFilled(new NumVec2(left + 4f, swatchY), new NumVec2(left + 11f, swatchY + 7f), swatchColor);
-        dl.AddText(new NumVec2(left + 15f, top + 1f), textColor, text);
+        var swatchSize = 7f * scale;
+        var swatchY = top + (bodyH - swatchSize) * 0.5f;
+        dl.AddRectFilled(new NumVec2(left + 4f * scale, swatchY), new NumVec2(left + 4f * scale + swatchSize, swatchY + swatchSize), swatchColor);
+        var font = ImGui.GetFont();
+        var fontSize = font.FontSize * scale;
+        dl.AddText(font, fontSize, new NumVec2(left + 15f * scale, top + 1f * scale), textColor, text);
+    }
+
+    /// <summary>Atlas labels: cluster when few; solo chips when many (avoids O(n²) overlap merge).</summary>
+    private static void DrawAtlasLabelChips(
+        ImDrawListPtr dl,
+        List<MapLabelCandidate> candidates,
+        float clipL, float clipT, float clipR, float clipB,
+        float labelScale)
+    {
+        const int clusterThreshold = 48;
+        if (candidates.Count <= clusterThreshold)
+        {
+            DrawMapLabelChips(dl, candidates, clipL, clipT, clipR, clipB, labelScale);
+            return;
+        }
+
+        var rowH = LabelChipRowH * labelScale;
+        foreach (var c in candidates)
+        {
+            var soloW = LabelChipWidth(c.Text, labelScale);
+            var soloLeft = Math.Clamp(c.Pos.X + 7f * labelScale, clipL + 4f, clipR - soloW - 4f);
+            var soloTop = Math.Clamp(c.Pos.Y - 7f * labelScale, clipT + 4f, clipB - rowH - 4f);
+            DrawLabelChip(dl, soloLeft, soloTop, c.Text, c.TextColor, c.SwatchColor, labelScale);
+        }
     }
 
     private static void DrawMapLabelChips(
         ImDrawListPtr dl,
         List<MapLabelCandidate> candidates,
-        float clipL, float clipT, float clipR, float clipB)
+        float clipL, float clipT, float clipR, float clipB,
+        float labelScale = 1f)
     {
-        foreach (var cluster in BuildMapLabelClusters(candidates))
+        var rowH = LabelChipRowH * labelScale;
+        foreach (var cluster in BuildMapLabelClusters(candidates, labelScale))
         {
             if (cluster.Count == 1)
             {
                 var c = cluster[0];
-                var soloW = LabelChipWidth(c.Text);
-                var soloLeft = Math.Clamp(c.Pos.X + 7f, clipL + 4f, clipR - soloW - 4f);
-                var soloTop = Math.Clamp(c.Pos.Y - 7f, clipT + 4f, clipB - LabelChipRowH - 4f);
-                DrawLabelChip(dl, soloLeft, soloTop, c.Text, c.TextColor, c.SwatchColor);
+                var soloW = LabelChipWidth(c.Text, labelScale);
+                var soloLeft = Math.Clamp(c.Pos.X + 7f * labelScale, clipL + 4f, clipR - soloW - 4f);
+                var soloTop = Math.Clamp(c.Pos.Y - 7f * labelScale, clipT + 4f, clipB - rowH - 4f);
+                DrawLabelChip(dl, soloLeft, soloTop, c.Text, c.TextColor, c.SwatchColor, labelScale);
                 continue;
             }
 
             cluster.Sort((a, b) => string.Compare(a.Text, b.Text, StringComparison.Ordinal));
             var anchor = GetClusterAnchor(cluster);
-            var stackH = cluster.Count * LabelChipRowH;
+            var stackH = cluster.Count * rowH;
             var startTop = Math.Clamp(
                 anchor.Y - stackH * 0.5f,
                 clipT + 4f,
                 Math.Max(clipT + 4f, clipB - stackH - 4f));
             var maxW = 0f;
             foreach (var c in cluster)
-                maxW = Math.Max(maxW, LabelChipWidth(c.Text));
-            var left = Math.Clamp(anchor.X + 14f, clipL + 4f, clipR - maxW - 4f);
+                maxW = Math.Max(maxW, LabelChipWidth(c.Text, labelScale));
+            var left = Math.Clamp(anchor.X + 14f * labelScale, clipL + 4f, clipR - maxW - 4f);
 
             for (var i = 0; i < cluster.Count; i++)
             {
                 var c = cluster[i];
-                DrawLabelChip(dl, left, startTop + i * LabelChipRowH, c.Text, c.TextColor, c.SwatchColor);
+                DrawLabelChip(dl, left, startTop + i * rowH, c.Text, c.TextColor, c.SwatchColor, labelScale);
             }
         }
     }
@@ -721,26 +822,26 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     }
 
     private static (float left, float top, float right, float bottom) GetClusterLayoutRect(
-        List<MapLabelCandidate> cluster)
+        List<MapLabelCandidate> cluster, float labelScale = 1f)
     {
         if (cluster.Count == 1)
         {
-            GetSoloChipRect(cluster[0], out var left, out var top, out var right, out var bottom);
+            GetSoloChipRect(cluster[0], out var left, out var top, out var right, out var bottom, labelScale);
             return (left, top, right, bottom);
         }
 
         var anchor = GetClusterAnchor(cluster);
-        var stackH = cluster.Count * LabelChipRowH;
+        var stackH = cluster.Count * LabelChipRowH * labelScale;
         var maxW = 0f;
         foreach (var c in cluster)
-            maxW = Math.Max(maxW, LabelChipWidth(c.Text));
+            maxW = Math.Max(maxW, LabelChipWidth(c.Text, labelScale));
         var stackLeft = anchor.X + 14f;
         var stackTop = anchor.Y - stackH * 0.5f;
         return (stackLeft, stackTop, stackLeft + maxW, stackTop + stackH);
     }
 
     private static List<List<MapLabelCandidate>> BuildMapLabelClusters(
-        List<MapLabelCandidate> candidates)
+        List<MapLabelCandidate> candidates, float labelScale = 1f)
     {
         var n = candidates.Count;
         var parent = new int[n];
@@ -761,11 +862,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         // Merge labels whose default solo chips would overlap (long names need rect checks, not icon distance).
         for (var i = 0; i < n; i++)
         {
-            GetSoloChipRect(candidates[i], out var l1, out var t1, out var r1, out var b1);
+            GetSoloChipRect(candidates[i], out var l1, out var t1, out var r1, out var b1, labelScale);
             for (var j = i + 1; j < n; j++)
             {
-                GetSoloChipRect(candidates[j], out var l2, out var t2, out var r2, out var b2);
-                if (LayoutRectsOverlap(l1, t1, r1, b1, l2, t2, r2, b2, MapLabelChipMarginPx))
+                GetSoloChipRect(candidates[j], out var l2, out var t2, out var r2, out var b2, labelScale);
+                if (LayoutRectsOverlap(l1, t1, r1, b1, l2, t2, r2, b2, MapLabelChipMarginPx * labelScale))
                     Union(i, j);
             }
         }
@@ -783,11 +884,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
 
         var clusters = groups.Values.ToList();
-        return MergeOverlappingClusterLayouts(clusters);
+        return MergeOverlappingClusterLayouts(clusters, labelScale);
     }
 
     private static List<List<MapLabelCandidate>> MergeOverlappingClusterLayouts(
-        List<List<MapLabelCandidate>> clusters)
+        List<List<MapLabelCandidate>> clusters, float labelScale = 1f)
     {
         var changed = true;
         while (changed)
@@ -795,10 +896,10 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             changed = false;
             for (var i = 0; i < clusters.Count && !changed; i++)
             {
-                var (l1, t1, r1, b1) = GetClusterLayoutRect(clusters[i]);
+                var (l1, t1, r1, b1) = GetClusterLayoutRect(clusters[i], labelScale);
                 for (var j = i + 1; j < clusters.Count; j++)
                 {
-                    var (l2, t2, r2, b2) = GetClusterLayoutRect(clusters[j]);
+                    var (l2, t2, r2, b2) = GetClusterLayoutRect(clusters[j], labelScale);
                     if (!LayoutRectsOverlap(l1, t1, r1, b1, l2, t2, r2, b2, MapLabelChipMarginPx))
                         continue;
                     clusters[i].AddRange(clusters[j]);
@@ -932,6 +1033,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             var p = ctx.Perf;
             ImGui.TextColored(new Vector4(0.55f, 0.55f, 0.55f, 1f), $"fps {p.Fps:F0}  tick {p.TickMs:F1}  ent {p.EntitiesMs:F1}");
             ImGui.TextColored(new Vector4(0.55f, 0.55f, 0.55f, 1f), $"map {p.MapMs:F1}  paths {p.PathsMs:F1}  hp {p.HpBarsMs:F1}");
+            if (ctx.AtlasOpen)
+                ImGui.TextColored(new Vector4(0.55f, 0.55f, 0.55f, 1f), $"atlas draw {p.AtlasMs:F1} ms");
             ImGui.TextColored(new Vector4(0.55f, 0.55f, 0.55f, 1f), $"reads {p.ReadsPerSec / 1000f:F1}k/s  {p.MibPerSec:F2} MiB/s");
         }
 
@@ -1522,27 +1625,184 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     {
         if (ImGui.CollapsingHeader("Display", ImGuiTreeNodeFlags.DefaultOpen))
         {
-            bool sr = s.AtlasShowRoute; ImGui.Checkbox("Show F10 Route", ref sr); s.AtlasShowRoute = sr;
-            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Draw the F10 point-to-point route through the atlas node connection graph");
+            bool son = s.AtlasShowOnScreenNodes;
+            var trackActive = s.AtlasHighlightTags is { Count: > 0 };
+            if (trackActive) ImGui.BeginDisabled();
+            if (ImGui.Checkbox("Show all nodes", ref son)) { s.AtlasShowOnScreenNodes = son; SaveSettings(); }
+            if (trackActive) ImGui.EndDisabled();
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                ImGui.SetTooltip(trackActive
+                    ? "Track filters are active — only tracked nodes are shown. Clear filters or uncheck Track to show all again."
+                    : "Draw every atlas tile on the current screen");
 
-            bool da = s.AtlasDrawAll; ImGui.Checkbox("Draw All Nodes (debug)", ref da); s.AtlasDrawAll = da;
-            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Draw every atlas node regardless of highlight or arrow rules — useful for testing");
+            bool sn = s.AtlasShowNames;
+            if (ImGui.Checkbox("Show names", ref sn)) { s.AtlasShowNames = sn; SaveSettings(); }
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Label on-screen nodes with map name (and highlight tag when matched)");
+
+            bool rf = s.AtlasRevealFog;
+            if (ImGui.Checkbox("Reveal fog", ref rf)) { s.AtlasRevealFog = rf; SaveSettings(); }
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Draw fogged/hidden nodes at full opacity with a cool tint");
+
+            bool oa = s.AtlasOffScreenArrows;
+            if (ImGui.Checkbox("Off-screen arrows (highlights)", ref oa)) { s.AtlasOffScreenArrows = oa; SaveSettings(); }
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Edge arrows for arrow-tagged highlights only (e.g. Citadels off-screen)");
+
+            bool sr = s.AtlasShowRoute;
+            if (ImGui.Checkbox("Show F10 route", ref sr)) { s.AtlasShowRoute = sr; SaveSettings(); }
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Draw the F10 route through the atlas node connection graph");
+
+            bool ucs = s.AtlasUseCurrentStart;
+            if (ImGui.Checkbox("Route from current tile", ref ucs)) { s.AtlasUseCurrentStart = ucs; SaveSettings(); }
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("When no F10 START is set, route from your current atlas position");
+
+            float atlasIcon = s.AtlasIconScale;
+            ImGui.SetNextItemWidth(180f);
+            if (ImGui.SliderFloat("Icon scale", ref atlasIcon, 0.5f, 3f, "%.2f"))
+            {
+                s.AtlasIconScale = Math.Clamp(atlasIcon, 0.25f, 4f);
+                SaveSettings();
+            }
+
+            float atlasLabel = s.AtlasLabelScale;
+            ImGui.SetNextItemWidth(180f);
+            if (ImGui.SliderFloat("Label scale", ref atlasLabel, 0.5f, 2.5f, "%.2f"))
+            {
+                s.AtlasLabelScale = Math.Clamp(atlasLabel, 0.5f, 3f);
+                SaveSettings();
+            }
         }
 
-        if (ImGui.CollapsingHeader("Highlight Tags"))
+        if (ImGui.CollapsingHeader("Highlights", ImGuiTreeNodeFlags.DefaultOpen))
         {
-            ImGui.BulletText("Configure highlight and arrow tags via the web dashboard Atlas tab.");
-            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Open the web dashboard (F12) and go to the Atlas tab to set content tags to highlight with rings or off-screen arrows");
-            if (s.AtlasHighlightTags is { Count: > 0 } tags)
+            if (s.AtlasHighlightTags is { Count: > 0 })
+                ImGui.TextDisabled("Tracked-only mode — only nodes matching Track filters are drawn.");
+            if (ImGui.Button("Add citadel defaults"))
             {
-                ImGui.Text("Tracked tags:");
-                foreach (var t in tags)
+                SeedAtlasCitadelDefaults(s);
+                s.AtlasRulesInitialized = true;
+                SaveSettings();
+            }
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Track + arrow every Citadel map name (gold ring)");
+            ImGui.SameLine();
+            if (ImGui.Button("Add endgame defaults"))
+            {
+                AtlasEndgameCatalog.ApplyEndgameDefaults(s, _ctx?.AtlasTagCatalog);
+                s.AtlasRulesInitialized = true;
+                SaveSettings();
+            }
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                ImGui.SetTooltip("Highlight Patriarch/Matriarch Halls, Origin Tower, Citadels, Enigma Chambers, and boss content — for repeat Arbiter of Divinity runs");
+            ImGui.SameLine();
+            if (ImGui.Button("Clear all filters"))
+            {
+                s.AtlasHighlightTags.Clear();
+                s.AtlasArrowTags.Clear();
+                s.AtlasHighlightColors.Clear();
+                s.AtlasRulesInitialized = true;
+                SaveSettings();
+            }
+
+            ImGui.SetNextItemWidth(-1f);
+            ImGui.InputTextWithHint("##atlasTagFilter", "Filter tags and map names…", ref _atlasTagFilter, 128);
+
+            var catalog = _ctx?.AtlasTagCatalog;
+            if (catalog is null or { Count: 0 })
+            {
+                ImGui.TextWrapped("Open the Atlas map in-game to populate the tag list.");
+            }
+            else
+            {
+                var filter = _atlasTagFilter.Trim();
+                if (ImGui.BeginTable("atlasHl", 6, ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY, new System.Numerics.Vector2(0, 220f)))
                 {
-                    var color = s.AtlasHighlightColors.TryGetValue(t, out var c) ? c : "#58A6FF";
-                    ImGui.BulletText($"{t}  [{color}]");
+                    ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthStretch);
+                    ImGui.TableSetupColumn("Kind", ImGuiTableColumnFlags.WidthFixed, 36f);
+                    ImGui.TableSetupColumn("#", ImGuiTableColumnFlags.WidthFixed, 28f);
+                    ImGui.TableSetupColumn("Track", ImGuiTableColumnFlags.WidthFixed, 44f);
+                    ImGui.TableSetupColumn("Arrow", ImGuiTableColumnFlags.WidthFixed, 44f);
+                    ImGui.TableSetupColumn("Color", ImGuiTableColumnFlags.WidthFixed, 56f);
+                    ImGui.TableSetupScrollFreeze(0, 1);
+                    ImGui.TableHeadersRow();
+
+                    foreach (var e in catalog)
+                    {
+                        if (filter.Length > 0 && e.Key.Contains(filter, StringComparison.OrdinalIgnoreCase) == false) continue;
+
+                        ImGui.TableNextRow();
+                        ImGui.TableSetColumnIndex(0);
+                        ImGui.TextUnformatted(e.Key);
+                        ImGui.TableSetColumnIndex(1);
+                        ImGui.TextUnformatted(e.Kind);
+                        ImGui.TableSetColumnIndex(2);
+                        ImGui.TextUnformatted(e.Count.ToString());
+
+                        ImGui.TableSetColumnIndex(3);
+                        bool track = AtlasListContains(s.AtlasHighlightTags, e.Key);
+                        if (ImGui.Checkbox($"##tr_{e.Key}", ref track))
+                        {
+                            AtlasToggleList(s.AtlasHighlightTags, e.Key, track);
+                            if (track && !s.AtlasHighlightColors.ContainsKey(e.Key))
+                                s.AtlasHighlightColors[e.Key] = "#58A6FF";
+                            s.AtlasRulesInitialized = true;
+                            SaveSettings();
+                        }
+
+                        ImGui.TableSetColumnIndex(4);
+                        bool arrow = AtlasListContains(s.AtlasArrowTags, e.Key);
+                        if (ImGui.Checkbox($"##ar_{e.Key}", ref arrow))
+                        {
+                            AtlasToggleList(s.AtlasArrowTags, e.Key, arrow);
+                            s.AtlasRulesInitialized = true;
+                            SaveSettings();
+                        }
+
+                        ImGui.TableSetColumnIndex(5);
+                        if (track)
+                        {
+                            var hex = s.AtlasHighlightColors.TryGetValue(e.Key, out var hc) ? hc : "#58A6FF";
+                            var col = ParseHexColor(hex);
+                            ImGui.PushID(e.Key);
+                            if (ImGui.ColorEdit3("##col", ref col, ImGuiColorEditFlags.NoInputs))
+                            {
+                                s.AtlasHighlightColors[e.Key] = FormatHexColor3(col);
+                                SaveSettings();
+                            }
+                            ImGui.PopID();
+                        }
+                    }
+                    ImGui.EndTable();
                 }
             }
         }
+    }
+
+    private void SeedAtlasCitadelDefaults(RadarSettings s)
+    {
+        var catalog = _ctx?.AtlasTagCatalog;
+        if (catalog is null) return;
+        foreach (var e in catalog)
+        {
+            if (e.Kind != "map" || !e.Key.Contains("Citadel", StringComparison.OrdinalIgnoreCase)) continue;
+            if (!AtlasListContains(s.AtlasHighlightTags, e.Key)) s.AtlasHighlightTags.Add(e.Key);
+            if (!AtlasListContains(s.AtlasArrowTags, e.Key)) s.AtlasArrowTags.Add(e.Key);
+            s.AtlasHighlightColors[e.Key] = "#e0b341";
+        }
+    }
+
+    private static bool AtlasListContains(List<string> list, string key)
+    {
+        foreach (var t in list)
+            if (string.Equals(t, key, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
+    private static void AtlasToggleList(List<string> list, string key, bool on)
+    {
+        var idx = -1;
+        for (var i = 0; i < list.Count; i++)
+            if (string.Equals(list[i], key, StringComparison.OrdinalIgnoreCase)) { idx = i; break; }
+        if (on && idx < 0) list.Add(key);
+        else if (!on && idx >= 0) list.RemoveAt(idx);
     }
 
     private void SaveSettings()

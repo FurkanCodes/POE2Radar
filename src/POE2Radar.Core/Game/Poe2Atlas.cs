@@ -18,6 +18,16 @@ namespace POE2Radar.Core.Game;
 /// game-data arena and cached (re-validated cheaply on each read; re-scanned only if the cache goes
 /// stale). The catalog signature — a run of entries whose idStr reads "Map…" — is unambiguous.</para>
 /// </summary>
+public enum AtlasNodeReadMode
+{
+    /// <summary>Walk the full canvas child list (~1100 nodes).</summary>
+    Full,
+    /// <summary>Return the last full snapshot without re-walking the canvas.</summary>
+    Light,
+    /// <summary>Re-read live relPos/scale/visibility on the cached snapshot only (no tag resolve).</summary>
+    Positions,
+}
+
 public sealed class Poe2Atlas
 {
     private readonly MemoryReader _reader;
@@ -295,6 +305,9 @@ public sealed class Poe2Atlas
     // league mechanics from the stats list @ row+0x50 (stat ids "map_atlas_node_has_<mechanic>"). Cached
     // (content is stable while the atlas is open) and resolved at a bounded rate to avoid a tick hitch.
     private readonly Dictionary<nint, (string map, string[] content)> _tagCache = new();
+    private readonly Dictionary<nint, int> _iconTypeCache = new();
+    private List<AtlasNodeLive> _nodeSnapshot = new();
+    private readonly Dictionary<nint, int> _elementIndex = new();
     private static readonly string[] NoTags = Array.Empty<string>();
 
     // Atlas CONNECTION GRAPH (grid coord → neighbour grid coords), read from the canvas's edge vector
@@ -321,14 +334,49 @@ public sealed class Poe2Atlas
     /// detect the node element-class + canvas once (BFS, vtable-grouped) and cache them, then each call
     /// just reads the canvas's children (cheap). Re-detects (throttled) if the cache goes stale or the
     /// atlas hasn't been opened yet. Returns empty when not in/near the Atlas.</summary>
-    public List<AtlasNodeLive> ReadNodes(nint inGameState)
+    /// <summary>Snapshot from the last successful full read (for API / light ticks).</summary>
+    public IReadOnlyList<AtlasNodeLive> NodeSnapshot
     {
-        var nodes = new List<AtlasNodeLive>();
+        get
+        {
+            lock (_nodeLock) return _nodeSnapshot;
+        }
+    }
+
+    public List<AtlasNodeLive> ReadNodes(nint inGameState, AtlasNodeReadMode mode = AtlasNodeReadMode.Full)
+    {
         var uiRoot = Ptr(inGameState + Poe2.InGameState.UiRoot);
-        if (uiRoot == 0) return nodes;
+        if (uiRoot == 0) return new List<AtlasNodeLive>();
 
         lock (_nodeLock) // called from both the tick thread (BuildAtlasMarks) and the API thread (AtlasJson)
         {
+            // Panel closed → drop snapshot immediately (don't hold stale nodes for hiddenTicks self-heal).
+            if (!AtlasPanelOpen(uiRoot))
+            {
+                if (_nodeSnapshot.Count > 0 || _nodeCanvas != 0) Invalidate();
+                return new List<AtlasNodeLive>();
+            }
+
+            if (mode == AtlasNodeReadMode.Light && _nodeSnapshot.Count > 0)
+                return new List<AtlasNodeLive>(_nodeSnapshot);
+
+            if (mode == AtlasNodeReadMode.Positions && _nodeSnapshot.Count > 0 && _nodeCanvas != 0 && _nodeVtable != 0)
+            {
+                if (HierarchicallyVisible(_nodeCanvas))
+                {
+                    _hiddenTicks = 0;
+                    if (ReadCanvasPositions(_nodeCanvas))
+                        return _nodeSnapshot;
+                }
+                else
+                {
+                    var liveSelf = Ptr(_nodeCanvas + Poe2.UiElement.Self) == _nodeCanvas;
+                    if (liveSelf && ++_hiddenTicks % 150 != 0) return _nodeSnapshot;
+                    Invalidate();
+                }
+            }
+
+            var nodes = new List<AtlasNodeLive>();
             // Fast path: cached canvas. Cheap gate first — when the Atlas is CLOSED the canvas isn't
             // hierarchically visible, so we skip reading ~1100 nodes (this runs on the tick loop).
             if (_nodeCanvas != 0 && _nodeVtable != 0)
@@ -336,7 +384,11 @@ public sealed class Poe2Atlas
                 if (HierarchicallyVisible(_nodeCanvas))
                 {
                     _hiddenTicks = 0;
-                    if (ReadCanvasNodes(_nodeCanvas, nodes)) return nodes;
+                    if (ReadCanvasNodes(_nodeCanvas, nodes))
+                    {
+                        _nodeSnapshot = new List<AtlasNodeLive>(nodes);
+                        return nodes;
+                    }
                     // read failed → ReadCanvasNodes already Invalidated; fall through to re-detect.
                 }
                 else
@@ -365,7 +417,8 @@ public sealed class Poe2Atlas
             // (Re)detect — throttled so even with the gate open we don't BFS 50k elements every tick.
             if (_nodeRetry++ % 30 != 0) return nodes;
             if (!DetectNodeClass(uiRoot)) return nodes;
-            if (HierarchicallyVisible(_nodeCanvas)) ReadCanvasNodes(_nodeCanvas, nodes);
+            if (HierarchicallyVisible(_nodeCanvas) && ReadCanvasNodes(_nodeCanvas, nodes))
+                _nodeSnapshot = new List<AtlasNodeLive>(nodes);
             return nodes;
         }
     }
@@ -404,11 +457,16 @@ public sealed class Poe2Atlas
             var visible = ((uiFlags >> Poe2.UiElement.FlagVisibleBit) & 1) != 0;
             // The node's content/icon TYPE lives on a nested sigil-icon child (content int 1..~50);
             // walk first-children a few levels to find it. Lets us classify + match nodes to in-game icons.
-            var iconType = 0; var d = el;
-            for (var lvl = 0; lvl < 5 && d != 0; lvl++)
+            if (!_iconTypeCache.TryGetValue(el, out var iconType))
             {
-                if (_reader.TryReadStruct<uint>(d + Poe2.AtlasNode.Content, out var c) && c is > 0 and < 256) { iconType = (int)c; break; }
-                d = Ptr(Ptr(d + Poe2.UiElement.Children)); // first child = *(*(el+Children))
+                iconType = 0;
+                var d = el;
+                for (var lvl = 0; lvl < 5 && d != 0; lvl++)
+                {
+                    if (_reader.TryReadStruct<uint>(d + Poe2.AtlasNode.Content, out var c) && c is > 0 and < 256) { iconType = (int)c; break; }
+                    d = Ptr(Ptr(d + Poe2.UiElement.Children));
+                }
+                _iconTypeCache[el] = iconType;
             }
             // Resolved (cached): map name (all nodes) + rolled content tags (nodes with a +0x310 row).
             // Budget-limited per call so the first read doesn't hitch the tick; fills in over a few calls.
@@ -421,8 +479,44 @@ public sealed class Poe2Atlas
         }
         if (matched < 8) { Invalidate(); return false; }          // canvas no longer the node container
         AllTagsResolved = allCached;   // true once every node's tags are cached (seed defaults only then)
+        RebuildElementIndex(outNodes);
         EnsureGraph();                 // (re)read the connection-edge vector once per canvas (cached)
         return true;
+    }
+
+    /// <summary>Live relPos/scale refresh for pan tracking — no tag resolve, no new lists.</summary>
+    private bool ReadCanvasPositions(nint canvas)
+    {
+        var first = Ptr(canvas + Poe2.UiElement.Children);
+        if (first == 0 || !_reader.TryReadStruct<nint>(canvas + Poe2.UiElement.ChildrenEnd, out var last)) { Invalidate(); return false; }
+        var count = ((long)last - (long)first) / 8;
+        if (count is <= 0 or > 20000) { Invalidate(); return false; }
+
+        var matched = 0;
+        for (long i = 0; i < count; i++)
+        {
+            var el = Ptr(first + (nint)(i * 8));
+            if (el == 0 || Ptr(el) != _nodeVtable) continue;
+            matched++;
+            if (!_elementIndex.TryGetValue(el, out var idx) || idx >= _nodeSnapshot.Count) continue;
+            _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos, out var x);
+            _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos + 4, out var y);
+            _reader.TryReadStruct<float>(el + 0x130, out var scale);
+            _reader.TryReadStruct<byte>(el + Poe2.AtlasNode.Flags, out var flags);
+            _reader.TryReadStruct<uint>(el + Poe2.UiElement.Flags, out var uiFlags);
+            var visible = ((uiFlags >> Poe2.UiElement.FlagVisibleBit) & 1) != 0;
+            var old = _nodeSnapshot[idx];
+            _nodeSnapshot[idx] = old with { X = x, Y = y, Scale = scale, Flags = flags, Visible = visible };
+        }
+        if (matched < 8) { Invalidate(); return false; }
+        return true;
+    }
+
+    private void RebuildElementIndex(List<AtlasNodeLive> nodes)
+    {
+        _elementIndex.Clear();
+        for (var i = 0; i < nodes.Count; i++)
+            _elementIndex[nodes[i].Element] = i;
     }
 
     /// <summary>True once every visible node's tags have been resolved + cached (tag resolution is
@@ -430,7 +524,20 @@ public sealed class Poe2Atlas
     /// defaults only when the full map/content set is available.</summary>
     public bool AllTagsResolved { get; private set; }
 
-    private void Invalidate() { _nodeCanvas = 0; _nodeVtable = 0; _hiddenTicks = 0; _tagCache.Clear(); _graph.Clear(); _graphCanvas = 0; _currentMarker = 0; }
+    private void Invalidate()
+    {
+        _nodeCanvas = 0; _nodeVtable = 0; _hiddenTicks = 0;
+        _tagCache.Clear(); _iconTypeCache.Clear(); _nodeSnapshot.Clear();
+        _elementIndex.Clear();
+        _graph.Clear(); _graphCanvas = 0; _currentMarker = 0;
+        AllTagsResolved = false;
+    }
+
+    /// <summary>Drop the cached atlas node snapshot and tag/graph caches when the Atlas UI closes.</summary>
+    public void ClearSession()
+    {
+        lock (_nodeLock) Invalidate();
+    }
 
     /// <summary>The player's CURRENT atlas node grid coord (the "player icon" tile), via the marker element
     /// (<see cref="Poe2Offsets.AtlasGraph.CurrentMarkerNodePtr"/>): <c>*(marker+0x300)</c> → current node →

@@ -38,6 +38,27 @@ public static class SpriteCatalog
     public static SpriteIconRef Wisp() => Cell(12, 44);
     public static SpriteIconRef RogueExile() => Cell(4, 57);
 
+    /// <summary>Atlas node marker from biome / content icon type (GameHelper2 sheet).</summary>
+    public static SpriteIconRef AtlasNode(int iconType, int biome)
+    {
+        if (iconType is > 0 and < 256)
+        {
+            var col = iconType % 16;
+            var row = iconType / 16;
+            if (col < 16 && row < 64) return Cell(col, row);
+        }
+        return biome switch
+        {
+            1 => Cell(1, 37),
+            2 => Cell(4, 48),
+            3 => Cell(8, 38),
+            4 => Cell(6, 57),
+            5 => Cell(12, 44),
+            >= 6 => Cell(10, 44),
+            _ => MapMarker(),
+        };
+    }
+
     public static SpriteIconRef Cell(int col, int row, float scale = DefaultScale)
         => SpriteIconRef.Cell(col, row, scale);
 
