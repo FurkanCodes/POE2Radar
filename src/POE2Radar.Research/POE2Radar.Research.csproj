@@ -13,7 +13,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\POE2Radar.Core\POE2Radar.Core.csproj" />
-    <ProjectReference Include="..\POE2Radar.Overlay\POE2Radar.Overlay.csproj" />
   </ItemGroup>
 
 </Project>

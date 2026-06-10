@@ -1,7 +1,10 @@
+using System.ComponentModel;
 using POE2Radar.Core;
 using POE2Radar.Core.Game;
-using POE2Radar.Overlay.Config;
 using POE2Radar.Research;
+
+AppDomain.CurrentDomain.UnhandledException += static (_, e) =>
+    WriteResearchCrashLog(e.ExceptionObject as Exception ?? new Exception("unknown fatal error"));
 
 // POE2Radar.Research — dev-time offset discovery / validation harness.
 //
@@ -16,12 +19,32 @@ using POE2Radar.Research;
 Console.WriteLine("POE2Radar.Research");
 Console.WriteLine("==================");
 
-using var process = ProcessHandle.AttachToPoE();
-if (process is null)
+ProcessHandle attached;
+try
 {
-    Console.Error.WriteLine("PoE2 not running (no matching process found).");
+    var maybe = ProcessHandle.AttachToPoE();
+    if (maybe is null)
+    {
+        Console.Error.WriteLine("PoE2 not running (no matching process found).");
+        Console.Error.WriteLine("Start Path of Exile 2, then run e.g. POE2Radar.Research --hp <N>");
+        return 1;
+    }
+    attached = maybe;
+}
+catch (Win32Exception ex)
+{
+    Console.Error.WriteLine($"Failed to attach to PoE2: {ex.Message}");
+    Console.Error.WriteLine("If access was denied, close the game and re-run this console as Administrator.");
     return 1;
 }
+catch (Exception ex)
+{
+    WriteResearchCrashLog(ex);
+    Console.Error.WriteLine(ex);
+    return 1;
+}
+
+using var process = attached;
 Console.WriteLine($"Attached to {process.ProcessName} (PID {process.ProcessId})");
 Console.WriteLine($"Main module base: 0x{process.MainModuleBase:X16}  size: 0x{process.MainModuleSize:X}");
 var reader = new MemoryReader(process);
@@ -274,7 +297,7 @@ Console.WriteLine("No mode specified. Options:");
 Console.WriteLine("  --hp <N> [--mana <N>]      value-scan for the player Life component");
 Console.WriteLine("  --dump <hexAddr> [--dump-len <N>]   hex-dump a region for inspection");
 Console.WriteLine("  --dump <hexAddr> [--dump-len <N>]   hex-dump a region for inspection");
-Console.WriteLine("  --entity <hexAddr>         walk a PoE2 entity: id, metadata path, component map, Render→grid, Life");
+    Console.WriteLine("  --entity <hexAddr>         walk a PoE2 entity: id, metadata path, component map, Render→grid, Life");
 Console.WriteLine("  --presence [--diff]        baseline (then --diff) player components to find the presence-radius float");
 Console.WriteLine("  --devtree [--port N]       browser-based live memory/UI/entity explorer (default port 7778)");
 Console.WriteLine("  --serverdata               dump ServerData (AreaInstance+0x580): strings + StdVector quest-list candidates");
@@ -1458,18 +1481,18 @@ static int RunMechanicSurvey(ProcessHandle process, MemoryReader reader)
 
     foreach (var e in entities)
     {
-        if (EndgameMechanicCatalog.TryMatch(e, out var def))
+        if (MechanicSurveyCatalog.TryMatch(e, out var mechName))
         {
-            var set = byMech.GetValueOrDefault(def!.Name) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var set = byMech.GetValueOrDefault(mechName!) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             set.Add(e.Metadata);
-            byMech[def.Name] = set;
+            byMech[mechName!] = set;
         }
         else if (e.Poi)
             unmatchedPoi.Add(e.Metadata);
     }
 
     Console.WriteLine($"Mechanic survey — {entities.Count} entities in awake map");
-    foreach (var name in EndgameMechanicCatalog.RuleNames)
+    foreach (var name in MechanicSurveyCatalog.RuleNames)
     {
         if (!byMech.TryGetValue(name, out var paths)) continue;
         Console.WriteLine($"\n== {name} ({paths.Count} distinct paths) ==");
@@ -3904,16 +3927,51 @@ static nint? TryGetHexArg(string[] args, string flag)
     return long.TryParse(s, System.Globalization.NumberStyles.HexNumber, null, out var v) ? (nint)v : null;
 }
 
+static void WriteResearchCrashLog(Exception ex)
+{
+    try
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "research-crash.log");
+        File.AppendAllText(path,
+            $"{DateTime.Now:u}  {ex.GetType().Name}: {ex.Message}\n{ex}\n\n");
+    }
+    catch { /* best effort */ }
+}
+
 static class Win
 {
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
     public struct RECT { public int left, top, right, bottom; }
+
+    private delegate bool EnumWindowsProc(nint hWnd, nint lParam);
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     public static extern nint GetForegroundWindow();
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     public static extern bool GetClientRect(nint h, out RECT r);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, nint lParam);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(nint hWnd, out uint lpdwProcessId);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(nint hWnd);
+
+    public static nint FindMainWindow(int processId)
+    {
+        nint found = 0;
+        EnumWindows((hWnd, _) =>
+        {
+            GetWindowThreadProcessId(hWnd, out var pid);
+            if (pid != (uint)processId || !IsWindowVisible(hWnd)) return true;
+            found = hWnd;
+            return false;
+        }, 0);
+        return found;
+    }
 
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
     public struct POINT { public int X, Y; }
