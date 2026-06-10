@@ -20,14 +20,14 @@ public enum NavTargetStatus { Live, Cached, NoPath }
 /// -1 when unselected), whether it is currently selected, its route freshness, and current grid
 /// distance from the player (-1 when unknown).</summary>
 public readonly record struct LegendEntry(
-    NavTarget Target, int ColorSlot, bool IsSelected, NavTargetStatus Status, float Distance);
+    NavTarget Target, int ColorSlot, bool IsSelected, NavTargetStatus Status, float Distance, float PathDistance = -1f);
 
 /// <summary>One selected target's smoothed A* route: the selection-order color slot (0..7) used to pick
 /// its draw/legend color, target identity/status metadata, and the smoothed grid-cell waypoints.
 /// Empty <see cref="Points"/> = no path.</summary>
 public readonly record struct SelectedPath(
     int ColorSlot, string TargetId, string Label, bool IsEntity, NavTargetStatus Status, float Distance,
-    IReadOnlyList<(int x, int y)> Points);
+    float PathDistance, IReadOnlyList<(int x, int y)> Points);
 
 /// <summary>Low-overhead runtime timings used to compare read/update/render costs while tuning the overlay.</summary>
 public readonly record struct PerfSnapshot(

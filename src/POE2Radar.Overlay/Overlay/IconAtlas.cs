@@ -93,6 +93,16 @@ public static class IconAtlas
         Console.WriteLine($"IconAtlas: Loaded {_map.Count} icons from {IconsFileName} ({texW}x{texH})");
     }
 
+    /// <summary>Resolve sprite ref or shape name to a GPU texture. Always prefers icons.png cells.</summary>
+    public static bool TryResolve(SpriteIconRef? sprite, string? shape, out IconTexture tex)
+    {
+        if (TryGet(sprite, out tex)) return true;
+        if (TryGet(shape, out tex)) return true;
+        var shapeSprite = SpriteCatalog.ForShape(shape);
+        if (shapeSprite is not null && TryGet(shapeSprite, out tex)) return true;
+        return TryGet(SpriteCatalog.NormalMonster(), out tex);
+    }
+
     /// <summary>Look up icon's GPU texture + UV rect. Returns false if unknown or not initialized.</summary>
     public static bool TryGet(string? iconName, out IconTexture tex)
     {

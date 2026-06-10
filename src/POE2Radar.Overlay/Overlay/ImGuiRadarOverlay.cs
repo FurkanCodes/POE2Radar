@@ -343,9 +343,10 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                             EntityImportanceHelper.Classify(e, ctx.Styles))) continue;
                     var p = Project(e.Grid, ctx.PlayerGrid, center, scale, e.TerrainHeight - frame.PlayerTerrainHeight);
                     if (p.X < -40 || p.Y < -40 || p.X > W + 40 || p.Y > H + 40) continue;
-                    var color = rule?.Color ?? EntityColor(e);
-                    var radius = rule?.Size ?? EntityRadius(e);
-                    DrawIconOrShape(dl, p, radius, color, rule?.Opacity ?? 0.95f, rule?.Sprite, rule?.Shape, ctx.GlobalIconScale);
+                    var (sprite, shape, radius, color, opacity) = rule is not null
+                        ? (rule.Sprite, rule.Shape, rule.Size, rule.Color, rule.Opacity)
+                        : ResolveEntityDrawStyle(e, ctx.Styles);
+                    DrawIconOrShape(dl, p, radius, color, opacity, sprite, shape, ctx.GlobalIconScale);
                     var entityLabel = EntityDisplayHelper.FormatEntityLabel(e, rule, ctx.Entities, ctx.AreaCode);
                     if (entityLabel.Length > 0)
                     {
@@ -422,7 +423,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         string? shape,
         float globalIconScale = 1f)
     {
-        if (IconAtlas.TryGet(sprite, out var icon) || IconAtlas.TryGet(shape, out icon))
+        if (IconAtlas.TryResolve(sprite, shape, out var icon))
         {
             var scaleMul = Math.Clamp(sprite?.Scale ?? 1f, 0.2f, 4f) * Math.Clamp(globalIconScale, 0.25f, 4f);
             var half = MathF.Max(1f, size * scaleMul);
@@ -855,13 +856,14 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         foreach (var path in ctx.SelectedPaths)
         {
             var label = string.IsNullOrWhiteSpace(path.Label) ? path.TargetId : path.Label;
-            label += path.Status switch
+            var status = path.Status switch
             {
                 NavTargetStatus.Cached when path.IsEntity => " (last seen)",
                 NavTargetStatus.NoPath => " (no path)",
                 _ => "",
             };
-            labels.Add((path.ColorSlot, $"{path.ColorSlot + 1}. {label}"));
+            var distSuffix = path.PathDistance >= 0 ? $" ~{path.PathDistance:F0}t" : "";
+            labels.Add((path.ColorSlot, $"{path.ColorSlot + 1}. {label}{distSuffix}{status}"));
         }
         if (labels.Count == 0) return;
         labels.Sort((a, b) => a.slot.CompareTo(b.slot));
@@ -1667,7 +1669,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     {
         var prefix = row.IsSelected ? $"{row.ColorSlot + 1}. " : "   ";
         var type = row.Target.IsEntity ? "E" : "L";
-        var dist = row.Distance >= 0 ? $" {row.Distance:F0}c" : "";
+        var dist = row.IsSelected && row.PathDistance >= 0
+            ? $" ~{row.PathDistance:F0}t"
+            : row.Distance >= 0 ? $" {row.Distance:F0}c" : "";
         var status = row.Status switch
         {
             NavTargetStatus.Cached when row.Target.IsEntity => " (last seen)",
@@ -1693,6 +1697,47 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private static Vector4 PathColorVec(int slot)
     {
         return PathPalette[((slot % PathPalette.Length) + PathPalette.Length) % PathPalette.Length];
+    }
+
+    private static (SpriteIconRef? Sprite, string? Shape, float Size, string Color, float Opacity) ResolveEntityDrawStyle(
+        Poe2Live.EntityDot e, RadarStyles styles)
+    {
+        if (EndgameMechanicCatalog.TryMatch(e, out var def))
+            return (def!.Sprite.Clone(), def.Shape, def.Size, def.Color, def.Opacity);
+
+        switch (e.Category)
+        {
+            case Poe2Live.EntityCategory.Monster:
+                switch (e.Rarity)
+                {
+                    case Poe2Live.Rarity.Unique:
+                        return (styles.MonsterUnique.Sprite, styles.MonsterUnique.Shape, styles.MonsterUnique.Size,
+                            styles.MonsterUnique.Color, styles.MonsterUnique.Opacity);
+                    case Poe2Live.Rarity.Rare:
+                        return (styles.MonsterRare.Sprite, styles.MonsterRare.Shape, styles.MonsterRare.Size,
+                            styles.MonsterRare.Color, styles.MonsterRare.Opacity);
+                    case Poe2Live.Rarity.Magic:
+                        return (styles.MonsterMagic.Sprite, styles.MonsterMagic.Shape, styles.MonsterMagic.Size,
+                            styles.MonsterMagic.Color, styles.MonsterMagic.Opacity);
+                    default:
+                        return (styles.MonsterNormal.Sprite, styles.MonsterNormal.Shape, styles.MonsterNormal.Size,
+                            styles.MonsterNormal.Color, styles.MonsterNormal.Opacity);
+                }
+            case Poe2Live.EntityCategory.Player:
+                return (styles.Player.Sprite, styles.Player.Shape, styles.Player.Size, styles.Player.Color, styles.Player.Opacity);
+            case Poe2Live.EntityCategory.Npc:
+                return (styles.Npc.Sprite, styles.Npc.Shape, styles.Npc.Size, styles.Npc.Color, styles.Npc.Opacity);
+            case Poe2Live.EntityCategory.Chest:
+                return e.Rarity == Poe2Live.Rarity.Unique
+                    ? (styles.ChestUnique.Sprite, styles.ChestUnique.Shape, styles.ChestUnique.Size, styles.ChestUnique.Color, styles.ChestUnique.Opacity)
+                    : (styles.ChestRare.Sprite, styles.ChestRare.Shape, styles.ChestRare.Size, styles.ChestRare.Color, styles.ChestRare.Opacity);
+            case Poe2Live.EntityCategory.Transition:
+                return (styles.Transition.Sprite, styles.Transition.Shape, styles.Transition.Size, styles.Transition.Color, styles.Transition.Opacity);
+            default:
+                if (e.Poi)
+                    return (styles.Poi.Sprite, styles.Poi.Shape, styles.Poi.Size, styles.Poi.Color, styles.Poi.Opacity);
+                return (styles.MonsterNormal.Sprite, styles.MonsterNormal.Shape, EntityRadius(e), EntityColor(e), 0.95f);
+        }
     }
 
     private static string EntityColor(Poe2Live.EntityDot e) => e.Category switch
@@ -1757,7 +1802,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         var dl = ImGui.GetWindowDrawList();
         var min = ImGui.GetItemRectMin();
         var max = ImGui.GetItemRectMax();
-        if (IconAtlas.TryGet(rule.Sprite, out var tex) || IconAtlas.TryGet(rule.Shape, out tex))
+        if (IconAtlas.TryResolve(rule.Sprite, rule.Shape, out var tex))
             dl.AddImage(tex.TextureId, min, max, tex.UV0, tex.UV1, 0xFFFFFFFF);
         else
             dl.AddRectFilled(min, max, ColorU32(60, 60, 70, 0.9f));

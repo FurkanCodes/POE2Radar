@@ -1649,15 +1649,16 @@ public sealed class RadarApp : IDisposable
             if (pts.Count > 0)
             {
                 var slot = Math.Min(i, MaxSelectedTargets - 1);
+                var pathDist = SumPathGridDistance(pts);
                 if (TryResolveTargetInfo(id, out var info))
                 {
                     var dist = NumVec2.Distance(info.Grid, player);
-                    paths.Add(new SelectedPath(slot, id, info.Label, info.IsEntity, info.Status, dist, pts));
+                    paths.Add(new SelectedPath(slot, id, info.Label, info.IsEntity, info.Status, dist, pathDist, pts));
                 }
                 else
                 {
                     paths.Add(new SelectedPath(slot, id, id, id.StartsWith("e:", StringComparison.Ordinal),
-                        NavTargetStatus.NoPath, -1f, pts));
+                        NavTargetStatus.NoPath, -1f, pathDist, pts));
                 }
             }
         }
@@ -1733,8 +1734,9 @@ public sealed class RadarApp : IDisposable
         {
             var slot = selected.IndexOf(t.Id);
             var dist = NumVec2.Distance(t.Grid, player);
-                var status = slot >= 0 && !HasSelectedPath(t.Id) ? NavTargetStatus.NoPath : NavTargetStatus.Live;
-                legend.Add(new LegendEntry(t, slot, slot >= 0, status, dist));
+            var pathDist = TryGetPathDistance(t.Id, out var pd) ? pd : -1f;
+            var status = slot >= 0 && !HasSelectedPath(t.Id) ? NavTargetStatus.NoPath : NavTargetStatus.Live;
+            legend.Add(new LegendEntry(t, slot, slot >= 0, status, dist, pathDist));
             seen.Add(t.Id);
         }
 
@@ -1748,7 +1750,8 @@ public sealed class RadarApp : IDisposable
             {
                 var target = new NavTarget(id, info.Label, info.Grid, "", info.IsEntity);
                 var status = HasSelectedPath(id) ? info.Status : NavTargetStatus.NoPath;
-                legend.Add(new LegendEntry(target, slot, true, status, NumVec2.Distance(info.Grid, player)));
+                var pathDist = TryGetPathDistance(id, out var pd) ? pd : -1f;
+                legend.Add(new LegendEntry(target, slot, true, status, NumVec2.Distance(info.Grid, player), pathDist));
             }
             else
             {
@@ -1764,6 +1767,31 @@ public sealed class RadarApp : IDisposable
         foreach (var p in _selectedPaths)
             if (p.TargetId == id) return true;
         return false;
+    }
+
+    private bool TryGetPathDistance(string id, out float pathDistance)
+    {
+        foreach (var p in _selectedPaths)
+            if (p.TargetId == id)
+            {
+                pathDistance = p.PathDistance;
+                return true;
+            }
+        pathDistance = -1f;
+        return false;
+    }
+
+    private static float SumPathGridDistance(IReadOnlyList<(int x, int y)> points)
+    {
+        if (points.Count < 2) return 0f;
+        float sum = 0f;
+        for (var i = 1; i < points.Count; i++)
+        {
+            var dx = points[i].x - points[i - 1].x;
+            var dy = points[i].y - points[i - 1].y;
+            sum += MathF.Sqrt(dx * dx + dy * dy);
+        }
+        return sum;
     }
 
     // ── Public navigation accessors (callable from the API/HTTP thread; all _navLock-guarded). ──

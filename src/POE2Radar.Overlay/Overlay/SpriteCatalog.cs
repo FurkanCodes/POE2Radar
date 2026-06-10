@@ -40,4 +40,40 @@ public static class SpriteCatalog
 
     public static SpriteIconRef Cell(int col, int row, float scale = DefaultScale)
         => SpriteIconRef.Cell(col, row, scale);
+
+    /// <summary>Map a display-rule shape name to its icons.png cell (fallback when Sprite is unset).</summary>
+    public static SpriteIconRef? ForShape(string? shape)
+    {
+        if (string.IsNullOrEmpty(shape)) return null;
+        return ShapeSprites.TryGetValue(shape, out var spr) ? spr : null;
+    }
+
+    private static readonly Dictionary<string, SpriteIconRef> ShapeSprites = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Circle"] = NormalMonster(),
+        ["Diamond"] = RareMonster(),
+        ["Star"] = Boss(),
+        ["Square"] = Strongbox(),
+        ["Plus"] = Shrine(),
+        ["Triangle"] = RareMonster(),
+        ["Hexagon"] = Boss(),
+        ["Pentagon"] = NormalMonster(),
+        ["Cross"] = Shrine(),
+        ["Ring"] = Checkpoint(),
+        ["Heart"] = ChestRare(),
+        ["Shield"] = Strongbox(),
+        ["Gem"] = ChestRare(),
+        ["ArrowUp"] = Portal(),
+        ["TriangleDown"] = Delirium(),
+        ["Exclamation"] = MapMarker(),
+        ["Droplet"] = ChestRare(),
+        ["Waypoint"] = Waypoint(),
+        ["Checkpoint"] = Checkpoint(),
+        ["MapMarker"] = MapMarker(),
+        ["QuestMarker"] = QuestMarker(),
+        ["Portal"] = Portal(),
+        ["TownPortal"] = TownPortal(),
+        ["Stash"] = Stash(),
+        ["Bridge"] = Bridge(),
+    };
 }
