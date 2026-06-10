@@ -220,14 +220,8 @@ public sealed class DisplayRules
                 Shape = w.Shape, Color = w.Color, Opacity = 1f, Size = w.Size, Label = w.Label,
             });
 
-        // 3) Mechanic overrides (force-draw, category-gated).
-        foreach (var m in st.Mechanics ?? new())
-            rules.Add(new DisplayRule
-            {
-                Name = m.Name, Enabled = m.Enabled, Navigable = true, Label = m.Name,
-                Categories = new(m.Categories ?? new()), Match = new(m.Match ?? new()),
-                Shape = m.Shape, Color = m.Color, Opacity = m.Opacity, Size = m.Size, Sprite = m.Sprite?.Clone(),
-            });
+        // 3) Endgame / map mechanics (catalog — before POI catch-all and category defaults).
+        EndgameMechanicCatalog.AppendDisplayRules(rules);
 
         AppendSemanticContentRules(rules, st, showMonsters);
 
@@ -287,6 +281,7 @@ public sealed class DisplayRules
         CatNav("Transition", "Transition", null, st.Transition, "Transition", navigable: true);
 
         // Quest & world objects (specific matchers before the broad map-marker catch-all).
+        // Endgame mechanics are inserted earlier via EndgameMechanicCatalog in BuildDefault / migration.
         rules.Add(new DisplayRule
         {
             Name = "Quest object", Label = "Quest", Enabled = true, Navigable = true,
@@ -337,7 +332,7 @@ public sealed class DisplayRules
         rules.Add(new DisplayRule
         {
             Name = "Portal", Label = "Portal", Enabled = st.Poi.Enabled, Navigable = false,
-            Categories = new() { "Object", "Other" }, Match = new() { "Portal", "Multiplex" },
+            Categories = new() { "Object", "Other" }, Match = new() { "MiscellaneousObjects/Multiplex", "Multiplex" },
             Shape = st.Poi.Shape, Color = "#B38CFF", Opacity = st.Poi.Opacity, Size = 10f,
             Sprite = SpriteCatalog.Portal().Clone(),
         });
@@ -380,9 +375,18 @@ public sealed class DisplayRules
                 case "Strongbox": r.Sprite ??= SpriteCatalog.Strongbox().Clone(); r.Size = Math.Max(r.Size, 10f); break;
                 case "Essence": r.Sprite ??= SpriteCatalog.Essence().Clone(); r.Size = Math.Max(r.Size, 12f); break;
                 case "Shrine": r.Sprite ??= SpriteCatalog.Shrine().Clone(); r.Size = Math.Max(r.Size, 10f); break;
+                case "Abyss": r.Sprite ??= SpriteCatalog.Abyss().Clone(); r.Size = Math.Max(r.Size, 12f); break;
+                case "Delirium": r.Sprite ??= SpriteCatalog.Delirium().Clone(); r.Size = Math.Max(r.Size, 12f); break;
+                case "Summoning Circle": r.Sprite ??= SpriteCatalog.SummoningCircle().Clone(); r.Size = Math.Max(r.Size, 10f); break;
+                case "Wisp": r.Sprite ??= SpriteCatalog.Wisp().Clone(); r.Size = Math.Max(r.Size, 10f); break;
+                case "Rogue Exile": r.Sprite ??= SpriteCatalog.RogueExile().Clone(); r.Size = Math.Max(r.Size, 10f); break;
             }
         }
     }
+
+    /// <summary>One-time endgame mechanic migration (dedupe, insert missing, reorder before Map marker).</summary>
+    public static bool MigrateEndgameMechanics(List<DisplayRule> rules)
+        => EndgameMechanicCatalog.MigrateDisplayRules(rules);
 
     // ── internals ───────────────────────────────────────────────────────────
 

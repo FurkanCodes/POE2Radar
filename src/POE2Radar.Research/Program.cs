@@ -1,5 +1,6 @@
 using POE2Radar.Core;
 using POE2Radar.Core.Game;
+using POE2Radar.Overlay.Config;
 using POE2Radar.Research;
 
 // POE2Radar.Research — dev-time offset discovery / validation harness.
@@ -48,6 +49,9 @@ if (HasFlag(args, "--watch-expedition"))
 
 if (HasFlag(args, "--watch"))
     return RunWatch(process, reader);
+
+if (HasFlag(args, "--mechanic-survey"))
+    return RunMechanicSurvey(process, reader);
 
 if (TryGetStrArg(args, "--tile-find") is { } tileNeedle)
     return RunTileFind(process, reader, tileNeedle);
@@ -275,6 +279,7 @@ Console.WriteLine("  --presence [--diff]        baseline (then --diff) player co
 Console.WriteLine("  --devtree [--port N]       browser-based live memory/UI/entity explorer (default port 7778)");
 Console.WriteLine("  --serverdata               dump ServerData (AreaInstance+0x580): strings + StdVector quest-list candidates");
 Console.WriteLine("  --aob                      scan for IngameState via AOB patterns");
+Console.WriteLine("  --mechanic-survey          group awake entities by endgame mechanic catalog matchers");
 return 0;
 
 // ── ServerData probe — locate the quest-state container ────────────────────
@@ -1427,6 +1432,57 @@ static int RunWatchExpedition(ProcessHandle process, MemoryReader reader)
         }
         Thread.Sleep(750);
     }
+}
+
+static int RunMechanicSurvey(ProcessHandle process, MemoryReader reader)
+{
+    nint slot = 0;
+    foreach (var pat in AobPatterns.GameStateRefs)
+    {
+        foreach (var s in AobScanner.ScanForResolvedAddresses(process, reader, pat).Distinct())
+            if (new Poe2Live(reader, s).TryResolve(out _, out _, out _)) { slot = s; break; }
+        if (slot != 0) break;
+    }
+    if (slot == 0) { Console.Error.WriteLine("Could not lock GameState slot (in game?)."); return 1; }
+
+    var live = new Poe2Live(reader, slot);
+    if (!live.TryResolve(out _, out var ai, out _))
+    {
+        Console.Error.WriteLine("Chain not resolved — enter a zone first.");
+        return 1;
+    }
+
+    var entities = live.Entities(ai);
+    var byMech = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+    var unmatchedPoi = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    foreach (var e in entities)
+    {
+        if (EndgameMechanicCatalog.TryMatch(e, out var def))
+        {
+            var set = byMech.GetValueOrDefault(def!.Name) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            set.Add(e.Metadata);
+            byMech[def.Name] = set;
+        }
+        else if (e.Poi)
+            unmatchedPoi.Add(e.Metadata);
+    }
+
+    Console.WriteLine($"Mechanic survey — {entities.Count} entities in awake map");
+    foreach (var name in EndgameMechanicCatalog.RuleNames)
+    {
+        if (!byMech.TryGetValue(name, out var paths)) continue;
+        Console.WriteLine($"\n== {name} ({paths.Count} distinct paths) ==");
+        foreach (var m in paths.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+            Console.WriteLine($"  {m}");
+    }
+    if (unmatchedPoi.Count > 0)
+    {
+        Console.WriteLine($"\n== unmatched POI ({unmatchedPoi.Count} distinct paths) ==");
+        foreach (var m in unmatchedPoi.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+            Console.WriteLine($"  {m}");
+    }
+  return 0;
 }
 
 // Walk the AwakeEntities std::map, yielding (id, entityPtr, metadata) for real entities.

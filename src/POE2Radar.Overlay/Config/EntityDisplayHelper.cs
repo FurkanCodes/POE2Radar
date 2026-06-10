@@ -33,6 +33,8 @@ public static class EntityDisplayHelper
             var name = EntityNameResolver.Shared.Resolve(e.Metadata);
             if (name is { Length: > 0 }) return $"{name} (Boss)";
         }
+        if (EndgameMechanicCatalog.TryMatch(e, out var mechanic))
+            return mechanic!.Name;
         var label = RuleLabel(rule);
         return label.Length > 0 ? label : TypeToken(e.Metadata);
     }
@@ -66,6 +68,7 @@ public static class EntityDisplayHelper
         "Player", "NPC", "Chest · Unique", "Chest · Rare", "Transition",
         "Quest object", "Quest marker", "Waypoint", "Bridge", "Portal",
         "Checkpoint", "Map marker", "Point of Interest", "Stash", "Town portal",
-        "Expedition", "Ritual", "Breach", "Strongbox", "Essence", "Shrine",
+        "Expedition", "Ritual", "Breach", "Abyss", "Delirium", "Strongbox", "Essence", "Shrine",
+        "Summoning Circle", "Wisp", "Rogue Exile",
     };
 }

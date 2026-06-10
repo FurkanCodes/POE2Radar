@@ -32,6 +32,11 @@ public static class SpriteCatalog
     public static SpriteIconRef Strongbox() => Cell(8, 38);
     public static SpriteIconRef Essence() => Cell(7, 45);
     public static SpriteIconRef Shrine() => Cell(7, 0);
+    public static SpriteIconRef Delirium() => Cell(6, 0);
+    public static SpriteIconRef Abyss() => Cell(0, 0);
+    public static SpriteIconRef SummoningCircle() => Cell(1, 37);
+    public static SpriteIconRef Wisp() => Cell(12, 44);
+    public static SpriteIconRef RogueExile() => Cell(4, 57);
 
     public static SpriteIconRef Cell(int col, int row, float scale = DefaultScale)
         => SpriteIconRef.Cell(col, row, scale);

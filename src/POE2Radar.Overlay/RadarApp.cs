@@ -346,6 +346,26 @@ public sealed class RadarApp : IDisposable
             _settings.Save();
             Console.WriteLine("Applied default PNG sprites and icon sizes to display rules.");
         }
+        if (!_settings.EndgameMechanicsMigrated)
+        {
+            var rules = _displayRules.All.ToList();
+            var changed = DisplayRules.MigrateEndgameMechanics(rules);
+            if (changed) _displayRules.Replace(rules);
+            _settings.Styles.Mechanics = EndgameMechanicCatalog.DefaultMechanicStyles();
+            _settings.EndgameMechanicsMigrated = true;
+            _settings.Save();
+            Console.WriteLine("Endgame mechanics migrated (Abyss, Delirium, catalog labels before Map marker).");
+        }
+        if (!_settings.EndgameMechanicsV2Migrated)
+        {
+            var rules = _displayRules.All.ToList();
+            if (DisplayRules.MigrateEndgameMechanics(rules))
+                _displayRules.Replace(rules);
+            _settings.Styles.Mechanics = EndgameMechanicCatalog.DefaultMechanicStyles();
+            _settings.EndgameMechanicsV2Migrated = true;
+            _settings.Save();
+            Console.WriteLine("Endgame mechanics v2: Abyss gates/troves (Object+Other), catalog resolves before Map marker.");
+        }
         LogMissingHpBarTextures();
         _displayRulesGen = _ruleEngine.Generation;
         // User-editable overlay on the baked curated landmark table (the "Landmarks" tab). Inject its

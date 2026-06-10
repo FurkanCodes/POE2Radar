@@ -57,6 +57,12 @@ public sealed class RadarSettings
     // ── One-time: bump icon sizes + assign PNG sprites on existing display rules. ──
     public bool IconDefaultsMigrated { get; set; } = false;
 
+    // ── One-time: endgame mechanic catalog (Abyss, Delirium, dedupe, before Map marker). ──
+    public bool EndgameMechanicsMigrated { get; set; } = false;
+
+    // ── One-time: refresh Abyss/Object matchers + catalog-first resolve (gates, troves). ──
+    public bool EndgameMechanicsV2Migrated { get; set; } = false;
+
     // ── Global multiplier on map icon sprite scale (PNG from icons.png). ──
     public float GlobalIconScale { get; set; } = 1.25f;
 
@@ -420,26 +426,6 @@ public sealed class RadarStyles
     // Tile landmarks (shape marker + text label at the group centroid).
     public IconStyle Landmark      { get; set; } = new("Diamond", "#F259F2", 1.00f, 10.0f, SpriteIconRef.Cell(1, 37, 1.25f));
 
-    // Metadata-matched overrides (first enabled match wins). Seeded with common PoE2 mechanics.
-    public List<MechanicStyle> Mechanics { get; set; } = new()
-    {
-        // Match the actual league POI marker ONLY. The old bare "Expedition" substring (with an empty
-        // category gate) hijacked EVERY entity carrying "Expedition" in its path — the combat mobs
-        // (".../...CrabExpedition", category Monster) and the transient detonation effects
-        // (".../Objects/Expedition2EncounterCrack", category Other) all got the marker icon. The
-        // dir-qualified key hits only "Expedition2/Expedition2Encounter" (NOT the "/Objects/...Crack"
-        // path), and the Other gate keeps it off the monsters. ("ExpeditionEncounter" was also dead —
-        // the real path is "Expedition2Encounter" with a digit, so that key matched nothing.)
-        new() { Name = "Expedition", Match = new() { "Expedition2/Expedition2Encounter" }, Categories = new() { "Other" }, Shape = "Plus", Color = "#26E6D9", Opacity = 1f, Size = 12f, Sprite = SpriteIconRef.Cell(5, 38, 1.25f) },
-        new() { Name = "Ritual",     Match = new() { "Ritual" },                            Shape = "Star",     Color = "#FF3355", Opacity = 1f, Size = 12f, Sprite = SpriteIconRef.Cell(10, 44, 1.25f) },
-        new() { Name = "Breach",     Match = new() { "Breach" },                            Shape = "Diamond",  Color = "#A64DFF", Opacity = 1f, Size = 12f, Sprite = SpriteIconRef.Cell(11, 44, 1.25f) },
-        // Match the league-strongbox DIRECTORY only ("Metadata/Chests/StrongBoxes/…") and gate to
-        // Chest. The bare "Strongbox" term was too broad twice over: it tagged the box's spawned Vaal
-        // guards (…Strongbox monsters — now excluded by the Chest gate) AND ordinary area chests that
-        // merely carry "Strongbox" in their name (e.g. Chests/KedgeBayChests/KedgeBayChestStrongbox).
-        // "StrongBoxes" hits the real boxes (BasicStrongboxLow lives under it) but not those.
-        new() { Name = "Strongbox",  Match = new() { "StrongBoxes" }, Categories = new() { "Chest" }, Shape = "Square", Color = "#FFB300", Opacity = 1f, Size = 10f, Sprite = SpriteIconRef.Cell(8, 38, 1.25f) },
-        new() { Name = "Essence",    Match = new() { "Essence" },                           Shape = "Triangle", Color = "#33E0FF", Opacity = 1f, Size = 12f, Sprite = SpriteIconRef.Cell(7, 45, 1.25f) },
-        new() { Name = "Shrine",     Match = new() { "Shrine" },                            Shape = "Star",     Color = "#7DFF7D", Opacity = 1f, Size = 10f, Sprite = SpriteIconRef.Cell(7, 0, 1.25f) },
-    };
+    // Metadata-matched overrides — seeded from <see cref="EndgameMechanicCatalog"/>.
+    public List<MechanicStyle> Mechanics { get; set; } = EndgameMechanicCatalog.DefaultMechanicStyles();
 }

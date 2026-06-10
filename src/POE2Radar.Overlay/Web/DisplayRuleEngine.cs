@@ -26,10 +26,12 @@ public sealed class DisplayRuleEngine
     {
         var state = _global.ResolveStateHide(e);
         if (state != null) return state;
+        if (EndgameMechanicCatalog.TryMatch(e, out var mechanic))
+            return EndgameMechanicCatalog.ToDisplayRule(mechanic!);
         return _global.ResolveContent(e);
     }
 
-    /// <summary>Full merged resolve: state hides → zone override patch → global rules → ImportantOnly trash.</summary>
+    /// <summary>Full merged resolve: state hides → catalog mechanics → zone override patch → global rules → ImportantOnly trash.</summary>
     public DisplayRule? Resolve(Poe2Live.EntityDot e, string areaCode, bool importantOnly)
     {
         var state = _global.ResolveStateHide(e);
@@ -37,7 +39,12 @@ public sealed class DisplayRuleEngine
 
         var token = EntityDisplayHelper.TypeToken(e.Metadata);
         var zoneOv = _zoneOverrides.GetOverride(areaCode, token);
-        var global = _global.ResolveContent(e);
+
+        // Catalog mechanics beat the Map-marker POI catch-all regardless of display_rules.json order.
+        DisplayRule? global = null;
+        if (EndgameMechanicCatalog.TryMatch(e, out var mechanic))
+            global = EndgameMechanicCatalog.ToDisplayRule(mechanic!);
+        global ??= _global.ResolveContent(e);
 
         if (zoneOv != null)
         {

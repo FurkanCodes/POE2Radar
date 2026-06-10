@@ -15,5 +15,5 @@
   {"pattern": "LeagueRitual", "label": "Ritual", "color": "#ff3333", "enabled": true},
   {"pattern": "EinharQuestMarker", "label": "Quest Marker", "color": "#ffff33", "enabled": true},
   {"pattern": "Expedition2/Expedition2Encounter", "label": "Expedition", "color": "#cc8833", "enabled": true},
-  {"pattern": "AbyssJumpInteractable", "label": "Abyss Crack", "color": "#33cccc", "enabled": true}
+  {"pattern": "AbyssJumpInteractable", "label": "Abyss", "color": "#33cccc", "enabled": true}
 ]

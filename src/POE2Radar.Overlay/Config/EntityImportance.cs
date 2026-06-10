@@ -22,6 +22,9 @@ public static class EntityImportanceHelper
 {
     public static EntityImportance Classify(Poe2Live.EntityDot e, RadarStyles styles)
     {
+        if (EndgameMechanicCatalog.TryMatch(e, out _))
+            return EntityImportance.Mechanic;
+
         if (styles.Mechanics is { Count: > 0 })
             foreach (var m in styles.Mechanics)
                 if (m.Enabled && MatchesMechanic(e, m))
@@ -67,8 +70,7 @@ public static class EntityImportanceHelper
     };
 
     /// <summary>Default display-rule names backing each tier's group-level Show/Nav toggles.</summary>
-    public static readonly IReadOnlyList<string> MechanicRuleNames =
-        ["Expedition", "Ritual", "Breach", "Strongbox", "Essence", "Shrine"];
+    public static IReadOnlyList<string> MechanicRuleNames => EndgameMechanicCatalog.RuleNames;
 
     public static string[] RuleNamesForTier(EntityImportance tier) => tier switch
     {
