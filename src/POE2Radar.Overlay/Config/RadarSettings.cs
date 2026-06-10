@@ -31,6 +31,20 @@ public sealed class RadarSettings
     //    rule has Auto-path (Navigable) enabled. Manual F6/legend selections are never overridden. ──
     public bool AutoPathNavigable { get; set; } = false;
 
+    // ── One-time guard: the nav model moved to "display rules are the single source of truth" (an entity
+    //    auto-paths only via its rule's Navigable flag, not a hardcoded POI/unique clause). On the first
+    //    run after the upgrade we flip Navigable on the default POI/Transition/Unique rules so behavior is
+    //    preserved; this stays true thereafter so we never re-stomp the user's edits. ──
+    public bool NavRuleModelMigrated { get; set; } = false;
+
+    // ── Curated radar: when true, normal/magic monster trash and miscellaneous clutter are not drawn
+    //    on the map overlay (nav is still governed by display-rule Navigable flags). Toggle off to
+    //    reveal everything. ──
+    public bool ImportantOnly { get; set; } = true;
+
+    // ── One-time: flip Navigable on mechanic rules + Monster · Rare after the endgame-nav defaults pass. ──
+    public bool EndgameNavMigrated { get; set; } = false;
+
     // ── Radar display toggles. ──
     public bool ShowMonsters { get; set; } = true;
     public bool ShowTerrain { get; set; } = true;

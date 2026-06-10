@@ -38,6 +38,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private int _rulesUiGeneration = -1;
     private List<DisplayRule> _rulesUiCache = new();
     private string _hidePatternInput = "";
+    private string _typeSearch = "";
+    private string _ruleSearch = "";
 
     private static readonly Vector4[] PathPalette =
     [
@@ -316,8 +318,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             {
                 foreach (var e in ctx.Entities)
                 {
+                    if (e.IconComplete) continue;   // faded/claimed encounter (e.g. looted expedition) — never draw
                     var rule = ctx.Resolve?.Invoke(e);
                     if (rule is { Hide: true }) continue;
+                    if (ctx.ImportantOnly && EntityImportanceHelper.IsTrash(
+                            EntityImportanceHelper.Classify(e, ctx.Styles))) continue;
                     var p = Project(e.Grid, ctx.PlayerGrid, center, scale, e.TerrainHeight - frame.PlayerTerrainHeight);
                     if (p.X < -40 || p.Y < -40 || p.X > W + 40 || p.Y > H + 40) continue;
                     var color = rule?.Color ?? EntityColor(e);
@@ -603,24 +608,32 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         if (ctx.SelectedPaths.Count == 0 || ctx.Map.IsVisible) return;
         float W = ctx.WindowWidth, H = ctx.WindowHeight;
         if (ctx.CameraMatrix is not { Length: >= 16 } m) return;
-        var z = 0f;
-        foreach (var e in ctx.Entities)
-            if (e.Category == Poe2Live.EntityCategory.Player) { z = e.World.Z; break; }
 
-        var labelAnchors = new List<(NumVec2 anchor, int slot, string text)>();
+        // Anchor labels at each route's START (the point nearest the player) so every label sits in one
+        // cluster around you — you always see where each colored line is heading. Fall back to the
+        // player's own screen position for an empty route.
+        var z = 0f;
+        var playerScreen = new NumVec2(W * 0.5f, H * 0.5f);
+        foreach (var e in ctx.Entities)
+            if (e.Category == Poe2Live.EntityCategory.Player)
+            {
+                z = e.World.Z;
+                var pwx = e.Grid.X * GridConstants.GridToWorld;
+                var pwy = e.Grid.Y * GridConstants.GridToWorld;
+                var pcw = pwx * m[3] + pwy * m[7] + z * m[11] + m[15];
+                if (pcw > 0.0001f)
+                {
+                    var pcx = pwx * m[0] + pwy * m[4] + z * m[8] + m[12];
+                    var pcy = pwx * m[1] + pwy * m[5] + z * m[9] + m[13];
+                    playerScreen = new NumVec2((pcx / pcw / 2f + 0.5f) * W, (0.5f - pcy / pcw / 2f) * H);
+                }
+                break;
+            }
+
+        // Build label rows sorted by color slot so the stack order is stable and matches the legend.
+        var labels = new List<(int slot, string text)>();
         foreach (var path in ctx.SelectedPaths)
         {
-            if (path.Points.Count == 0) continue;
-            var end = path.Points[path.Points.Count - 1];
-            var wx = end.x * GridConstants.GridToWorld;
-            var wy = end.y * GridConstants.GridToWorld;
-            var cw = wx * m[3] + wy * m[7] + z * m[11] + m[15];
-            if (cw <= 0.0001f) continue;
-            var cx = wx * m[0] + wy * m[4] + z * m[8] + m[12];
-            var cy = wx * m[1] + wy * m[5] + z * m[9] + m[13];
-            var sx = (cx / cw / 2f + 0.5f) * W;
-            var sy = (0.5f - cy / cw / 2f) * H;
-            if (!float.IsFinite(sx) || !float.IsFinite(sy)) continue;
             var label = string.IsNullOrWhiteSpace(path.Label) ? path.TargetId : path.Label;
             label += path.Status switch
             {
@@ -628,20 +641,27 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 NavTargetStatus.NoPath => " (no path)",
                 _ => "",
             };
-            labelAnchors.Add((new NumVec2(sx, sy), path.ColorSlot, $"{path.ColorSlot + 1}. {label}"));
+            labels.Add((path.ColorSlot, $"{path.ColorSlot + 1}. {label}"));
         }
+        if (labels.Count == 0) return;
+        labels.Sort((a, b) => a.slot.CompareTo(b.slot));
 
-        foreach (var (anchor, slot, text) in labelAnchors)
+        // Stack the rows vertically from the cluster anchor so they never mask each other, clamped on-screen.
+        const float textH = 18f;
+        var stackH = labels.Count * textH;
+        var startTop = Math.Clamp(playerScreen.Y - stackH * 0.5f, 4f, Math.Max(4f, H - stackH - 4f));
+
+        for (var i = 0; i < labels.Count; i++)
         {
-            var textW = Math.Min(text.Length * 7.2f + 12f, 220f);
-            var textH = 18f;
-            var left = Math.Clamp(anchor.X + 10f, 4f, W - textW - 4f);
-            var top = Math.Clamp(anchor.Y - 9f, 4f, H - textH - 4f);
-            dl.AddRectFilled(new NumVec2(left, top), new NumVec2(left + textW, top + textH), ColorU32(13, 13, 13, 0.78f));
-            dl.AddRect(new NumVec2(left, top), new NumVec2(left + textW, top + textH), ColorU32(56, 56, 56, 0.22f), 0, 0, 1f);
-            var swatchY = top + (textH - 7f) * 0.5f;
+            var (slot, text) = labels[i];
+            var textW = Math.Min(text.Length * 7.2f + 12f, 240f);
+            var left = Math.Clamp(playerScreen.X + 14f, 4f, W - textW - 4f);
+            var top = startTop + i * textH;
+            dl.AddRectFilled(new NumVec2(left, top), new NumVec2(left + textW, top + textH - 2f), ColorU32(13, 13, 13, 0.82f));
+            dl.AddRect(new NumVec2(left, top), new NumVec2(left + textW, top + textH - 2f), ColorU32(56, 56, 56, 0.22f), 0, 0, 1f);
+            var swatchY = top + (textH - 2f - 7f) * 0.5f;
             dl.AddRectFilled(new NumVec2(left + 4f, swatchY), new NumVec2(left + 11f, swatchY + 7f), PathColor(slot));
-            dl.AddText(new NumVec2(left + 15f, top + 2f), PathColor(slot), text);
+            dl.AddText(new NumVec2(left + 15f, top + 1f), PathColor(slot), text);
         }
     }
 
@@ -754,7 +774,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         if (ImGui.BeginTabBar("SettingsTabs"))
         {
             if (ImGui.BeginTabItem("Radar")) { DrawRadarTab(s); ImGui.EndTabItem(); }
-            if (ImGui.BeginTabItem("Entities")) { DrawEntitiesTab(s); ImGui.EndTabItem(); }
+            if (ImGui.BeginTabItem("Entities")) { DrawEntitiesTab(s, ctx); ImGui.EndTabItem(); }
             if (ImGui.BeginTabItem("HP Bars")) { DrawHpBarsTab(s); ImGui.EndTabItem(); }
             if (ImGui.BeginTabItem("Flask")) { DrawFlaskTab(s); ImGui.EndTabItem(); }
             if (ImGui.BeginTabItem("Atlas")) { DrawAtlasTab(s); ImGui.EndTabItem(); }
@@ -764,7 +784,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         ImGui.End();
     }
 
-    private void DrawEntitiesTab(RadarSettings s)
+    private void DrawEntitiesTab(RadarSettings s, RenderContext? ctx)
     {
         if (ImGui.CollapsingHeader("Detection & Auto-path", ImGuiTreeNodeFlags.DefaultOpen))
         {
@@ -781,7 +801,13 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 if (ap) s.ShowPath = true;
             }
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
-                ImGui.SetTooltip("Continuously draw paths to the nearest navigation targets (game POIs, transitions/landmarks, unique monsters, plus any entity type whose rule has 'Nav' enabled below). Replaces cycling with F6/F7; manual picks are preserved.");
+                ImGui.SetTooltip("Continuously draw paths to the nearest navigation targets — endgame mechanics, rares, uniques, POIs by default. Toggle groups/types below.");
+
+            bool showAll = !s.ImportantOnly;
+            if (ImGui.Checkbox("Show everything (include trash)", ref showAll))
+                s.ImportantOnly = !showAll;
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                ImGui.SetTooltip("Reveal normal/magic grey monsters and other clutter on the radar map.");
         }
 
         if (_displayRules is null)
@@ -790,7 +816,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             return;
         }
 
-        if (ImGui.CollapsingHeader("Display rules", ImGuiTreeNodeFlags.DefaultOpen))
+        DrawTypesInZone(ctx, s);
+
+        if (ImGui.CollapsingHeader("Category & mechanic defaults"))
         {
             var gen = _displayRules.Generation;
             if (gen != _rulesUiGeneration)
@@ -799,12 +827,21 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 _rulesUiCache = _displayRules.All.ToList();
             }
 
-            ImGui.TextDisabled("Advanced matchers / reorder: web dashboard (F12) or display_rules.json");
+            ImGui.TextDisabled("Broad defaults (all POIs, all rares, mechanics…). Per-type toggles live in Types in this zone above.");
+            ImGui.SetNextItemWidth(-1f);
+            ImGui.InputTextWithHint("##rulesearch", "search rules by name…", ref _ruleSearch, 128);
+
+            // Column legend so the compact checkboxes are legible (On = enabled, H = hide, Nav = auto-path).
+            ImGui.TextDisabled("On  H  Nav   Color  Alpha   Size   Name");
             ImGui.BeginChild("EntityRulesList", new NumVec2(0, 220));
 
+            var filter = _ruleSearch.Trim();
             for (var i = 0; i < _rulesUiCache.Count; i++)
             {
                 var rule = _rulesUiCache[i];
+                if (IsPerTypeEntityRule(rule)) continue; // managed in Types in this zone
+                if (filter.Length > 0 && rule.Name.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0)
+                    continue;
                 ImGui.PushID(i);
 
                 // Controls first at fixed positions so long rule names (placed last) can overflow
@@ -900,6 +937,269 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     _hidden.Remove(p);
             }
         }
+    }
+
+    /// <summary>Primary entity manager: every distinct type currently around you, grouped by importance.
+    /// Show/Nav toggles write per-type display rules (one rule per metadata token) that beat broad
+    /// category defaults — same rules drive minimap, large map dots, and auto-path.</summary>
+    private void DrawTypesInZone(RenderContext? ctx, RadarSettings s)
+    {
+        if (!ImGui.CollapsingHeader("Types in this zone", ImGuiTreeNodeFlags.DefaultOpen)) return;
+
+        if (ctx is null || ctx.Entities.Count == 0)
+        {
+            ImGui.TextDisabled("No entities in range (enter a zone / move closer).");
+            return;
+        }
+        var entities = ctx.Entities;
+
+        ImGui.TextDisabled("Show = minimap + map dot · Nav = auto-path. One display rule per type below.");
+        ImGui.SetNextItemWidth(-1f);
+        ImGui.InputTextWithHint("##typesearch", "search types…", ref _typeSearch, 128);
+
+        // tier → token → (label, count, sample)
+        var byTier = new Dictionary<EntityImportance, Dictionary<string, (string label, int count, Poe2Live.EntityDot sample)>>();
+        foreach (var e in entities)
+        {
+            var tier = EntityImportanceHelper.Classify(e, ctx.Styles);
+            if (s.ImportantOnly && EntityImportanceHelper.IsTrash(tier)) continue;
+
+            var token = TypeToken(e.Metadata);
+            if (token.Length == 0) continue;
+
+            if (!byTier.TryGetValue(tier, out var bucket))
+                byTier[tier] = bucket = new Dictionary<string, (string, int, Poe2Live.EntityDot)>(StringComparer.Ordinal);
+
+            if (bucket.TryGetValue(token, out var g))
+                bucket[token] = (g.label, g.count + 1, g.sample);
+            else
+                bucket[token] = (FriendlyType(e.Metadata), 1, e);
+        }
+
+        var filter = _typeSearch.Trim();
+        ImGui.BeginChild("TypesInZone", new NumVec2(0, 280));
+
+        foreach (var tier in EntityImportanceHelper.DisplayOrder)
+        {
+            if (s.ImportantOnly && EntityImportanceHelper.IsTrash(tier)) continue;
+            if (!byTier.TryGetValue(tier, out var bucket) || bucket.Count == 0) continue;
+
+            var rows = bucket
+                .Where(kv => filter.Length == 0
+                             || kv.Value.label.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0
+                             || kv.Key.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0)
+                .OrderByDescending(kv => kv.Value.count)
+                .ThenBy(kv => kv.Value.label, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (rows.Count == 0) continue;
+
+            var tierCount = bucket.Values.Sum(v => v.count);
+            ImGui.PushID((int)tier);
+
+            if (ImGui.CollapsingHeader($"{EntityImportanceHelper.TierLabel(tier)} ({tierCount})", ImGuiTreeNodeFlags.DefaultOpen))
+            {
+                DrawTierGroupToggles(tier);
+
+                ImGui.TextDisabled("Show  Nav   Count  Type");
+                foreach (var (token, info) in rows)
+                    DrawTypeRow(ctx, token, info.label, info.count, info.sample);
+
+                ImGui.Spacing();
+            }
+
+            ImGui.PopID();
+        }
+
+        ImGui.EndChild();
+    }
+
+    private void DrawTierGroupToggles(EntityImportance tier)
+    {
+        var names = EntityImportanceHelper.RuleNamesForTier(tier);
+        if (names.Length == 0) return;
+
+        var (shown, nav) = GetGroupRuleState(names);
+        bool show = shown;
+        if (ImGui.Checkbox("Show##grp", ref show) && show != shown)
+            ApplyToRulesByNames(names, hide: !show, navigable: nav);
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Show/hide entire tier via category default rules");
+
+        ImGui.SameLine();
+        bool navOn = nav;
+        if (ImGui.Checkbox("Nav##grp", ref navOn) && navOn != nav)
+            ApplyToRulesByNames(names, hide: !shown, navigable: navOn);
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Auto-path to this tier via category default rules");
+
+        ImGui.SameLine();
+        ImGui.TextDisabled("tier defaults");
+    }
+
+    private void DrawTypeRow(RenderContext ctx, string token, string label, int count, Poe2Live.EntityDot sample)
+    {
+        ImGui.PushID(token);
+        var rule = ctx.Resolve?.Invoke(sample);
+        var rawHide = rule is { Hide: true };
+        var rawNav = rule?.Navigable ?? false;
+        var shownNow = !rawHide;
+        var navNow = !rawHide && rawNav;
+
+        bool show = shownNow;
+        if (ImGui.Checkbox("##show", ref show) && show != shownNow)
+            SetTypeRule(token, label, sample, hide: !show, navigable: rawNav);
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Draw on minimap + large map (creates a per-type display rule)");
+
+        ImGui.SameLine();
+        bool nav = navNow;
+        if (ImGui.Checkbox("##nav", ref nav) && nav != navNow)
+            SetTypeRule(token, label, sample, hide: rawHide, navigable: nav);
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Include in auto-path / F6 (creates a per-type display rule)");
+
+        ImGui.SameLine();
+        ImGui.TextDisabled($"x{count}");
+        ImGui.SameLine();
+        ImGui.TextUnformatted(label);
+        ImGui.PopID();
+    }
+
+    private (bool shown, bool nav) GetGroupRuleState(IReadOnlyList<string> names)
+    {
+        if (_displayRules is null || names.Count == 0) return (true, false);
+
+        var matched = _displayRules.All.Where(r => names.Contains(r.Name, StringComparer.OrdinalIgnoreCase)).ToList();
+        if (matched.Count == 0) return (true, EntityImportanceHelper.IsNavDefault(EntityImportance.Mechanic));
+
+        return (matched.All(r => !r.Hide), matched.All(r => r.Navigable));
+    }
+
+    private void ApplyToRulesByNames(IReadOnlyList<string> names, bool hide, bool navigable)
+    {
+        if (_displayRules is null || names.Count == 0) return;
+
+        var all = _displayRules.All.ToList();
+        var nameSet = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
+        var changed = false;
+        for (var i = 0; i < all.Count; i++)
+        {
+            if (!nameSet.Contains(all[i].Name)) continue;
+            all[i].Hide = hide;
+            all[i].Navigable = navigable;
+            changed = true;
+        }
+        if (changed) _displayRules.Replace(all);
+    }
+
+    /// <summary>Create or update a per-type display rule (matched by metadata token). Inserted just after
+    /// the state-hide rules so it beats broad category defaults (POI, Monster · Rare, …) for this type only.</summary>
+    private void SetTypeRule(string token, string label, Poe2Live.EntityDot sample, bool hide, bool navigable)
+    {
+        if (_displayRules is null) return;
+
+        var all = _displayRules.All.ToList();
+        var idx = all.FindIndex(r =>
+            r.Match is { Count: 1 } && string.Equals(r.Match[0], token, StringComparison.OrdinalIgnoreCase)
+            && r.Categories.Count == 0 && !IsStateHideRule(r));
+
+        var baseRule = _ctx?.Resolve?.Invoke(sample);
+        DisplayRule rule;
+        if (idx >= 0)
+            rule = CloneDisplayRule(all[idx]);
+        else
+        {
+            rule = baseRule != null ? CloneDisplayRule(baseRule) : new DisplayRule();
+            rule.Name = label;
+            rule.Enabled = true;
+            rule.Categories = new();
+            rule.Match = new() { token };
+            rule.Rarity = null;
+            rule.Reaction = null;
+            rule.Life = null;
+            rule.Chest = null;
+            rule.Poi = null;
+            rule.Encounter = null;
+        }
+        rule.Hide = hide;
+        rule.Navigable = navigable;
+        if (rule.Name.StartsWith("Type override:", StringComparison.Ordinal))
+            rule.Name = label;
+
+        var insertAt = AfterStateHidesIndex(all);
+        if (idx >= 0)
+        {
+            _displayRules.Update(idx, rule);
+            if (idx != insertAt) _displayRules.Move(idx, insertAt);
+        }
+        else
+        {
+            _displayRules.Add(rule);
+            _displayRules.Move(_displayRules.Count - 1, insertAt);
+        }
+    }
+
+    private static bool IsStateHideRule(DisplayRule r)
+        => r.Hide && (r.Life == "Dead" || r.Chest == "Opened" || r.Encounter == "Complete");
+
+    private static int AfterStateHidesIndex(List<DisplayRule> all)
+    {
+        var i = 0;
+        while (i < all.Count && IsStateHideRule(all[i])) i++;
+        return i;
+    }
+
+    /// <summary>Per-type rules created from Types-in-zone toggles — shown there, not duplicated in defaults list.</summary>
+    private static bool IsPerTypeEntityRule(DisplayRule r)
+    {
+        if (IsStateHideRule(r)) return false;
+        if (r.Categories.Count > 0) return false;
+        if (r.Match is not { Count: 1 }) return false;
+        if (r.Name.StartsWith("Type override:", StringComparison.Ordinal)) return true;
+
+        var knownDefaults = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Point of Interest", "Transition", "Player", "NPC",
+            "Monster · Unique", "Monster · Rare", "Monster · Magic", "Monster · Normal",
+            "Chest · Unique", "Chest · Rare",
+        };
+        foreach (var m in EntityImportanceHelper.MechanicRuleNames)
+            knownDefaults.Add(m);
+        return !knownDefaults.Contains(r.Name);
+    }
+
+    /// <summary>Stable per-type match token: the last '/'-segment of the metadata with a trailing
+    /// "_NN"/digit run stripped (e.g. ".../Monsters/Waypoint_03" → "Waypoint"). Always a substring of
+    /// the metadata, so it works directly as a display-rule match term.</summary>
+    private static string TypeToken(string metadata)
+    {
+        if (string.IsNullOrEmpty(metadata)) return "";
+        var slash = metadata.LastIndexOf('/');
+        var seg = slash >= 0 ? metadata[(slash + 1)..] : metadata;
+        var end = seg.Length;
+        while (end > 0 && char.IsDigit(seg[end - 1])) end--;
+        if (end > 0 && seg[end - 1] == '_') end--;
+        return end > 0 ? seg[..end] : seg;
+    }
+
+    /// <summary>Human-friendly type label: a curated entity name when known, else the type token with
+    /// spaces inserted before interior capitals (e.g. "WaypointLong" → "Waypoint Long").</summary>
+    private static string FriendlyType(string metadata)
+    {
+        if (EntityNameResolver.Shared.Resolve(metadata) is { Length: > 0 } resolved) return resolved;
+        var seg = TypeToken(metadata);
+        if (seg.Length == 0) return "(entity)";
+        var sb = new System.Text.StringBuilder(seg.Length + 8);
+        for (var i = 0; i < seg.Length; i++)
+        {
+            var ch = seg[i];
+            if (i > 0)
+            {
+                var prev = seg[i - 1];
+                var boundary = (char.IsUpper(ch) && (char.IsLower(prev) || char.IsDigit(prev)))
+                               || (char.IsDigit(ch) && char.IsLetter(prev) && !char.IsDigit(prev));
+                if (boundary && sb.Length > 0 && sb[^1] != ' ') sb.Append(' ');
+            }
+            sb.Append(ch);
+        }
+        var label = sb.ToString().Trim();
+        return label.Length == 0 ? "(entity)" : label;
     }
 
     private void DrawRadarTab(RadarSettings s)

@@ -85,7 +85,10 @@ public sealed class RadarApp : IDisposable
     // so bars track moving monsters smoothly without re-enumerating/re-resolving thousands of entities.
     private readonly record struct HpBarSpec(nint Entity, float Width, uint Fill, float BorderWidth, uint Border);
     private readonly List<HpBarSpec> _hpSpecs = new();
-    private readonly List<HpBarTarget> _hpFrame = new();
+    // Published into the RenderContext and enumerated on the ImGui render thread, so it must never be
+    // mutated in place — each frame we swap in a FRESH list (volatile publish) to avoid a cross-thread
+    // "collection modified" crash in DrawNameplates.
+    private volatile IReadOnlyList<HpBarTarget> _hpFrame = Array.Empty<HpBarTarget>();
     private IReadOnlyList<Poe2Live.Landmark> _landmarks = Array.Empty<Poe2Live.Landmark>();
     private Poe2Live.TerrainData? _terrain;
     private uint _areaHash;
@@ -259,6 +262,36 @@ public sealed class RadarApp : IDisposable
             if (changed) _displayRules.Replace(rules);
             _settings.AutoNavPatterns = new(); _settings.Save();
             Console.WriteLine("Migrated auto-path patterns onto display rules' Auto-path flag.");
+        }
+        // One-time: nav qualification is now rule-driven (rule.Navigable), not a hardcoded POI/unique
+        // clause. Flip Navigable=true on the default POI/Transition/Unique rules of an existing config so
+        // the prior "POIs/transitions/uniques auto-path" behavior is preserved. Name-based (a renamed
+        // rule is skipped — acceptable; the user can re-check Nav). Guarded so we never re-stomp edits.
+        if (!_settings.NavRuleModelMigrated)
+        {
+            var navDefaults = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                { "Point of Interest", "Transition", "Monster · Unique" };
+            var rules = _displayRules.All.ToList();
+            var changed = false;
+            foreach (var r in rules)
+                if (!r.Navigable && navDefaults.Contains(r.Name)) { r.Navigable = true; changed = true; }
+            if (changed) _displayRules.Replace(rules);
+            _settings.NavRuleModelMigrated = true; _settings.Save();
+            if (changed) Console.WriteLine("Migrated default POI/Transition/Unique rules to Navigable (rule-driven nav).");
+        }
+        if (!_settings.EndgameNavMigrated)
+        {
+            var endgameNav = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "Monster · Rare", "Expedition", "Ritual", "Breach", "Strongbox", "Essence", "Shrine",
+            };
+            var rules = _displayRules.All.ToList();
+            var changed = false;
+            foreach (var r in rules)
+                if (!r.Navigable && endgameNav.Contains(r.Name)) { r.Navigable = true; changed = true; }
+            if (changed) _displayRules.Replace(rules);
+            _settings.EndgameNavMigrated = true; _settings.Save();
+            if (changed) Console.WriteLine("Migrated mechanic + rare monster rules to Navigable (endgame defaults).");
         }
         _displayRulesGen = _displayRules.Generation;
         // User-editable overlay on the baked curated landmark table (the "Landmarks" tab). Inject its
@@ -490,20 +523,21 @@ public sealed class RadarApp : IDisposable
             // so the bars track moving monsters smoothly. Cheap — two tiny reads per bar via cached
             // component addresses; only the ~dozens of bar mobs, never the full entity map.
             var hpBarsStart = Stopwatch.GetTimestamp();
-            _hpFrame.Clear();
+            var hpFrame = new List<HpBarTarget>(_hpSpecs.Count);
             foreach (var spec in _hpSpecs)
             {
                 if (!_live.TryLiveBar(spec.Entity, out var w, out var cur, out var max, out var esCur, out var esMax) || max <= 0 || cur <= 0) continue;
                 var esFrac = esMax > 0 && esCur > 0 ? Math.Clamp((float)esCur / esMax, 0f, 1f) : 0f;
-                _hpFrame.Add(new HpBarTarget(w, Math.Clamp((float)cur / max, 0f, 1f), esFrac, spec.Width, spec.Fill, spec.BorderWidth, spec.Border));
+                hpFrame.Add(new HpBarTarget(w, Math.Clamp((float)cur / max, 0f, 1f), esFrac, spec.Width, spec.Fill, spec.BorderWidth, spec.Border));
             }
+            _hpFrame = hpFrame; // publish the fresh list (never mutate the previously-published one)
             hpBarsMs = ElapsedMs(hpBarsStart);
         }
         else
         {
             _selectedPaths = new List<SelectedPath>();
             _atlasOpen = false;
-            if (_hpFrame.Count > 0) _hpFrame.Clear();
+            if (_hpFrame.Count > 0) _hpFrame = Array.Empty<HpBarTarget>();
             if (_hpSpecs.Count > 0) _hpSpecs.Clear();
         }
 
@@ -543,6 +577,7 @@ public sealed class RadarApp : IDisposable
             CharLevel: _charLevel,
             CameraMatrix: _cameraMatrix,
             HideJunk: _settings.HideJunk,
+            ImportantOnly: _settings.ImportantOnly,
             ShowPath: _settings.ShowPath,
             UseCuratedLandmarks: _settings.UseCuratedLandmarks,
             ShowMonsters: _settings.ShowMonsters,
@@ -867,10 +902,11 @@ public sealed class RadarApp : IDisposable
 
     /// <summary>
     /// Build the unified navigation-target list for this world tick: every tile landmark first, then
-    /// qualifying entity POIs nearest-first. An entity qualifies (is selectable) when it's alive AND
-    /// (game-flagged POI, OR a unique monster, OR its display rule has the Auto-path flag). Each target
-    /// carries <see cref="NavTarget.AutoPath"/> — true when its display rule opts into auto-pathing —
-    /// which drives the zone-entry auto-selection (replacing the old AutoNavPatterns list). Deduped by id.
+    /// qualifying entity targets nearest-first. Nav qualification is RULE-DRIVEN — the single source of
+    /// truth — so what auto-paths is exactly what the display rules say: an entity qualifies iff its
+    /// resolved rule is matched, not <see cref="DisplayRule.Hide"/>, and has <see cref="DisplayRule.Navigable"/>.
+    /// (No hardcoded POI/unique clauses — those bypassed the rules and made waypoints un-excludable.)
+    /// Each target carries <see cref="NavTarget.AutoPath"/> mirroring that flag. Deduped by id.
     /// </summary>
     private List<NavTarget> BuildNavTargets(NumVec2 player)
     {
@@ -886,20 +922,19 @@ public sealed class RadarApp : IDisposable
             targets.Add(new NavTarget(id, LandmarkLabel(lm), lm.Center, lm.Path, IsEntity: false, AutoPath: autoPath));
         }
 
-        // (b) Entity POIs — id "e:<entityId>", nearest-first. Selectable if POI/unique/Auto-path rule;
-        // AutoPath true only when the matched rule's Auto-path flag is set.
+        // (b) Entity targets — id "e:<entityId>", nearest-first. An entity qualifies only when its
+        // resolved display rule says so (visible + navigable); this is what lets the Entities-tab
+        // Nav/Hide toggles (and the web dashboard) actually include/exclude a type from auto-path.
         var pois = _entities
             .Where(e => e.IsAlive && !e.IconComplete)
-            .Select(e => (e, nav: _displayRules.Resolve(e)?.Navigable ?? false))
-            .Where(x => x.e.Poi
-                        || (x.e.Category == Poe2Live.EntityCategory.Monster && x.e.Rarity == Poe2Live.Rarity.Unique)
-                        || x.nav)
+            .Select(e => (e, rule: _displayRules.Resolve(e)))
+            .Where(x => x.rule is { Hide: false, Navigable: true })
             .OrderBy(x => NumVec2.DistanceSquared(x.e.Grid, player));
-        foreach (var (e, nav) in pois)
+        foreach (var (e, _) in pois)
         {
             var id = "e:" + e.Id;
             if (!seen.Add(id)) continue;
-            targets.Add(new NavTarget(id, EntityLabel(e.Metadata), e.Grid, e.Metadata, IsEntity: true, AutoPath: nav));
+            targets.Add(new NavTarget(id, EntityLabel(e.Metadata), e.Grid, e.Metadata, IsEntity: true, AutoPath: true));
         }
 
         return targets;

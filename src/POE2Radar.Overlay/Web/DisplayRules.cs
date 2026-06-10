@@ -199,20 +199,21 @@ public sealed class DisplayRules
         foreach (var m in st.Mechanics ?? new())
             rules.Add(new DisplayRule
             {
-                Name = m.Name, Enabled = m.Enabled,
+                Name = m.Name, Enabled = m.Enabled, Navigable = true,
                 Categories = new(m.Categories ?? new()), Match = new(m.Match ?? new()),
                 Shape = m.Shape, Color = m.Color, Opacity = m.Opacity, Size = m.Size, Sprite = m.Sprite?.Clone(),
             });
 
         // 4) Category defaults.
-        void Mon(string rarity, IconStyle s) => rules.Add(new DisplayRule
+        void Mon(string rarity, IconStyle s, bool navigable = false) => rules.Add(new DisplayRule
         {
             Name = $"Monster · {rarity}", Enabled = s.Enabled && showMonsters,
             Categories = new() { "Monster" }, Reaction = "Hostile", Rarity = rarity,
             Shape = s.Shape, Color = s.Color, Opacity = s.Opacity, Size = s.Size, Sprite = s.Sprite?.Clone(),
+            Navigable = navigable,
         });
-        Mon("Unique", st.MonsterUnique);
-        Mon("Rare",   st.MonsterRare);
+        Mon("Unique", st.MonsterUnique, navigable: true);
+        Mon("Rare",   st.MonsterRare, navigable: true);
         Mon("Magic",  st.MonsterMagic);
         Mon("Normal", st.MonsterNormal);
 
@@ -221,17 +222,24 @@ public sealed class DisplayRules
             Name = name, Enabled = s.Enabled, Categories = new() { category }, Rarity = rarity,
             Shape = s.Shape, Color = s.Color, Opacity = s.Opacity, Size = s.Size, Sprite = s.Sprite?.Clone(),
         });
+        void Cat2(string name, string category, string? rarity, IconStyle s, bool navigable) => rules.Add(new DisplayRule
+        {
+            Name = name, Enabled = s.Enabled, Categories = new() { category }, Rarity = rarity,
+            Shape = s.Shape, Color = s.Color, Opacity = s.Opacity, Size = s.Size, Sprite = s.Sprite?.Clone(),
+            Navigable = navigable,
+        });
         Cat("Player",        "Player",     null,     st.Player);
         Cat("NPC",           "Npc",        null,     st.Npc);
         Cat("Chest · Unique", "Chest", "Unique", st.ChestUnique);
         Cat("Chest · Rare",   "Chest", "Rare",   st.ChestRare);
-        Cat("Transition",    "Transition", null,     st.Transition);
+        Cat2("Transition",   "Transition", null,     st.Transition, navigable: true);
 
-        // Object/Other entities the game flags as POIs (waypoints, checkpoints, shrines…).
+        // Object/Other entities the game flags as POIs (waypoints, checkpoints, shrines…). Navigable by
+        // default so they auto-path out of the box; uncheck "Nav" on this rule to exclude them.
         rules.Add(new DisplayRule
         {
             Name = "Point of Interest", Enabled = st.Poi.Enabled,
-            Categories = new() { "Object", "Other" }, Poi = "Yes",
+            Categories = new() { "Object", "Other" }, Poi = "Yes", Navigable = true,
             Shape = st.Poi.Shape, Color = st.Poi.Color, Opacity = st.Poi.Opacity, Size = st.Poi.Size, Sprite = st.Poi.Sprite?.Clone(),
         });
 

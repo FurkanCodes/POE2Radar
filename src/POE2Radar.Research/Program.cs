@@ -440,6 +440,12 @@ static int RunServerDataDiff(ProcessHandle process, MemoryReader reader)
 //   EntityDetailsPtr@0x08, ComponentList StdVector@0x10}}, EntityDetails{name@0x08,
 //   ComponentLookUpPtr@0x28}, ComponentLookUp.StdBucket@0x28 of (NamePtr, Index) →
 //   ComponentList[Index]. Render.CurrentWorldPosition@0xB8; grid = world / (250/23).
+// FOLLOW-UP (ritual/breach "completed" signal): the overlay hides finished encounters via
+// MinimapIcon.CompletedState (Poe2Offsets.MinimapIcon.CompletedState), which only flips for game-POI
+// markers like Expedition. Ritual/Breach do NOT reliably expose completion that way. To discover their
+// done-signal: run `--entity <addr>` on a ritual/breach marker BEFORE and AFTER completing it, diff the
+// component map + a hex window of the relevant component (look for a byte/int flipping 0→1), and record
+// the offset. Until validated live it is NOT wired into the overlay — known limitation.
 static int RunEntityProbe(MemoryReader reader, nint entity)
 {
     const float WorldToGridRatio = 250f / 23f; // ≈ 10.8696 (GameHelper2 TileStructure)

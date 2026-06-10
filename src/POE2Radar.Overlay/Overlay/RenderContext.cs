@@ -106,6 +106,7 @@ public sealed record RenderContext(
     // ── Phase 1 features (all gated by their settings flag below). ──
     // Feature flags mirrored from RadarSettings.
     bool HideJunk,
+    bool ImportantOnly,
     bool ShowPath,
     bool UseCuratedLandmarks,
     // Radar display toggles.
