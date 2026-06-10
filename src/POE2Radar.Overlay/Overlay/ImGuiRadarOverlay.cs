@@ -326,6 +326,12 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (ctx.ShowPath)
                 DrawPathsMap(dl, ctx, frame, center, scale);
 
+            var mapLabels = new List<MapLabelCandidate>();
+            var clipL = frame.Position.X;
+            var clipT = frame.Position.Y;
+            var clipR = frame.Position.X + frame.Width;
+            var clipB = frame.Position.Y + frame.Height;
+
             if (ctx.ShowMonsters)
             {
                 foreach (var e in ctx.Entities)
@@ -342,7 +348,10 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     DrawIconOrShape(dl, p, radius, color, rule?.Opacity ?? 0.95f, rule?.Sprite, rule?.Shape, ctx.GlobalIconScale);
                     var entityLabel = EntityDisplayHelper.FormatEntityLabel(e, rule, ctx.Entities, ctx.AreaCode);
                     if (entityLabel.Length > 0)
-                        dl.AddText(new NumVec2(p.X + 7, p.Y - 7), ColorU32(color, 0.9f), entityLabel);
+                    {
+                        var textColor = ColorU32(color, 0.9f);
+                        mapLabels.Add(new MapLabelCandidate(p, entityLabel, textColor, textColor));
+                    }
                 }
             }
 
@@ -362,8 +371,14 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 if (label.Length > 0
                     && EntityDisplayHelper.ShouldDrawBossLandmarkLabel(
                         lm.Path, label, lm.Center, ctx.Entities, ctx.Resolve, ctx.AreaCode))
-                    dl.AddText(new NumVec2(p.X + 7, p.Y - 7), ColorU32(lmColor, 0.9f), label);
+                {
+                    var textColor = ColorU32(lmColor, 0.9f);
+                    mapLabels.Add(new MapLabelCandidate(p, label, textColor, textColor));
+                }
             }
+
+            if (mapLabels.Count > 0)
+                DrawMapLabelChips(dl, mapLabels, center, clipL, clipT, clipR, clipB);
 
             if (ctx.ShowPlayerBlip)
                 DrawIconOrShape(dl, center, ctx.Styles.Player.Size, ctx.Styles.Player.Color, ctx.Styles.Player.Opacity, ctx.Styles.Player.Sprite, ctx.Styles.Player.Shape, ctx.GlobalIconScale);
@@ -622,6 +637,190 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             tint);
     }
 
+    // ── Map overlay label chips (corner minimap + full-screen overlay map) ──
+
+    private readonly record struct MapLabelCandidate(NumVec2 Pos, string Text, uint TextColor, uint SwatchColor);
+
+    private const float LabelChipRowH = 18f;
+    private const float LabelChipBodyH = LabelChipRowH - 2f;
+    private const float MapLabelPlayerAnchorPx = 90f;
+    private const float MapLabelChipMarginPx = 6f;
+
+    private static float LabelChipWidth(string text) =>
+        Math.Min(text.Length * 7.2f + 21f, 240f);
+
+    private static void GetSoloChipRect(MapLabelCandidate c, out float left, out float top, out float right, out float bottom)
+    {
+        left = c.Pos.X + 7f;
+        top = c.Pos.Y - 7f;
+        right = left + LabelChipWidth(c.Text);
+        bottom = top + LabelChipBodyH;
+    }
+
+    private static bool LayoutRectsOverlap(
+        float l1, float t1, float r1, float b1,
+        float l2, float t2, float r2, float b2,
+        float margin)
+        => l1 - margin < r2 && r1 + margin > l2 && t1 - margin < b2 && b1 + margin > t2;
+
+    private static void DrawLabelChip(ImDrawListPtr dl, float left, float top, string text, uint textColor, uint swatchColor)
+    {
+        var textW = LabelChipWidth(text);
+        var bottom = top + LabelChipBodyH;
+        dl.AddRectFilled(new NumVec2(left, top), new NumVec2(left + textW, bottom), ColorU32(13, 13, 13, 0.82f));
+        dl.AddRect(new NumVec2(left, top), new NumVec2(left + textW, bottom), ColorU32(56, 56, 56, 0.22f), 0, 0, 1f);
+        var swatchY = top + (LabelChipBodyH - 7f) * 0.5f;
+        dl.AddRectFilled(new NumVec2(left + 4f, swatchY), new NumVec2(left + 11f, swatchY + 7f), swatchColor);
+        dl.AddText(new NumVec2(left + 15f, top + 1f), textColor, text);
+    }
+
+    private static void DrawMapLabelChips(
+        ImDrawListPtr dl,
+        List<MapLabelCandidate> candidates,
+        NumVec2 playerCenter,
+        float clipL, float clipT, float clipR, float clipB)
+    {
+        foreach (var cluster in BuildMapLabelClusters(candidates, playerCenter))
+        {
+            if (cluster.Count == 1)
+            {
+                var c = cluster[0];
+                var soloW = LabelChipWidth(c.Text);
+                var soloLeft = Math.Clamp(c.Pos.X + 7f, clipL + 4f, clipR - soloW - 4f);
+                var soloTop = Math.Clamp(c.Pos.Y - 7f, clipT + 4f, clipB - LabelChipRowH - 4f);
+                DrawLabelChip(dl, soloLeft, soloTop, c.Text, c.TextColor, c.SwatchColor);
+                continue;
+            }
+
+            cluster.Sort((a, b) => string.Compare(a.Text, b.Text, StringComparison.Ordinal));
+            var anchor = GetClusterAnchor(cluster, playerCenter);
+            var stackH = cluster.Count * LabelChipRowH;
+            var startTop = Math.Clamp(
+                anchor.Y - stackH * 0.5f,
+                clipT + 4f,
+                Math.Max(clipT + 4f, clipB - stackH - 4f));
+            var maxW = 0f;
+            foreach (var c in cluster)
+                maxW = Math.Max(maxW, LabelChipWidth(c.Text));
+            var left = Math.Clamp(anchor.X + 14f, clipL + 4f, clipR - maxW - 4f);
+
+            for (var i = 0; i < cluster.Count; i++)
+            {
+                var c = cluster[i];
+                DrawLabelChip(dl, left, startTop + i * LabelChipRowH, c.Text, c.TextColor, c.SwatchColor);
+            }
+        }
+    }
+
+    private static NumVec2 GetClusterAnchor(List<MapLabelCandidate> cluster, NumVec2 playerCenter)
+    {
+        float cx = 0f, cy = 0f;
+        foreach (var c in cluster)
+        {
+            cx += c.Pos.X;
+            cy += c.Pos.Y;
+        }
+        cx /= cluster.Count;
+        cy /= cluster.Count;
+        var dpx = cx - playerCenter.X;
+        var dpy = cy - playerCenter.Y;
+        var distToPlayer = MathF.Sqrt(dpx * dpx + dpy * dpy);
+        return distToPlayer < MapLabelPlayerAnchorPx
+            ? playerCenter
+            : new NumVec2(cx, cy);
+    }
+
+    private static (float left, float top, float right, float bottom) GetClusterLayoutRect(
+        List<MapLabelCandidate> cluster, NumVec2 playerCenter)
+    {
+        if (cluster.Count == 1)
+        {
+            GetSoloChipRect(cluster[0], out var left, out var top, out var right, out var bottom);
+            return (left, top, right, bottom);
+        }
+
+        var anchor = GetClusterAnchor(cluster, playerCenter);
+        var stackH = cluster.Count * LabelChipRowH;
+        var maxW = 0f;
+        foreach (var c in cluster)
+            maxW = Math.Max(maxW, LabelChipWidth(c.Text));
+        var stackLeft = anchor.X + 14f;
+        var stackTop = anchor.Y - stackH * 0.5f;
+        return (stackLeft, stackTop, stackLeft + maxW, stackTop + stackH);
+    }
+
+    private static List<List<MapLabelCandidate>> BuildMapLabelClusters(
+        List<MapLabelCandidate> candidates, NumVec2 playerCenter)
+    {
+        var n = candidates.Count;
+        var parent = new int[n];
+        for (var i = 0; i < n; i++) parent[i] = i;
+
+        int Find(int i)
+        {
+            while (parent[i] != i)
+            {
+                parent[i] = parent[parent[i]];
+                i = parent[i];
+            }
+            return i;
+        }
+
+        void Union(int a, int b) => parent[Find(a)] = Find(b);
+
+        // Merge labels whose default solo chips would overlap (long names need rect checks, not icon distance).
+        for (var i = 0; i < n; i++)
+        {
+            GetSoloChipRect(candidates[i], out var l1, out var t1, out var r1, out var b1);
+            for (var j = i + 1; j < n; j++)
+            {
+                GetSoloChipRect(candidates[j], out var l2, out var t2, out var r2, out var b2);
+                if (LayoutRectsOverlap(l1, t1, r1, b1, l2, t2, r2, b2, MapLabelChipMarginPx))
+                    Union(i, j);
+            }
+        }
+
+        var groups = new Dictionary<int, List<MapLabelCandidate>>();
+        for (var i = 0; i < n; i++)
+        {
+            var root = Find(i);
+            if (!groups.TryGetValue(root, out var list))
+            {
+                list = new List<MapLabelCandidate>();
+                groups[root] = list;
+            }
+            list.Add(candidates[i]);
+        }
+
+        var clusters = groups.Values.ToList();
+        return MergeOverlappingClusterLayouts(clusters, playerCenter);
+    }
+
+    private static List<List<MapLabelCandidate>> MergeOverlappingClusterLayouts(
+        List<List<MapLabelCandidate>> clusters, NumVec2 playerCenter)
+    {
+        var changed = true;
+        while (changed)
+        {
+            changed = false;
+            for (var i = 0; i < clusters.Count && !changed; i++)
+            {
+                var (l1, t1, r1, b1) = GetClusterLayoutRect(clusters[i], playerCenter);
+                for (var j = i + 1; j < clusters.Count; j++)
+                {
+                    var (l2, t2, r2, b2) = GetClusterLayoutRect(clusters[j], playerCenter);
+                    if (!LayoutRectsOverlap(l1, t1, r1, b1, l2, t2, r2, b2, MapLabelChipMarginPx))
+                        continue;
+                    clusters[i].AddRange(clusters[j]);
+                    clusters.RemoveAt(j);
+                    changed = true;
+                    break;
+                }
+            }
+        }
+        return clusters;
+    }
+
     // ── Path endpoint labels ──
 
     private static void DrawPathLabels(ImDrawListPtr dl, RenderContext ctx)
@@ -672,17 +871,15 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         var stackH = labels.Count * textH;
         var startTop = Math.Clamp(playerScreen.Y - stackH * 0.5f, 4f, Math.Max(4f, H - stackH - 4f));
 
+        var maxW = 0f;
+        foreach (var (_, text) in labels)
+            maxW = Math.Max(maxW, LabelChipWidth(text));
+        var left = Math.Clamp(playerScreen.X + 14f, 4f, W - maxW - 4f);
+
         for (var i = 0; i < labels.Count; i++)
         {
             var (slot, text) = labels[i];
-            var textW = Math.Min(text.Length * 7.2f + 12f, 240f);
-            var left = Math.Clamp(playerScreen.X + 14f, 4f, W - textW - 4f);
-            var top = startTop + i * textH;
-            dl.AddRectFilled(new NumVec2(left, top), new NumVec2(left + textW, top + textH - 2f), ColorU32(13, 13, 13, 0.82f));
-            dl.AddRect(new NumVec2(left, top), new NumVec2(left + textW, top + textH - 2f), ColorU32(56, 56, 56, 0.22f), 0, 0, 1f);
-            var swatchY = top + (textH - 2f - 7f) * 0.5f;
-            dl.AddRectFilled(new NumVec2(left + 4f, swatchY), new NumVec2(left + 11f, swatchY + 7f), PathColor(slot));
-            dl.AddText(new NumVec2(left + 15f, top + 1f), PathColor(slot), text);
+            DrawLabelChip(dl, left, startTop + i * textH, text, PathColor(slot), PathColor(slot));
         }
     }
 
