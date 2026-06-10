@@ -3,12 +3,13 @@ namespace POE2Radar.Overlay.Config;
 /// <summary>Display names for Win32 virtual-key codes used in settings hotkey binds.</summary>
 public static class VirtualKeyHelper
 {
-    public static string Name(int vk)
+    public static string Name(int vk, bool requireShift = false)
     {
         if (vk <= 0) return "(none)";
-        if (vk is >= 0x30 and <= 0x39) return ((char)vk).ToString();
-        if (vk is >= 0x41 and <= 0x5A) return ((char)vk).ToString();
-        return VkNames.TryGetValue(vk, out var n) ? n : $"0x{vk:X}";
+        var name = vk is >= 0x30 and <= 0x39 ? ((char)vk).ToString()
+            : vk is >= 0x41 and <= 0x5A ? ((char)vk).ToString()
+            : VkNames.TryGetValue(vk, out var n) ? n : $"0x{vk:X}";
+        return requireShift ? $"Shift+{name}" : name;
     }
 
     private static readonly Dictionary<int, string> VkNames = new()

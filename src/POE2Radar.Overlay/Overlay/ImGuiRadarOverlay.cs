@@ -45,6 +45,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private string _ruleSearch = "";
     private int _spritePickerRuleIndex = -1;
     private bool _bindingHideHotkey;
+    private bool _bindingTrackHotkey;
 
     private static readonly Vector4[] PathPalette =
     [
@@ -111,6 +112,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     public void RequestClose() => _closeRequested = true;
 
     public void ToggleSettings() => _settingsOpen = !_settingsOpen;
+
+    public bool IsSettingsOpen => _settingsOpen;
 
     protected override void Render()
     {
@@ -951,6 +954,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
 
         DrawHideEntityHotkeyRow(s);
+        DrawTrackEntityHotkeyRow(s);
 
         if (_hidden is null) return;
 
@@ -1391,13 +1395,48 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
                 ImGui.SetTooltip("Disable hide-under-cursor hotkey");
 
-            ImGui.TextWrapped("Hover a map icon and press the hotkey to hide that entity type globally (same as adding a pattern below).");
+            ImGui.TextWrapped("Hover an entity (map, minimap, or 3D view) and press the hotkey to hide that type globally.");
+        }
+    }
+
+    private void DrawTrackEntityHotkeyRow(RadarSettings s)
+    {
+        if (ImGui.CollapsingHeader("Track under cursor", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            ImGui.TextUnformatted("Hotkey:");
+            ImGui.SameLine();
+            if (_bindingTrackHotkey)
+                ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Press a key…");
+            else
+                ImGui.TextUnformatted(VirtualKeyHelper.Name(s.TrackEntityHotkey, s.TrackEntityHotkeyShift));
+            ImGui.SameLine();
+            if (ImGui.Button(_bindingTrackHotkey ? "…" : "Bind"))
+                _bindingTrackHotkey = true;
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                ImGui.SetTooltip("Bind hotkey: hover an entity and press to toggle path/track.");
+            ImGui.SameLine();
+            if (ImGui.Button("Clear") && s.TrackEntityHotkey > 0)
+            {
+                s.TrackEntityHotkey = 0;
+                _bindingTrackHotkey = false;
+                SaveSettings();
+            }
+
+            bool reqShift = s.TrackEntityHotkeyShift;
+            if (ImGui.Checkbox("Require Shift", ref reqShift))
+                s.TrackEntityHotkeyShift = reqShift;
+
+            bool dblClick = s.TrackEntityDoubleClick;
+            if (ImGui.Checkbox("Double-click LMB to track", ref dblClick))
+                s.TrackEntityDoubleClick = dblClick;
+
+            ImGui.TextWrapped("Toggle nav/path for the entity under the cursor (map, minimap, or 3D world). Enables Show path when adding.");
         }
     }
 
     private void PollHotkeyCapture(RadarSettings s)
     {
-        if (!_bindingHideHotkey) return;
+        if (!_bindingHideHotkey && !_bindingTrackHotkey) return;
 
         for (var vk = 0x08; vk <= 0xFE; vk++)
         {
@@ -1405,8 +1444,17 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (vk is >= 0x01 and <= 0x06) continue;
             if ((OverlayNative.GetAsyncKeyState(vk) & 0x8000) == 0) continue;
 
-            s.HideEntityHotkey = vk;
-            _bindingHideHotkey = false;
+            if (_bindingHideHotkey)
+            {
+                s.HideEntityHotkey = vk;
+                _bindingHideHotkey = false;
+            }
+            else
+            {
+                s.TrackEntityHotkey = vk;
+                _bindingTrackHotkey = false;
+            }
+
             SaveSettings();
             return;
         }

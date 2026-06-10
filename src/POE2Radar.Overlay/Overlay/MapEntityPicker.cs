@@ -29,16 +29,37 @@ public static class MapEntityPicker
         if (!showMonsters || entities.Count == 0) return false;
 
         float bestDist = float.MaxValue;
-        Poe2Live.EntityDot? best = null;
+        if (!TryPickDistance(cursorClient, largeMap, miniMap, playerGrid, entities, importantOnly, styles,
+                resolve, globalIconScale, ref bestDist, out var best) || best is not { } hit)
+            return false;
 
-        ScoreFrame(cursorClient, largeMap, playerGrid, entities, importantOnly, styles, resolve, globalIconScale, ref bestDist, ref best);
-
-        if (miniMap.IsMinimap && miniMap.Width > 1f && miniMap.Height > 1f)
-            ScoreFrame(cursorClient, miniMap, playerGrid, entities, importantOnly, styles, resolve, globalIconScale, ref bestDist, ref best);
-
-        if (best is not { } hit) return false;
         picked = hit;
         return true;
+    }
+
+    internal static bool TryPickDistance(
+        NumVec2 cursorClient,
+        MapFrame largeMap,
+        MapFrame miniMap,
+        NumVec2 playerGrid,
+        IReadOnlyList<Poe2Live.EntityDot> entities,
+        bool importantOnly,
+        RadarStyles styles,
+        Func<Poe2Live.EntityDot, DisplayRule?>? resolve,
+        float globalIconScale,
+        ref float bestDist,
+        out Poe2Live.EntityDot? picked)
+    {
+        picked = null;
+
+        ScoreFrame(cursorClient, largeMap, playerGrid, entities, importantOnly, styles, resolve, globalIconScale,
+            ref bestDist, ref picked);
+
+        if (miniMap.IsMinimap && miniMap.Width > 1f && miniMap.Height > 1f)
+            ScoreFrame(cursorClient, miniMap, playerGrid, entities, importantOnly, styles, resolve, globalIconScale,
+                ref bestDist, ref picked);
+
+        return picked is not null;
     }
 
     private static void ScoreFrame(

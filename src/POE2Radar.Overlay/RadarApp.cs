@@ -107,6 +107,10 @@ public sealed class RadarApp : IDisposable
     private DateTime _nextBrowserAt = DateTime.MinValue;
     private DateTime _nextSettingsAt = DateTime.MinValue;
     private DateTime _nextHideKeyAt = DateTime.MinValue;
+    private DateTime _nextTrackKeyAt = DateTime.MinValue;
+    private bool _lmbWasDown;
+    private DateTime _lastLmbClickAt = DateTime.MinValue;
+    private NumVec2 _lastLmbClickPos;
     private MapFrame _lastMapFrame;
     private MapFrame _lastMiniMapFrame;
     private NumVec2 _lastPlayerGrid;
@@ -384,8 +388,8 @@ public sealed class RadarApp : IDisposable
                              SetAtlasHighlight, VersionJson, _settings.ApiPort);
         try { _api.Start(); Console.WriteLine($"API on http://localhost:{_settings.ApiPort} (dashboard at /)"); }
         catch (Exception ex) { Console.Error.WriteLine($"API server disabled: {ex.Message}"); }
-        Console.WriteLine("Hotkeys: F5=hide entity under cursor  F6=add nearest path target  F7=clear path targets  "
-                          + "F8=auto-flask  F9=quit  F12=open dashboard");
+        Console.WriteLine("Hotkeys: F5=hide under cursor  Shift+F1=track under cursor  double-click=track  "
+                          + "F6=add nearest path  F7=clear paths  F8=auto-flask  F9=quit  F12=dashboard");
         // Best-effort version check against GitHub (non-blocking; never fails startup).
         _ = Task.Run(async () =>
         {
@@ -476,6 +480,7 @@ public sealed class RadarApp : IDisposable
         while (_commandQueue.TryDequeue(out var action)) action();
 
         HandleHotkeys();
+        PollDoubleClickTrack();
 
         var windowWidth = OverlayWidth;
         var windowHeight = OverlayHeight;
@@ -926,6 +931,17 @@ public sealed class RadarApp : IDisposable
             HideEntityUnderCursor();
         }
 
+        if (_settings.TrackEntityHotkey > 0
+            && DateTime.UtcNow >= _nextTrackKeyAt
+            && _gameHwnd != 0 && GetForegroundWindow() == _gameHwnd
+            && _areaInstanceForApi != 0
+            && Down(_settings.TrackEntityHotkey)
+            && (!_settings.TrackEntityHotkeyShift || Down(0x10)))
+        {
+            _nextTrackKeyAt = DateTime.UtcNow.AddMilliseconds(300);
+            TrackEntityUnderCursor();
+        }
+
         // Atlas tile inspector: F10 = dump the tile under the cursor (map/content/biome/flags) as an
         // on-atlas tooltip so you can see what to set as a web-UI filter.
         if (Down(0x79) && DateTime.UtcNow >= _nextInspectAt) // F10
@@ -935,25 +951,36 @@ public sealed class RadarApp : IDisposable
         }
     }
 
-    /// <summary>Hotkey: pick the map icon under the cursor and add its TypeToken to the hidden-metadata cull list.</summary>
-    private void HideEntityUnderCursor()
+    private bool TryGetCursorClient(out NumVec2 cursor, string logPrefix)
     {
         if (!GetCursorPos(out var screenPt))
         {
-            Console.WriteLine("\n[hide] could not read cursor position.");
-            return;
+            Console.WriteLine($"\n[{logPrefix}] could not read cursor position.");
+            cursor = default;
+            return false;
         }
 
         var client = new OverlayNative.POINT { X = screenPt.X, Y = screenPt.Y };
         if (_gameHwnd == 0 || !OverlayNative.ScreenToClient(_gameHwnd, ref client))
         {
-            Console.WriteLine("\n[hide] could not map cursor to game client area.");
-            return;
+            Console.WriteLine($"\n[{logPrefix}] could not map cursor to game client area.");
+            cursor = default;
+            return false;
         }
 
-        var cursor = new NumVec2(client.X, client.Y);
-        if (!MapEntityPicker.TryPick(
+        cursor = new NumVec2(client.X, client.Y);
+        return true;
+    }
+
+    private bool TryPickEntityUnderCursor(string failPrefix, out Poe2Live.EntityDot entity)
+    {
+        entity = default;
+        if (!TryGetCursorClient(out var cursor, failPrefix)) return false;
+
+        if (!EntityUnderCursorPicker.TryPick(
                 cursor,
+                OverlayWidth,
+                OverlayHeight,
                 _lastMapFrame,
                 _lastMiniMapFrame,
                 _lastPlayerGrid,
@@ -963,11 +990,49 @@ public sealed class RadarApp : IDisposable
                 _settings.Styles,
                 _resolveEntity,
                 _settings.GlobalIconScale,
-                out var entity))
+                _cameraMatrix,
+                out entity))
         {
-            Console.WriteLine("\n[hide] no entity under cursor.");
-            return;
+            Console.WriteLine($"\n[{failPrefix}] no entity under cursor.");
+            return false;
         }
+
+        return true;
+    }
+
+    private void PollDoubleClickTrack()
+    {
+        if (!_settings.TrackEntityDoubleClick) return;
+        if (_gameHwnd == 0 || GetForegroundWindow() != _gameHwnd || _areaInstanceForApi == 0) return;
+        if (_imguiOverlay?.IsSettingsOpen == true) return;
+
+        var down = Down(0x01);
+        if (down && !_lmbWasDown)
+        {
+            if (TryGetCursorClient(out var pos, "track"))
+            {
+                var now = DateTime.UtcNow;
+                if (now - _lastLmbClickAt <= TimeSpan.FromMilliseconds(400)
+                    && NumVec2.Distance(pos, _lastLmbClickPos) < 12f)
+                {
+                    TrackEntityUnderCursor();
+                    _lastLmbClickAt = DateTime.MinValue;
+                }
+                else
+                {
+                    _lastLmbClickAt = now;
+                    _lastLmbClickPos = pos;
+                }
+            }
+        }
+
+        _lmbWasDown = down;
+    }
+
+    /// <summary>Hotkey: pick the map icon under the cursor and add its TypeToken to the hidden-metadata cull list.</summary>
+    private void HideEntityUnderCursor()
+    {
+        if (!TryPickEntityUnderCursor("hide", out var entity)) return;
 
         var pattern = EntityDisplayHelper.TypeToken(entity.Metadata);
         if (pattern.Length == 0)
@@ -986,6 +1051,26 @@ public sealed class RadarApp : IDisposable
             Console.WriteLine($"\n[hide] Added '{pattern}' ({entity.Metadata})");
         else
             Console.WriteLine($"\n[hide] '{pattern}' already hidden.");
+    }
+
+    /// <summary>Toggle nav/path selection for the entity under the cursor (map, minimap, or 3D world).</summary>
+    private void TrackEntityUnderCursor()
+    {
+        if (!TryPickEntityUnderCursor("track", out var entity)) return;
+
+        var id = "e:" + entity.Id;
+        var label = EntityLabel(entity, _ruleEngine.Resolve(entity, _areaCode, _settings.ImportantOnly));
+        var wasSelected = SnapshotSelection().Contains(id);
+
+        ToggleSelectionCore(id, logSelection: false);
+        RememberTargetSnapshot(id, label, entity.Grid, isEntity: true);
+
+        if (!wasSelected)
+            _settings.ShowPath = true;
+
+        Console.WriteLine(wasSelected
+            ? $"\n[track] Removed '{label}' ({id})"
+            : $"\n[track] Added '{label}' ({id})");
     }
 
     /// <summary>F10: pick the atlas tile under the cursor and advance the route workflow (START → END → reset).
@@ -1357,7 +1442,7 @@ public sealed class RadarApp : IDisposable
     /// removed by the tick-thread reconciliation from _selectedIds), so it is safe to call from the
     /// HTTP thread. Returns the new selection labels for logging.
     /// </summary>
-    private void ToggleSelectionCore(string id)
+    private void ToggleSelectionCore(string id, bool logSelection = true)
     {
         if (string.IsNullOrEmpty(id)) return;
 
@@ -1389,7 +1474,7 @@ public sealed class RadarApp : IDisposable
             labels = _selectedIds.Count == 0 ? "none" : string.Join(", ", _selectedIds.Select(TargetLabel));
         }
 
-        if (changed) Console.WriteLine($"\nPath targets: {labels}");
+        if (changed && logSelection) Console.WriteLine($"\nPath targets: {labels}");
     }
 
     /// <summary>Snapshot the current selection ids (under the lock) into a fresh list — the standard
