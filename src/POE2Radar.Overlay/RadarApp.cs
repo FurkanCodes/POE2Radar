@@ -106,6 +106,10 @@ public sealed class RadarApp : IDisposable
     private DateTime _nextPathKeyAt = DateTime.MinValue;
     private DateTime _nextBrowserAt = DateTime.MinValue;
     private DateTime _nextSettingsAt = DateTime.MinValue;
+    private DateTime _nextHideKeyAt = DateTime.MinValue;
+    private MapFrame _lastMapFrame;
+    private MapFrame _lastMiniMapFrame;
+    private NumVec2 _lastPlayerGrid;
     private float _hpPct = 100f, _manaPct = 100f, _esPct = 100f;
     private string _flaskNote = "";
     private string _areaCode = "", _charName = "";
@@ -380,7 +384,7 @@ public sealed class RadarApp : IDisposable
                              SetAtlasHighlight, VersionJson, _settings.ApiPort);
         try { _api.Start(); Console.WriteLine($"API on http://localhost:{_settings.ApiPort} (dashboard at /)"); }
         catch (Exception ex) { Console.Error.WriteLine($"API server disabled: {ex.Message}"); }
-        Console.WriteLine("Hotkeys: F6=add nearest path target  F7=clear path targets  "
+        Console.WriteLine("Hotkeys: F5=hide entity under cursor  F6=add nearest path target  F7=clear path targets  "
                           + "F8=auto-flask  F9=quit  F12=open dashboard");
         // Best-effort version check against GitHub (non-blocking; never fails startup).
         _ = Task.Run(async () =>
@@ -627,6 +631,9 @@ public sealed class RadarApp : IDisposable
         var atlasProj = AtlasProjection(); // resolution-correct (auto from window height) or manual calib
         var mapFrame = BuildLargeMapFrame(largeMap, windowWidth, windowHeight, playerTerrainHeight);
         var miniMapFrame = BuildMiniMapFrame(miniMap, windowWidth, windowHeight, playerTerrainHeight);
+        _lastMapFrame = mapFrame;
+        _lastMiniMapFrame = miniMapFrame;
+        _lastPlayerGrid = player;
         var ctx = new RenderContext(
             InGame: inGame,
             Active: drawActive,
@@ -909,6 +916,16 @@ public sealed class RadarApp : IDisposable
             }
         }
 
+        if (_settings.HideEntityHotkey > 0
+            && DateTime.UtcNow >= _nextHideKeyAt
+            && _gameHwnd != 0 && GetForegroundWindow() == _gameHwnd
+            && _areaInstanceForApi != 0
+            && Down(_settings.HideEntityHotkey))
+        {
+            _nextHideKeyAt = DateTime.UtcNow.AddMilliseconds(300);
+            HideEntityUnderCursor();
+        }
+
         // Atlas tile inspector: F10 = dump the tile under the cursor (map/content/biome/flags) as an
         // on-atlas tooltip so you can see what to set as a web-UI filter.
         if (Down(0x79) && DateTime.UtcNow >= _nextInspectAt) // F10
@@ -916,6 +933,59 @@ public sealed class RadarApp : IDisposable
             _nextInspectAt = DateTime.UtcNow.AddMilliseconds(250);
             AtlasRoutePick();
         }
+    }
+
+    /// <summary>Hotkey: pick the map icon under the cursor and add its TypeToken to the hidden-metadata cull list.</summary>
+    private void HideEntityUnderCursor()
+    {
+        if (!GetCursorPos(out var screenPt))
+        {
+            Console.WriteLine("\n[hide] could not read cursor position.");
+            return;
+        }
+
+        var client = new OverlayNative.POINT { X = screenPt.X, Y = screenPt.Y };
+        if (_gameHwnd == 0 || !OverlayNative.ScreenToClient(_gameHwnd, ref client))
+        {
+            Console.WriteLine("\n[hide] could not map cursor to game client area.");
+            return;
+        }
+
+        var cursor = new NumVec2(client.X, client.Y);
+        if (!MapEntityPicker.TryPick(
+                cursor,
+                _lastMapFrame,
+                _lastMiniMapFrame,
+                _lastPlayerGrid,
+                _entities,
+                _settings.ShowMonsters,
+                _settings.ImportantOnly,
+                _settings.Styles,
+                _resolveEntity,
+                _settings.GlobalIconScale,
+                out var entity))
+        {
+            Console.WriteLine("\n[hide] no entity under cursor.");
+            return;
+        }
+
+        var pattern = EntityDisplayHelper.TypeToken(entity.Metadata);
+        if (pattern.Length == 0)
+        {
+            var slash = entity.Metadata.LastIndexOf('/');
+            pattern = slash >= 0 ? entity.Metadata[(slash + 1)..] : entity.Metadata;
+        }
+
+        if (string.IsNullOrWhiteSpace(pattern))
+        {
+            Console.WriteLine("\n[hide] entity has no metadata token.");
+            return;
+        }
+
+        if (_hidden.Add(pattern))
+            Console.WriteLine($"\n[hide] Added '{pattern}' ({entity.Metadata})");
+        else
+            Console.WriteLine($"\n[hide] '{pattern}' already hidden.");
     }
 
     /// <summary>F10: pick the atlas tile under the cursor and advance the route workflow (START → END → reset).

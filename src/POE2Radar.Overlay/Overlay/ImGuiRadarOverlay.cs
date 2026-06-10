@@ -4,6 +4,7 @@ using POE2Radar.Core.Game;
 using POE2Radar.Core.Pathfinding;
 using POE2Radar.Overlay.Config;
 using POE2Radar.Overlay.Diagnostics;
+using POE2Radar.Overlay.Native;
 using POE2Radar.Overlay.Web;
 using NumVec2 = System.Numerics.Vector2;
 using GameVec2 = POE2Radar.Core.Game.Vector2;
@@ -43,6 +44,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private string _typeSearch = "";
     private string _ruleSearch = "";
     private int _spritePickerRuleIndex = -1;
+    private bool _bindingHideHotkey;
 
     private static readonly Vector4[] PathPalette =
     [
@@ -790,6 +792,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             ImGui.EndTabBar();
         }
 
+        PollHotkeyCapture(s);
         ImGui.End();
     }
 
@@ -946,6 +949,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             ImGui.EndChild();
             DrawSpritePickerWindow();
         }
+
+        DrawHideEntityHotkeyRow(s);
 
         if (_hidden is null) return;
 
@@ -1359,6 +1364,52 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private void SaveSettings()
     {
         lock (_settingsLock) _settings.Save();
+    }
+
+    private void DrawHideEntityHotkeyRow(RadarSettings s)
+    {
+        if (ImGui.CollapsingHeader("Hide under cursor", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            ImGui.TextUnformatted("Hotkey:");
+            ImGui.SameLine();
+            if (_bindingHideHotkey)
+                ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Press a key…");
+            else
+                ImGui.TextUnformatted(VirtualKeyHelper.Name(s.HideEntityHotkey));
+            ImGui.SameLine();
+            if (ImGui.Button(_bindingHideHotkey ? "…" : "Bind"))
+                _bindingHideHotkey = true;
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                ImGui.SetTooltip("Bind hotkey: hover an entity on the map, press the key to add its type to Hidden by metadata.");
+            ImGui.SameLine();
+            if (ImGui.Button("Clear") && s.HideEntityHotkey > 0)
+            {
+                s.HideEntityHotkey = 0;
+                _bindingHideHotkey = false;
+                SaveSettings();
+            }
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                ImGui.SetTooltip("Disable hide-under-cursor hotkey");
+
+            ImGui.TextWrapped("Hover a map icon and press the hotkey to hide that entity type globally (same as adding a pattern below).");
+        }
+    }
+
+    private void PollHotkeyCapture(RadarSettings s)
+    {
+        if (!_bindingHideHotkey) return;
+
+        for (var vk = 0x08; vk <= 0xFE; vk++)
+        {
+            if (vk is 0x0A or 0x0B) continue;
+            if (vk is >= 0x01 and <= 0x06) continue;
+            if ((OverlayNative.GetAsyncKeyState(vk) & 0x8000) == 0) continue;
+
+            s.HideEntityHotkey = vk;
+            _bindingHideHotkey = false;
+            SaveSettings();
+            return;
+        }
     }
 
     // ── Helpers ──

@@ -150,6 +150,9 @@ public sealed class RadarSettings
     public int LifeKey { get; set; } = 0x31;
     public int ManaKey { get; set; } = 0x32;
 
+    // ── Hide entity under cursor: adds TypeToken to hidden_entities.json (F5 default). ──
+    public int HideEntityHotkey { get; set; } = 0x74;
+
     // ── HTTP API. ──
     public int ApiPort { get; set; } = 7777;
 
