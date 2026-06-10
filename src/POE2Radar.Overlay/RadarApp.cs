@@ -177,7 +177,7 @@ public sealed class RadarApp : IDisposable
         _reader = reader;
         _settings = RadarSettings.Load();
         Console.WriteLine($"Settings: {RadarSettings.FilePath}");
-        Console.WriteLine($"Entity names: {EntityNameResolver.Shared.Count} mappings; zones: {ZoneGuide.Shared.Count}");
+        Console.WriteLine($"Entity names: {EntityNameResolver.Shared.Count} mappings; zones: {ZoneGuide.Shared.Count}; zone bosses: {ZoneBossCatalog.Shared.Count}");
         _live = new Poe2Live(reader, gameStateSlot);
         _atlas = new Poe2Atlas(reader);
         CrashLog.Write("Backend selected", "Starting ImGuiDx backend.");
@@ -1673,7 +1673,12 @@ public sealed class RadarApp : IDisposable
 
     /// <summary>Friendly display label for a tile landmark (curated if enabled + present, else derived).</summary>
     private string LandmarkLabel(Poe2Live.Landmark lm)
-        => _settings.UseCuratedLandmarks && lm.CuratedName is { } c ? c : lm.Name;
+        => EntityDisplayHelper.FormatLandmarkLabel(
+            lm.Path,
+            _settings.UseCuratedLandmarks ? lm.CuratedName : null,
+            lm.Name,
+            _entities,
+            _areaCode);
 
     /// <summary>One-time: relocate per-token rows from display_rules.json into zone overrides for the
     /// current area code (legacy Types-in-zone wrote globals).</summary>
@@ -1714,8 +1719,8 @@ public sealed class RadarApp : IDisposable
     /// (e.g. ".../Expedition2/Expedition2Encounter" → "Expedition Encounter";
     /// "Waypoint_LongActivationRadius" → "Waypoint Long Activation Radius").
     /// </summary>
-    private static string EntityLabel(Poe2Live.EntityDot e, DisplayRule? rule)
-        => EntityDisplayHelper.FormatEntityLabel(e, rule);
+    private string EntityLabel(Poe2Live.EntityDot e, DisplayRule? rule)
+        => EntityDisplayHelper.FormatEntityLabel(e, rule, _entities, _areaCode);
 
     /// <summary>Build the legend rows (one per unified navigation target), marking the selected targets
     /// and their selection-order color slot (-1 when unselected). Takes a selection snapshot so it

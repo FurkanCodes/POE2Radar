@@ -340,7 +340,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     var color = rule?.Color ?? EntityColor(e);
                     var radius = rule?.Size ?? EntityRadius(e);
                     DrawIconOrShape(dl, p, radius, color, rule?.Opacity ?? 0.95f, rule?.Sprite, rule?.Shape, ctx.GlobalIconScale);
-                    var entityLabel = EntityDisplayHelper.FormatEntityLabel(e, rule);
+                    var entityLabel = EntityDisplayHelper.FormatEntityLabel(e, rule, ctx.Entities, ctx.AreaCode);
                     if (entityLabel.Length > 0)
                         dl.AddText(new NumVec2(p.X + 7, p.Y - 7), ColorU32(color, 0.9f), entityLabel);
                 }
@@ -355,9 +355,14 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 var lmColor = tr?.Color ?? "#F259F2";
                 var lmSize = tr?.Size ?? 4.5f;
                 DrawIconOrShape(dl, p, lmSize, lmColor, tr?.Opacity ?? 0.95f, tr?.Sprite ?? ctx.Styles.Landmark.Sprite, tr?.Shape ?? ctx.Styles.Landmark.Shape, ctx.GlobalIconScale);
-                var label = tr?.Label is { Length: > 0 } rl ? rl
-                          : (ctx.UseCuratedLandmarks && lm.CuratedName is { } c ? c : lm.Name);
-                dl.AddText(new NumVec2(p.X + 7, p.Y - 7), ColorU32(lmColor, 0.9f), label);
+                var lmCurated = tr?.Label is { Length: > 0 } tileLbl ? tileLbl
+                    : (ctx.UseCuratedLandmarks ? lm.CuratedName : null);
+                var label = EntityDisplayHelper.FormatLandmarkLabel(
+                    lm.Path, lmCurated, lm.Name, ctx.Entities, ctx.AreaCode);
+                if (label.Length > 0
+                    && EntityDisplayHelper.ShouldDrawBossLandmarkLabel(
+                        lm.Path, label, lm.Center, ctx.Entities, ctx.Resolve, ctx.AreaCode))
+                    dl.AddText(new NumVec2(p.X + 7, p.Y - 7), ColorU32(lmColor, 0.9f), label);
             }
 
             if (ctx.ShowPlayerBlip)
@@ -991,12 +996,13 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     {
         if (!ImGui.CollapsingHeader("Types in this zone", ImGuiTreeNodeFlags.DefaultOpen)) return;
 
-        if (ctx is null || ctx.Entities.Count == 0)
+        if (ctx is not { Entities.Count: > 0 })
         {
             ImGui.TextDisabled("No entities in range (enter a zone / move closer).");
             return;
         }
         var entities = ctx.Entities;
+        var areaCode = ctx.AreaCode;
 
         ImGui.TextDisabled("Show = minimap + map · Nav = auto-path. Overrides apply to this zone type only.");
         ImGui.SetNextItemWidth(-1f);
@@ -1015,7 +1021,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (!byTier.TryGetValue(tier, out var bucket))
                 byTier[tier] = bucket = new Dictionary<string, (string, int, Poe2Live.EntityDot)>(StringComparer.Ordinal);
 
-            var label = EntityDisplayHelper.FormatEntityLabel(e, ctx.Resolve?.Invoke(e));
+            var label = EntityDisplayHelper.FormatEntityLabel(e, ctx.Resolve?.Invoke(e), entities, areaCode);
             if (label.Length == 0) label = token;
 
             if (bucket.TryGetValue(token, out var g))
