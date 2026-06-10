@@ -9,7 +9,7 @@ namespace POE2Radar.Overlay;
 /// <summary>Hit-test entities under the cursor on the large map, minimap, and 3D world view.</summary>
 public static class EntityUnderCursorPicker
 {
-    private const float WorldHitRadiusPx = 28f;
+    private const float WorldHitRadiusPx = 52f;
 
     public static bool TryPick(
         NumVec2 cursorClient,

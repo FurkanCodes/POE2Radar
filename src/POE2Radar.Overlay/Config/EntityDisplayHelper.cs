@@ -25,7 +25,49 @@ public static class EntityDisplayHelper
         return rule.Name;
     }
 
-    /// <summary>Nav/path/zone label: zone bosses get curated name + (Boss); others use generic rule labels.</summary>
+    /// <summary>Best-effort specific name from curated table, humanized token, or path segment.</summary>
+    public static string SpecificEntityName(Poe2Live.EntityDot e)
+    {
+        var resolved = EntityNameResolver.Shared.Resolve(e.Metadata);
+        if (resolved is { Length: > 0 })
+        {
+            const string dnt = "[DNT-UNUSED] ";
+            if (resolved.StartsWith(dnt, StringComparison.Ordinal)) resolved = resolved[dnt.Length..];
+            return resolved;
+        }
+
+        var token = TypeToken(e.Metadata);
+        if (token.Length > 0)
+        {
+            var humanized = HumanizeToken(token);
+            if (humanized.Length > 0) return humanized;
+        }
+
+        return EntityNameResolver.Shared.ResolveOrShorten(e.Metadata);
+    }
+
+    /// <summary>Insert spaces before interior capitals / digit-letter edges (e.g. Waypoint_LongActivationRadius).</summary>
+    public static string HumanizeToken(string token)
+    {
+        if (string.IsNullOrEmpty(token)) return "";
+
+        var sb = new System.Text.StringBuilder(token.Length + 8);
+        for (var i = 0; i < token.Length; i++)
+        {
+            var ch = token[i];
+            if (i > 0)
+            {
+                var prev = token[i - 1];
+                var boundary = (char.IsUpper(ch) && (char.IsLower(prev) || char.IsDigit(prev)))
+                               || (char.IsDigit(ch) && char.IsLetter(prev) && !char.IsDigit(prev));
+                if (boundary && sb.Length > 0 && sb[^1] != ' ') sb.Append(' ');
+            }
+            sb.Append(ch);
+        }
+        return sb.ToString().Trim();
+    }
+
+    /// <summary>Nav/path/zone label: bosses, mechanics, NPC (name), map-marker POIs as proper names.</summary>
     public static string FormatEntityLabel(Poe2Live.EntityDot e, DisplayRule? rule)
     {
         if (e.Rarity == Poe2Live.Rarity.Unique && IsBossMetadata(e.Metadata))
@@ -35,9 +77,34 @@ public static class EntityDisplayHelper
         }
         if (EndgameMechanicCatalog.TryMatch(e, out var mechanic))
             return mechanic!.Name;
+
+        var ruleName = rule?.Name ?? "";
+        if (IsGenericPoiRule(ruleName))
+        {
+            var specific = SpecificEntityName(e);
+            if (specific.Length > 0) return specific;
+        }
+
+        if (IsNpcRule(rule, e))
+        {
+            var specific = SpecificEntityName(e);
+            if (specific.Length > 0 && !string.Equals(specific, "NPC", StringComparison.OrdinalIgnoreCase))
+                return $"NPC ({specific})";
+            return "NPC";
+        }
+
         var label = RuleLabel(rule);
         return label.Length > 0 ? label : TypeToken(e.Metadata);
     }
+
+    private static bool IsGenericPoiRule(string ruleName)
+        => string.Equals(ruleName, "Map marker", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(ruleName, "Point of Interest", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsNpcRule(DisplayRule? rule, Poe2Live.EntityDot e)
+        => e.Category == Poe2Live.EntityCategory.Npc
+           || rule is { Name: { Length: > 0 } n }
+              && string.Equals(n, "NPC", StringComparison.OrdinalIgnoreCase);
 
     public static bool IsBossMetadata(string metadata)
     {

@@ -137,13 +137,14 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
                 if (ctx.AtlasOpen)
                     DrawAtlas(dl, ctx);
-                else if (ctx.Map.IsVisible)
-                    DrawMap(dl, ctx, ctx.MapFrame);
                 else
                 {
+                    if (ctx.Map.IsVisible)
+                        DrawMap(dl, ctx, ctx.MapFrame);
                     if (ctx.MiniMap.IsVisible)
                         DrawMap(dl, ctx, ctx.MiniMapFrame);
-                    DrawPathsWorld(dl, ctx);
+                    if (!ctx.Map.IsVisible)
+                        DrawPathsWorld(dl, ctx);
                 }
 
                 DrawNameplates(dl, ctx);
@@ -339,8 +340,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     var color = rule?.Color ?? EntityColor(e);
                     var radius = rule?.Size ?? EntityRadius(e);
                     DrawIconOrShape(dl, p, radius, color, rule?.Opacity ?? 0.95f, rule?.Sprite, rule?.Shape, ctx.GlobalIconScale);
-                    if (rule is { Label: { Length: > 0 } lbl })
-                        dl.AddText(new NumVec2(p.X + 7, p.Y - 7), ColorU32(color, 0.9f), lbl);
+                    var entityLabel = EntityDisplayHelper.FormatEntityLabel(e, rule);
+                    if (entityLabel.Length > 0)
+                        dl.AddText(new NumVec2(p.X + 7, p.Y - 7), ColorU32(color, 0.9f), entityLabel);
                 }
             }
 
@@ -767,7 +769,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     {
         if (!_settingsOpen) return;
 
-        var s = _settings;
         float wW = ctx?.WindowWidth ?? _width;
         float wH = ctx?.WindowHeight ?? _height;
 
@@ -784,6 +785,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             DrawSettingsHud(ctx);
 
         ImGui.Separator();
+
+        RadarSettings s;
+        lock (_settingsLock) s = _settings;
 
         if (ImGui.BeginTabBar("SettingsTabs"))
         {
@@ -1372,66 +1376,60 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private void DrawHideEntityHotkeyRow(RadarSettings s)
     {
-        if (ImGui.CollapsingHeader("Hide under cursor", ImGuiTreeNodeFlags.DefaultOpen))
-        {
-            ImGui.TextUnformatted("Hotkey:");
-            ImGui.SameLine();
-            if (_bindingHideHotkey)
-                ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Press a key…");
-            else
-                ImGui.TextUnformatted(VirtualKeyHelper.Name(s.HideEntityHotkey));
-            ImGui.SameLine();
-            if (ImGui.Button(_bindingHideHotkey ? "…" : "Bind"))
-                _bindingHideHotkey = true;
-            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
-                ImGui.SetTooltip("Bind hotkey: hover an entity on the map, press the key to add its type to Hidden by metadata.");
-            ImGui.SameLine();
-            if (ImGui.Button("Clear") && s.HideEntityHotkey > 0)
-            {
-                s.HideEntityHotkey = 0;
-                _bindingHideHotkey = false;
-                SaveSettings();
-            }
-            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
-                ImGui.SetTooltip("Disable hide-under-cursor hotkey");
+        if (!ImGui.CollapsingHeader("Hide under cursor", ImGuiTreeNodeFlags.DefaultOpen)) return;
 
-            ImGui.TextWrapped("Hover an entity (map, minimap, or 3D view) and press the hotkey to hide that type globally.");
+        ImGui.PushID("HideHotkey");
+        ImGui.TextUnformatted("Hotkey:");
+        ImGui.SameLine();
+        if (_bindingHideHotkey)
+            ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Press a key…");
+        else
+            ImGui.TextUnformatted(VirtualKeyHelper.Name(s.HideEntityHotkey));
+        ImGui.SameLine();
+        if (ImGui.Button(_bindingHideHotkey ? "…##bind" : "Bind##bind"))
+            _bindingHideHotkey = true;
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+            ImGui.SetTooltip("Bind hotkey: hover an entity on the map, press the key to add its type to Hidden by metadata.");
+        ImGui.SameLine();
+        if (ImGui.Button("Clear##clear") && s.HideEntityHotkey > 0)
+        {
+            s.HideEntityHotkey = 0;
+            _bindingHideHotkey = false;
+            SaveSettings();
         }
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+            ImGui.SetTooltip("Disable hide-under-cursor hotkey");
+
+        ImGui.TextWrapped("Hover an entity (map, minimap, or 3D view) and press the hotkey to hide that type globally.");
+        ImGui.PopID();
     }
 
     private void DrawTrackEntityHotkeyRow(RadarSettings s)
     {
-        if (ImGui.CollapsingHeader("Track under cursor", ImGuiTreeNodeFlags.DefaultOpen))
+        if (!ImGui.CollapsingHeader("Inspect under cursor", ImGuiTreeNodeFlags.DefaultOpen)) return;
+
+        ImGui.PushID("TrackHotkey");
+        ImGui.TextUnformatted("Hotkey:");
+        ImGui.SameLine();
+        if (_bindingTrackHotkey)
+            ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Press a key…");
+        else
+            ImGui.TextUnformatted(VirtualKeyHelper.Name(s.TrackEntityHotkey));
+        ImGui.SameLine();
+        if (ImGui.Button(_bindingTrackHotkey ? "…##bind" : "Bind##bind"))
+            _bindingTrackHotkey = true;
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+            ImGui.SetTooltip("Bind hotkey: hover an entity and press to print its identity to the console (F4 default).");
+        ImGui.SameLine();
+        if (ImGui.Button("Clear##clear") && s.TrackEntityHotkey > 0)
         {
-            ImGui.TextUnformatted("Hotkey:");
-            ImGui.SameLine();
-            if (_bindingTrackHotkey)
-                ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Press a key…");
-            else
-                ImGui.TextUnformatted(VirtualKeyHelper.Name(s.TrackEntityHotkey, s.TrackEntityHotkeyShift));
-            ImGui.SameLine();
-            if (ImGui.Button(_bindingTrackHotkey ? "…" : "Bind"))
-                _bindingTrackHotkey = true;
-            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
-                ImGui.SetTooltip("Bind hotkey: hover an entity and press to toggle path/track.");
-            ImGui.SameLine();
-            if (ImGui.Button("Clear") && s.TrackEntityHotkey > 0)
-            {
-                s.TrackEntityHotkey = 0;
-                _bindingTrackHotkey = false;
-                SaveSettings();
-            }
-
-            bool reqShift = s.TrackEntityHotkeyShift;
-            if (ImGui.Checkbox("Require Shift", ref reqShift))
-                s.TrackEntityHotkeyShift = reqShift;
-
-            bool dblClick = s.TrackEntityDoubleClick;
-            if (ImGui.Checkbox("Double-click LMB to track", ref dblClick))
-                s.TrackEntityDoubleClick = dblClick;
-
-            ImGui.TextWrapped("Toggle nav/path for the entity under the cursor (map, minimap, or 3D world). Enables Show path when adding.");
+            s.TrackEntityHotkey = 0;
+            _bindingTrackHotkey = false;
+            SaveSettings();
         }
+
+        ImGui.TextWrapped("Prints entity info to the console (map, minimap, or 3D view). Does not add path targets — use legend, F6, or Types in zone to track.");
+        ImGui.PopID();
     }
 
     private void PollHotkeyCapture(RadarSettings s)

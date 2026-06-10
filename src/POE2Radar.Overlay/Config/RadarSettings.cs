@@ -153,10 +153,8 @@ public sealed class RadarSettings
     // ── Hide entity under cursor: adds TypeToken to hidden_entities.json (F5 default). ──
     public int HideEntityHotkey { get; set; } = 0x74;
 
-    // ── Track entity under cursor: toggle nav/path selection (Shift+F1 default). ──
-    public int TrackEntityHotkey { get; set; } = 0x70;
-    public bool TrackEntityHotkeyShift { get; set; } = true;
-    public bool TrackEntityDoubleClick { get; set; } = true;
+    // ── Inspect entity under cursor: print identity to console (F4 default). JSON key kept for compat. ──
+    public int TrackEntityHotkey { get; set; } = 0x73;
 
     // ── HTTP API. ──
     public int ApiPort { get; set; } = 7777;

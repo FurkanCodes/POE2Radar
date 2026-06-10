@@ -106,11 +106,9 @@ public sealed class RadarApp : IDisposable
     private DateTime _nextPathKeyAt = DateTime.MinValue;
     private DateTime _nextBrowserAt = DateTime.MinValue;
     private DateTime _nextSettingsAt = DateTime.MinValue;
-    private DateTime _nextHideKeyAt = DateTime.MinValue;
-    private DateTime _nextTrackKeyAt = DateTime.MinValue;
-    private bool _lmbWasDown;
-    private DateTime _lastLmbClickAt = DateTime.MinValue;
-    private NumVec2 _lastLmbClickPos;
+    private bool _hideKeyWasDown;
+    private bool _trackKeyWasDown;
+    private bool _settingsWereOpen;
     private MapFrame _lastMapFrame;
     private MapFrame _lastMiniMapFrame;
     private NumVec2 _lastPlayerGrid;
@@ -388,7 +386,7 @@ public sealed class RadarApp : IDisposable
                              SetAtlasHighlight, VersionJson, _settings.ApiPort);
         try { _api.Start(); Console.WriteLine($"API on http://localhost:{_settings.ApiPort} (dashboard at /)"); }
         catch (Exception ex) { Console.Error.WriteLine($"API server disabled: {ex.Message}"); }
-        Console.WriteLine("Hotkeys: F5=hide under cursor  Shift+F1=track under cursor  double-click=track  "
+        Console.WriteLine("Hotkeys: F4=inspect under cursor  F5=hide under cursor  "
                           + "F6=add nearest path  F7=clear paths  F8=auto-flask  F9=quit  F12=dashboard");
         // Best-effort version check against GitHub (non-blocking; never fails startup).
         _ = Task.Run(async () =>
@@ -480,7 +478,6 @@ public sealed class RadarApp : IDisposable
         while (_commandQueue.TryDequeue(out var action)) action();
 
         HandleHotkeys();
-        PollDoubleClickTrack();
 
         var windowWidth = OverlayWidth;
         var windowHeight = OverlayHeight;
@@ -639,6 +636,8 @@ public sealed class RadarApp : IDisposable
         _lastMapFrame = mapFrame;
         _lastMiniMapFrame = miniMapFrame;
         _lastPlayerGrid = player;
+        if (inGame)
+            HandleCursorPickHotkeys();
         var ctx = new RenderContext(
             InGame: inGame,
             Active: drawActive,
@@ -921,27 +920,6 @@ public sealed class RadarApp : IDisposable
             }
         }
 
-        if (_settings.HideEntityHotkey > 0
-            && DateTime.UtcNow >= _nextHideKeyAt
-            && _gameHwnd != 0 && GetForegroundWindow() == _gameHwnd
-            && _areaInstanceForApi != 0
-            && Down(_settings.HideEntityHotkey))
-        {
-            _nextHideKeyAt = DateTime.UtcNow.AddMilliseconds(300);
-            HideEntityUnderCursor();
-        }
-
-        if (_settings.TrackEntityHotkey > 0
-            && DateTime.UtcNow >= _nextTrackKeyAt
-            && _gameHwnd != 0 && GetForegroundWindow() == _gameHwnd
-            && _areaInstanceForApi != 0
-            && Down(_settings.TrackEntityHotkey)
-            && (!_settings.TrackEntityHotkeyShift || Down(0x10)))
-        {
-            _nextTrackKeyAt = DateTime.UtcNow.AddMilliseconds(300);
-            TrackEntityUnderCursor();
-        }
-
         // Atlas tile inspector: F10 = dump the tile under the cursor (map/content/biome/flags) as an
         // on-atlas tooltip so you can see what to set as a web-UI filter.
         if (Down(0x79) && DateTime.UtcNow >= _nextInspectAt) // F10
@@ -949,6 +927,33 @@ public sealed class RadarApp : IDisposable
             _nextInspectAt = DateTime.UtcNow.AddMilliseconds(250);
             AtlasRoutePick();
         }
+    }
+
+    /// <summary>F4/F5 cursor picks — run after map frames + entities are refreshed this tick.</summary>
+    private void HandleCursorPickHotkeys()
+    {
+        if (_gameHwnd == 0 || GetForegroundWindow() != _gameHwnd || _areaInstanceForApi == 0) return;
+
+        var settingsOpen = _imguiOverlay?.IsSettingsOpen == true;
+        if (_settingsWereOpen && !settingsOpen)
+        {
+            _hideKeyWasDown = false;
+            _trackKeyWasDown = false;
+        }
+        _settingsWereOpen = settingsOpen;
+        if (settingsOpen) return;
+
+        var hideVk = _settings.HideEntityHotkey;
+        var hideDown = hideVk > 0 && Down(hideVk);
+        if (hideDown && !_hideKeyWasDown)
+            HideEntityUnderCursor();
+        _hideKeyWasDown = hideDown;
+
+        var inspectVk = _settings.TrackEntityHotkey;
+        var inspectDown = inspectVk > 0 && Down(inspectVk);
+        if (inspectDown && !_trackKeyWasDown)
+            InspectEntityUnderCursor();
+        _trackKeyWasDown = inspectDown;
     }
 
     private bool TryGetCursorClient(out NumVec2 cursor, string logPrefix)
@@ -1000,35 +1005,6 @@ public sealed class RadarApp : IDisposable
         return true;
     }
 
-    private void PollDoubleClickTrack()
-    {
-        if (!_settings.TrackEntityDoubleClick) return;
-        if (_gameHwnd == 0 || GetForegroundWindow() != _gameHwnd || _areaInstanceForApi == 0) return;
-        if (_imguiOverlay?.IsSettingsOpen == true) return;
-
-        var down = Down(0x01);
-        if (down && !_lmbWasDown)
-        {
-            if (TryGetCursorClient(out var pos, "track"))
-            {
-                var now = DateTime.UtcNow;
-                if (now - _lastLmbClickAt <= TimeSpan.FromMilliseconds(400)
-                    && NumVec2.Distance(pos, _lastLmbClickPos) < 12f)
-                {
-                    TrackEntityUnderCursor();
-                    _lastLmbClickAt = DateTime.MinValue;
-                }
-                else
-                {
-                    _lastLmbClickAt = now;
-                    _lastLmbClickPos = pos;
-                }
-            }
-        }
-
-        _lmbWasDown = down;
-    }
-
     /// <summary>Hotkey: pick the map icon under the cursor and add its TypeToken to the hidden-metadata cull list.</summary>
     private void HideEntityUnderCursor()
     {
@@ -1048,29 +1024,32 @@ public sealed class RadarApp : IDisposable
         }
 
         if (_hidden.Add(pattern))
-            Console.WriteLine($"\n[hide] Added '{pattern}' ({entity.Metadata})");
+        {
+            Console.WriteLine($"\n[hide] Added pattern '{pattern}' — metadata: {entity.Metadata}");
+            _entities = _entities.Where(ent => !_hidden.IsHidden(ent.Metadata)).ToList();
+        }
         else
-            Console.WriteLine($"\n[hide] '{pattern}' already hidden.");
+            Console.WriteLine($"\n[hide] Pattern '{pattern}' already hidden.");
     }
 
-    /// <summary>Toggle nav/path selection for the entity under the cursor (map, minimap, or 3D world).</summary>
-    private void TrackEntityUnderCursor()
+    /// <summary>Hotkey: print entity identity to the console (no path selection).</summary>
+    private void InspectEntityUnderCursor()
     {
-        if (!TryPickEntityUnderCursor("track", out var entity)) return;
+        if (!TryPickEntityUnderCursor("inspect", out var entity)) return;
 
-        var id = "e:" + entity.Id;
-        var label = EntityLabel(entity, _ruleEngine.Resolve(entity, _areaCode, _settings.ImportantOnly));
-        var wasSelected = SnapshotSelection().Contains(id);
+        var rule = _ruleEngine.Resolve(entity, _areaCode, _settings.ImportantOnly);
+        var label = EntityLabel(entity, rule);
+        var token = EntityDisplayHelper.TypeToken(entity.Metadata);
+        var ruleName = rule?.Name ?? "(none)";
+        var hideFlag = rule is { Hide: true } ? "yes" : "no";
+        var navFlag = rule is { Navigable: true } ? "yes" : "no";
 
-        ToggleSelectionCore(id, logSelection: false);
-        RememberTargetSnapshot(id, label, entity.Grid, isEntity: true);
-
-        if (!wasSelected)
-            _settings.ShowPath = true;
-
-        Console.WriteLine(wasSelected
-            ? $"\n[track] Removed '{label}' ({id})"
-            : $"\n[track] Added '{label}' ({id})");
+        Console.WriteLine($"\n[inspect] Label: {label}");
+        Console.WriteLine($"          Category: {entity.Category}");
+        Console.WriteLine($"          TypeToken: {token}");
+        Console.WriteLine($"          Metadata: {entity.Metadata}");
+        Console.WriteLine($"          Id: e:{entity.Id}  Grid: {entity.Grid.X:F0},{entity.Grid.Y:F0}");
+        Console.WriteLine($"          Rule: {ruleName} (hide={hideFlag} nav={navFlag})");
     }
 
     /// <summary>F10: pick the atlas tile under the cursor and advance the route workflow (START → END → reset).
@@ -1436,6 +1415,36 @@ public sealed class RadarApp : IDisposable
     /// </summary>
     private void TogglePathTarget(string id) => ToggleSelectionCore(id);
 
+    /// <summary>Add a target id if absent and under the cap. Returns false if already selected or full.</summary>
+    private bool AddSelectionCore(string id, bool logSelection = true)
+    {
+        if (string.IsNullOrEmpty(id)) return false;
+
+        bool added;
+        string labels;
+        lock (_navLock)
+        {
+            if (_selectedIds.Contains(id)) return false;
+            if (_selectedIds.Count >= MaxSelectedTargets)
+            {
+                if (!_selectionCapWarned)
+                {
+                    Console.WriteLine($"\nPath targets: selection full ({MaxSelectedTargets}); ignoring add.");
+                    _selectionCapWarned = true;
+                }
+                return false;
+            }
+
+            _selectedIds.Add(id);
+            _selectionCapWarned = false;
+            added = true;
+            labels = string.Join(", ", _selectedIds.Select(TargetLabel));
+        }
+
+        if (added && logSelection) Console.WriteLine($"\nPath targets: {labels}");
+        return added;
+    }
+
     /// <summary>
     /// THE one place the selection set is mutated. Adds the id if absent (unless at the cap), removes
     /// it if present — all under <see cref="_navLock"/>. Does NOT touch trackers (those are created/
@@ -1606,7 +1615,8 @@ public sealed class RadarApp : IDisposable
             {
                 if (!_trackers.TryGetValue(r.TargetId, out var tracker)) continue; // deselected → ignore
                 tracker.ApplyResult(r.Waypoints, new NumVec2(r.Goal.x, r.Goal.y));
-                Console.WriteLine($"replan: {TargetLabel(r.TargetId)} = {r.Waypoints.Count} waypoints");
+                if (_settings.ShowPerfStats)
+                    Console.WriteLine($"replan: {TargetLabel(r.TargetId)} = {r.Waypoints.Count} waypoints");
             }
         }
 
@@ -1706,39 +1716,6 @@ public sealed class RadarApp : IDisposable
     /// </summary>
     private static string EntityLabel(Poe2Live.EntityDot e, DisplayRule? rule)
         => EntityDisplayHelper.FormatEntityLabel(e, rule);
-
-    /// <summary>Path-derived label fallback (rarely used after FormatEntityLabel).</summary>
-    private static string EntityLabelFromMetadata(string metadata)
-    {
-        if (string.IsNullOrEmpty(metadata)) return "(entity)";
-
-        var slash = metadata.LastIndexOf('/');
-        var seg = slash >= 0 ? metadata[(slash + 1)..] : metadata;
-
-        // Strip a trailing "_NN" or trailing digit run (e.g. "Expedition2Encounter" keeps the
-        // interior "2"; "Encounter_03" → "Encounter").
-        var end = seg.Length;
-        while (end > 0 && char.IsDigit(seg[end - 1])) end--;
-        if (end > 0 && seg[end - 1] == '_') end--;
-        if (end > 0) seg = seg[..end];
-
-        // Insert spaces before interior capitals / before a digit-to-letter or letter-to-digit edge.
-        var sb = new System.Text.StringBuilder(seg.Length + 8);
-        for (var i = 0; i < seg.Length; i++)
-        {
-            var ch = seg[i];
-            if (i > 0)
-            {
-                var prev = seg[i - 1];
-                var boundary = (char.IsUpper(ch) && (char.IsLower(prev) || char.IsDigit(prev)))
-                               || (char.IsDigit(ch) && char.IsLetter(prev) && !char.IsDigit(prev));
-                if (boundary && sb.Length > 0 && sb[^1] != ' ') sb.Append(' ');
-            }
-            sb.Append(ch);
-        }
-        var label = sb.ToString().Trim();
-        return label.Length == 0 ? "(entity)" : label;
-    }
 
     /// <summary>Build the legend rows (one per unified navigation target), marking the selected targets
     /// and their selection-order color slot (-1 when unselected). Takes a selection snapshot so it

@@ -10,7 +10,7 @@ namespace POE2Radar.Overlay;
 /// <summary>Hit-test map-projected entity icons under the cursor (large map + minimap).</summary>
 public static class MapEntityPicker
 {
-    private const float HitMarginPx = 6f;
+    private const float HitMarginPx = 14f;
 
     public static bool TryPick(
         NumVec2 cursorClient,
