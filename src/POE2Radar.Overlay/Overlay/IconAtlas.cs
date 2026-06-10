@@ -49,6 +49,14 @@ public static class IconAtlas
         ["TriangleDown"] = (6, 0),   // Delirium Spawner - downward triangle
         ["Exclamation"] = (12, 44),  // POI Monster default - exclamation
         ["Droplet"] = (1, 13),       // Magic Chest - droplet-ish
+        ["Waypoint"] = (12, 44),
+        ["Checkpoint"] = (0, 0),
+        ["MapMarker"] = (12, 44),
+        ["QuestMarker"] = (12, 44),
+        ["Portal"] = (5, 0),
+        ["TownPortal"] = (5, 0),
+        ["Stash"] = (4, 48),
+        ["Bridge"] = (1, 37),
     };
 
     /// <summary>Upload sprite sheet to GPU. Must be called from DX11/ImGui thread. Idempotent.</summary>
@@ -115,4 +123,10 @@ public static class IconAtlas
     }
 
     public static IReadOnlyCollection<string> Names => _map.Keys;
+
+    public static int AtlasWidth => _atlasWidth;
+    public static int AtlasHeight => _atlasHeight;
+    public static int ColCount => _atlasWidth > 0 ? _atlasWidth / IconSize : 0;
+    public static int RowCount => _atlasHeight > 0 ? _atlasHeight / IconSize : 0;
+    public static nint AtlasTextureId => _atlasTextureId;
 }

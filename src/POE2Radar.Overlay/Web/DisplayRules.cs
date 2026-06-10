@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using POE2Radar.Core.Game;
 using POE2Radar.Overlay.Config;
+using POE2Radar.Overlay;
 
 namespace POE2Radar.Overlay.Web;
 
@@ -91,6 +92,30 @@ public sealed class DisplayRules
             if (c.Matches(in e)) return c.Rule;
         return null;
     }
+
+    /// <summary>State-hide rules only (dead / opened / completed encounter). Checked before zone overrides.</summary>
+    public DisplayRule? ResolveStateHide(Poe2Live.EntityDot e)
+    {
+        var snap = _snapshot;
+        foreach (var c in snap)
+            if (IsStateHideRule(c.Rule) && c.Matches(in e)) return c.Rule;
+        return null;
+    }
+
+    /// <summary>First matching enabled rule that is not a state-hide row.</summary>
+    public DisplayRule? ResolveContent(Poe2Live.EntityDot e)
+    {
+        var snap = _snapshot;
+        foreach (var c in snap)
+        {
+            if (IsStateHideRule(c.Rule)) continue;
+            if (c.Matches(in e)) return c.Rule;
+        }
+        return null;
+    }
+
+    public static bool IsStateHideRule(DisplayRule r)
+        => r.Hide && (r.Life == "Dead" || r.Chest == "Opened" || r.Encounter == "Complete");
 
     /// <summary>
     /// Resolve a terrain TILE path to its first matching enabled rule of the special "Tile" category,
@@ -199,51 +224,164 @@ public sealed class DisplayRules
         foreach (var m in st.Mechanics ?? new())
             rules.Add(new DisplayRule
             {
-                Name = m.Name, Enabled = m.Enabled, Navigable = true,
+                Name = m.Name, Enabled = m.Enabled, Navigable = true, Label = m.Name,
                 Categories = new(m.Categories ?? new()), Match = new(m.Match ?? new()),
                 Shape = m.Shape, Color = m.Color, Opacity = m.Opacity, Size = m.Size, Sprite = m.Sprite?.Clone(),
             });
 
-        // 4) Category defaults.
-        void Mon(string rarity, IconStyle s, bool navigable = false) => rules.Add(new DisplayRule
+        AppendSemanticContentRules(rules, st, showMonsters);
+
+        return rules;
+    }
+
+    /// <summary>Append semantic global rules (boss, quest, waypoint, portal, monsters, POIs…) if not already
+    /// present by name. Used by first-run seed and the one-time expansion migration.</summary>
+    public static void AppendMissingSemanticRules(List<DisplayRule> rules, RadarStyles st, bool showMonsters)
+    {
+        var names = new HashSet<string>(rules.Select(r => r.Name), StringComparer.OrdinalIgnoreCase);
+        var insertAt = rules.FindIndex(r =>
+            string.Equals(r.Name, "Map marker", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(r.Name, "Point of Interest", StringComparison.OrdinalIgnoreCase));
+        if (insertAt < 0) insertAt = rules.Count;
+
+        var batch = new List<DisplayRule>();
+        AppendSemanticContentRules(batch, st, showMonsters);
+        foreach (var r in batch)
         {
-            Name = $"Monster · {rarity}", Enabled = s.Enabled && showMonsters,
+            if (names.Contains(r.Name)) continue;
+            rules.Insert(insertAt, r);
+            insertAt++;
+            names.Add(r.Name);
+        }
+    }
+
+    private static void AppendSemanticContentRules(List<DisplayRule> rules, RadarStyles st, bool showMonsters)
+    {
+        void Mon(string name, string rarity, IconStyle s, string label, bool navigable = false) => rules.Add(new DisplayRule
+        {
+            Name = name, Label = label, Enabled = s.Enabled && showMonsters,
             Categories = new() { "Monster" }, Reaction = "Hostile", Rarity = rarity,
             Shape = s.Shape, Color = s.Color, Opacity = s.Opacity, Size = s.Size, Sprite = s.Sprite?.Clone(),
             Navigable = navigable,
         });
-        Mon("Unique", st.MonsterUnique, navigable: true);
-        Mon("Rare",   st.MonsterRare, navigable: true);
-        Mon("Magic",  st.MonsterMagic);
-        Mon("Normal", st.MonsterNormal);
+        Mon("Boss", "Unique", st.MonsterUnique, "Boss", navigable: true);
+        Mon("Monster · Rare", "Rare", st.MonsterRare, "Rare", navigable: true);
+        Mon("Monster · Magic", "Magic", st.MonsterMagic, "Magic");
+        Mon("Monster · Normal", "Normal", st.MonsterNormal, "Normal");
 
-        void Cat(string name, string category, string? rarity, IconStyle s) => rules.Add(new DisplayRule
+        void Cat(string name, string category, string? rarity, IconStyle s, string? label = null) => rules.Add(new DisplayRule
         {
-            Name = name, Enabled = s.Enabled, Categories = new() { category }, Rarity = rarity,
+            Name = name, Label = label ?? name, Enabled = s.Enabled, Categories = new() { category }, Rarity = rarity,
             Shape = s.Shape, Color = s.Color, Opacity = s.Opacity, Size = s.Size, Sprite = s.Sprite?.Clone(),
         });
-        void Cat2(string name, string category, string? rarity, IconStyle s, bool navigable) => rules.Add(new DisplayRule
+        void CatNav(string name, string category, string? rarity, IconStyle s, string label, bool navigable) => rules.Add(new DisplayRule
         {
-            Name = name, Enabled = s.Enabled, Categories = new() { category }, Rarity = rarity,
+            Name = name, Label = label, Enabled = s.Enabled, Categories = new() { category }, Rarity = rarity,
             Shape = s.Shape, Color = s.Color, Opacity = s.Opacity, Size = s.Size, Sprite = s.Sprite?.Clone(),
             Navigable = navigable,
         });
-        Cat("Player",        "Player",     null,     st.Player);
-        Cat("NPC",           "Npc",        null,     st.Npc);
+        Cat("Player", "Player", null, st.Player);
+        Cat("NPC", "Npc", null, st.Npc, "NPC");
         Cat("Chest · Unique", "Chest", "Unique", st.ChestUnique);
-        Cat("Chest · Rare",   "Chest", "Rare",   st.ChestRare);
-        Cat2("Transition",   "Transition", null,     st.Transition, navigable: true);
+        Cat("Chest · Rare", "Chest", "Rare", st.ChestRare);
+        CatNav("Transition", "Transition", null, st.Transition, "Transition", navigable: true);
 
-        // Object/Other entities the game flags as POIs (waypoints, checkpoints, shrines…). Navigable by
-        // default so they auto-path out of the box; uncheck "Nav" on this rule to exclude them.
+        // Quest & world objects (specific matchers before the broad map-marker catch-all).
         rules.Add(new DisplayRule
         {
-            Name = "Point of Interest", Enabled = st.Poi.Enabled,
-            Categories = new() { "Object", "Other" }, Poi = "Yes", Navigable = true,
-            Shape = st.Poi.Shape, Color = st.Poi.Color, Opacity = st.Poi.Opacity, Size = st.Poi.Size, Sprite = st.Poi.Sprite?.Clone(),
+            Name = "Quest object", Label = "Quest", Enabled = true, Navigable = true,
+            Categories = new() { "Object", "Other" },
+            Match = new() { "QuestObjects", "QuestChests", "QuestObject" },
+            Shape = "Diamond", Color = "#FFD966", Opacity = 0.95f, Size = 10f, Sprite = SpriteCatalog.QuestObject().Clone(),
+        });
+        rules.Add(new DisplayRule
+        {
+            Name = "Quest marker", Label = "Quest marker", Enabled = true, Navigable = true,
+            Categories = new() { "Object", "Other" }, Poi = "Yes",
+            Match = new() { "Quest", "EinharQuestMarker" },
+            Shape = "Diamond", Color = "#FFD966", Opacity = 1f, Size = 10f, Sprite = SpriteCatalog.QuestMarker().Clone(),
+        });
+        rules.Add(new DisplayRule
+        {
+            Name = "Waypoint", Label = "Waypoint", Enabled = st.Poi.Enabled, Navigable = true,
+            Categories = new() { "Object", "Other" }, Match = new() { "Waypoint" },
+            Shape = st.Poi.Shape, Color = st.Poi.Color, Opacity = st.Poi.Opacity, Size = 10f,
+            Sprite = SpriteCatalog.Waypoint().Clone(),
+        });
+        rules.Add(new DisplayRule
+        {
+            Name = "Checkpoint", Label = "Checkpoint", Enabled = st.Poi.Enabled, Navigable = true,
+            Categories = new() { "Object", "Other" }, Match = new() { "Checkpoint" },
+            Shape = st.Poi.Shape, Color = "#00CCFF", Opacity = 0.95f, Size = 10f, Sprite = SpriteCatalog.Checkpoint().Clone(),
+        });
+        rules.Add(new DisplayRule
+        {
+            Name = "Stash", Label = "Stash", Enabled = true, Navigable = false,
+            Categories = new() { "Object", "Other" }, Match = new() { "Stash" },
+            Shape = "Square", Color = "#FFCC00", Opacity = 0.95f, Size = 10f, Sprite = SpriteCatalog.Stash().Clone(),
+        });
+        rules.Add(new DisplayRule
+        {
+            Name = "Town portal", Label = "Town portal", Enabled = st.Poi.Enabled, Navigable = false,
+            Categories = new() { "Object", "Other" },
+            Match = new() { "TownPortal", "ReturnToLastTownPortal" },
+            Shape = st.Poi.Shape, Color = "#CC99FF", Opacity = st.Poi.Opacity, Size = 10f,
+            Sprite = SpriteCatalog.TownPortal().Clone(),
+        });
+        rules.Add(new DisplayRule
+        {
+            Name = "Bridge", Label = "Bridge", Enabled = true, Navigable = false,
+            Categories = new() { "Object", "Other", "Transition" }, Match = new() { "Bridge" },
+            Shape = "Diamond", Color = "#66FF99", Opacity = 0.9f, Size = 10f, Sprite = SpriteCatalog.Bridge().Clone(),
+        });
+        rules.Add(new DisplayRule
+        {
+            Name = "Portal", Label = "Portal", Enabled = st.Poi.Enabled, Navigable = false,
+            Categories = new() { "Object", "Other" }, Match = new() { "Portal", "Multiplex" },
+            Shape = st.Poi.Shape, Color = "#B38CFF", Opacity = st.Poi.Opacity, Size = 10f,
+            Sprite = SpriteCatalog.Portal().Clone(),
         });
 
-        return rules;
+        // Remaining minimap POIs not caught by rules above.
+        rules.Add(new DisplayRule
+        {
+            Name = "Map marker", Label = "Map marker", Enabled = st.Poi.Enabled, Navigable = true,
+            Categories = new() { "Object", "Other" }, Poi = "Yes",
+            Shape = st.Poi.Shape, Color = st.Poi.Color, Opacity = st.Poi.Opacity, Size = 10f,
+            Sprite = SpriteCatalog.MapMarker().Clone(),
+        });
+    }
+
+    /// <summary>Apply default PNG sprites and minimum sizes to semantic rules (one-time migration).</summary>
+    public static void ApplyIconDefaults(List<DisplayRule> rules)
+    {
+        foreach (var r in rules)
+        {
+            switch (r.Name)
+            {
+                case "Boss": r.Sprite ??= SpriteCatalog.Boss().Clone(); r.Size = Math.Max(r.Size, 12f); break;
+                case "Monster · Rare": r.Sprite ??= SpriteCatalog.RareMonster().Clone(); r.Size = Math.Max(r.Size, 10f); break;
+                case "Monster · Magic": r.Sprite ??= SpriteCatalog.MagicMonster().Clone(); r.Size = Math.Max(r.Size, 9f); break;
+                case "Monster · Normal": r.Sprite ??= SpriteCatalog.NormalMonster().Clone(); r.Size = Math.Max(r.Size, 9f); break;
+                case "Waypoint": r.Sprite ??= SpriteCatalog.Waypoint().Clone(); r.Size = Math.Max(r.Size, 10f); break;
+                case "Checkpoint": r.Sprite ??= SpriteCatalog.Checkpoint().Clone(); r.Size = Math.Max(r.Size, 10f); break;
+                case "Map marker":
+                case "Point of Interest": r.Sprite ??= SpriteCatalog.MapMarker().Clone(); r.Size = Math.Max(r.Size, 10f); break;
+                case "Quest object": r.Sprite ??= SpriteCatalog.QuestObject().Clone(); r.Size = Math.Max(r.Size, 10f); break;
+                case "Quest marker": r.Sprite ??= SpriteCatalog.QuestMarker().Clone(); r.Size = Math.Max(r.Size, 10f); break;
+                case "Portal": r.Sprite ??= SpriteCatalog.Portal().Clone(); r.Size = Math.Max(r.Size, 10f); break;
+                case "Town portal": r.Sprite ??= SpriteCatalog.TownPortal().Clone(); r.Size = Math.Max(r.Size, 10f); break;
+                case "Stash": r.Sprite ??= SpriteCatalog.Stash().Clone(); r.Size = Math.Max(r.Size, 10f); break;
+                case "Bridge": r.Sprite ??= SpriteCatalog.Bridge().Clone(); r.Size = Math.Max(r.Size, 10f); break;
+                case "Transition": r.Sprite ??= SpriteCatalog.Transition().Clone(); r.Size = Math.Max(r.Size, 10f); break;
+                case "Expedition": r.Sprite ??= SpriteCatalog.Expedition().Clone(); r.Size = Math.Max(r.Size, 12f); break;
+                case "Ritual": r.Sprite ??= SpriteCatalog.Ritual().Clone(); r.Size = Math.Max(r.Size, 12f); break;
+                case "Breach": r.Sprite ??= SpriteCatalog.Breach().Clone(); r.Size = Math.Max(r.Size, 12f); break;
+                case "Strongbox": r.Sprite ??= SpriteCatalog.Strongbox().Clone(); r.Size = Math.Max(r.Size, 10f); break;
+                case "Essence": r.Sprite ??= SpriteCatalog.Essence().Clone(); r.Size = Math.Max(r.Size, 12f); break;
+                case "Shrine": r.Sprite ??= SpriteCatalog.Shrine().Clone(); r.Size = Math.Max(r.Size, 10f); break;
+            }
+        }
     }
 
     // ── internals ───────────────────────────────────────────────────────────

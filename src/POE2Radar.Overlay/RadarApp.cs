@@ -36,6 +36,8 @@ public sealed class RadarApp : IDisposable
     private readonly WatchedEntities _watched;
     private readonly LandmarkPatterns _landmarkPatterns;
     private readonly DisplayRules _displayRules;
+    private readonly ZoneEntityOverrides _zoneOverrides;
+    private readonly DisplayRuleEngine _ruleEngine;
     // Cached delegates for the per-frame RenderContext, so we don't allocate a method-group delegate +
     // closure every render frame. Bound once after _displayRules is constructed.
     private Func<Poe2Live.EntityDot, DisplayRule?>? _resolveEntity;
@@ -212,7 +214,9 @@ public sealed class RadarApp : IDisposable
         // (no display_rules.json) seed it from the legacy category styles + mechanics + watched rules
         // so behavior is identical; thereafter it's the authoritative, editable, ordered ruleset.
         _displayRules = new DisplayRules(Path.Combine(ConfigDir, "display_rules.json"));
-        _resolveEntity = _displayRules.Resolve;
+        _zoneOverrides = new ZoneEntityOverrides(Path.Combine(ConfigDir, "zone_entity_overrides.json"));
+        _ruleEngine = new DisplayRuleEngine(_displayRules, _zoneOverrides, _settings.Styles);
+        _resolveEntity = e => _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly);
         _resolveTileDraw = p => _displayRules.ResolveTile(p, requireMatch: false);
         if (_displayRules.Count == 0)
         {
@@ -293,14 +297,64 @@ public sealed class RadarApp : IDisposable
             _settings.EndgameNavMigrated = true; _settings.Save();
             if (changed) Console.WriteLine("Migrated mechanic + rare monster rules to Navigable (endgame defaults).");
         }
-        _displayRulesGen = _displayRules.Generation;
+        if (!_settings.GlobalRulesExpandedMigrated)
+        {
+            var rules = _displayRules.All.ToList();
+            foreach (var r in rules)
+            {
+                if (string.Equals(r.Name, "Monster · Unique", StringComparison.OrdinalIgnoreCase))
+                {
+                    r.Name = "Boss";
+                    r.Label = "Boss";
+                }
+                else if (string.IsNullOrEmpty(r.Label))
+                {
+                    if (string.Equals(r.Name, "Monster · Rare", StringComparison.OrdinalIgnoreCase)) r.Label = "Rare";
+                    else if (string.Equals(r.Name, "NPC", StringComparison.OrdinalIgnoreCase)) r.Label = "NPC";
+                    else if (EntityDisplayHelper.KnownSemanticRuleNames.Contains(r.Name)) r.Label = r.Name;
+                }
+            }
+            DisplayRules.AppendMissingSemanticRules(rules, _settings.Styles, _settings.ShowMonsters);
+            _displayRules.Replace(rules);
+            _settings.GlobalRulesExpandedMigrated = true;
+            _settings.Save();
+            Console.WriteLine("Expanded global display rules (quest, waypoint, portal, bridge, Boss labels).");
+        }
+        if (!_settings.SemanticNamesMigrated)
+        {
+            var rules = _displayRules.All.ToList();
+            foreach (var r in rules)
+            {
+                if (string.Equals(r.Name, "Point of Interest", StringComparison.OrdinalIgnoreCase))
+                {
+                    r.Name = "Map marker";
+                    r.Label = "Map marker";
+                }
+            }
+            DisplayRules.AppendMissingSemanticRules(rules, _settings.Styles, _settings.ShowMonsters);
+            _displayRules.Replace(rules);
+            _settings.SemanticNamesMigrated = true;
+            _settings.Save();
+            Console.WriteLine("Semantic display rule names (Checkpoint, Map marker, Stash, Town portal).");
+        }
+        if (!_settings.IconDefaultsMigrated)
+        {
+            var rules = _displayRules.All.ToList();
+            DisplayRules.ApplyIconDefaults(rules);
+            _displayRules.Replace(rules);
+            _settings.IconDefaultsMigrated = true;
+            _settings.Save();
+            Console.WriteLine("Applied default PNG sprites and icon sizes to display rules.");
+        }
+        LogMissingHpBarTextures();
+        _displayRulesGen = _ruleEngine.Generation;
         // User-editable overlay on the baked curated landmark table (the "Landmarks" tab). Inject its
         // lookup so the landmark scan honors user edits on top of the shipped community data.
         _landmarkStore = new LandmarkStore(Path.Combine(ConfigDir, "landmarks.json"));
         _live.CuratedLookup = _landmarkStore.Lookup;
         _landmarkStoreGen = _landmarkStore.Generation;
         Console.WriteLine($"Hidden entities: {_hidden.Count} pattern(s); display rules: {_displayRules.Count}");
-        _imguiOverlay?.AttachEntityStores(_displayRules, _hidden);
+        _imguiOverlay?.AttachEntityStores(_displayRules, _zoneOverrides, _ruleEngine, _hidden);
         _api = new ApiServer(() => _state, _settings, GetNavSelection, ToggleNavTarget, ClearNavSelection,
                              _hidden, _displayRules, _landmarkStore, CurrentTilePaths, AtlasJson, SetAtlasSelection,
                              SetAtlasHighlight, VersionJson, _settings.ApiPort);
@@ -420,6 +474,7 @@ public sealed class RadarApp : IDisposable
             playerTerrainHeight = _live.PlayerTerrainHeight(localPlayer);
             maps = _live.ReadMaps(inGameState, areaInstance, windowWidth, windowHeight);
             _areaCode = _live.AreaCode(areaInstance);
+            MaybeMigratePerTypeRules();
             // Player name reads a StdWString (allocates a string) — read it only when the local-player
             // pointer changes (i.e. once per session), not every render frame.
             if (localPlayer != _charNameFor) { _charNameFor = localPlayer; _charName = _live.PlayerName(localPlayer); }
@@ -459,9 +514,9 @@ public sealed class RadarApp : IDisposable
                     _live.InvalidateLandmarks();
                 }
                 // A changed display ruleset can add/remove "Tile" rules that surface tiles — rebuild.
-                if (_displayRules.Generation != _displayRulesGen)
+                if (_ruleEngine.Generation != _displayRulesGen)
                 {
-                    _displayRulesGen = _displayRules.Generation;
+                    _displayRulesGen = _ruleEngine.Generation;
                     _live.InvalidateLandmarks();
                 }
                 // Curated-landmark edits (Landmarks tab) change what surfaces + the labels — rebuild.
@@ -578,6 +633,7 @@ public sealed class RadarApp : IDisposable
             CameraMatrix: _cameraMatrix,
             HideJunk: _settings.HideJunk,
             ImportantOnly: _settings.ImportantOnly,
+            GlobalIconScale: _settings.GlobalIconScale,
             ShowPath: _settings.ShowPath,
             UseCuratedLandmarks: _settings.UseCuratedLandmarks,
             ShowMonsters: _settings.ShowMonsters,
@@ -714,7 +770,7 @@ public sealed class RadarApp : IDisposable
                 _                      => false,
             };
             if (!on) continue;
-            var rule = _displayRules.Resolve(e);
+            var rule = _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly);
             if (rule is null || rule.Hide) continue;                   // no bars over hidden mobs
             var (bw, fillHex, borderW, borderHex) = e.Rarity switch    // geometry per rarity; fill = dot colour
             {
@@ -927,14 +983,14 @@ public sealed class RadarApp : IDisposable
         // Nav/Hide toggles (and the web dashboard) actually include/exclude a type from auto-path.
         var pois = _entities
             .Where(e => e.IsAlive && !e.IconComplete)
-            .Select(e => (e, rule: _displayRules.Resolve(e)))
+            .Select(e => (e, rule: _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly)))
             .Where(x => x.rule is { Hide: false, Navigable: true })
             .OrderBy(x => NumVec2.DistanceSquared(x.e.Grid, player));
-        foreach (var (e, _) in pois)
+        foreach (var (e, rule) in pois)
         {
             var id = "e:" + e.Id;
             if (!seen.Add(id)) continue;
-            targets.Add(new NavTarget(id, EntityLabel(e.Metadata), e.Grid, e.Metadata, IsEntity: true, AutoPath: true));
+            targets.Add(new NavTarget(id, EntityLabel(e, rule), e.Grid, e.Metadata, IsEntity: true, AutoPath: true));
         }
 
         return targets;
@@ -1314,7 +1370,7 @@ public sealed class RadarApp : IDisposable
             foreach (var e in _entities)
             {
                 if (e.Id != entityId) continue;
-                var label = EntityLabel(e.Metadata);
+                var label = EntityLabel(e, _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly));
                 RememberTargetSnapshot(id, label, e.Grid, isEntity: true);
                 info = new TargetRenderInfo(id, label, e.Grid, IsEntity: true, NavTargetStatus.Live);
                 return true;
@@ -1434,20 +1490,52 @@ public sealed class RadarApp : IDisposable
     private string LandmarkLabel(Poe2Live.Landmark lm)
         => _settings.UseCuratedLandmarks && lm.CuratedName is { } c ? c : lm.Name;
 
+    /// <summary>One-time: relocate per-token rows from display_rules.json into zone overrides for the
+    /// current area code (legacy Types-in-zone wrote globals).</summary>
+    private void MaybeMigratePerTypeRules()
+    {
+        if (_settings.PerTypeRulesMigrated || string.IsNullOrEmpty(_areaCode)) return;
+
+        var rules = _displayRules.All.ToList();
+        var removed = 0;
+        for (var i = rules.Count - 1; i >= 0; i--)
+        {
+            if (!EntityDisplayHelper.IsPerTypeEntityRule(rules[i])) continue;
+            var token = rules[i].Match[0];
+            _zoneOverrides.SetOverride(_areaCode, token, rules[i].Hide, rules[i].Navigable);
+            rules.RemoveAt(i);
+            removed++;
+        }
+        if (removed > 0) _displayRules.Replace(rules);
+        _settings.PerTypeRulesMigrated = true;
+        _settings.Save();
+        if (removed > 0)
+            Console.WriteLine($"Migrated {removed} per-type global rule(s) to zone overrides for '{_areaCode}'.");
+    }
+
+    private static void LogMissingHpBarTextures()
+    {
+        foreach (var name in new[] { "full_bar.png", "hollow_bar.png" })
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "Overlay", "Textures", name);
+            if (!File.Exists(path))
+                Console.Error.WriteLine($"HP bar texture not found: Overlay/Textures/{name}");
+        }
+    }
+
     /// <summary>
     /// Turn an entity metadata path into a readable label: take the last '/'-segment, strip a trailing
     /// "_NN"/digit run, and insert spaces before interior capitals
     /// (e.g. ".../Expedition2/Expedition2Encounter" → "Expedition Encounter";
     /// "Waypoint_LongActivationRadius" → "Waypoint Long Activation Radius").
     /// </summary>
-    private static string EntityLabel(string metadata)
+    private static string EntityLabel(Poe2Live.EntityDot e, DisplayRule? rule)
+        => EntityDisplayHelper.FormatEntityLabel(e, rule);
+
+    /// <summary>Path-derived label fallback (rarely used after FormatEntityLabel).</summary>
+    private static string EntityLabelFromMetadata(string metadata)
     {
         if (string.IsNullOrEmpty(metadata)) return "(entity)";
-
-        // Prefer a curated friendly name from the entity-name table when one exists
-        // (e.g. "Lightning Wraith"); fall back to the path-derived prettifier below.
-        if (EntityNameResolver.Shared.Resolve(metadata) is { Length: > 0 } resolved)
-            return resolved;
 
         var slash = metadata.LastIndexOf('/');
         var seg = slash >= 0 ? metadata[(slash + 1)..] : metadata;

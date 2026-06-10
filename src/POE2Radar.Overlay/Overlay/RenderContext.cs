@@ -107,6 +107,7 @@ public sealed record RenderContext(
     // Feature flags mirrored from RadarSettings.
     bool HideJunk,
     bool ImportantOnly,
+    float GlobalIconScale,
     bool ShowPath,
     bool UseCuratedLandmarks,
     // Radar display toggles.

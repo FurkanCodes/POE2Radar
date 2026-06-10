@@ -73,9 +73,9 @@ public static class EntityImportanceHelper
     public static string[] RuleNamesForTier(EntityImportance tier) => tier switch
     {
         EntityImportance.Mechanic => MechanicRuleNames.ToArray(),
-        EntityImportance.UniqueBoss => ["Monster · Unique"],
+        EntityImportance.UniqueBoss => ["Boss", "Monster · Unique"],
         EntityImportance.Rare => ["Monster · Rare"],
-        EntityImportance.PoiTransition => ["Point of Interest", "Transition"],
+        EntityImportance.PoiTransition => ["Waypoint", "Checkpoint", "Portal", "Town portal", "Stash", "Quest marker", "Quest object", "Bridge", "Map marker", "Point of Interest", "Transition"],
         EntityImportance.Chest => ["Chest · Unique", "Chest · Rare"],
         EntityImportance.Npc => ["NPC"],
         EntityImportance.NormalMonster => ["Monster · Normal", "Monster · Magic"],

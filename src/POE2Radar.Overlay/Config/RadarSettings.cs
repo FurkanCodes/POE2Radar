@@ -45,6 +45,21 @@ public sealed class RadarSettings
     // ── One-time: flip Navigable on mechanic rules + Monster · Rare after the endgame-nav defaults pass. ──
     public bool EndgameNavMigrated { get; set; } = false;
 
+    // ── One-time: append quest/waypoint/portal/bridge semantic rules + Boss labels to display_rules.json. ──
+    public bool GlobalRulesExpandedMigrated { get; set; } = false;
+
+    // ── One-time: move per-token global rules into zone_entity_overrides for the current area code. ──
+    public bool PerTypeRulesMigrated { get; set; } = false;
+
+    // ── One-time: Checkpoint/Map marker split, stash/town portal rules, sprite defaults on rules. ──
+    public bool SemanticNamesMigrated { get; set; } = false;
+
+    // ── One-time: bump icon sizes + assign PNG sprites on existing display rules. ──
+    public bool IconDefaultsMigrated { get; set; } = false;
+
+    // ── Global multiplier on map icon sprite scale (PNG from icons.png). ──
+    public float GlobalIconScale { get; set; } = 1.25f;
+
     // ── Radar display toggles. ──
     public bool ShowMonsters { get; set; } = true;
     public bool ShowTerrain { get; set; } = true;
@@ -389,21 +404,21 @@ public sealed class TerrainSettings
 public sealed class RadarStyles
 {
     // Monster dots by rarity.
-    public IconStyle MonsterNormal { get; set; } = new("Circle",   "#FF3333", 0.95f, 6.0f, SpriteIconRef.Cell(0, 14));
-    public IconStyle MonsterMagic  { get; set; } = new("Diamond",  "#73A6FF", 0.97f, 7.0f, SpriteIconRef.Cell(4, 57));
-    public IconStyle MonsterRare   { get; set; } = new("Triangle", "#FFD926", 1.00f, 8.0f, SpriteIconRef.Cell(4, 57));
-    public IconStyle MonsterUnique { get; set; } = new("Star",     "#FF7300", 1.00f, 9.0f, SpriteIconRef.Cell(6, 57));
+    public IconStyle MonsterNormal { get; set; } = new("Circle",   "#FF3333", 0.95f, 9.0f, SpriteIconRef.Cell(0, 14, 1.25f));
+    public IconStyle MonsterMagic  { get; set; } = new("Diamond",  "#73A6FF", 0.97f, 9.0f, SpriteIconRef.Cell(4, 57, 1.25f));
+    public IconStyle MonsterRare   { get; set; } = new("Triangle", "#FFD926", 1.00f, 10.0f, SpriteIconRef.Cell(4, 57, 1.25f));
+    public IconStyle MonsterUnique { get; set; } = new("Star",     "#FF7300", 1.00f, 12.0f, SpriteIconRef.Cell(6, 57, 1.25f));
 
     // Other entity categories.
-    public IconStyle Player        { get; set; } = new("Circle",  "#4DF2FF", 1.00f, 7.0f, SpriteIconRef.Cell(2, 0));
-    public IconStyle Npc           { get; set; } = new("Plus",    "#FFD933", 0.95f, 7.0f, SpriteIconRef.Cell(3, 0));
-    public IconStyle ChestRare     { get; set; } = new("Square",  "#FFD926", 0.95f, 8.0f, SpriteIconRef.Cell(4, 48));
-    public IconStyle ChestUnique   { get; set; } = new("Square",  "#FF7300", 0.95f, 8.0f, SpriteIconRef.Cell(8, 38));
-    public IconStyle Transition    { get; set; } = new("Diamond", "#66FF99", 0.95f, 8.0f, SpriteIconRef.Cell(1, 37));
-    public IconStyle Poi           { get; set; } = new("Circle",  "#8CBFFF", 0.70f, 7.0f, SpriteIconRef.Cell(12, 44));
+    public IconStyle Player        { get; set; } = new("Circle",  "#4DF2FF", 1.00f, 9.0f, SpriteIconRef.Cell(2, 0, 1.25f));
+    public IconStyle Npc           { get; set; } = new("Plus",    "#FFD933", 0.95f, 9.0f, SpriteIconRef.Cell(3, 0, 1.25f));
+    public IconStyle ChestRare     { get; set; } = new("Square",  "#FFD926", 0.95f, 10.0f, SpriteIconRef.Cell(4, 48, 1.25f));
+    public IconStyle ChestUnique   { get; set; } = new("Square",  "#FF7300", 0.95f, 10.0f, SpriteIconRef.Cell(8, 38, 1.25f));
+    public IconStyle Transition    { get; set; } = new("Diamond", "#66FF99", 0.95f, 10.0f, SpriteIconRef.Cell(1, 37, 1.25f));
+    public IconStyle Poi           { get; set; } = new("Circle",  "#8CBFFF", 0.70f, 10.0f, SpriteIconRef.Cell(12, 44, 1.25f));
 
     // Tile landmarks (shape marker + text label at the group centroid).
-    public IconStyle Landmark      { get; set; } = new("Diamond", "#F259F2", 1.00f, 8.0f, SpriteIconRef.Cell(1, 37));
+    public IconStyle Landmark      { get; set; } = new("Diamond", "#F259F2", 1.00f, 10.0f, SpriteIconRef.Cell(1, 37, 1.25f));
 
     // Metadata-matched overrides (first enabled match wins). Seeded with common PoE2 mechanics.
     public List<MechanicStyle> Mechanics { get; set; } = new()
@@ -415,16 +430,16 @@ public sealed class RadarStyles
         // dir-qualified key hits only "Expedition2/Expedition2Encounter" (NOT the "/Objects/...Crack"
         // path), and the Other gate keeps it off the monsters. ("ExpeditionEncounter" was also dead —
         // the real path is "Expedition2Encounter" with a digit, so that key matched nothing.)
-        new() { Name = "Expedition", Match = new() { "Expedition2/Expedition2Encounter" }, Categories = new() { "Other" }, Shape = "Plus", Color = "#26E6D9", Opacity = 1f, Size = 9f, Sprite = SpriteIconRef.Cell(5, 38) },
-        new() { Name = "Ritual",     Match = new() { "Ritual" },                            Shape = "Star",     Color = "#FF3355", Opacity = 1f, Size = 9f, Sprite = SpriteIconRef.Cell(10, 44) },
-        new() { Name = "Breach",     Match = new() { "Breach" },                            Shape = "Diamond",  Color = "#A64DFF", Opacity = 1f, Size = 9f, Sprite = SpriteIconRef.Cell(11, 44) },
+        new() { Name = "Expedition", Match = new() { "Expedition2/Expedition2Encounter" }, Categories = new() { "Other" }, Shape = "Plus", Color = "#26E6D9", Opacity = 1f, Size = 12f, Sprite = SpriteIconRef.Cell(5, 38, 1.25f) },
+        new() { Name = "Ritual",     Match = new() { "Ritual" },                            Shape = "Star",     Color = "#FF3355", Opacity = 1f, Size = 12f, Sprite = SpriteIconRef.Cell(10, 44, 1.25f) },
+        new() { Name = "Breach",     Match = new() { "Breach" },                            Shape = "Diamond",  Color = "#A64DFF", Opacity = 1f, Size = 12f, Sprite = SpriteIconRef.Cell(11, 44, 1.25f) },
         // Match the league-strongbox DIRECTORY only ("Metadata/Chests/StrongBoxes/…") and gate to
         // Chest. The bare "Strongbox" term was too broad twice over: it tagged the box's spawned Vaal
         // guards (…Strongbox monsters — now excluded by the Chest gate) AND ordinary area chests that
         // merely carry "Strongbox" in their name (e.g. Chests/KedgeBayChests/KedgeBayChestStrongbox).
         // "StrongBoxes" hits the real boxes (BasicStrongboxLow lives under it) but not those.
-        new() { Name = "Strongbox",  Match = new() { "StrongBoxes" }, Categories = new() { "Chest" }, Shape = "Square", Color = "#FFB300", Opacity = 1f, Size = 8f, Sprite = SpriteIconRef.Cell(8, 38) },
-        new() { Name = "Essence",    Match = new() { "Essence" },                           Shape = "Triangle", Color = "#33E0FF", Opacity = 1f, Size = 9f, Sprite = SpriteIconRef.Cell(7, 45) },
-        new() { Name = "Shrine",     Match = new() { "Shrine" },                            Shape = "Star",     Color = "#7DFF7D", Opacity = 1f, Size = 8f, Sprite = SpriteIconRef.Cell(7, 0) },
+        new() { Name = "Strongbox",  Match = new() { "StrongBoxes" }, Categories = new() { "Chest" }, Shape = "Square", Color = "#FFB300", Opacity = 1f, Size = 10f, Sprite = SpriteIconRef.Cell(8, 38, 1.25f) },
+        new() { Name = "Essence",    Match = new() { "Essence" },                           Shape = "Triangle", Color = "#33E0FF", Opacity = 1f, Size = 12f, Sprite = SpriteIconRef.Cell(7, 45, 1.25f) },
+        new() { Name = "Shrine",     Match = new() { "Shrine" },                            Shape = "Star",     Color = "#7DFF7D", Opacity = 1f, Size = 10f, Sprite = SpriteIconRef.Cell(7, 0, 1.25f) },
     };
 }

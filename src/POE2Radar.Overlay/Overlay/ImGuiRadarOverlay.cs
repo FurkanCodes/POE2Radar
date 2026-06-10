@@ -34,12 +34,15 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private bool _settingsOpen;
     private string _navMenuCorner = "TopLeft";
     private DisplayRules? _displayRules;
+    private ZoneEntityOverrides? _zoneOverrides;
+    private DisplayRuleEngine? _ruleEngine;
     private HiddenEntities? _hidden;
     private int _rulesUiGeneration = -1;
     private List<DisplayRule> _rulesUiCache = new();
     private string _hidePatternInput = "";
     private string _typeSearch = "";
     private string _ruleSearch = "";
+    private int _spritePickerRuleIndex = -1;
 
     private static readonly Vector4[] PathPalette =
     [
@@ -75,9 +78,12 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     public void UpdateContext(RenderContext ctx) => _ctx = ctx;
 
-    public void AttachEntityStores(DisplayRules displayRules, HiddenEntities hidden)
+    public void AttachEntityStores(DisplayRules displayRules, ZoneEntityOverrides zoneOverrides,
+        DisplayRuleEngine ruleEngine, HiddenEntities hidden)
     {
         _displayRules = displayRules;
+        _zoneOverrides = zoneOverrides;
+        _ruleEngine = ruleEngine;
         _hidden = hidden;
         _rulesUiGeneration = -1;
         _rulesUiCache.Clear();
@@ -327,7 +333,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     if (p.X < -40 || p.Y < -40 || p.X > W + 40 || p.Y > H + 40) continue;
                     var color = rule?.Color ?? EntityColor(e);
                     var radius = rule?.Size ?? EntityRadius(e);
-                    DrawIconOrShape(dl, p, radius, color, rule?.Opacity ?? 0.95f, rule?.Sprite, rule?.Shape);
+                    DrawIconOrShape(dl, p, radius, color, rule?.Opacity ?? 0.95f, rule?.Sprite, rule?.Shape, ctx.GlobalIconScale);
                     if (rule is { Label: { Length: > 0 } lbl })
                         dl.AddText(new NumVec2(p.X + 7, p.Y - 7), ColorU32(color, 0.9f), lbl);
                 }
@@ -341,14 +347,14 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 if (p.X < -40 || p.Y < -40 || p.X > W + 40 || p.Y > H + 40) continue;
                 var lmColor = tr?.Color ?? "#F259F2";
                 var lmSize = tr?.Size ?? 4.5f;
-                DrawIconOrShape(dl, p, lmSize, lmColor, tr?.Opacity ?? 0.95f, tr?.Sprite ?? ctx.Styles.Landmark.Sprite, tr?.Shape ?? ctx.Styles.Landmark.Shape);
+                DrawIconOrShape(dl, p, lmSize, lmColor, tr?.Opacity ?? 0.95f, tr?.Sprite ?? ctx.Styles.Landmark.Sprite, tr?.Shape ?? ctx.Styles.Landmark.Shape, ctx.GlobalIconScale);
                 var label = tr?.Label is { Length: > 0 } rl ? rl
                           : (ctx.UseCuratedLandmarks && lm.CuratedName is { } c ? c : lm.Name);
                 dl.AddText(new NumVec2(p.X + 7, p.Y - 7), ColorU32(lmColor, 0.9f), label);
             }
 
             if (ctx.ShowPlayerBlip)
-                DrawIconOrShape(dl, center, ctx.Styles.Player.Size, ctx.Styles.Player.Color, ctx.Styles.Player.Opacity, ctx.Styles.Player.Sprite, ctx.Styles.Player.Shape);
+                DrawIconOrShape(dl, center, ctx.Styles.Player.Size, ctx.Styles.Player.Color, ctx.Styles.Player.Opacity, ctx.Styles.Player.Sprite, ctx.Styles.Player.Shape, ctx.GlobalIconScale);
         }
         finally
         {
@@ -386,11 +392,13 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         string color,
         float opacity,
         SpriteIconRef? sprite,
-        string? shape)
+        string? shape,
+        float globalIconScale = 1f)
     {
         if (IconAtlas.TryGet(sprite, out var icon) || IconAtlas.TryGet(shape, out icon))
         {
-            var half = MathF.Max(1f, size * Math.Clamp(sprite?.Scale ?? 1f, 0.2f, 4f));
+            var scaleMul = Math.Clamp(sprite?.Scale ?? 1f, 0.2f, 4f) * Math.Clamp(globalIconScale, 0.25f, 4f);
+            var half = MathF.Max(1f, size * scaleMul);
             var tint = ColorU32(color, opacity);
             dl.AddImage(
                 icon.TextureId,
@@ -548,7 +556,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             var bx = sx - bw / 2f + ctx.HpBars.OffsetX;
             var by = sy + ctx.HpBars.OffsetY;
 
-            dl.AddRectFilled(new NumVec2(bx, by), new NumVec2(bx + bw, by + bh), ColorU32(13, 13, 13, 0.78f));
+            var backdropAlpha = useFullTex ? 0.35f : 0.78f;
+            dl.AddRectFilled(new NumVec2(bx, by), new NumVec2(bx + bw, by + bh), ColorU32(13, 13, 13, backdropAlpha));
 
             uint fillCol;
             if (t.Frac < 0.3f)
@@ -818,7 +827,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
         DrawTypesInZone(ctx, s);
 
-        if (ImGui.CollapsingHeader("Category & mechanic defaults"))
+        if (ImGui.CollapsingHeader("Global display rules"))
         {
             var gen = _displayRules.Generation;
             if (gen != _rulesUiGeneration)
@@ -827,19 +836,26 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 _rulesUiCache = _displayRules.All.ToList();
             }
 
-            ImGui.TextDisabled("Broad defaults (all POIs, all rares, mechanics…). Per-type toggles live in Types in this zone above.");
+            ImGui.TextDisabled("Semantic categories everywhere (boss, quest, waypoint, mechanics…). Zone-specific toggles live above.");
+            float iconScale = s.GlobalIconScale;
+            ImGui.SetNextItemWidth(180f);
+            if (ImGui.SliderFloat("Global icon scale", ref iconScale, 0.5f, 3f, "%.2f"))
+                s.GlobalIconScale = Math.Clamp(iconScale, 0.25f, 4f);
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                ImGui.SetTooltip("Multiplier on PNG sprite size from icons.png (per-rule scale stacks on top).");
+
             ImGui.SetNextItemWidth(-1f);
             ImGui.InputTextWithHint("##rulesearch", "search rules by name…", ref _ruleSearch, 128);
 
             // Column legend so the compact checkboxes are legible (On = enabled, H = hide, Nav = auto-path).
-            ImGui.TextDisabled("On  H  Nav   Color  Alpha   Size   Name");
+            ImGui.TextDisabled("On  H  Nav   Icon  Color  Alpha  Size  Spr   Name");
             ImGui.BeginChild("EntityRulesList", new NumVec2(0, 220));
 
             var filter = _ruleSearch.Trim();
             for (var i = 0; i < _rulesUiCache.Count; i++)
             {
                 var rule = _rulesUiCache[i];
-                if (IsPerTypeEntityRule(rule)) continue; // managed in Types in this zone
+                if (EntityDisplayHelper.IsPerTypeEntityRule(rule)) continue;
                 if (filter.Length > 0 && rule.Name.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0)
                     continue;
                 ImGui.PushID(i);
@@ -875,6 +891,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 }
                 if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Nav: add this entity type to the navigation-target set, so 'Auto-path to nearest targets' (and F6) will route to them");
 
+                ImGui.SameLine();
+                DrawRuleSpriteButton(i, rule);
+
                 var col = ParseHexColor(rule.Color);
                 ImGui.SameLine();
                 if (ImGui.ColorEdit3("##col", ref col, ImGuiColorEditFlags.NoInputs))
@@ -905,6 +924,19 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     _displayRules.Update(i, CloneDisplayRule(rule));
                 if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Icon size (px)");
 
+                float sprScale = rule.Sprite?.Scale ?? 1.25f;
+                ImGui.SameLine();
+                ImGui.SetNextItemWidth(52f);
+                if (ImGui.DragFloat("##sprsc", ref sprScale, 0.02f, 0.2f, 4f, "s%.2f"))
+                {
+                    rule.Sprite ??= SpriteIconRef.Cell(0, 0, sprScale);
+                    rule.Sprite.Scale = Math.Clamp(sprScale, 0.2f, 4f);
+                }
+                if (ImGui.IsItemDeactivatedAfterEdit())
+                    _displayRules.Update(i, CloneDisplayRule(rule));
+                if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                    ImGui.SetTooltip("Sprite scale multiplier (PNG from icons.png)");
+
                 ImGui.SameLine();
                 ImGui.TextUnformatted(rule.Name.Length > 0 ? rule.Name : $"Rule {i}");
 
@@ -912,6 +944,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             }
 
             ImGui.EndChild();
+            DrawSpritePickerWindow();
         }
 
         if (_hidden is null) return;
@@ -939,9 +972,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
     }
 
-    /// <summary>Primary entity manager: every distinct type currently around you, grouped by importance.
-    /// Show/Nav toggles write per-type display rules (one rule per metadata token) that beat broad
-    /// category defaults — same rules drive minimap, large map dots, and auto-path.</summary>
+    /// <summary>Live inventory for the current zone type. Show/Nav toggles write per-area-code zone
+    /// overrides — global semantic rules stay unchanged.</summary>
     private void DrawTypesInZone(RenderContext? ctx, RadarSettings s)
     {
         if (!ImGui.CollapsingHeader("Types in this zone", ImGuiTreeNodeFlags.DefaultOpen)) return;
@@ -953,7 +985,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
         var entities = ctx.Entities;
 
-        ImGui.TextDisabled("Show = minimap + map dot · Nav = auto-path. One display rule per type below.");
+        ImGui.TextDisabled("Show = minimap + map · Nav = auto-path. Overrides apply to this zone type only.");
         ImGui.SetNextItemWidth(-1f);
         ImGui.InputTextWithHint("##typesearch", "search types…", ref _typeSearch, 128);
 
@@ -970,10 +1002,13 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (!byTier.TryGetValue(tier, out var bucket))
                 byTier[tier] = bucket = new Dictionary<string, (string, int, Poe2Live.EntityDot)>(StringComparer.Ordinal);
 
+            var label = EntityDisplayHelper.FormatEntityLabel(e, ctx.Resolve?.Invoke(e));
+            if (label.Length == 0) label = token;
+
             if (bucket.TryGetValue(token, out var g))
                 bucket[token] = (g.label, g.count + 1, g.sample);
             else
-                bucket[token] = (FriendlyType(e.Metadata), 1, e);
+                bucket[token] = (label, 1, e);
         }
 
         var filter = _typeSearch.Trim();
@@ -1037,27 +1072,35 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private void DrawTypeRow(RenderContext ctx, string token, string label, int count, Poe2Live.EntityDot sample)
     {
         ImGui.PushID(token);
-        var rule = ctx.Resolve?.Invoke(sample);
-        var rawHide = rule is { Hide: true };
-        var rawNav = rule?.Navigable ?? false;
+        var areaCode = ctx.AreaCode;
+        var globalRule = _ruleEngine?.ResolveGlobal(sample);
+        var mergedRule = ctx.Resolve?.Invoke(sample);
+        var hasZoneOverride = _zoneOverrides?.HasOverride(areaCode, token) ?? false;
+        var rawHide = mergedRule is { Hide: true };
+        var rawNav = mergedRule?.Navigable ?? false;
         var shownNow = !rawHide;
         var navNow = !rawHide && rawNav;
 
         bool show = shownNow;
         if (ImGui.Checkbox("##show", ref show) && show != shownNow)
-            SetTypeRule(token, label, sample, hide: !show, navigable: rawNav);
-        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Draw on minimap + large map (creates a per-type display rule)");
+            ApplyZoneOverride(areaCode, token, hide: !show, navigable: rawNav, globalRule);
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Draw on minimap + large map (zone override for this area type)");
 
         ImGui.SameLine();
         bool nav = navNow;
         if (ImGui.Checkbox("##nav", ref nav) && nav != navNow)
-            SetTypeRule(token, label, sample, hide: rawHide, navigable: nav);
-        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Include in auto-path / F6 (creates a per-type display rule)");
+            ApplyZoneOverride(areaCode, token, hide: rawHide, navigable: nav, globalRule);
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Include in auto-path / F6 (zone override for this area type)");
 
         ImGui.SameLine();
         ImGui.TextDisabled($"x{count}");
         ImGui.SameLine();
         ImGui.TextUnformatted(label);
+        if (hasZoneOverride)
+        {
+            ImGui.SameLine();
+            ImGui.TextDisabled("· zone");
+        }
         ImGui.PopID();
     }
 
@@ -1088,119 +1131,19 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         if (changed) _displayRules.Replace(all);
     }
 
-    /// <summary>Create or update a per-type display rule (matched by metadata token). Inserted just after
-    /// the state-hide rules so it beats broad category defaults (POI, Monster · Rare, …) for this type only.</summary>
-    private void SetTypeRule(string token, string label, Poe2Live.EntityDot sample, bool hide, bool navigable)
+    private void ApplyZoneOverride(string areaCode, string token, bool hide, bool navigable, DisplayRule? globalRule)
     {
-        if (_displayRules is null) return;
+        if (_zoneOverrides is null || string.IsNullOrEmpty(areaCode) || string.IsNullOrEmpty(token)) return;
 
-        var all = _displayRules.All.ToList();
-        var idx = all.FindIndex(r =>
-            r.Match is { Count: 1 } && string.Equals(r.Match[0], token, StringComparison.OrdinalIgnoreCase)
-            && r.Categories.Count == 0 && !IsStateHideRule(r));
-
-        var baseRule = _ctx?.Resolve?.Invoke(sample);
-        DisplayRule rule;
-        if (idx >= 0)
-            rule = CloneDisplayRule(all[idx]);
+        var globalHide = globalRule is { Hide: true };
+        var globalNav = globalRule?.Navigable ?? false;
+        if (hide == globalHide && navigable == globalNav)
+            _zoneOverrides.ClearOverride(areaCode, token);
         else
-        {
-            rule = baseRule != null ? CloneDisplayRule(baseRule) : new DisplayRule();
-            rule.Name = label;
-            rule.Enabled = true;
-            rule.Categories = new();
-            rule.Match = new() { token };
-            rule.Rarity = null;
-            rule.Reaction = null;
-            rule.Life = null;
-            rule.Chest = null;
-            rule.Poi = null;
-            rule.Encounter = null;
-        }
-        rule.Hide = hide;
-        rule.Navigable = navigable;
-        if (rule.Name.StartsWith("Type override:", StringComparison.Ordinal))
-            rule.Name = label;
-
-        var insertAt = AfterStateHidesIndex(all);
-        if (idx >= 0)
-        {
-            _displayRules.Update(idx, rule);
-            if (idx != insertAt) _displayRules.Move(idx, insertAt);
-        }
-        else
-        {
-            _displayRules.Add(rule);
-            _displayRules.Move(_displayRules.Count - 1, insertAt);
-        }
+            _zoneOverrides.SetOverride(areaCode, token, hide, navigable);
     }
 
-    private static bool IsStateHideRule(DisplayRule r)
-        => r.Hide && (r.Life == "Dead" || r.Chest == "Opened" || r.Encounter == "Complete");
-
-    private static int AfterStateHidesIndex(List<DisplayRule> all)
-    {
-        var i = 0;
-        while (i < all.Count && IsStateHideRule(all[i])) i++;
-        return i;
-    }
-
-    /// <summary>Per-type rules created from Types-in-zone toggles — shown there, not duplicated in defaults list.</summary>
-    private static bool IsPerTypeEntityRule(DisplayRule r)
-    {
-        if (IsStateHideRule(r)) return false;
-        if (r.Categories.Count > 0) return false;
-        if (r.Match is not { Count: 1 }) return false;
-        if (r.Name.StartsWith("Type override:", StringComparison.Ordinal)) return true;
-
-        var knownDefaults = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "Point of Interest", "Transition", "Player", "NPC",
-            "Monster · Unique", "Monster · Rare", "Monster · Magic", "Monster · Normal",
-            "Chest · Unique", "Chest · Rare",
-        };
-        foreach (var m in EntityImportanceHelper.MechanicRuleNames)
-            knownDefaults.Add(m);
-        return !knownDefaults.Contains(r.Name);
-    }
-
-    /// <summary>Stable per-type match token: the last '/'-segment of the metadata with a trailing
-    /// "_NN"/digit run stripped (e.g. ".../Monsters/Waypoint_03" → "Waypoint"). Always a substring of
-    /// the metadata, so it works directly as a display-rule match term.</summary>
-    private static string TypeToken(string metadata)
-    {
-        if (string.IsNullOrEmpty(metadata)) return "";
-        var slash = metadata.LastIndexOf('/');
-        var seg = slash >= 0 ? metadata[(slash + 1)..] : metadata;
-        var end = seg.Length;
-        while (end > 0 && char.IsDigit(seg[end - 1])) end--;
-        if (end > 0 && seg[end - 1] == '_') end--;
-        return end > 0 ? seg[..end] : seg;
-    }
-
-    /// <summary>Human-friendly type label: a curated entity name when known, else the type token with
-    /// spaces inserted before interior capitals (e.g. "WaypointLong" → "Waypoint Long").</summary>
-    private static string FriendlyType(string metadata)
-    {
-        if (EntityNameResolver.Shared.Resolve(metadata) is { Length: > 0 } resolved) return resolved;
-        var seg = TypeToken(metadata);
-        if (seg.Length == 0) return "(entity)";
-        var sb = new System.Text.StringBuilder(seg.Length + 8);
-        for (var i = 0; i < seg.Length; i++)
-        {
-            var ch = seg[i];
-            if (i > 0)
-            {
-                var prev = seg[i - 1];
-                var boundary = (char.IsUpper(ch) && (char.IsLower(prev) || char.IsDigit(prev)))
-                               || (char.IsDigit(ch) && char.IsLetter(prev) && !char.IsDigit(prev));
-                if (boundary && sb.Length > 0 && sb[^1] != ' ') sb.Append(' ');
-            }
-            sb.Append(ch);
-        }
-        var label = sb.ToString().Trim();
-        return label.Length == 0 ? "(entity)" : label;
-    }
+    private static string TypeToken(string metadata) => EntityDisplayHelper.TypeToken(metadata);
 
     private void DrawRadarTab(RadarSettings s)
     {
@@ -1306,6 +1249,16 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
             ImGui.SameLine(); bool bu = s.HpBarUnique; ImGui.Checkbox("Unique", ref bu); s.HpBarUnique = bu;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Show HP bars on unique (orange name) bosses and monsters");
+        }
+
+        if (ImGui.CollapsingHeader("Textures", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            var hb = s.HpBars;
+            bool textures = hb.UseTextures;
+            if (ImGui.Checkbox("Use bar textures", ref textures))
+                hb.UseTextures = textures;
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                ImGui.SetTooltip("Draw gradient HP/ES bars from Overlay/Textures/full_bar.png and hollow_bar.png");
         }
 
         if (ImGui.CollapsingHeader("Bar Geometry", ImGuiTreeNodeFlags.DefaultOpen))
@@ -1481,6 +1434,91 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private static uint ColorU32(byte r, byte g, byte b, float a)
     {
         return ImGui.ColorConvertFloat4ToU32(new Vector4(r / 255f, g / 255f, b / 255f, Math.Clamp(a, 0f, 1f)));
+    }
+
+    private void DrawRuleSpriteButton(int ruleIndex, DisplayRule rule)
+    {
+        const float btn = 18f;
+        var size = new NumVec2(btn, btn);
+        if (!IconAtlas.IsInitialized)
+        {
+            if (ImGui.Button("?", size))
+                _spritePickerRuleIndex = ruleIndex;
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                ImGui.SetTooltip("PNG sprite from icons.png (atlas loads on first in-game frame)");
+            return;
+        }
+
+        if (ImGui.InvisibleButton("##sprbtn", size))
+            _spritePickerRuleIndex = ruleIndex;
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+            ImGui.SetTooltip("PNG sprite from icons.png — click to pick cell");
+
+        var dl = ImGui.GetWindowDrawList();
+        var min = ImGui.GetItemRectMin();
+        var max = ImGui.GetItemRectMax();
+        if (IconAtlas.TryGet(rule.Sprite, out var tex) || IconAtlas.TryGet(rule.Shape, out tex))
+            dl.AddImage(tex.TextureId, min, max, tex.UV0, tex.UV1, 0xFFFFFFFF);
+        else
+            dl.AddRectFilled(min, max, ColorU32(60, 60, 70, 0.9f));
+    }
+
+    private void DrawSpritePickerWindow()
+    {
+        if (_spritePickerRuleIndex < 0 || _displayRules is null) return;
+        if (_spritePickerRuleIndex >= _rulesUiCache.Count) { _spritePickerRuleIndex = -1; return; }
+
+        ImGui.SetNextWindowSize(new NumVec2(520, 420), ImGuiCond.FirstUseEver);
+        bool open = true;
+        if (!ImGui.Begin("Pick icon (icons.png)", ref open, ImGuiWindowFlags.NoCollapse))
+        {
+            ImGui.End();
+            if (!open) _spritePickerRuleIndex = -1;
+            return;
+        }
+
+        if (!IconAtlas.IsInitialized)
+        {
+            ImGui.TextDisabled("Icon atlas not loaded yet — enter a zone so the overlay can upload icons.png.");
+            ImGui.End();
+            if (!open) _spritePickerRuleIndex = -1;
+            return;
+        }
+
+        var cols = IconAtlas.ColCount;
+        var rows = IconAtlas.RowCount;
+        ImGui.TextDisabled($"Click a cell ({cols}×{rows}, 64px each). SVG shapes are dashboard-only.");
+        ImGui.BeginChild("SpriteGrid", new NumVec2(0, 0));
+
+        const float cellPx = 28f;
+        for (var row = 0; row < rows; row++)
+        {
+            for (var col = 0; col < cols; col++)
+            {
+                ImGui.PushID(row * cols + col);
+                if (ImGui.InvisibleButton("cell", new NumVec2(cellPx, cellPx)))
+                {
+                    var rule = _rulesUiCache[_spritePickerRuleIndex];
+                    var scale = rule.Sprite?.Scale ?? 1.25f;
+                    var updated = CloneDisplayRule(rule);
+                    updated.Sprite = SpriteIconRef.Cell(col, row, scale);
+                    _displayRules.Update(_spritePickerRuleIndex, updated);
+                    _spritePickerRuleIndex = -1;
+                }
+                if (IconAtlas.TryGet(SpriteIconRef.Cell(col, row, 1f), out var tex))
+                {
+                    var min = ImGui.GetItemRectMin();
+                    var max = ImGui.GetItemRectMax();
+                    ImGui.GetWindowDrawList().AddImage(tex.TextureId, min, max, tex.UV0, tex.UV1, 0xFFFFFFFF);
+                }
+                if (col < cols - 1) ImGui.SameLine(0f, 1f);
+                ImGui.PopID();
+            }
+        }
+
+        ImGui.EndChild();
+        ImGui.End();
+        if (!open) _spritePickerRuleIndex = -1;
     }
 
     private static DisplayRule CloneDisplayRule(DisplayRule r) => new()
