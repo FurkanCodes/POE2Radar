@@ -379,7 +379,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             }
 
             if (mapLabels.Count > 0)
-                DrawMapLabelChips(dl, mapLabels, center, clipL, clipT, clipR, clipB);
+                DrawMapLabelChips(dl, mapLabels, clipL, clipT, clipR, clipB);
 
             if (ctx.ShowPlayerBlip)
                 DrawIconOrShape(dl, center, ctx.Styles.Player.Size, ctx.Styles.Player.Color, ctx.Styles.Player.Opacity, ctx.Styles.Player.Sprite, ctx.Styles.Player.Shape, ctx.GlobalIconScale);
@@ -528,9 +528,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     {
         if (ctx.CameraMatrix is not { Length: >= 16 } m) return;
         float W = ctx.WindowWidth, H = ctx.WindowHeight;
-        var z = 0f;
-        foreach (var e in ctx.Entities)
-            if (e.Category == Poe2Live.EntityCategory.Player) { z = e.World.Z; break; }
+        var z = ctx.PlayerWorld.Z;
 
         foreach (var path in ctx.SelectedPaths)
         {
@@ -644,7 +642,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private const float LabelChipRowH = 18f;
     private const float LabelChipBodyH = LabelChipRowH - 2f;
-    private const float MapLabelPlayerAnchorPx = 90f;
     private const float MapLabelChipMarginPx = 6f;
 
     private static float LabelChipWidth(string text) =>
@@ -678,10 +675,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private static void DrawMapLabelChips(
         ImDrawListPtr dl,
         List<MapLabelCandidate> candidates,
-        NumVec2 playerCenter,
         float clipL, float clipT, float clipR, float clipB)
     {
-        foreach (var cluster in BuildMapLabelClusters(candidates, playerCenter))
+        foreach (var cluster in BuildMapLabelClusters(candidates))
         {
             if (cluster.Count == 1)
             {
@@ -694,7 +690,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             }
 
             cluster.Sort((a, b) => string.Compare(a.Text, b.Text, StringComparison.Ordinal));
-            var anchor = GetClusterAnchor(cluster, playerCenter);
+            var anchor = GetClusterAnchor(cluster);
             var stackH = cluster.Count * LabelChipRowH;
             var startTop = Math.Clamp(
                 anchor.Y - stackH * 0.5f,
@@ -713,7 +709,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
     }
 
-    private static NumVec2 GetClusterAnchor(List<MapLabelCandidate> cluster, NumVec2 playerCenter)
+    private static NumVec2 GetClusterAnchor(List<MapLabelCandidate> cluster)
     {
         float cx = 0f, cy = 0f;
         foreach (var c in cluster)
@@ -721,18 +717,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             cx += c.Pos.X;
             cy += c.Pos.Y;
         }
-        cx /= cluster.Count;
-        cy /= cluster.Count;
-        var dpx = cx - playerCenter.X;
-        var dpy = cy - playerCenter.Y;
-        var distToPlayer = MathF.Sqrt(dpx * dpx + dpy * dpy);
-        return distToPlayer < MapLabelPlayerAnchorPx
-            ? playerCenter
-            : new NumVec2(cx, cy);
+        return new NumVec2(cx / cluster.Count, cy / cluster.Count);
     }
 
     private static (float left, float top, float right, float bottom) GetClusterLayoutRect(
-        List<MapLabelCandidate> cluster, NumVec2 playerCenter)
+        List<MapLabelCandidate> cluster)
     {
         if (cluster.Count == 1)
         {
@@ -740,7 +729,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             return (left, top, right, bottom);
         }
 
-        var anchor = GetClusterAnchor(cluster, playerCenter);
+        var anchor = GetClusterAnchor(cluster);
         var stackH = cluster.Count * LabelChipRowH;
         var maxW = 0f;
         foreach (var c in cluster)
@@ -751,7 +740,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     }
 
     private static List<List<MapLabelCandidate>> BuildMapLabelClusters(
-        List<MapLabelCandidate> candidates, NumVec2 playerCenter)
+        List<MapLabelCandidate> candidates)
     {
         var n = candidates.Count;
         var parent = new int[n];
@@ -794,11 +783,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
 
         var clusters = groups.Values.ToList();
-        return MergeOverlappingClusterLayouts(clusters, playerCenter);
+        return MergeOverlappingClusterLayouts(clusters);
     }
 
     private static List<List<MapLabelCandidate>> MergeOverlappingClusterLayouts(
-        List<List<MapLabelCandidate>> clusters, NumVec2 playerCenter)
+        List<List<MapLabelCandidate>> clusters)
     {
         var changed = true;
         while (changed)
@@ -806,10 +795,10 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             changed = false;
             for (var i = 0; i < clusters.Count && !changed; i++)
             {
-                var (l1, t1, r1, b1) = GetClusterLayoutRect(clusters[i], playerCenter);
+                var (l1, t1, r1, b1) = GetClusterLayoutRect(clusters[i]);
                 for (var j = i + 1; j < clusters.Count; j++)
                 {
-                    var (l2, t2, r2, b2) = GetClusterLayoutRect(clusters[j], playerCenter);
+                    var (l2, t2, r2, b2) = GetClusterLayoutRect(clusters[j]);
                     if (!LayoutRectsOverlap(l1, t1, r1, b1, l2, t2, r2, b2, MapLabelChipMarginPx))
                         continue;
                     clusters[i].AddRange(clusters[j]);
@@ -830,26 +819,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         float W = ctx.WindowWidth, H = ctx.WindowHeight;
         if (ctx.CameraMatrix is not { Length: >= 16 } m) return;
 
-        // Anchor labels at each route's START (the point nearest the player) so every label sits in one
-        // cluster around you — you always see where each colored line is heading. Fall back to the
-        // player's own screen position for an empty route.
-        var z = 0f;
-        var playerScreen = new NumVec2(W * 0.5f, H * 0.5f);
-        foreach (var e in ctx.Entities)
-            if (e.Category == Poe2Live.EntityCategory.Player)
-            {
-                z = e.World.Z;
-                var pwx = e.Grid.X * GridConstants.GridToWorld;
-                var pwy = e.Grid.Y * GridConstants.GridToWorld;
-                var pcw = pwx * m[3] + pwy * m[7] + z * m[11] + m[15];
-                if (pcw > 0.0001f)
-                {
-                    var pcx = pwx * m[0] + pwy * m[4] + z * m[8] + m[12];
-                    var pcy = pwx * m[1] + pwy * m[5] + z * m[9] + m[13];
-                    playerScreen = new NumVec2((pcx / pcw / 2f + 0.5f) * W, (0.5f - pcy / pcw / 2f) * H);
-                }
-                break;
-            }
+        // Stack path labels at the local player's screen position (not another Player entity in town).
+        var playerScreen = ProjectWorldToScreen(ctx.PlayerWorld, m, W, H);
 
         // Build label rows sorted by color slot so the stack order is stable and matches the legend.
         var labels = new List<(int slot, string text)>();
@@ -1686,6 +1657,16 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         var d = cell - player;
         var md = MapProjection.GridDeltaToMapDelta(new GameVec2 { X = d.X, Y = d.Y }, scale, deltaWorldZ);
         return new NumVec2(center.X + md.X, center.Y + md.Y);
+    }
+
+    private static NumVec2 ProjectWorldToScreen(System.Numerics.Vector3 world, float[] m, float w, float h)
+    {
+        var cw = world.X * m[3] + world.Y * m[7] + world.Z * m[11] + m[15];
+        if (cw <= 0.0001f)
+            return new NumVec2(w * 0.5f, h * 0.5f);
+        var cx = world.X * m[0] + world.Y * m[4] + world.Z * m[8] + m[12];
+        var cy = world.X * m[1] + world.Y * m[5] + world.Z * m[9] + m[13];
+        return new NumVec2((cx / cw / 2f + 0.5f) * w, (0.5f - cy / cw / 2f) * h);
     }
 
     private static uint PathColor(int slot)

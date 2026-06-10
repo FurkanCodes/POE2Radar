@@ -483,6 +483,7 @@ public sealed class RadarApp : IDisposable
         var windowHeight = OverlayHeight;
         var inGame = _live.TryResolve(out var inGameState, out var areaInstance, out var localPlayer);
         var player = NumVec2.Zero;
+        var playerWorld = System.Numerics.Vector3.Zero;
         var playerTerrainHeight = 0f;
         var maps = default(Poe2Live.MapViews);
         var areaLevel = 0;
@@ -497,6 +498,12 @@ public sealed class RadarApp : IDisposable
             areaLevel = _live.AreaLevel(areaInstance);
 
             player = _live.PlayerGrid(localPlayer) ?? NumVec2.Zero;
+            playerWorld = _live.PlayerWorld(localPlayer) is { } pw
+                ? new System.Numerics.Vector3(pw.X, pw.Y, pw.Z)
+                : new System.Numerics.Vector3(
+                    player.X * POE2Radar.Core.Pathfinding.GridConstants.GridToWorld,
+                    player.Y * POE2Radar.Core.Pathfinding.GridConstants.GridToWorld,
+                    0f);
             playerTerrainHeight = _live.PlayerTerrainHeight(localPlayer);
             maps = _live.ReadMaps(inGameState, areaInstance, windowWidth, windowHeight);
             _areaCode = _live.AreaCode(areaInstance);
@@ -644,6 +651,7 @@ public sealed class RadarApp : IDisposable
             WindowWidth: windowWidth,
             WindowHeight: windowHeight,
             PlayerGrid: player,
+            PlayerWorld: playerWorld,
             Map: largeMap,
             MiniMap: miniMap,
             MapFrame: mapFrame,

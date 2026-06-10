@@ -81,6 +81,7 @@ public sealed record RenderContext(
     int WindowWidth,
     int WindowHeight,
     NumVec2 PlayerGrid,
+    System.Numerics.Vector3 PlayerWorld,
     Poe2Live.MapUi Map,
     Poe2Live.MapUi MiniMap,
     MapFrame MapFrame,

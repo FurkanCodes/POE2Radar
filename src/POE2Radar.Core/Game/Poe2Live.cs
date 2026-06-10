@@ -176,6 +176,7 @@ public sealed class Poe2Live
     /// <summary>Player grid position (from the Render component's world position ÷ grid ratio).</summary>
     public System.Numerics.Vector2? PlayerGrid(nint localPlayer) => EntityGrid(localPlayer);
     public float PlayerTerrainHeight(nint localPlayer) => EntityTerrainHeight(localPlayer) ?? 0f;
+    public Vector3? PlayerWorld(nint localPlayer) => EntityWorld(localPlayer);
 
     public readonly record struct Vitals(int HpCur, int HpUnreserved, int ManaCur, int ManaUnreserved,
         int EsCur, int EsUnreserved)
