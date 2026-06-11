@@ -1447,8 +1447,11 @@ let hidden=[], drules=[], zoneTypesData=null, typeSearchQ='', drSearchQ='';
 let zoneTypesPoll=null;
 const KNOWN_SEMANTIC_NAMES=new Set(['Boss','Monster · Unique','Monster · Rare','Monster · Magic','Monster · Normal',
   'Player','NPC','Chest · Unique','Chest · Rare','Transition','Quest object','Quest marker','Waypoint','Bridge','Portal',
-  'Checkpoint','Map marker','Point of Interest','Stash','Town portal','Expedition','Ritual','Breach','Abyss','Delirium',
-  'Strongbox','Essence','Shrine','Summoning Circle','Wisp','Rogue Exile']);
+  'Checkpoint','Map marker','Point of Interest','Stash','Town portal','Expedition','Ritual','Breach','Abyss','Delirium','Ultimatum','Corruption',
+  'Strongbox','Strongbox · Unique','Strongbox · Landmark','Strongbox · Cartographer',
+  'Strongbox · Arcane','Strongbox · Armourer','Strongbox · Jeweller','Strongbox · Divination','Strongbox · Expedition',
+  'Strongbox · Researcher','Strongbox · Abyss',
+  'Essence','Shrine','Summoning Circle','Wisp','Rogue Exile']);
 const _ztOpen={};
 function isStateHideRule(r){ return r.hide&&(r.life==='Dead'||r.chest==='Opened'||r.encounter==='Complete'); }
 function isPerTypeEntityRule(r){

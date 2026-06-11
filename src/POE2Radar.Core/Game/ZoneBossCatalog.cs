@@ -10,6 +10,28 @@ namespace POE2Radar.Core.Game;
 /// </summary>
 public sealed class ZoneBossCatalog
 {
+    private static readonly Regex ActLineRegex = new(
+        @"^\s*(?<zone>.+?)\s+-\s+(?<boss>.+?)\s+-",
+        RegexOptions.Compiled);
+
+    private static readonly Regex DropsRegex = new(
+        @"\b([A-Za-z][A-Za-z'-]+)\s+drops\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex KillRegex = new(
+        @"\bKill\s+(?:the\s+)?([A-Za-z][A-Za-z'-]+)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex ListEntryRegex = new(
+        @"^\d+\)\s*([A-Za-z][A-Za-z'-]+)\s+-",
+        RegexOptions.Compiled);
+
+    private static readonly Regex BossLabelRegex = new(
+        @"\bBoss:\s*([A-Za-z][A-Za-z' -]+)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
+
     private readonly Dictionary<string, string> _byZoneCode = new(StringComparer.OrdinalIgnoreCase);
 
     public static ZoneBossCatalog Shared { get; } = LoadEmbedded();
@@ -119,26 +141,4 @@ public sealed class ZoneBossCatalog
 
     private static string Str(JsonElement e, string prop)
         => e.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
-
-    private static readonly Regex ActLineRegex = new(
-        @"^\s*(?<zone>.+?)\s+-\s+(?<boss>.+?)\s+-",
-        RegexOptions.Compiled);
-
-    private static readonly Regex DropsRegex = new(
-        @"\b([A-Za-z][A-Za-z'-]+)\s+drops\b",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-    private static readonly Regex KillRegex = new(
-        @"\bKill\s+(?:the\s+)?([A-Za-z][A-Za-z'-]+)",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-    private static readonly Regex ListEntryRegex = new(
-        @"^\d+\)\s*([A-Za-z][A-Za-z'-]+)\s+-",
-        RegexOptions.Compiled);
-
-    private static readonly Regex BossLabelRegex = new(
-        @"\bBoss:\s*([A-Za-z][A-Za-z' -]+)",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-    private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
 }

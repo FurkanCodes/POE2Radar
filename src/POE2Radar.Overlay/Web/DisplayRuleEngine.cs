@@ -27,7 +27,7 @@ public sealed class DisplayRuleEngine
     /// <summary>Global rule only (state hides + semantic rules), without zone overrides or ImportantOnly.</summary>
     public DisplayRule? ResolveGlobal(Poe2Live.EntityDot e, IReadOnlyList<Poe2Live.EntityDot>? peers = null)
     {
-        var state = _global.ResolveStateHide(e);
+        var state = ApplyOpenedChestExemption(e, _global.ResolveStateHide(e));
         if (state != null) return state;
         return FinalizeEssence(e, _global.ResolveContent(e), peers);
     }
@@ -39,7 +39,7 @@ public sealed class DisplayRuleEngine
         bool importantOnly,
         IReadOnlyList<Poe2Live.EntityDot>? peers = null)
     {
-        var state = _global.ResolveStateHide(e);
+        var state = ApplyOpenedChestExemption(e, _global.ResolveStateHide(e));
         if (state != null) return state;
 
         var token = EntityDisplayHelper.TypeToken(e.Metadata);
@@ -122,6 +122,14 @@ public sealed class DisplayRuleEngine
             if (string.Equals(def.Name, "Essence", StringComparison.OrdinalIgnoreCase))
                 return EndgameMechanicCatalog.ToDisplayRule(def);
         return new DisplayRule { Name = "Essence", Label = "Essence", Enabled = true, Navigable = true };
+    }
+
+    private static DisplayRule? ApplyOpenedChestExemption(Poe2Live.EntityDot e, DisplayRule? state)
+    {
+        if (state is { Hide: true, Chest: "Opened" }
+            && StrongboxHidePolicy.ShouldKeepOpenedVisible(e.Metadata, e.Category))
+            return null;
+        return state;
     }
 
     private static DisplayRule CloneRule(DisplayRule r) => new()

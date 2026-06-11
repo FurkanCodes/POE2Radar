@@ -8,6 +8,8 @@ namespace POE2Radar.Core.Game;
 /// overlay still references and which is being migrated). As each PoE2 structure is validated
 /// here, the corresponding overlay reader is rechained to use it.</para>
 ///
+/// Unofficial cross-ref after patches: https://github.com/imkk000/poe2-offsets (validate via Research, do not copy blindly).
+///
 /// Markers: ✓ = confirmed against live PoE2; (GH2) = from GameHelper2, not yet live-checked;
 /// ✗ = transcribed from a third-party IDA dump (a private fork), NOT yet validated against our
 /// live client and NOT yet wired into any read path. Validate via the Research probes before using

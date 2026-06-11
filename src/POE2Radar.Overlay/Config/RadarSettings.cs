@@ -76,6 +76,12 @@ public sealed class RadarSettings
     // ── One-time: Essence rare+POI cluster + any-category Essence rule matchers. ──
     public bool EndgameMechanicsV7Migrated { get; set; } = false;
 
+    // ── One-time: split Strongbox into Unique / Landmark / Cartographer / Researcher / Abyss + generic. ──
+    public bool EndgameMechanicsV8Migrated { get; set; } = false;
+
+    // ── One-time: strongbox family completion, Ultimatum/Corruption, opened-chest exemptions. ──
+    public bool EndgameMechanicsV9Migrated { get; set; } = false;
+
     // ── One-time: atlas display settings upgrade (AtlasDrawAll → AtlasShowOnScreenNodes). ──
     public bool AtlasDisplayMigrated { get; set; } = false;
 

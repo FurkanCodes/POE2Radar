@@ -414,7 +414,12 @@ public static class EntityDisplayHelper
         "Player", "NPC", "Chest · Unique", "Chest · Rare", "Transition",
         "Quest object", "Quest marker", "Waypoint", "Bridge", "Portal",
         "Checkpoint", "Map marker", "Point of Interest", "Stash", "Town portal",
-        "Expedition", "Ritual", "Breach", "Abyss", "Delirium", "Strongbox", "Essence", "Shrine",
+        "Expedition", "Ritual", "Breach", "Abyss", "Delirium", "Ultimatum", "Corruption",
+        "Strongbox", "Strongbox · Unique", "Strongbox · Landmark", "Strongbox · Cartographer",
+        "Strongbox · Arcane", "Strongbox · Armourer", "Strongbox · Jeweller",
+        "Strongbox · Divination", "Strongbox · Expedition",
+        "Strongbox · Researcher", "Strongbox · Abyss",
+        "Essence", "Shrine",
         "Summoning Circle", "Wisp", "Rogue Exile",
     };
 

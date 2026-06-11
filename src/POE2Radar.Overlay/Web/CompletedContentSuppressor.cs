@@ -37,6 +37,7 @@ public sealed class CompletedContentSuppressor
             foreach (var e in entities)
             {
                 if (!EntityDisplayHelper.IsCompletedContentState(e)) continue;
+                if (StrongboxHidePolicy.ShouldKeepOpenedVisible(e.Metadata, e.Category)) continue;
                 var token = EntityDisplayHelper.TypeToken(e.Metadata);
                 if (token.Length == 0) continue;
                 _byToken.TryAdd(token, DateTime.UtcNow);

@@ -392,6 +392,38 @@ public sealed class RadarApp : IDisposable
             _settings.Save();
             Console.WriteLine("Endgame mechanics v7: Essence rare+POI cluster; Essence rule any-category + monolith matchers.");
         }
+        if (!_settings.EndgameMechanicsV8Migrated)
+        {
+            var rules = _displayRules.All.ToList();
+            if (DisplayRules.MigrateEndgameMechanics(rules))
+                _displayRules.Replace(rules);
+            foreach (var r in rules)
+            {
+                if (r.Name.StartsWith("Strongbox", StringComparison.OrdinalIgnoreCase))
+                    r.Navigable = true;
+            }
+            _displayRules.Replace(rules);
+            _settings.Styles.Mechanics = EndgameMechanicCatalog.DefaultMechanicStyles();
+            _settings.EndgameMechanicsV8Migrated = true;
+            _settings.Save();
+            Console.WriteLine("Endgame mechanics v8: Strongbox split (Unique, Landmark, Cartographer, Researcher, Abyss, generic).");
+        }
+        if (!_settings.EndgameMechanicsV9Migrated)
+        {
+            var rules = _displayRules.All.ToList();
+            if (DisplayRules.MigrateEndgameMechanics(rules))
+                _displayRules.Replace(rules);
+            foreach (var r in rules)
+            {
+                if (r.Name.StartsWith("Strongbox", StringComparison.OrdinalIgnoreCase))
+                    r.Navigable = true;
+            }
+            _displayRules.Replace(rules);
+            _settings.Styles.Mechanics = EndgameMechanicCatalog.DefaultMechanicStyles();
+            _settings.EndgameMechanicsV9Migrated = true;
+            _settings.Save();
+            Console.WriteLine("Endgame mechanics v9: strongbox family complete, Ultimatum/Corruption, opened Unique/Landmark exempt.");
+        }
         LogMissingHpBarTextures();
         _displayRulesGen = _ruleEngine.Generation;
         // User-editable overlay on the baked curated landmark table (the "Landmarks" tab). Inject its
