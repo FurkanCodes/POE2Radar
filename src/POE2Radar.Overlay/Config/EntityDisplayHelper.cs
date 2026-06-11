@@ -33,7 +33,7 @@ public static class EntityDisplayHelper
     public static string SpecificNameFromMetadata(string metadata)
     {
         var resolved = EntityNameResolver.Shared.Resolve(metadata);
-        if (resolved is { Length: > 0 })
+        if (resolved is { Length: > 0 } && !MetadataLabelHelper.IsTokenEquivalent(metadata, resolved))
         {
             const string dnt = "[DNT-UNUSED] ";
             if (resolved.StartsWith(dnt, StringComparison.Ordinal)) resolved = resolved[dnt.Length..];
@@ -52,24 +52,7 @@ public static class EntityDisplayHelper
 
     /// <summary>Insert spaces before interior capitals / digit-letter edges (e.g. Waypoint_LongActivationRadius).</summary>
     public static string HumanizeToken(string token)
-    {
-        if (string.IsNullOrEmpty(token)) return "";
-
-        var sb = new System.Text.StringBuilder(token.Length + 8);
-        for (var i = 0; i < token.Length; i++)
-        {
-            var ch = token[i];
-            if (i > 0)
-            {
-                var prev = token[i - 1];
-                var boundary = (char.IsUpper(ch) && (char.IsLower(prev) || char.IsDigit(prev)))
-                               || (char.IsDigit(ch) && char.IsLetter(prev) && !char.IsDigit(prev));
-                if (boundary && sb.Length > 0 && sb[^1] != ' ') sb.Append(' ');
-            }
-            sb.Append(ch);
-        }
-        return sb.ToString().Trim();
-    }
+        => MetadataLabelHelper.HumanizeSegment(token);
 
     /// <summary>Nav/path/zone label: bosses, mechanics, NPC (name), map-marker POIs as proper names.</summary>
     public static string FormatEntityLabel(

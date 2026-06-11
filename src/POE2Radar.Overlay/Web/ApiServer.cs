@@ -518,6 +518,11 @@ public sealed class ApiServer : IDisposable
     {
         hideJunk = _settings.HideJunk,
         showPath = _settings.ShowPath,
+        autoPathNavigable = _settings.AutoPathNavigable,
+        importantOnly = _settings.ImportantOnly,
+        entityDrawRadiusGrid = _settings.EntityDrawRadiusGrid,
+        globalIconScale = _settings.GlobalIconScale,
+        navMenuCorner = _settings.NavMenuCorner,
         alwaysShowOverlay = _settings.AlwaysShowOverlay,
         useCuratedLandmarks = _settings.UseCuratedLandmarks,
         landmarkClusterGap = _settings.LandmarkClusterGap,
@@ -526,6 +531,19 @@ public sealed class ApiServer : IDisposable
         showPlayerBlip = _settings.ShowPlayerBlip,
         fpsCap = _settings.FpsCap,
         showPerfStats = _settings.ShowPerfStats,
+        atlasShowOnScreenNodes = _settings.AtlasShowOnScreenNodes,
+        atlasShowNames = _settings.AtlasShowNames,
+        atlasRevealFog = _settings.AtlasRevealFog,
+        atlasOffScreenArrows = _settings.AtlasOffScreenArrows,
+        atlasShowRoute = _settings.AtlasShowRoute,
+        atlasUseCurrentStart = _settings.AtlasUseCurrentStart,
+        atlasIconScale = _settings.AtlasIconScale,
+        atlasLabelScale = _settings.AtlasLabelScale,
+        hideEntityHotkey = _settings.HideEntityHotkey,
+        trackEntityHotkey = _settings.TrackEntityHotkey,
+        autoPathToggleHotkey = _settings.AutoPathToggleHotkey,
+        suppressCompletedContent = _settings.SuppressCompletedContent,
+        completedSuppressMinutes = _settings.CompletedSuppressMinutes,
         hpBarNormal = _settings.HpBarNormal,
         hpBarMagic = _settings.HpBarMagic,
         hpBarRare = _settings.HpBarRare,
@@ -564,6 +582,25 @@ public sealed class ApiServer : IDisposable
             {
                 case "hideJunk" when TryBool(p.Value, out var b): _settings.HideJunk = b; applied.Add(p.Name); break;
                 case "showPath" when TryBool(p.Value, out var b): _settings.ShowPath = b; applied.Add(p.Name); break;
+                case "autoPathNavigable" when TryBool(p.Value, out var b):
+                    _settings.AutoPathNavigable = b;
+                    if (b) _settings.ShowPath = true;
+                    applied.Add(p.Name);
+                    break;
+                case "importantOnly" when TryBool(p.Value, out var b): _settings.ImportantOnly = b; applied.Add(p.Name); break;
+                case "entityDrawRadiusGrid" when TryInt(p.Value, out var er):
+                    _settings.EntityDrawRadiusGrid = Math.Clamp(er, 0, 2000);
+                    applied.Add(p.Name);
+                    break;
+                case "globalIconScale" when TryFloat(p.Value, out var gis):
+                    _settings.GlobalIconScale = Math.Clamp(gis, 0.25f, 4f);
+                    applied.Add(p.Name);
+                    break;
+                case "navMenuCorner" when p.Value.ValueKind == JsonValueKind.String && p.Value.GetString() is { } nc
+                    && nc is "TopLeft" or "TopRight" or "BottomLeft" or "BottomRight":
+                    _settings.NavMenuCorner = nc;
+                    applied.Add(p.Name);
+                    break;
                 case "alwaysShowOverlay" when TryBool(p.Value, out var b): _settings.AlwaysShowOverlay = b; applied.Add(p.Name); break;
                 case "useCuratedLandmarks" when TryBool(p.Value, out var b): _settings.UseCuratedLandmarks = b; applied.Add(p.Name); break;
                 case "landmarkClusterGap" when TryInt(p.Value, out var n): _settings.LandmarkClusterGap = Math.Clamp(n, 0, 64); applied.Add(p.Name); break;
@@ -576,6 +613,40 @@ public sealed class ApiServer : IDisposable
                 case "showPlayerBlip" when TryBool(p.Value, out var b): _settings.ShowPlayerBlip = b; applied.Add(p.Name); break;
                 case "fpsCap" when TryInt(p.Value, out var n): _settings.FpsCap = Math.Clamp(n, 15, 360); applied.Add(p.Name); break;
                 case "showPerfStats" when TryBool(p.Value, out var b): _settings.ShowPerfStats = b; applied.Add(p.Name); break;
+                case "atlasShowOnScreenNodes" when TryBool(p.Value, out var b): _settings.AtlasShowOnScreenNodes = b; applied.Add(p.Name); break;
+                case "atlasShowNames" when TryBool(p.Value, out var b): _settings.AtlasShowNames = b; applied.Add(p.Name); break;
+                case "atlasRevealFog" when TryBool(p.Value, out var b): _settings.AtlasRevealFog = b; applied.Add(p.Name); break;
+                case "atlasOffScreenArrows" when TryBool(p.Value, out var b): _settings.AtlasOffScreenArrows = b; applied.Add(p.Name); break;
+                case "atlasShowRoute" when TryBool(p.Value, out var b): _settings.AtlasShowRoute = b; applied.Add(p.Name); break;
+                case "atlasUseCurrentStart" when TryBool(p.Value, out var b): _settings.AtlasUseCurrentStart = b; applied.Add(p.Name); break;
+                case "atlasIconScale" when TryFloat(p.Value, out var ais):
+                    _settings.AtlasIconScale = Math.Clamp(ais, 0.25f, 4f);
+                    applied.Add(p.Name);
+                    break;
+                case "atlasLabelScale" when TryFloat(p.Value, out var als):
+                    _settings.AtlasLabelScale = Math.Clamp(als, 0.5f, 3f);
+                    applied.Add(p.Name);
+                    break;
+                case "hideEntityHotkey" when TryInt(p.Value, out var hk):
+                    _settings.HideEntityHotkey = Math.Clamp(hk, 0, 255);
+                    applied.Add(p.Name);
+                    break;
+                case "trackEntityHotkey" when TryInt(p.Value, out var tk):
+                    _settings.TrackEntityHotkey = Math.Clamp(tk, 0, 255);
+                    applied.Add(p.Name);
+                    break;
+                case "autoPathToggleHotkey" when TryInt(p.Value, out var apk):
+                    _settings.AutoPathToggleHotkey = Math.Clamp(apk, 0, 255);
+                    applied.Add(p.Name);
+                    break;
+                case "suppressCompletedContent" when TryBool(p.Value, out var sc):
+                    _settings.SuppressCompletedContent = sc;
+                    applied.Add(p.Name);
+                    break;
+                case "completedSuppressMinutes" when TryInt(p.Value, out var csm):
+                    _settings.CompletedSuppressMinutes = Math.Clamp(csm, 1, 60);
+                    applied.Add(p.Name);
+                    break;
                 case "hpBarNormal" when TryBool(p.Value, out var b): _settings.HpBarNormal = b; applied.Add(p.Name); break;
                 case "hpBarMagic" when TryBool(p.Value, out var b): _settings.HpBarMagic = b; applied.Add(p.Name); break;
                 case "hpBarRare" when TryBool(p.Value, out var b): _settings.HpBarRare = b; applied.Add(p.Name); break;

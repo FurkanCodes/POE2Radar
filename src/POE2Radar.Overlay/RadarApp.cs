@@ -43,6 +43,8 @@ public sealed class RadarApp : IDisposable
     private Func<Poe2Live.EntityDot, DisplayRule?>? _resolveEntity;
     private Func<string, DisplayRule?>? _resolveTileDraw;
     private readonly LandmarkStore _landmarkStore;
+    private readonly CompletedContentSuppressor _completedSuppressor = new();
+    private uint _suppressorAreaHash;
     private int _landmarkGen;
     private int _displayRulesGen;
     private int _landmarkStoreGen;
@@ -111,6 +113,7 @@ public sealed class RadarApp : IDisposable
     private DateTime _lifeFiredAt = DateTime.MinValue, _manaFiredAt = DateTime.MinValue;
     private DateTime _nextToggleAt = DateTime.MinValue;
     private DateTime _nextPathKeyAt = DateTime.MinValue;
+    private DateTime _nextAutoPathToggleAt = DateTime.MinValue;
     private DateTime _nextBrowserAt = DateTime.MinValue;
     private DateTime _nextSettingsAt = DateTime.MinValue;
     private bool _hideKeyWasDown;
@@ -393,7 +396,7 @@ public sealed class RadarApp : IDisposable
                              AtlasJson, SetAtlasSelection, SetAtlasHighlight, VersionJson, _settings.ApiPort);
         try { _api.Start(); Console.WriteLine($"API on http://localhost:{_settings.ApiPort} (dashboard at /)"); }
         catch (Exception ex) { Console.Error.WriteLine($"API server disabled: {ex.Message}"); }
-        Console.WriteLine("Hotkeys: F4=inspect under cursor  F5=hide under cursor  "
+        Console.WriteLine("Hotkeys: F3=auto-path toggle  F4=inspect  F5=never-show  "
                           + "F6=add nearest path  F7=clear paths  F8=auto-flask  F9=quit  F12=dashboard");
         // Best-effort version check against GitHub (non-blocking; never fails startup).
         _ = Task.Run(async () =>
@@ -555,6 +558,18 @@ public sealed class RadarApp : IDisposable
                         _entities = _entities.Where(e => !_hidden.IsHidden(e.Metadata)).ToList();
                     if (_settings.EntityDrawRadiusGrid > 0)
                         _entities = _entities.Where(e => NumVec2.Distance(e.Grid, player) <= _settings.EntityDrawRadiusGrid).ToList();
+                    if (_areaHash != _suppressorAreaHash)
+                    {
+                        _completedSuppressor.OnAreaHashChanged(_areaHash);
+                        _suppressorAreaHash = _areaHash;
+                    }
+                    _completedSuppressor.Observe(_areaHash, _entities, _settings.SuppressCompletedContent,
+                        _settings.CompletedSuppressMinutes);
+                    if (_settings.SuppressCompletedContent)
+                        _entities = _entities.Where(e =>
+                            !_completedSuppressor.IsSuppressed(_areaHash,
+                                EntityDisplayHelper.TypeToken(e.Metadata), true,
+                                _settings.CompletedSuppressMinutes)).ToList();
                     if (_landmarkPatterns.Generation != _landmarkGen)
                     {
                         _landmarkGen = _landmarkPatterns.Generation;
@@ -929,6 +944,17 @@ public sealed class RadarApp : IDisposable
                 ClearPathTargets();
                 _nextPathKeyAt = DateTime.UtcNow.AddMilliseconds(300);
             }
+        }
+
+        var apVk = _settings.AutoPathToggleHotkey;
+        if (apVk > 0 && _gameHwnd != 0 && GetForegroundWindow() == _gameHwnd
+            && Down(apVk) && DateTime.UtcNow >= _nextAutoPathToggleAt)
+        {
+            _nextAutoPathToggleAt = DateTime.UtcNow.AddMilliseconds(300);
+            _settings.AutoPathNavigable = !_settings.AutoPathNavigable;
+            if (_settings.AutoPathNavigable) _settings.ShowPath = true;
+            _settings.Save();
+            Console.WriteLine($"\nAuto-path: {(_settings.AutoPathNavigable ? "ON" : "OFF")}");
         }
 
         // Atlas tile inspector: F10 = dump the tile under the cursor (map/content/biome/flags) as an

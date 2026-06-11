@@ -84,15 +84,12 @@ public sealed class EntityNameResolver
     public string ResolveOrShorten(string metadataPath)
     {
         var resolved = Resolve(metadataPath);
-        if (resolved != null)
+        if (resolved != null && !MetadataLabelHelper.IsTokenEquivalent(metadataPath, resolved))
         {
             const string dnt = "[DNT-UNUSED] ";
             if (resolved.StartsWith(dnt, StringComparison.Ordinal)) resolved = resolved[dnt.Length..];
             return resolved;
         }
-        var at = metadataPath.IndexOf('@');
-        var path = at >= 0 ? metadataPath[..at] : metadataPath;
-        var slash = path.LastIndexOf('/');
-        return slash >= 0 ? path[(slash + 1)..] : path;
+        return MetadataLabelHelper.HumanizePath(metadataPath);
     }
 }

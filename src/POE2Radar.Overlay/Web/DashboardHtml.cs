@@ -275,7 +275,8 @@ internal static class DashboardHtml
   .dr-status.paused{color:var(--ink-faint)}
   .dr-section{font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px}
   .dr-section:first-child{margin-top:0}
-  .rules-compare{font-size:12px;color:var(--ink-dim);line-height:1.55;margin:0 0 14px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--panel2);list-style:none}
+  .rules-compare{font-size:12px;color:var(--ink-dim);line-height:1.55;margin:0;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--panel2);list-style:none}
+  .rules-compare.vis-order{list-style:decimal;padding-left:28px}
   .rules-compare li{margin:6px 0}
   .rules-compare b{color:var(--ink)}
   .drbody{margin-top:10px; padding-top:10px; border-top:1px dotted var(--line-soft)}
@@ -414,6 +415,9 @@ internal static class DashboardHtml
   .zt-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .zt-zone{font-size:10px;color:var(--ink-faint)}
   .dr-search-row{margin:0 0 10px}
+  .hkctl{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .hk-display{min-width:64px;padding:6px 12px;font-weight:600;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:var(--radius-sm);font-size:12px;text-align:center}
+  .hkctl .chip.binding{color:var(--accent);border-color:var(--accent);animation:drFlash 1s ease infinite}
   .dr-preview-lg{width:36px;height:36px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;color:var(--ink)}
   .dr-preview-lg svg{width:32px;height:32px}
   .live-actions{display:flex;gap:6px;flex-wrap:wrap}
@@ -500,6 +504,13 @@ internal static class DashboardHtml
       <section class="view" data-view="filters">
         <div class="panel-grid">
           <div class="card" style="grid-column:1/-1">
+            <h3>How visibility works</h3>
+            <ol class="rules-compare vis-order">
+              <li><b>Never-show patterns</b> — separate list at the bottom of this tab. Matched entities are removed everywhere (map, Live list, paths) before rules run.</li>
+              <li><b>Radar rules</b> — each entity gets the first <b>active</b> rule that matches (top to bottom). <b>Paused</b> skips that rule so the next one can match. <b>Don&rsquo;t show on map</b> on a rule hides matches; lower rules never apply.</li>
+            </ol>
+          </div>
+          <div class="card" style="grid-column:1/-1">
             <h3>Types in this zone <span class="tag" id="ztAreaTag">&middot; zone type overrides</span></h3>
             <p class="hint-oneline">Show on map &middot; Path. Overrides apply to this zone type only (not global rules).</p>
             <div class="controls" style="margin:8px 0 0">
@@ -508,14 +519,10 @@ internal static class DashboardHtml
             <div id="zoneTypesHost" class="scrollbox zone-types-box"><div class="hint-row">Loading…</div></div>
           </div>
           <div class="card" style="grid-column:1/-1">
-            <h3>Radar rules <span class="tag">&middot; first matching rule applies</span><span class="save-stamp" id="stampRules"></span></h3>
-            <ul class="rules-compare">
-              <li><b>Block list</b> — Never show these anywhere (map, lists, paths). Checked first.</li>
-              <li><b>Rule → Don&rsquo;t show on map</b> — If this rule matches, hide it on the radar. Lower rules won&rsquo;t apply.</li>
-              <li><b>Rule → Paused (switch off)</b> — Skip this rule; matching entities use the next rule below.</li>
-            </ul>
-            <button type="button" class="hint-toggle" data-hint="hintRules">More detail ▾</button>
-            <div class="hint-body" id="hintRules" hidden>Rules run top-to-bottom; the first <b>active</b> rule that matches decides what happens. Reorder with ▲/▼ or drag. Use name contains, entity type, rarity, and other filters; leave blank for &ldquo;any&rdquo;.</div>
+            <h3>Radar rules <span class="tag">&middot; first active match wins</span><span class="save-stamp" id="stampRules"></span></h3>
+            <p class="hint-oneline">Reorder with ▲/▼ or drag. Match on name, type, rarity, and more — blank fields mean &ldquo;any&rdquo;.</p>
+            <button type="button" class="hint-toggle" data-hint="hintRules">Rule fields ▾</button>
+            <div class="hint-body" id="hintRules" hidden><b>Paused</b> (switch off) — rule is ignored; try the next rule below. <b>Don&rsquo;t show on map</b> — matched entities are hidden on the radar (lower rules won&rsquo;t run). Otherwise the rule sets icon, color, label, and path target.</div>
             <div class="controls" style="margin:0 0 10px">
               <button class="addbtn" id="drExport" style="width:auto;margin:0;padding:8px 14px">Export rules…</button>
               <button class="addbtn" id="drImport" style="width:auto;margin:0;padding:8px 14px">Import rules…</button>
@@ -530,14 +537,14 @@ internal static class DashboardHtml
             </div>
           </div>
           <div class="card" style="grid-column:1/-1">
-            <h3>Block list <span class="tag">&middot; never show these</span></h3>
-            <p class="hint-oneline">For permanent noise (FX, daemons, cracks). Stronger than a rule&rsquo;s &ldquo;Don&rsquo;t show on map&rdquo;.</p>
-            <button type="button" class="hint-toggle" data-hint="hintHidden">When to use this ▾</button>
-            <div class="hint-body" id="hintHidden" hidden>Matched entities are removed before radar rules run — not on the map, not in the Live tab, not for paths. Use <code>*</code> and <code>?</code> for wildcards.</div>
+            <h3>Never show <span class="tag">&middot; always hidden patterns</span></h3>
+            <p class="hint-oneline">Metadata patterns removed before radar rules — map, Live tab, and paths. Use for permanent noise (FX, daemons, cracks).</p>
+            <button type="button" class="hint-toggle" data-hint="hintHidden">Patterns &amp; wildcards ▾</button>
+            <div class="hint-body" id="hintHidden" hidden>Substring or glob: <code>*</code> matches any run, <code>?</code> matches one character. F5 in-game adds the entity type under your cursor here.</div>
             <div id="hideList" class="controls" style="margin:8px 0 14px"></div>
             <div class="controls" style="margin:0">
               <input type="search" id="hidePattern" placeholder="e.g. AbyssCrack, *Daemon*">
-              <button class="addbtn" id="hideAdd" style="width:auto;margin:0;padding:8px 16px">+ Add to block list</button>
+              <button class="addbtn" id="hideAdd" style="width:auto;margin:0;padding:8px 16px">+ Add pattern</button>
             </div>
           </div>
         </div>
@@ -645,31 +652,76 @@ internal static class DashboardHtml
         <div class="settings-layout">
           <nav class="settings-nav" id="settingsNav">
             <button type="button" class="on" data-setsec="setDisplay">Display</button>
+            <button type="button" data-setsec="setNav">Navigation</button>
+            <button type="button" data-setsec="setIcons">Icons</button>
             <button type="button" data-setsec="setHp">HP bars</button>
             <button type="button" data-setsec="setTerrain">Terrain</button>
             <button type="button" data-setsec="setCalib">Calibration</button>
+            <button type="button" data-setsec="setAtlas">Atlas</button>
             <button type="button" data-setsec="setFlask">Auto-flask</button>
+            <button type="button" data-setsec="setHotkeys">Hotkeys</button>
           </nav>
           <div class="settings-panels">
           <div class="settings-section panel-grid" id="setDisplay">
           <div class="card">
             <h3>Radar Display <span class="save-stamp" id="stampSettings"></span></h3>
+            <div class="row"><div class="rl">Show monsters &amp; entities<small>entity dots (monsters, NPCs, chests, POIs)</small></div>
+              <label class="sw"><input type="checkbox" data-set="showMonsters"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl">Show terrain<small>walkable-terrain bitmap</small></div>
               <label class="sw"><input type="checkbox" data-set="showTerrain"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Show player blip<small>blue dot marking your own position</small></div>
+            <div class="row"><div class="rl">Show player blip<small>dot at your position on the map</small></div>
               <label class="sw"><input type="checkbox" data-set="showPlayerBlip"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Always show overlay<small>draw even when PoE2 isn&rsquo;t focused (e.g. while tweaking this dashboard); auto-flask stays focus-gated</small></div>
+            <div class="row"><div class="rl">Always show overlay<small>draw when PoE2 isn&rsquo;t focused; auto-flask stays focus-gated</small></div>
               <label class="sw"><input type="checkbox" data-set="alwaysShowOverlay"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Hide map clutter<small>cosmetic FX, daemons, and other noise dots</small></div>
+            <div class="row"><div class="rl">Hide map clutter<small>cosmetic FX, daemons, and noise dots</small></div>
               <label class="sw"><input type="checkbox" data-set="hideJunk"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Navigation paths<small>draw A&#42; routes to selected landmarks</small></div>
-              <label class="sw"><input type="checkbox" data-set="showPath"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl">Curated landmark names<small>community labels (boss / reward / exits)</small></div>
               <label class="sw"><input type="checkbox" data-set="useCuratedLandmarks"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Overlay FPS cap<small>lower = less load on the game; 60 is smooth for a radar (15&ndash;360)</small></div>
+            <div class="row"><div class="rl">Landmark cluster gap<small>max tile distance to merge nearby tile markers (0 = no clustering)</small></div>
+              <input class="numin" type="number" step="1" min="0" max="64" data-set="landmarkClusterGap"></div>
+            <div class="row"><div class="rl">Overlay FPS cap<small>15&ndash;360; lower = less GPU load</small></div>
               <input class="numin" type="number" step="1" min="15" max="360" data-set="fpsCap"></div>
-            <div class="row"><div class="rl">Show perf stats<small>compact FPS/read/render timings in the nav menu</small></div>
+            <div class="row"><div class="rl">Show perf stats<small>FPS and read timings in the nav menu</small></div>
               <label class="sw"><input type="checkbox" data-set="showPerfStats"><span class="track"></span><span class="knob"></span></label></div>
+          </div>
+          </div>
+          <div class="settings-section panel-grid" id="setNav" hidden>
+          <div class="card">
+            <h3>Navigation &amp; paths</h3>
+            <div class="row"><div class="rl">Show paths<small>draw route polylines to nav targets</small></div>
+              <label class="sw"><input type="checkbox" data-set="showPath"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Auto-path to nearest targets<small>continuously path to nearest entities whose rule has &ldquo;Show path to this&rdquo; (F6 picks manually too)</small></div>
+              <label class="sw"><input type="checkbox" data-set="autoPathNavigable"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Detection radius<small>max grid distance for entity dots, nav, and API list (0 = unlimited)</small></div>
+              <input class="numin" type="number" step="10" min="0" max="2000" data-set="entityDrawRadiusGrid"></div>
+            <div class="row"><div class="rl">Show all monsters<small>include normal/magic grey clutter on the radar (off = curated important-only view)</small></div>
+              <label class="sw"><input type="checkbox" data-set-inv="importantOnly"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Nav menu corner<small>where the in-game nav dropdown is pinned</small></div>
+              <select class="numin selin" data-set="navMenuCorner">
+                <option value="TopLeft">Top left</option>
+                <option value="TopRight">Top right</option>
+                <option value="BottomLeft">Bottom left</option>
+                <option value="BottomRight">Bottom right</option>
+              </select></div>
+            <div class="row"><div class="rl">Hide completed mechanics<small>per type: hide finished league mechanics and opened strongboxes until instance reset or timer</small></div>
+              <label class="sw"><input type="checkbox" data-set="suppressCompletedContent"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Completed hide duration<small>minutes before type can show again in the same instance</small></div>
+              <input class="numin" type="number" step="1" min="1" max="60" data-set="completedSuppressMinutes"></div>
+            <p class="hint-oneline" style="margin-top:8px">Per-entity path targets: Rules tab (&ldquo;Show path to this&rdquo;) or Live tab (Nav). Toggle auto-path in-game with the hotkey below.</p>
+          </div>
+          </div>
+          <div class="settings-section panel-grid" id="setIcons" hidden>
+          <div class="card" style="grid-column:1/-1">
+            <h3>Default icon styles <span class="tag">&middot; category defaults</span></h3>
+            <div class="row"><div class="rl">Global icon scale<small>multiplier on icons.png sprite size (per-rule size stacks on top)</small></div>
+              <input class="numin" type="number" step="0.05" min="0.25" max="4" data-set="globalIconScale"></div>
+            <div id="iconStyles"></div>
+          </div>
+          <div class="card" style="grid-column:1/-1">
+            <h3>Mechanic overrides <span class="tag">&middot; metadata matchers</span></h3>
+            <p class="hint-oneline">When metadata matches, draw this icon instead of the category default.</p>
+            <div id="mechList"></div>
+            <button class="addbtn" id="mechAdd" style="width:auto;margin-top:10px;padding:8px 16px">+ Add mechanic rule</button>
           </div>
           </div>
           <div class="settings-section panel-grid" id="setHp" hidden>
@@ -741,6 +793,28 @@ internal static class DashboardHtml
             <p class="hint-oneline" style="margin-top:8px">Changes apply live.</p>
           </div>
           </div>
+          <div class="settings-section panel-grid" id="setAtlas" hidden>
+          <div class="card">
+            <h3>Atlas overlay</h3>
+            <p class="hint-oneline">In-game atlas map drawing. Highlights are on the Atlas tab.</p>
+            <div class="row"><div class="rl">Show all on-screen nodes<small>when Track filters are active, only tracked nodes draw</small></div>
+              <label class="sw"><input type="checkbox" data-set="atlasShowOnScreenNodes"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Show map names<small>label on-screen tiles with map name</small></div>
+              <label class="sw"><input type="checkbox" data-set="atlasShowNames"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Reveal fog<small>draw fogged nodes at full opacity with a cool tint</small></div>
+              <label class="sw"><input type="checkbox" data-set="atlasRevealFog"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Off-screen arrows<small>edge arrows for arrow-tagged highlights (e.g. Citadels)</small></div>
+              <label class="sw"><input type="checkbox" data-set="atlasOffScreenArrows"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Show F10 route<small>draw path through the atlas node graph</small></div>
+              <label class="sw"><input type="checkbox" data-set="atlasShowRoute"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Route from current tile<small>when no F10 start is set, use your live atlas position</small></div>
+              <label class="sw"><input type="checkbox" data-set="atlasUseCurrentStart"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Atlas icon scale</div>
+              <input class="numin" type="number" step="0.05" min="0.25" max="4" data-set="atlasIconScale"></div>
+            <div class="row"><div class="rl">Atlas label scale</div>
+              <input class="numin" type="number" step="0.05" min="0.5" max="3" data-set="atlasLabelScale"></div>
+          </div>
+          </div>
           <div class="settings-section panel-grid" id="setFlask" hidden>
           <div class="card">
             <h3>Auto-Flask</h3>
@@ -765,6 +839,31 @@ internal static class DashboardHtml
             <div class="row"><div class="rl">Mana cooldown<small>min ms between mana taps</small></div>
               <input class="numin" type="number" step="100" min="0" data-set="manaCooldownMs"></div>
             <p class="hint-oneline" style="margin-top:8px">F8 toggles in-game. Status: <span id="flaskState">&mdash;</span></p>
+          </div>
+          </div>
+          <div class="settings-section panel-grid" id="setHotkeys" hidden>
+          <div class="card">
+            <h3>In-game hotkeys</h3>
+            <p class="hint-oneline">Click <b>Bind</b>, then press the key you want. <b>Clear</b> disables a bind.</p>
+            <div class="row"><div class="rl">Never show under cursor<small>hover an entity and press this key to add its type to Never show</small></div>
+              <span class="hkctl">
+                <span class="hk-display" data-hk="hideEntityHotkey">F5</span>
+                <button type="button" class="chip" data-hk-bind="hideEntityHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-clear="hideEntityHotkey">Clear</button>
+              </span></div>
+            <div class="row"><div class="rl">Inspect under cursor<small>hover an entity and press this key to print its info to the console</small></div>
+              <span class="hkctl">
+                <span class="hk-display" data-hk="trackEntityHotkey">F4</span>
+                <button type="button" class="chip" data-hk-bind="trackEntityHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-clear="trackEntityHotkey">Clear</button>
+              </span></div>
+            <div class="row"><div class="rl">Auto-path toggle<small>turn continuous auto-pathing on/off (default F3)</small></div>
+              <span class="hkctl">
+                <span class="hk-display" data-hk="autoPathToggleHotkey">F3</span>
+                <button type="button" class="chip" data-hk-bind="autoPathToggleHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-clear="autoPathToggleHotkey">Clear</button>
+              </span></div>
+            <p class="hint-oneline" style="margin-top:8px">Fixed shortcuts: F6 add nearest path &middot; F7 clear paths &middot; F8 auto-flask &middot; F12 open dashboard</p>
           </div>
           </div>
           </div>
@@ -923,26 +1022,112 @@ async function tick(){
 }
 
 /* ── settings tab (writes radar/visual + flask via the loopback-gated /api/settings) ── */
+let _settingsCache={}, _hkBinding=null;
+const VK_NAMES={
+  0x08:'Backspace',0x09:'Tab',0x0D:'Enter',0x1B:'Esc',0x20:'Space',
+  0x21:'Page Up',0x22:'Page Down',0x23:'End',0x24:'Home',
+  0x25:'Left',0x26:'Up',0x27:'Right',0x28:'Down',
+  0x2D:'Insert',0x2E:'Delete',
+  0x70:'F1',0x71:'F2',0x72:'F3',0x73:'F4',0x74:'F5',0x75:'F6',0x76:'F7',0x77:'F8',
+  0x78:'F9',0x79:'F10',0x7A:'F11',0x7B:'F12',
+  0xBA:';',0xBB:'=',0xBC:',',0xBD:'-',0xBE:'.',0xBF:'/',0xC0:'`',
+  0xDB:'[',0xDC:'\\',0xDD:']',0xDE:"'"
+};
+function vkName(vk){
+  vk=+vk||0;
+  if(vk<=0) return 'None';
+  if(vk>=0x30&&vk<=0x39) return String.fromCharCode(vk);
+  if(vk>=0x41&&vk<=0x5A) return String.fromCharCode(vk);
+  return VK_NAMES[vk]||`VK ${vk}`;
+}
+function keyEventToVk(e){
+  if(e.key==='Escape') return -1;
+  const k=e.key;
+  if(k&&k.length===1){
+    const u=k.toUpperCase().charCodeAt(0);
+    if(u>=65&&u<=90||u>=48&&u<=57) return u;
+  }
+  const fk={
+    F1:0x70,F2:0x71,F3:0x72,F4:0x73,F5:0x74,F6:0x75,F7:0x76,F8:0x77,F9:0x78,F10:0x79,F11:0x7A,F12:0x7B,
+    Backspace:0x08,Tab:0x09,Enter:0x0D,Escape:0x1B,' ':0x20,
+    ArrowLeft:0x25,ArrowUp:0x26,ArrowRight:0x27,ArrowDown:0x28,
+    Insert:0x2D,Delete:0x2E,Home:0x24,End:0x23,PageUp:0x21,PageDown:0x22
+  };
+  return fk[k]||0;
+}
+function updateHotkeyDisplays(s){
+  s=s||_settingsCache;
+  $$('[data-hk]').forEach(el=>{ el.textContent=vkName(s[el.dataset.hk]); });
+}
+function wireHotkeys(){
+  $$('[data-hk-bind]').forEach(btn=>{
+    btn.onclick=()=>{
+      if(_hkBinding){
+        const prev=$('[data-hk-bind="'+_hkBinding+'"]');
+        if(prev){ prev.textContent='Bind'; prev.classList.remove('binding'); }
+      }
+      _hkBinding=btn.dataset.hkBind;
+      btn.textContent='Press key…';
+      btn.classList.add('binding');
+    };
+  });
+  $$('[data-hk-clear]').forEach(btn=>{
+    btn.onclick=async()=>{
+      await saveSetting(btn.dataset.hkClear,0);
+      updateHotkeyDisplays();
+    };
+  });
+}
+document.addEventListener('keydown',e=>{
+  if(!_hkBinding) return;
+  if(e.target.matches('input,textarea,select')&&!e.ctrlKey&&!e.metaKey) return;
+  const vk=keyEventToVk(e);
+  const btn=$('[data-hk-bind="'+_hkBinding+'"]');
+  if(vk===-1){
+    if(btn){ btn.textContent='Bind'; btn.classList.remove('binding'); }
+    _hkBinding=null;
+    return;
+  }
+  if(!vk) return;
+  e.preventDefault();
+  const key=_hkBinding;
+  _hkBinding=null;
+  if(btn){ btn.textContent='Bind'; btn.classList.remove('binding'); }
+  saveSetting(key,vk).then(()=>updateHotkeyDisplays());
+},{capture:true});
 async function loadSettings(){
   try{
     const s = await getJSON('/api/settings');
+    _settingsCache=s;
+    updateHotkeyDisplays(s);
     $$('[data-set]').forEach(el=>{
       const k=el.dataset.set;
       if(el.type==='checkbox') el.checked=!!s[k];
       else if(el.classList.contains('keyin')) el.value=vkToChar(s[k]);
       else if(s[k]!==undefined) el.value=s[k];
     });
+    $$('[data-set-inv]').forEach(el=>{
+      const k=el.dataset.setInv;
+      if(el.type==='checkbox') el.checked=!s[k];
+    });
     hpBars = s.hpBars || null;
     terrain = s.terrain || null;
-    renderHpBars(); renderTerrain();
+    styles = s.styles || null;
+    renderHpBars(); renderTerrain(); renderIcons(); renderMechanics();
   }catch(e){}
 }
 async function saveSetting(key,val){
   try{
-    await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[key]:val})});
+    const body={[key]:val};
+    if(key==='autoPathNavigable'&&val) body.showPath=true;
+    await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const m=$('#savedMsg'); m.classList.add('show'); clearTimeout(m._t); m._t=setTimeout(()=>m.classList.remove('show'),1100);
     markStamp('stampSettings'); toast('Settings saved','ok');
     if(key==='hideJunk') updateHeaderQuick();
+    if(key==='autoPathNavigable'&&val){
+      const sp=$('[data-set="showPath"]'); if(sp) sp.checked=true;
+    }
+    if(_settingsCache) _settingsCache[key]=val;
   }catch(e){ toast('Settings save failed'); }
 }
 function wireSettings(){
@@ -950,10 +1135,20 @@ function wireSettings(){
     const k=el.dataset.set;
     if(el.type==='checkbox') el.onchange=()=>saveSetting(k,el.checked);
     else if(el.classList.contains('keyin')) el.onchange=()=>{ const vk=charToVk(el.value); if(vk) saveSetting(k,vk); el.value=vkToChar(vk); };
-    else if(el.tagName==='SELECT') el.onchange=()=>saveSetting(k,el.value); // string value (e.g. flask mode)
+    else if(el.tagName==='SELECT') el.onchange=()=>saveSetting(k,el.value);
     else el.onchange=()=>{ const v=parseFloat(el.value); if(!isNaN(v)) saveSetting(k,v); };
   });
+  $$('[data-set-inv]').forEach(el=>{
+    const k=el.dataset.setInv;
+    if(el.type==='checkbox') el.onchange=()=>saveSetting(k,!el.checked);
+  });
 }
+$('#mechAdd')?.addEventListener('click',()=>{
+  if(!styles) styles={mechanics:[]};
+  styles.mechanics=styles.mechanics||[];
+  styles.mechanics.push({enabled:true,name:'New mechanic',match:[],categories:[],shape:'Star',color:'#ffffff',opacity:1,size:6});
+  renderMechanics(); saveStyles();
+});
 // Flask key inputs accept a single character ('1'-'9', letters) → Win32 VK (== ASCII of uppercase).
 const charToVk = s => { const c=(s||'').trim().toUpperCase().charCodeAt(0); return isNaN(c)?0:c; };
 const vkToChar = v => v ? String.fromCharCode(v) : '';
@@ -1681,7 +1876,7 @@ $('#liveNavClear')?.addEventListener('click',async()=>{ try{ await fetch('/api/n
 function renderHidden(){
   $('#hideList').innerHTML = hidden.length ? hidden.map(p=>
     `<span class="chip on" data-p="${esc(p)}">${esc(p)} <b style="margin-left:5px;cursor:pointer">&#10005;</b></span>`).join('')
-    : '<span style="color:var(--ink-faint);font-size:11px">Block list is empty.</span>';
+    : '<span style="color:var(--ink-faint);font-size:11px">No never-show patterns yet.</span>';
   $$('#hideList .chip').forEach(c=>c.querySelector('b').onclick=()=>{ postHidden({remove:c.dataset.p}).then(loadFilters); });
 }
 $('#hideAdd').onclick=()=>{
@@ -1945,7 +2140,7 @@ async function checkVersion(){
   }catch(e){}
 }
 
-wireSettings(); wireHpBars(); wireTerrain();
+wireSettings(); wireHotkeys(); wireHpBars(); wireTerrain();
 loadUiState();
 loadIcons().then(()=>{
   if(window._pendingSetSec) showSettingsSection(window._pendingSetSec);

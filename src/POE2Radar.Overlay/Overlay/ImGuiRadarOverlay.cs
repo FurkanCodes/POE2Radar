@@ -49,6 +49,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private int _spritePickerRuleIndex = -1;
     private bool _bindingHideHotkey;
     private bool _bindingTrackHotkey;
+    private bool _bindingAutoPathHotkey;
 
     private static readonly Vector4[] PathPalette =
     [
@@ -1105,7 +1106,20 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 s.ImportantOnly = !showAll;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
                 ImGui.SetTooltip("Show normal/magic grey monsters and other map clutter on the radar.");
+
+            bool suppressDone = s.SuppressCompletedContent;
+            if (ImGui.Checkbox("Hide completed mechanics (per type)", ref suppressDone))
+                s.SuppressCompletedContent = suppressDone;
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                ImGui.SetTooltip("Hide finished league mechanics and opened strongboxes by metadata type until instance reset or the timer below.");
+
+            int suppressMin = s.CompletedSuppressMinutes;
+            ImGui.SetNextItemWidth(120f);
+            if (ImGui.SliderInt("Completed hide (min)", ref suppressMin, 1, 60))
+                s.CompletedSuppressMinutes = suppressMin;
         }
+
+        DrawAutoPathHotkeyRow(s);
 
         if (_displayRules is null)
         {
@@ -1242,9 +1256,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
         if (_hidden is null) return;
 
-        if (ImGui.CollapsingHeader("Block list (never show)", ImGuiTreeNodeFlags.DefaultOpen))
+        if (ImGui.CollapsingHeader("Never show (patterns)", ImGuiTreeNodeFlags.DefaultOpen))
         {
-            ImGui.TextDisabled("Never show these anywhere — checked before radar rules.");
+            ImGui.TextDisabled("Always hidden — checked before radar rules (map, lists, paths).");
             ImGui.SetNextItemWidth(-80f);
             ImGui.InputTextWithHint("##hidepat", "e.g. AbyssCrack, *Daemon*", ref _hidePatternInput, 256);
             ImGui.SameLine();
@@ -1828,7 +1842,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         if (ImGui.Button(_bindingHideHotkey ? "…##bind" : "Bind##bind"))
             _bindingHideHotkey = true;
         if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
-            ImGui.SetTooltip("Bind hotkey: hover an entity on the map, press the key to add its type to the block list.");
+            ImGui.SetTooltip("Bind hotkey: hover an entity on the map, press the key to add its type to Never show.");
         ImGui.SameLine();
         if (ImGui.Button("Clear##clear") && s.HideEntityHotkey > 0)
         {
@@ -1840,6 +1854,32 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             ImGui.SetTooltip("Disable hide-under-cursor hotkey");
 
         ImGui.TextWrapped("Hover an entity (map, minimap, or 3D view) and press the hotkey to hide that type globally.");
+        ImGui.PopID();
+    }
+
+    private void DrawAutoPathHotkeyRow(RadarSettings s)
+    {
+        if (!ImGui.CollapsingHeader("Auto-path hotkey", ImGuiTreeNodeFlags.DefaultOpen)) return;
+
+        ImGui.PushID("AutoPathHotkey");
+        ImGui.TextUnformatted("Toggle key:");
+        ImGui.SameLine();
+        if (_bindingAutoPathHotkey)
+            ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Press a key…");
+        else
+            ImGui.TextUnformatted(VirtualKeyHelper.Name(s.AutoPathToggleHotkey));
+        ImGui.SameLine();
+        if (ImGui.Button(_bindingAutoPathHotkey ? "…##bind" : "Bind##bind"))
+            _bindingAutoPathHotkey = true;
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+            ImGui.SetTooltip("Toggle Auto-path to nearest targets (default F3). Enables Show Paths when turning on.");
+        ImGui.SameLine();
+        if (ImGui.Button("Clear##clear") && s.AutoPathToggleHotkey > 0)
+        {
+            s.AutoPathToggleHotkey = 0;
+            _bindingAutoPathHotkey = false;
+            SaveSettings();
+        }
         ImGui.PopID();
     }
 
@@ -1873,7 +1913,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private void PollHotkeyCapture(RadarSettings s)
     {
-        if (!_bindingHideHotkey && !_bindingTrackHotkey) return;
+        if (!_bindingHideHotkey && !_bindingTrackHotkey && !_bindingAutoPathHotkey) return;
 
         for (var vk = 0x08; vk <= 0xFE; vk++)
         {
@@ -1886,10 +1926,15 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 s.HideEntityHotkey = vk;
                 _bindingHideHotkey = false;
             }
-            else
+            else if (_bindingTrackHotkey)
             {
                 s.TrackEntityHotkey = vk;
                 _bindingTrackHotkey = false;
+            }
+            else
+            {
+                s.AutoPathToggleHotkey = vk;
+                _bindingAutoPathHotkey = false;
             }
 
             SaveSettings();
