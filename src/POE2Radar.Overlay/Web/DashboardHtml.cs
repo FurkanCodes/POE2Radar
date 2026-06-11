@@ -16,123 +16,134 @@ internal static class DashboardHtml
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>POE2Radar — Console</title>
-<!-- Self-contained: no external fonts/CDNs. Falls back to local system serif/mono fonts. -->
+<title>POE2Radar Console</title>
 <style>
   :root{
-    --bg:#0a0907; --bg2:#100d09; --panel:#15110b; --panel2:#1b1610;
-    --line:#3a2f1d; --line-soft:#271f14;
-    --ink:#e8dcc2; --ink-dim:#9c8e72; --ink-faint:#6b5f49;
-    --gold:#c8a049; --gold-bright:#ecca7e; --gold-deep:#8a6d34;
-    --blood:#9c342a; --blood-bright:#d6584a;
-    --rare:#f1e36b; --magic:#7f93ff; --unique:#d2641e; --normal:#cdc6b4;
-    --good:#79b06a; --poi:#4bb3c4;
-    --shadow:0 18px 40px -20px rgba(0,0,0,.9);
+    --bg:#0b0e14; --bg2:#0f131a; --panel:#141820; --panel2:#1a2030;
+    --line:#2a3344; --line-soft:#222a38;
+    --ink:#e8ecf4; --ink-dim:#9aa8be; --ink-faint:#6b7a92;
+    --gold:#6eb6ff; --gold-bright:#8ecfff; --gold-deep:#3d8fd9;
+    --blood:#e5534b; --blood-bright:#ff6b6b;
+    --rare:#ffd866; --magic:#7aa2ff; --unique:#ff8c42; --normal:#b8c0cc;
+    --good:#3dd68c; --poi:#56d4e8;
+    --accent:#3b9eff; --accent-dim:#2563a8;
+    --shadow:0 8px 32px rgba(0,0,0,.45);
+    --radius:10px; --radius-sm:6px;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
   body{
-    margin:0; background:
-      radial-gradient(120% 90% at 50% -10%, #1a150d 0%, var(--bg) 55%) fixed,
-      var(--bg);
+    margin:0;
+    background:radial-gradient(120% 80% at 80% -20%, rgba(59,158,255,.08), transparent 50%), var(--bg);
     color:var(--ink);
-    font-family:"IBM Plex Mono","Consolas",ui-monospace,monospace;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,sans-serif;
     font-size:13px; line-height:1.5;
     -webkit-font-smoothing:antialiased;
     overflow:hidden;
   }
-  /* grain + vignette atmosphere */
-  body::before{
-    content:""; position:fixed; inset:0; pointer-events:none; z-index:999;
-    background:radial-gradient(120% 120% at 50% 40%, transparent 58%, rgba(0,0,0,.55) 100%);
-    mix-blend-mode:multiply;
-  }
-  body::after{
-    content:""; position:fixed; inset:0; pointer-events:none; z-index:998; opacity:.045;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
 
   .shell{display:grid; grid-template-rows:auto 1fr; height:100vh}
 
-  /* ── masthead ── */
   header{
-    display:flex; align-items:center; gap:20px; padding:14px 26px;
+    display:flex; align-items:center; gap:16px; padding:12px 24px;
     border-bottom:1px solid var(--line);
-    background:linear-gradient(180deg, rgba(30,24,14,.6), transparent);
+    background:rgba(14,18,26,.92); backdrop-filter:blur(12px);
   }
-  .mark{display:flex; align-items:baseline; gap:12px}
+  .mark{display:flex; align-items:center; gap:10px}
   .mark h1{
-    font-family:"Cinzel","Georgia",serif; font-weight:700; font-size:22px; margin:0;
-    letter-spacing:.14em; color:var(--gold-bright);
-    text-shadow:0 1px 0 #000, 0 0 22px rgba(200,160,73,.25);
+    font-size:17px; font-weight:700; margin:0; letter-spacing:-.02em;
+    color:var(--ink);
   }
-  .mark .sub{font-size:10px; letter-spacing:.42em; color:var(--ink-faint); text-transform:uppercase}
+  .mark h1 span{color:var(--accent); font-weight:800}
   .hgap{flex:1}
-  .conn{display:flex; align-items:center; gap:9px; font-size:11px; letter-spacing:.1em; color:var(--ink-dim); text-transform:uppercase}
-  .dot{width:9px; height:9px; border-radius:50%; background:var(--blood); box-shadow:0 0 0 0 rgba(214,88,74,.5); }
-  .conn.live .dot{background:var(--good); animation:pulse 2.2s infinite}
-  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(121,176,106,.5)}70%{box-shadow:0 0 0 7px rgba(121,176,106,0)}100%{box-shadow:0 0 0 0 rgba(121,176,106,0)}}
+  .conn{
+    display:flex; align-items:center; gap:8px; font-size:12px; font-weight:500;
+    color:var(--ink-dim); padding:6px 12px; border-radius:20px;
+    background:var(--panel2); border:1px solid var(--line);
+  }
+  .dot{width:8px; height:8px; border-radius:50%; background:var(--blood); flex-shrink:0}
+  .conn.live .dot{background:var(--good); box-shadow:0 0 0 3px rgba(61,214,140,.25)}
+  .conn.live{color:var(--good)}
   .area-chip{
-    font-family:"Cinzel","Georgia",serif; letter-spacing:.08em; color:var(--ink);
-    border:1px solid var(--line); padding:5px 14px; border-radius:2px;
-    background:var(--panel); font-size:13px;
+    font-size:13px; color:var(--ink-dim);
+    border:1px solid var(--line); padding:6px 14px; border-radius:20px;
+    background:var(--panel2); max-width:320px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
-  .area-chip b{color:var(--gold-bright); font-weight:600}
+  .area-chip b{color:var(--ink); font-weight:600}
 
-  /* ── body grid ── */
-  .body{display:grid; grid-template-columns:300px 1fr; gap:0; min-height:0}
+  .body{display:grid; grid-template-columns:272px 1fr; gap:0; min-height:0; transition:grid-template-columns .2s ease}
+  body.sidebar-off .body{grid-template-columns:1fr}
+  body.sidebar-off aside{display:none}
   aside{
-    border-right:1px solid var(--line); padding:22px 22px 0;
-    overflow-y:auto; background:linear-gradient(180deg, rgba(20,16,10,.5), transparent 220px);
+    border-right:1px solid var(--line); padding:20px 18px;
+    overflow-y:auto; background:var(--bg2);
   }
-  main{display:grid; grid-template-rows:auto 1fr; min-height:0; min-width:0}
+  main{display:grid; grid-template-rows:auto 1fr; min-height:0; min-width:0; background:var(--bg)}
 
-  /* ── vitals ── */
-  .vital{margin-bottom:18px}
-  .vital .vlabel{display:flex; justify-content:space-between; font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:6px}
-  .vital .vlabel .num{color:var(--ink); font-weight:600}
-  .bar{height:9px; border:1px solid var(--line); background:#0c0a07; border-radius:1px; overflow:hidden; position:relative}
-  .bar > i{display:block; height:100%; transition:width .35s ease}
-  .bar.hp > i{background:linear-gradient(90deg,#6e1f18,var(--blood-bright))}
-  .bar.es > i{background:linear-gradient(90deg,#1f6e63,#33e0c4)}
-  .bar.mana > i{background:linear-gradient(90deg,#23306e,var(--magic))}
+  .vital{margin-bottom:14px}
+  .vital .vlabel{
+    display:flex; justify-content:space-between; font-size:11px; font-weight:600;
+    color:var(--ink-dim); margin-bottom:6px;
+  }
+  .vital .vlabel .num{color:var(--ink); font-variant-numeric:tabular-nums}
+  .bar{height:6px; background:var(--panel2); border-radius:99px; overflow:hidden}
+  .bar > i{display:block; height:100%; transition:width .35s ease; border-radius:99px}
+  .bar.hp > i{background:linear-gradient(90deg,#c23d3d,#ff6b6b)}
+  .bar.es > i{background:linear-gradient(90deg,#1a8a7a,#3dd6c3)}
+  .bar.mana > i{background:linear-gradient(90deg,#3d5fc7,var(--magic))}
 
-  .sect{font-family:"Cinzel","Georgia",serif; font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--gold); margin:24px 0 12px; display:flex; align-items:center; gap:10px}
-  .sect::after{content:""; flex:1; height:1px; background:linear-gradient(90deg,var(--line),transparent)}
+  .sect{
+    font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--ink-faint); margin:20px 0 10px;
+  }
 
-  .kv{display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px dotted var(--line-soft); font-size:12px}
-  .kv span:first-child{color:var(--ink-faint); letter-spacing:.04em}
-  .kv span:last-child{color:var(--ink); font-weight:500}
+  .kv{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:7px 0; font-size:12px; border-bottom:1px solid var(--line-soft);
+  }
+  .kv:last-child{border-bottom:none}
+  .kv span:first-child{color:var(--ink-faint)}
+  .kv span:last-child{color:var(--ink); font-weight:500; font-variant-numeric:tabular-nums}
 
-  .tally{display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:4px}
-  .tally .t{border:1px solid var(--line-soft); background:var(--panel); padding:9px 10px; border-radius:2px}
-  .tally .t .n{font-size:20px; font-weight:600; color:var(--gold-bright); font-family:"Cinzel","Georgia",serif; line-height:1}
-  .tally .t .l{font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-faint); margin-top:4px}
+  .tally{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:6px}
+  .tally .t{
+    border:1px solid var(--line); background:var(--panel); padding:10px 12px; border-radius:var(--radius-sm);
+  }
+  .tally .t .n{font-size:22px; font-weight:700; color:var(--ink); line-height:1; font-variant-numeric:tabular-nums}
+  .tally .t .l{font-size:10px; color:var(--ink-faint); margin-top:4px}
 
-  /* ── zone leveling notes ── */
-  .znotes{margin-top:12px; padding:11px 13px; border:1px solid var(--line-soft); border-left:2px solid var(--gold-deep); border-radius:2px; background:var(--panel); white-space:pre-wrap; font-size:11px; line-height:1.5; color:var(--ink-dim); max-height:240px; overflow:auto}
-  .znotes .zt{font-family:"Cinzel","Georgia",serif; font-size:11px; letter-spacing:.1em; color:var(--gold-bright); margin-bottom:6px; white-space:normal}
+  .znotes{
+    margin-top:10px; padding:12px; border:1px solid var(--line); border-radius:var(--radius-sm);
+    background:var(--panel); white-space:pre-wrap; font-size:12px; line-height:1.55;
+    color:var(--ink-dim); max-height:200px; overflow:auto;
+  }
+  .znotes .zt{font-size:12px; font-weight:600; color:var(--accent); margin-bottom:6px; white-space:normal}
 
-  /* ── tabs ── */
-  .tabs{display:flex; gap:2px; padding:14px 26px 0; border-bottom:1px solid var(--line)}
+  .tabs{
+    display:flex; flex-wrap:wrap; gap:6px; padding:14px 20px;
+    border-bottom:1px solid var(--line); background:var(--bg2);
+  }
   .tab{
-    font-family:"Cinzel","Georgia",serif; font-size:12px; letter-spacing:.16em; text-transform:uppercase;
-    color:var(--ink-faint); background:transparent; border:1px solid transparent; border-bottom:none;
-    padding:9px 20px; cursor:pointer; border-radius:3px 3px 0 0; position:relative; top:1px;
+    font-size:13px; font-weight:500; color:var(--ink-dim);
+    background:transparent; border:1px solid transparent;
+    padding:8px 14px; cursor:pointer; border-radius:var(--radius-sm);
+    transition:background .15s,color .15s,border-color .15s;
   }
-  .tab:hover{color:var(--ink-dim)}
-  .tab.on{color:var(--gold-bright); background:var(--panel); border-color:var(--line); }
-  .tab.on::after{content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px; background:var(--panel)}
+  .tab:hover{color:var(--ink); background:var(--panel)}
+  .tab.on{
+    color:var(--ink); background:var(--panel); border-color:var(--line);
+    box-shadow:0 1px 0 var(--accent) inset;
+  }
 
-  .view{overflow:auto; padding:22px 26px; min-height:0}
+  .view{overflow:auto; padding:20px 24px; min-height:0}
   .view[hidden]{display:none}
   /* ── atlas tab ── */
   .arow{display:grid; grid-template-columns:minmax(200px,2fr) minmax(120px,1.4fr) 120px; gap:10px; align-items:center;
         padding:5px 10px; border-bottom:1px solid var(--line); font-size:13px}
-  .arow.ahead{font-weight:600; color:var(--ink-dim); border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--panel)}
-  .arow.val{background:rgba(255,168,38,.07)}
+  .arow.ahead{font-weight:600; color:var(--ink-faint); font-size:10px; text-transform:uppercase; letter-spacing:.06em; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--panel)}
+  .arow.val{background:rgba(59,158,255,.06)}
   .arow .acode{font-family:ui-monospace,Consolas,monospace; color:var(--ink)}
-  .arow.val .acode{color:var(--gold-bright)}
+  .arow.val .acode{color:var(--accent)}
   .arow .aname{color:var(--ink-dim)}
   .arow .aid{display:inline-block; min-width:22px; color:var(--ink-dim); font-family:ui-monospace,Consolas,monospace}
   .rin{color:#6ee787; font-weight:600} .rno{color:var(--ink-dim); opacity:.5}
@@ -147,71 +158,78 @@ internal static class DashboardHtml
   .akind.k-boss{color:#ff7300; border-color:#ff7300} .akind.k-unique{color:#ff9f43; border-color:#a35a00}
   .akind.k-tower{color:#73a6ff; border-color:#2a4a80} .akind.k-merchant{color:#c98bff; border-color:#5a3a80}
 
-  /* ── controls ── */
+  /* controls */
   .controls{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px}
   .chip{
-    font-size:11px; letter-spacing:.06em; color:var(--ink-dim);
-    border:1px solid var(--line-soft); background:var(--panel); padding:6px 12px; border-radius:14px; cursor:pointer;
-    transition:all .15s;
+    font-size:12px; font-weight:500; color:var(--ink-dim);
+    border:1px solid var(--line); background:var(--panel); padding:6px 12px; border-radius:20px; cursor:pointer;
+    transition:background .15s,border-color .15s,color .15s;
   }
-  .chip:hover{border-color:var(--gold-deep); color:var(--ink)}
-  .chip.on{background:var(--gold-deep); border-color:var(--gold); color:#1a140a; font-weight:600}
+  .chip:hover{border-color:var(--accent-dim); color:var(--ink)}
+  .chip.on{background:var(--accent); border-color:var(--accent); color:#fff}
   input[type=search]{
-    font-family:inherit; font-size:12px; color:var(--ink); background:#0c0a07;
-    border:1px solid var(--line); border-radius:2px; padding:7px 12px; min-width:200px; flex:1;
+    font-family:inherit; font-size:13px; color:var(--ink); background:var(--panel2);
+    border:1px solid var(--line); border-radius:var(--radius-sm); padding:8px 12px; min-width:200px; flex:1;
   }
-  input[type=search]:focus{outline:none; border-color:var(--gold-deep)}
+  input[type=search]:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(59,158,255,.15)}
   input[type=search]::placeholder{color:var(--ink-faint)}
 
-  /* ── tables ── */
   table{width:100%; border-collapse:collapse; font-size:12px}
   thead th{
-    text-align:left; font-weight:500; font-size:10px; letter-spacing:.14em; text-transform:uppercase;
-    color:var(--ink-faint); padding:8px 10px; border-bottom:1px solid var(--line); position:sticky; top:-22px;
+    text-align:left; font-weight:600; font-size:10px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--ink-faint); padding:10px 12px; border-bottom:1px solid var(--line); position:sticky; top:-20px;
     background:var(--bg);
   }
-  tbody td{padding:7px 10px; border-bottom:1px solid var(--line-soft); white-space:nowrap}
-  tbody tr:hover{background:rgba(200,160,73,.05)}
+  tbody td{padding:8px 12px; border-bottom:1px solid var(--line-soft); white-space:nowrap}
+  tbody tr:hover{background:rgba(59,158,255,.04)}
   .meta{color:var(--ink-faint); font-size:11px; max-width:380px; overflow:hidden; text-overflow:ellipsis}
   .rar-Normal{color:var(--normal)} .rar-Magic{color:var(--magic)} .rar-Rare{color:var(--rare)} .rar-Unique{color:var(--unique)}
-  .pill{font-size:9px; letter-spacing:.1em; text-transform:uppercase; padding:2px 7px; border-radius:10px; border:1px solid currentColor}
+  .pill{font-size:10px; font-weight:600; padding:2px 8px; border-radius:20px; border:1px solid currentColor}
   .friendly{color:var(--good)} .hostile{color:var(--blood-bright)}
-  .num-r{text-align:right; color:var(--ink-dim)}
-  .hpbar{width:60px; height:6px; border:1px solid var(--line); border-radius:1px; overflow:hidden; display:inline-block; vertical-align:middle}
-  .hpbar > i{display:block; height:100%; background:linear-gradient(90deg,#6e1f18,var(--blood-bright))}
+  .num-r{text-align:right; color:var(--ink-dim); font-variant-numeric:tabular-nums}
+  .hpbar{width:60px; height:5px; background:var(--panel2); border-radius:99px; overflow:hidden; display:inline-block; vertical-align:middle}
+  .hpbar > i{display:block; height:100%; background:linear-gradient(90deg,#c23d3d,#ff6b6b); border-radius:99px}
 
-  .lm{display:flex; align-items:center; gap:14px; padding:11px 14px; border:1px solid var(--line-soft); border-radius:3px; margin-bottom:8px; background:var(--panel)}
-  .lm:hover{border-color:var(--gold-deep)}
-  .lm .name{font-family:"Spectral","Georgia",serif; font-size:15px; color:var(--gold-bright); font-style:italic}
-  .lm .path{font-size:10px; color:var(--ink-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-  .lm .dist{margin-left:auto; font-family:"Cinzel","Georgia",serif; color:var(--ink); font-size:14px; flex:none}
-  .lm .dist small{color:var(--ink-faint); font-size:9px; letter-spacing:.1em; display:block; text-align:right}
+  .scrollbox{max-height:520px; overflow:auto; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--panel)}
+  .db-cat{font-size:10px; font-weight:600; color:var(--ink-dim); border:1px solid var(--line); padding:2px 8px; border-radius:20px}
+  .db-path{font-family:ui-monospace,Consolas,monospace; font-size:11px; color:var(--ink-faint); max-width:520px; overflow:hidden; text-overflow:ellipsis}
+  .filter-btns{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0}
+  .filter-btn{font-size:11px; font-weight:500; padding:5px 12px; border:1px solid var(--line); background:var(--panel); color:var(--ink-dim); cursor:pointer; border-radius:20px; transition:all .15s}
+  .filter-btn.active{background:var(--accent); border-color:var(--accent); color:#fff}
+  .filter-btn:hover:not(.active){border-color:var(--accent-dim); color:var(--ink)}
+  tbody tr.watched{background:rgba(59,158,255,.08)}
 
-  .empty{color:var(--ink-faint); text-align:center; padding:60px 0; font-style:italic; font-family:"Spectral","Georgia",serif; font-size:15px}
-  ::-webkit-scrollbar{width:10px;height:10px}
-  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:5px; border:2px solid var(--bg)}
+  .lm{display:flex; align-items:center; gap:14px; padding:12px 14px; border:1px solid var(--line); border-radius:var(--radius-sm); margin-bottom:8px; background:var(--panel)}
+  .lm:hover{border-color:var(--accent-dim)}
+  .lm .name{font-size:14px; font-weight:600; color:var(--ink)}
+  .lm .path{font-size:11px; color:var(--ink-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .lm .dist{margin-left:auto; color:var(--ink); font-size:14px; font-weight:600; flex:none; font-variant-numeric:tabular-nums}
+  .lm .dist small{color:var(--ink-faint); font-size:10px; display:block; text-align:right}
+
+  .empty{color:var(--ink-faint); text-align:center; padding:48px 0; font-size:14px}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px}
   ::-webkit-scrollbar-track{background:transparent}
 
-  /* ── console / control panel ── */
-  .panel-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:22px; align-items:start}
-  .card{border:1px solid var(--line); border-radius:4px; background:var(--panel); padding:18px 22px; box-shadow:var(--shadow)}
-  .card h3{font-family:"Cinzel","Georgia",serif; font-size:12px; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); margin:0 0 8px}
-  .card h3 .tag{color:var(--ink-faint); font-size:10px; letter-spacing:.1em}
-  .row{display:flex; align-items:center; justify-content:space-between; gap:16px; padding:11px 0; border-bottom:1px dotted var(--line-soft)}
+  .panel-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; align-items:start}
+  .card{border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); padding:18px 20px}
+  .card h3{font-size:13px; font-weight:700; color:var(--ink); margin:0 0 12px; letter-spacing:-.01em}
+  .card h3 .tag{color:var(--ink-faint); font-size:11px; font-weight:500}
+  .row{display:flex; align-items:center; justify-content:space-between; gap:16px; padding:10px 0; border-bottom:1px solid var(--line-soft)}
   .row:last-child{border-bottom:none}
-  .row .rl{font-size:12px; color:var(--ink); min-width:0}
-  .row .rl small{display:block; color:var(--ink-faint); font-size:10px; letter-spacing:.03em; margin-top:3px; line-height:1.4}
-  .sw{position:relative; width:44px; height:23px; flex:none; cursor:pointer; display:inline-block}
+  .row .rl{font-size:13px; color:var(--ink); min-width:0}
+  .row .rl small{display:block; color:var(--ink-faint); font-size:11px; margin-top:3px; line-height:1.45}
+  .sw{position:relative; width:40px; height:22px; flex:none; cursor:pointer; display:inline-block}
   .sw input{opacity:0; width:0; height:0; position:absolute}
-  .sw .track{position:absolute; inset:0; background:#0c0a07; border:1px solid var(--line); border-radius:12px; transition:.2s}
-  .sw .knob{position:absolute; top:3px; left:3px; width:15px; height:15px; border-radius:50%; background:var(--ink-faint); transition:.2s}
-  .sw input:checked ~ .track{background:var(--gold-deep); border-color:var(--gold)}
-  .sw input:checked ~ .knob{transform:translateX(21px); background:var(--gold-bright); box-shadow:0 0 9px -1px var(--gold-bright)}
-  .numin{font-family:inherit; font-size:12px; color:var(--ink); background:#0c0a07; border:1px solid var(--line); border-radius:2px; padding:6px 9px; width:96px; text-align:right}
-  .numin:focus{outline:none; border-color:var(--gold-deep)}
-  .ro{color:var(--gold-bright); font-family:"Cinzel","Georgia",serif; font-size:14px}
-  .hint-row{color:var(--ink-faint)!important; font-size:11px!important; font-style:italic}
-  .saved{font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--good); opacity:0; transition:opacity .3s}
+  .sw .track{position:absolute; inset:0; background:var(--panel2); border:1px solid var(--line); border-radius:11px; transition:.2s}
+  .sw .knob{position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:var(--ink-faint); transition:.2s}
+  .sw input:checked ~ .track{background:var(--accent); border-color:var(--accent)}
+  .sw input:checked ~ .knob{transform:translateX(18px); background:#fff}
+  .numin{font-family:inherit; font-size:12px; color:var(--ink); background:var(--panel2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:6px 10px; width:96px; text-align:right}
+  .numin:focus{outline:none; border-color:var(--accent)}
+  .ro{color:var(--accent); font-size:14px; font-weight:600; font-variant-numeric:tabular-nums}
+  .hint-row{color:var(--ink-faint)!important; font-size:11px!important}
+  .saved{font-size:11px; font-weight:600; color:var(--good); opacity:0; transition:opacity .3s}
   .saved.show{opacity:1}
 
   /* ── icon / mechanic style editors ── */
@@ -221,26 +239,26 @@ internal static class DashboardHtml
   .stylerow .sw{width:38px; height:20px}
   .stylerow .sw .knob{width:13px; height:13px}
   .stylerow .sw input:checked ~ .knob{transform:translateX(18px)}
-  input[type=color]{width:30px; height:24px; padding:0; border:1px solid var(--line); background:#0c0a07; border-radius:2px; cursor:pointer; flex:none}
-  input[type=range].op{width:78px; accent-color:var(--gold); flex:none}
+  input[type=color]{width:30px; height:24px; padding:0; border:1px solid var(--line); background:var(--panel2); border-radius:var(--radius-sm); cursor:pointer; flex:none}
+  input[type=range].op{width:78px; accent-color:var(--accent); flex:none}
   .opv{font-size:10px; color:var(--ink-faint); width:30px; text-align:right}
   .numin.sz{width:56px}
   .sprctl{display:flex; align-items:center; gap:4px; flex-wrap:wrap; color:var(--ink-faint); font-size:10px}
   .sprctl .numin.sprin{width:46px; padding:4px 5px; font-size:10px}
-  .mechrow{border:1px solid var(--line-soft); border-radius:3px; background:var(--panel2); padding:10px 12px; margin-bottom:8px}
+  .mechrow{border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--panel2); padding:10px 12px; margin-bottom:8px}
   .mechrow .top{display:flex; align-items:center; gap:9px; margin-bottom:8px}
-  .mechrow .top input.mname{flex:1; font-family:inherit; font-size:12px; color:var(--ink); background:#0c0a07; border:1px solid var(--line); border-radius:2px; padding:5px 9px}
-  .mechrow .matchin{width:100%; font-family:inherit; font-size:11px; color:var(--ink-dim); background:#0c0a07; border:1px solid var(--line); border-radius:2px; padding:5px 9px; margin-bottom:8px}
+  .mechrow .top input.mname{flex:1; font-family:inherit; font-size:12px; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:var(--radius-sm); padding:6px 10px}
+  .mechrow .matchin{width:100%; font-family:inherit; font-size:11px; color:var(--ink-dim); background:var(--bg); border:1px solid var(--line); border-radius:var(--radius-sm); padding:6px 10px; margin-bottom:8px}
   .mechrow .ctl{display:flex; align-items:center; gap:9px; flex-wrap:wrap}
   .mcats{display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px}
   .mcats-lbl{font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); margin-right:2px}
   .mcats-hint{font-size:10px; font-style:italic; color:var(--ink-faint)}
-  .catchip{display:inline-flex; align-items:center; font-size:11px; color:var(--ink-dim); background:#0c0a07; border:1px solid var(--line); border-radius:10px; padding:2px 9px; cursor:pointer; user-select:none}
-  .catchip:hover{border-color:var(--gold-deep)}
-  .catchip.on{color:var(--bg); background:var(--gold); border-color:var(--gold-bright); font-weight:600}
+  .catchip{display:inline-flex; align-items:center; font-size:11px; color:var(--ink-dim); background:var(--bg); border:1px solid var(--line); border-radius:20px; padding:3px 10px; cursor:pointer; user-select:none}
+  .catchip:hover{border-color:var(--accent-dim)}
+  .catchip.on{color:#fff; background:var(--accent); border-color:var(--accent); font-weight:600}
   .catchip input{display:none}
   /* Display-rule rows: collapsed one-line header, expand to the full editor. */
-  .drrow{padding:8px 12px}
+  .drrow{padding:10px 12px; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--panel2); margin-bottom:8px}
   .drhead{display:flex; align-items:center; gap:9px; cursor:pointer}
   .drhead .sw{flex:none}
   .drcaret{color:var(--ink-faint); width:10px; font-size:10px; flex:none}
@@ -251,17 +269,25 @@ internal static class DashboardHtml
   .drbadges{display:inline-flex; gap:4px; flex:none}
   .drbadge{font-size:9px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-dim); border:1px solid var(--line); border-radius:8px; padding:1px 6px; white-space:nowrap}
   .drbadge.hide{color:var(--blood-bright); border-color:var(--blood)}
+  .drbadge.paused{color:var(--ink-faint);border-color:var(--line)}
   .drrow.off .drnm,.drrow.off .drsum,.drrow.off .drswatch{opacity:.45}
+  .dr-status{font-size:11px;font-weight:600;color:var(--good);flex:none;min-width:46px}
+  .dr-status.paused{color:var(--ink-faint)}
+  .dr-section{font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px}
+  .dr-section:first-child{margin-top:0}
+  .rules-compare{font-size:12px;color:var(--ink-dim);line-height:1.55;margin:0 0 14px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--panel2);list-style:none}
+  .rules-compare li{margin:6px 0}
+  .rules-compare b{color:var(--ink)}
   .drbody{margin-top:10px; padding-top:10px; border-top:1px dotted var(--line-soft)}
   .drbody .top{align-items:center; margin-bottom:8px}
   .drord{display:inline-flex; gap:2px; flex:none}
   .drhead .delbtn{flex:none}
-  .ordbtn{font-size:10px; line-height:1; color:var(--ink-dim); background:#0c0a07; border:1px solid var(--line); border-radius:2px; padding:3px 6px; cursor:pointer}
-  .ordbtn:hover{color:var(--gold-bright); border-color:var(--gold-deep)}
+  .ordbtn{font-size:10px; line-height:1; color:var(--ink-dim); background:var(--panel2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:4px 7px; cursor:pointer}
+  .ordbtn:hover{color:var(--accent); border-color:var(--accent-dim)}
   .drconds{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px}
   .drsel{display:inline-flex; align-items:center; gap:5px; font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-faint)}
-  .drsel select{font-family:inherit; font-size:11px; text-transform:none; letter-spacing:0; color:var(--ink); background:#0c0a07; border:1px solid var(--line); border-radius:2px; padding:3px 6px}
-  .drsel select:hover{border-color:var(--gold-deep)}
+  .drsel select{font-family:inherit; font-size:11px; text-transform:none; letter-spacing:0; color:var(--ink); background:var(--panel2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:4px 8px}
+  .drsel select:hover{border-color:var(--accent-dim)}
   .drflag{display:inline-flex; align-items:center; gap:5px; font-size:11px; color:var(--ink-dim); cursor:pointer; user-select:none; white-space:nowrap}
   .dr-hideflag{color:var(--blood-bright)}
   .drrow.hideon{opacity:.72}
@@ -282,29 +308,31 @@ internal static class DashboardHtml
 
   /* ── SVG icon picker (replaces the plain shape <select>): a button showing the chosen icon's
        silhouette + name, opening a shared popup grid of icon previews. ── */
-  .iconpick{display:inline-flex; align-items:center; gap:6px; min-width:104px; background:#0c0a07; border:1px solid var(--line); border-radius:2px; padding:3px 7px; cursor:pointer; flex:none}
-  .iconpick:hover{border-color:var(--gold-deep)}
-  .iconpick .ipreview{width:15px; height:15px; flex:none; display:inline-flex; color:var(--ink)}
+  .iconpick{display:inline-flex; align-items:center; gap:6px; min-width:104px; background:var(--panel2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:4px 8px; cursor:pointer; flex:none}
+  .iconpick:hover{border-color:var(--accent-dim)}
+  .iconpick .ipreview{width:15px; height:15px; flex:none; display:inline-flex; align-items:center; justify-content:center; color:var(--ink)}
   .iconpick .ipreview svg{width:15px; height:15px; display:block}
+  .spr-icon{display:inline-block;flex:none;background-image:url(/api/sprite-sheet);background-repeat:no-repeat;image-rendering:pixelated;vertical-align:middle}
+  .spr-preview{margin-left:6px}
   .iconpick .ipname{font-size:11px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .iconpick .ipcar{margin-left:auto; color:var(--ink-faint); font-size:8px}
-  #iconPop{position:fixed; z-index:1000; display:none; background:var(--panel2); border:1px solid var(--gold-deep); border-radius:4px; box-shadow:var(--shadow); padding:8px; max-height:300px; overflow:auto}
+  #iconPop{position:fixed; z-index:1000; display:none; background:var(--panel2); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:10px; max-height:300px; overflow:auto}
   #iconPop.open{display:block}
   /* Add-rule picker modal: browse live entities + terrain tiles. */
   #pickPop{position:fixed; inset:0; z-index:1100; display:none; background:rgba(0,0,0,.62); padding:6vh 4vw}
   #pickPop.open{display:flex; justify-content:center; align-items:flex-start}
-  .pickbox{display:flex; flex-direction:column; width:min(760px,100%); max-height:88vh; background:var(--panel); border:1px solid var(--gold-deep); border-radius:6px; box-shadow:var(--shadow); overflow:hidden}
+  .pickbox{display:flex; flex-direction:column; width:min(760px,100%); max-height:88vh; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden}
   .pickhead{display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--line)}
-  .pickhead #pickSearch{flex:1; font-family:inherit; font-size:13px; color:var(--ink); background:#0c0a07; border:1px solid var(--line); border-radius:3px; padding:8px 11px}
+  .pickhead #pickSearch{flex:1; font-family:inherit; font-size:13px; color:var(--ink); background:var(--panel2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:8px 12px}
   .pickkinds{display:inline-flex; gap:3px}
   .pickclose{font-size:13px; color:var(--ink-dim); background:transparent; border:1px solid var(--line); border-radius:3px; padding:6px 10px; cursor:pointer}
   .pickclose:hover{color:var(--blood-bright); border-color:var(--blood)}
   .picklist{overflow:auto; padding:4px 0}
   .pickrow{display:flex; align-items:center; gap:10px; padding:7px 14px; cursor:pointer; border-bottom:1px dotted var(--line-soft)}
   .pickrow:hover{background:var(--panel2)}
-  .pickbadge{flex:none; font-size:9px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-dim); background:#0c0a07; border:1px solid var(--line); border-radius:8px; padding:2px 7px; min-width:58px; text-align:center}
-  .pickbadge.tile{color:var(--poi); border-color:var(--poi)}
-  .pickbadge.entity{color:var(--gold)}
+  .pickbadge{flex:none; font-size:9px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-dim); background:var(--panel2); border:1px solid var(--line); border-radius:20px; padding:2px 8px; min-width:58px; text-align:center}
+  .pickbadge.tile{color:var(--poi); border-color:rgba(86,212,232,.5)}
+  .pickbadge.entity{color:var(--accent); border-color:rgba(59,158,255,.5)}
   .picknm{flex:none; font-weight:600; color:var(--ink); max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .picksub{flex:1; min-width:0; color:var(--ink-faint); font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .pickrar{flex:none; font-size:10px; color:var(--rare)}
@@ -313,7 +341,7 @@ internal static class DashboardHtml
   /* Landmarks tab rows */
   .lmrow{display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px dotted var(--line-soft)}
   .lmbadge{flex:none; min-width:48px; text-align:center; font-size:9px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-dim); border:1px solid var(--line); border-radius:8px; padding:2px 6px}
-  .lmbadge.user{color:var(--gold); border-color:var(--gold-deep)}
+  .lmbadge.user{color:var(--accent); border-color:rgba(59,158,255,.5)}
   .lmbadge.hidden{color:var(--blood-bright); border-color:var(--blood)}
   .lmarea{flex:none; min-width:64px; font-size:11px; color:var(--ink-dim); font-family:"Consolas",monospace}
   .lmlabel{flex:none; width:200px}
@@ -321,43 +349,112 @@ internal static class DashboardHtml
   .lmrow.sup .lmlabel,.lmrow.sup .lmpath{opacity:.5}
   .ipop-grid{display:grid; grid-template-columns:repeat(6,38px); gap:4px}
   .ipop-cell{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; width:38px; height:40px; border:1px solid transparent; border-radius:3px; cursor:pointer; color:var(--ink)}
-  .ipop-cell:hover{border-color:var(--gold); background:#0c0a07}
-  .ipop-cell.sel{border-color:var(--gold-bright); background:#0c0a07}
+  .ipop-cell:hover{border-color:var(--accent-dim); background:var(--bg)}
+  .ipop-cell.sel{border-color:var(--accent); background:var(--bg)}
   .ipop-cell svg{width:20px; height:20px; display:block}
   .ipop-cell .cn{font-size:7px; line-height:1; color:var(--ink-faint); max-width:36px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .delbtn:hover{border-color:var(--blood-bright)}
-  .addbtn{font-family:"Cinzel","Georgia",serif; font-size:11px; letter-spacing:.1em; color:var(--gold-bright); background:transparent; border:1px dashed var(--gold-deep); border-radius:3px; padding:8px 14px; cursor:pointer; width:100%; margin-top:4px}
-  .addbtn:hover{background:rgba(200,160,73,.07)}
+  .addbtn{font-size:12px; font-weight:600; color:var(--accent); background:transparent; border:1px dashed var(--accent-dim); border-radius:var(--radius-sm); padding:10px 14px; cursor:pointer; width:100%; margin-top:6px; transition:background .15s}
+  .addbtn:hover{background:rgba(59,158,255,.08)}
 
-  /* ── dashboard nav list ── */
-  .navrow{display:flex; align-items:center; gap:12px; padding:9px 12px; border:1px solid var(--line-soft); border-radius:3px; margin-bottom:6px; background:var(--panel); cursor:pointer}
-  .navrow:hover{border-color:var(--gold-deep)}
-  .navrow.sel{border-color:var(--gold); background:rgba(200,160,73,.07)}
-  .navbtn{width:18px; height:18px; flex:none; border:1px solid var(--ink-faint); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; color:#120d06; line-height:1}
-  .navrow:not(.sel) .navbtn{color:var(--ink-faint)}
-  .navname{flex:1; min-width:0; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:"Spectral","Georgia",serif; font-size:14px}
-  .navrow.sel .navname{color:var(--gold-bright)}
-  .navtag{font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); border:1px solid var(--line-soft); border-radius:10px; padding:2px 8px; flex:none}
-  .navdist{font-family:"Cinzel","Georgia",serif; color:var(--ink-dim); font-size:13px; min-width:48px; text-align:right; flex:none}
+  .navrow{display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--line); border-radius:var(--radius-sm); margin-bottom:6px; background:var(--panel); cursor:pointer; transition:border-color .15s,background .15s}
+  .navrow:hover{border-color:var(--accent-dim)}
+  .navrow.sel{border-color:var(--accent); background:rgba(59,158,255,.08)}
+  .navbtn{width:18px; height:18px; flex:none; border:1px solid var(--ink-faint); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--bg); line-height:1}
+  .navrow:not(.sel) .navbtn{color:var(--ink-faint); background:transparent}
+  .navrow.sel .navbtn{background:var(--accent); border-color:var(--accent); color:#fff}
+  .navname{flex:1; min-width:0; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:500}
+  .navrow.sel .navname{color:var(--accent)}
+  .navtag{font-size:10px; color:var(--ink-faint); border:1px solid var(--line); border-radius:20px; padding:2px 8px; flex:none}
+  .navdist{color:var(--ink-dim); font-size:13px; min-width:48px; text-align:right; flex:none; font-variant-numeric:tabular-nums}
+
+  .toast-wrap{position:fixed;top:12px;right:16px;z-index:2000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+  .toast{padding:10px 14px;border-radius:var(--radius-sm);background:var(--panel2);border:1px solid var(--line);box-shadow:var(--shadow);font-size:13px;color:var(--ink);animation:toastIn .2s ease}
+  .toast.ok{border-color:rgba(61,214,140,.5);color:var(--good)}
+  @keyframes toastIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  .save-stamp{font-size:11px;color:var(--ink-faint);margin-left:8px}
+  .save-stamp.recent{color:var(--good)}
+  body.offline .aside-inner{opacity:.45;filter:grayscale(.25)}
+  .stale-banner{font-size:11px;color:var(--blood-bright);padding:8px 10px;border:1px solid rgba(229,83,75,.35);border-radius:var(--radius-sm);background:rgba(229,83,75,.08);margin-bottom:12px}
+  .stale-banner[hidden]{display:none}
+  .char-chip{font-size:12px;color:var(--ink-dim);padding:6px 12px;border-radius:20px;border:1px solid var(--line);background:var(--panel2)}
+  .char-chip b{color:var(--ink);font-weight:600}
+  .header-quick{display:flex;gap:6px;align-items:center}
+  .hq{font-size:11px;font-weight:600;padding:5px 10px;border-radius:20px;border:1px solid var(--line);background:var(--panel2);color:var(--ink-dim);cursor:pointer;white-space:nowrap}
+  .hq.on{color:var(--good);border-color:rgba(61,214,140,.45)}
+  .hq.off{color:var(--ink-faint)}
+  .sidebar-toggle{font-size:12px;padding:6px 10px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--panel2);color:var(--ink-dim);cursor:pointer}
+  .hint-toggle{font-size:12px;font-weight:600;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;margin-bottom:8px}
+  .hint-toggle:hover{text-decoration:underline}
+  .hint-body{font-size:12px;color:var(--ink-dim);line-height:1.55;margin-bottom:10px}
+  .hint-body[hidden]{display:none}
+  .hint-oneline{font-size:12px;color:var(--ink-faint);margin-bottom:8px}
+  .settings-layout{display:grid;grid-template-columns:160px 1fr;gap:16px;align-items:start}
+  .settings-nav{display:flex;flex-direction:column;gap:4px;position:sticky;top:0}
+  .settings-nav button{font-size:12px;font-weight:500;text-align:left;padding:8px 12px;border:1px solid transparent;border-radius:var(--radius-sm);background:transparent;color:var(--ink-dim);cursor:pointer}
+  .settings-nav button:hover{color:var(--ink);background:var(--panel)}
+  .settings-nav button.on{color:var(--ink);background:var(--panel);border-color:var(--line)}
+  .settings-section[hidden]{display:none}
+  .tally .t.clickable{cursor:pointer;transition:border-color .15s,background .15s}
+  .tally .t.clickable:hover{border-color:var(--accent-dim);background:var(--panel2)}
+  .drmatch{font-size:10px;color:var(--ink-faint);flex:none;min-width:52px;text-align:right;font-variant-numeric:tabular-nums}
+  .dr-dup,.dr-drag{font-size:10px;padding:4px 7px}
+  .drrow.dr-new{animation:drFlash 1.2s ease}
+  @keyframes drFlash{0%,100%{box-shadow:none}50%{box-shadow:0 0 0 2px var(--accent)}}
+  .drrow.drag-over{border-color:var(--accent);background:rgba(59,158,255,.1)}
+  .zone-types-box{max-height:320px;margin-top:8px}
+  .zt-tier{border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--panel2);margin-bottom:8px;padding:8px 10px}
+  .zt-tier-h{display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:12px;color:var(--ink);margin-bottom:4px}
+  .zt-tier-h .zt-caret{color:var(--ink-faint);font-size:10px;width:10px}
+  .zt-tier-grp{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--ink-faint);margin:4px 0 6px;padding-left:18px}
+  .zt-tier-grp label{display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none}
+  .zt-row{display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 0 3px 18px;color:var(--ink-dim)}
+  .zt-row label{display:inline-flex;align-items:center;gap:3px;cursor:pointer;user-select:none;font-size:11px;color:var(--ink-faint)}
+  .zt-count{font-size:11px;color:var(--ink-faint);min-width:28px}
+  .zt-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .zt-zone{font-size:10px;color:var(--ink-faint)}
+  .dr-search-row{margin:0 0 10px}
+  .dr-preview-lg{width:36px;height:36px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;color:var(--ink)}
+  .dr-preview-lg svg{width:32px;height:32px}
+  .live-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .live-actions button{font-size:11px;padding:4px 10px}
+  .lm-dist{flex:none;font-size:12px;color:var(--ink-dim);min-width:44px;text-align:right;font-variant-numeric:tabular-nums}
+  .lm-suggest-wrap{position:relative}
+  @media(max-width:960px){
+    .body{grid-template-columns:1fr}
+    aside{border-right:none;border-bottom:1px solid var(--line);max-height:42vh}
+    .settings-layout{grid-template-columns:1fr}
+    .settings-nav{flex-direction:row;flex-wrap:wrap;position:static}
+  }
 </style>
 </head>
 <body>
 <a id="updateBanner" href="#" target="_blank" rel="noopener" hidden
-   style="display:none;align-items:center;gap:10px;padding:9px 16px;margin:0;background:#e0b341;color:#1a1400;font-weight:600;text-decoration:none">
-  <span>&#x2B06; Update available</span><span id="updateMsg" style="font-weight:400"></span><span style="margin-left:auto;text-decoration:underline">Download &rarr;</span>
+   style="display:none;align-items:center;gap:10px;padding:10px 20px;margin:0;background:linear-gradient(90deg,#3b9eff,#56d4e8);color:#fff;font-weight:600;font-size:13px;text-decoration:none">
+  <span>&#x2B06; Update available</span><span id="updateMsg" style="font-weight:400;opacity:.9"></span><span style="margin-left:auto;text-decoration:underline;opacity:.95">Download &rarr;</span>
 </a>
+<div class="toast-wrap" id="toastWrap"></div>
 <div class="shell">
   <header>
+    <button type="button" class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">☰</button>
     <div class="mark">
-      <h1>POE2RADAR</h1>
+      <h1><span>POE2</span>Radar</h1>
     </div>
     <div class="hgap"></div>
+    <div class="char-chip" id="charChip" hidden><b id="charName">—</b> · lvl <span id="charLvl">—</span></div>
     <div class="area-chip" id="areaChip">— <b>·</b></div>
-    <div class="conn" id="conn"><span class="dot"></span><span id="connTxt">offline</span></div>
+    <div class="header-quick" id="headerQuick">
+      <button type="button" class="hq" id="hqMap" title="Large map open">Map —</button>
+      <button type="button" class="hq" id="hqFlask" title="Auto-flask status (F8 in-game)">Flask —</button>
+      <button type="button" class="hq" id="hqJunk" title="Toggle map clutter filter">Clutter —</button>
+    </div>
+    <div class="conn" id="conn"><span class="dot"></span><span id="connTxt">Offline</span></div>
   </header>
 
   <div class="body">
     <aside>
+      <div class="aside-inner">
+      <div class="stale-banner" id="staleBanner" hidden>Disconnected — vitals may be stale. <span id="staleTime"></span></div>
       <div class="vital">
         <div class="vlabel"><span>Life</span><span class="num" id="hpNum">—</span></div>
         <div class="bar hp"><i id="hpBar" style="width:0"></i></div>
@@ -381,27 +478,51 @@ internal static class DashboardHtml
 
       <div class="sect">Census</div>
       <div class="tally">
-        <div class="t"><div class="n" id="cEnt">0</div><div class="l">Entities</div></div>
-        <div class="t"><div class="n" id="cPoi">0</div><div class="l">Points of Int.</div></div>
-        <div class="t"><div class="n" id="cMon">0</div><div class="l">Monsters</div></div>
-        <div class="t"><div class="n" id="cLm">0</div><div class="l">Landmarks</div></div>
+        <div class="t clickable" id="tallyEnt" title="Open Live tab"><div class="n" id="cEnt">0</div><div class="l">Entities</div></div>
+        <div class="t clickable" id="tallyPoi" title="Open Live · POI"><div class="n" id="cPoi">0</div><div class="l">Points of Int.</div></div>
+        <div class="t clickable" id="tallyMon" title="Open Live · Monsters"><div class="n" id="cMon">0</div><div class="l">Monsters</div></div>
+        <div class="t clickable" id="tallyLm" title="Open Landmarks"><div class="n" id="cLm">0</div><div class="l">Landmarks</div></div>
       </div>
       <div style="height:24px"></div>
+      </div>
     </aside>
 
     <main>
       <div class="tabs">
-        <button class="tab on" data-tab="filters">Rules</button>
-        <button class="tab" data-tab="landmarks">Landmarks</button>
-        <button class="tab" data-tab="atlas">Atlas</button>
-        <button class="tab" data-tab="settings">Settings</button>
+        <button class="tab on" data-tab="filters" title="1">Rules</button>
+        <button class="tab" data-tab="live" title="2">Live</button>
+        <button class="tab" data-tab="database" title="3">Database</button>
+        <button class="tab" data-tab="landmarks" title="4">Landmarks</button>
+        <button class="tab" data-tab="atlas" title="5">Atlas</button>
+        <button class="tab" data-tab="settings" title="6">Settings</button>
       </div>
 
       <section class="view" data-view="filters">
         <div class="panel-grid">
           <div class="card" style="grid-column:1/-1">
-            <h3>Display Rules <span class="tag">&middot; one ordered ruleset &mdash; first match wins</span></h3>
-            <div class="row"><div class="rl hint-row">The single source of truth for how every entity draws. Each entity is matched <b>top&ndash;to&ndash;bottom</b>; the <b>first enabled rule that matches</b> decides everything &mdash; its icon &amp; color, whether it&rsquo;s hidden, whether it shows an HP bar, and whether it&rsquo;s auto-pathed. Reorder with &#9650;/&#9660; to change precedence. A rule matches on any mix of <i>type, metadata terms, rarity, reaction, life, chest/POI/encounter state</i>; a blank condition means &ldquo;any&rdquo;. No more conflicting filters &mdash; if two rules could match, the higher one wins.</div></div>
+            <h3>Types in this zone <span class="tag" id="ztAreaTag">&middot; zone type overrides</span></h3>
+            <p class="hint-oneline">Show on map &middot; Path. Overrides apply to this zone type only (not global rules).</p>
+            <div class="controls" style="margin:8px 0 0">
+              <input type="search" id="typeSearch" placeholder="Search types… (Shift+/)" style="flex:1">
+            </div>
+            <div id="zoneTypesHost" class="scrollbox zone-types-box"><div class="hint-row">Loading…</div></div>
+          </div>
+          <div class="card" style="grid-column:1/-1">
+            <h3>Radar rules <span class="tag">&middot; first matching rule applies</span><span class="save-stamp" id="stampRules"></span></h3>
+            <ul class="rules-compare">
+              <li><b>Block list</b> — Never show these anywhere (map, lists, paths). Checked first.</li>
+              <li><b>Rule → Don&rsquo;t show on map</b> — If this rule matches, hide it on the radar. Lower rules won&rsquo;t apply.</li>
+              <li><b>Rule → Paused (switch off)</b> — Skip this rule; matching entities use the next rule below.</li>
+            </ul>
+            <button type="button" class="hint-toggle" data-hint="hintRules">More detail ▾</button>
+            <div class="hint-body" id="hintRules" hidden>Rules run top-to-bottom; the first <b>active</b> rule that matches decides what happens. Reorder with ▲/▼ or drag. Use name contains, entity type, rarity, and other filters; leave blank for &ldquo;any&rdquo;.</div>
+            <div class="controls" style="margin:0 0 10px">
+              <button class="addbtn" id="drExport" style="width:auto;margin:0;padding:8px 14px">Export rules…</button>
+              <button class="addbtn" id="drImport" style="width:auto;margin:0;padding:8px 14px">Import rules…</button>
+            </div>
+            <div class="dr-search-row">
+              <input type="search" id="drSearch" placeholder="Search rules by name… (press /)" style="width:100%">
+            </div>
             <div id="drList"></div>
             <div class="controls" style="margin:8px 0 0">
               <button class="addbtn" id="drPick" style="width:auto;margin:0;padding:9px 16px">+ Add from game data…</button>
@@ -409,23 +530,68 @@ internal static class DashboardHtml
             </div>
           </div>
           <div class="card" style="grid-column:1/-1">
-            <h3>Hidden <span class="tag">&middot; cull entirely from radar, list &amp; nav</span></h3>
-            <div class="row"><div class="rl hint-row">A stronger cut than a Hide rule: entities whose metadata contains a pattern (or matches a <code>*</code>/<code>?</code> glob) are removed <i>everywhere</i> &mdash; overlay, entity list, and navigation &mdash; before the display rules even run.</div></div>
+            <h3>Block list <span class="tag">&middot; never show these</span></h3>
+            <p class="hint-oneline">For permanent noise (FX, daemons, cracks). Stronger than a rule&rsquo;s &ldquo;Don&rsquo;t show on map&rdquo;.</p>
+            <button type="button" class="hint-toggle" data-hint="hintHidden">When to use this ▾</button>
+            <div class="hint-body" id="hintHidden" hidden>Matched entities are removed before radar rules run — not on the map, not in the Live tab, not for paths. Use <code>*</code> and <code>?</code> for wildcards.</div>
             <div id="hideList" class="controls" style="margin:8px 0 14px"></div>
             <div class="controls" style="margin:0">
-              <input type="search" id="hidePattern" placeholder="pattern or glob to hide (e.g. AbyssCrack, *Daemon*)">
-              <button class="addbtn" id="hideAdd" style="width:auto;margin:0;padding:8px 16px">+ Hide</button>
+              <input type="search" id="hidePattern" placeholder="e.g. AbyssCrack, *Daemon*">
+              <button class="addbtn" id="hideAdd" style="width:auto;margin:0;padding:8px 16px">+ Add to block list</button>
             </div>
           </div>
         </div>
-        <div style="margin-top:18px; height:14px"><span class="saved" id="savedMsgF">&#10003; saved to config</span></div>
+        <div style="margin-top:18px; height:14px"><span class="saved" id="savedMsgF">&#10003; saved</span></div>
+      </section>
+
+      <section class="view" data-view="live" hidden>
+        <div class="panel-grid">
+          <div class="card" style="grid-column:1/-1">
+            <h3>Live entities <span class="tag">&middot; in current zone</span><span id="liveCount" class="tag">—</span></h3>
+            <p class="hint-oneline">What&rsquo;s in the zone right now — filter, set path target, or create a radar rule.</p>
+            <div class="controls" style="margin:8px 0 10px">
+              <input type="search" id="liveSearch" placeholder="Search name or path… (press /)">
+              <label class="chip"><input type="checkbox" id="liveAlive" checked> Alive only</label>
+              <input class="numin" type="number" id="liveRadius" placeholder="radius" min="0" step="10" style="width:80px" title="Max grid distance (0 = all)">
+              <span class="tag" id="liveNavCount">0 nav targets</span>
+              <button class="chip" id="liveNavClear">Clear nav</button>
+            </div>
+            <div class="filter-btns" id="liveCatFilters"></div>
+            <div class="scrollbox">
+              <table><thead><tr><th>Name</th><th>Category</th><th>Rarity</th><th>Dist</th><th>HP</th><th>Matching rule</th><th></th></tr></thead>
+              <tbody id="liveBody"></tbody></table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" data-view="database" hidden>
+        <div class="panel-grid">
+          <div class="card" style="grid-column:1/-1">
+            <h3>Entity database <span class="tag">&middot; static GGPK paths</span></h3>
+            <p class="hint-oneline">Full game entity catalog — use <b>+ Rule</b> to create a radar rule from a path.</p>
+            <div class="controls" style="margin:8px 0 10px">
+              <input type="search" id="dbSearch" placeholder="Search paths (Waypoint, Ritual, Chest…)">
+              <label class="chip"><input type="checkbox" id="dbHideJunk" checked> Hide clutter paths</label>
+              <label class="chip"><input type="checkbox" id="dbNoRule"> Without rule</label>
+              <span class="tag" id="dbCount">&mdash;</span>
+            </div>
+            <div class="filter-btns" id="dbCatFilters"></div>
+            <div class="scrollbox">
+              <table><thead><tr><th>Category</th><th>Path</th><th></th></tr></thead>
+              <tbody id="dbBody"></tbody></table>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section class="view" data-view="landmarks" hidden>
         <div class="panel-grid">
           <div class="card" style="grid-column:1/-1">
-            <h3>Landmarks <span class="tag">&middot; curated map labels &mdash; view, fix, share</span></h3>
-            <div class="row"><div class="rl hint-row">The built-in &ldquo;known&rdquo; map features (boss arenas, exits, loot, waypoints&hellip;), labelled per area. Rename a wrong label, add your own, or hide a bad entry. <b>Export</b> a corrected list to share or submit for baking into a release; <b>Import</b> to load one. (For how a tile <i>draws</i> — icon/color/hide — use a Tile rule on the Rules tab; this is just the labels.)</div></div>
+            <h3>Landmarks <span class="tag">&middot; curated labels</span><span class="save-stamp" id="stampLm"></span></h3>
+            <p class="hint-oneline">Rename wrong labels, add custom entries, import/export JSON.</p>
+            <button type="button" class="hint-toggle" data-hint="hintLm">More about landmarks ▾</button>
+            <div class="hint-body" id="hintLm" hidden>Built-in map features per area. For tile <i>drawing</i> (icon/color), use a Tile rule on Rules. Distance shown when a live landmark matches the pattern.</div>
             <div class="controls" style="margin:6px 0 12px">
               <input type="search" id="lmSearch" placeholder="filter by area / tile / label…">
               <button class="chip on" id="lmAreaOnly">This area only</button>
@@ -434,10 +600,11 @@ internal static class DashboardHtml
               <button class="addbtn" id="lmExport" style="width:auto;margin:0;padding:8px 14px">Export</button>
             </div>
             <div id="lmList"></div>
-            <div class="mechrow">
+            <div class="mechrow lm-suggest-wrap">
               <div class="top">
                 <input class="mname" id="lmArea" placeholder="area (e.g. P2_3, or *)" style="max-width:150px">
-                <input class="mname" id="lmPat" placeholder="tile path / pattern">
+                <input class="mname" id="lmPat" placeholder="tile path / pattern" list="lmTileList">
+                <datalist id="lmTileList"></datalist>
                 <input class="mname" id="lmLabel" placeholder="label">
                 <button class="addbtn" id="lmAdd" style="width:auto;margin:0;padding:8px 16px">+ Add</button>
               </div>
@@ -450,8 +617,10 @@ internal static class DashboardHtml
       <section class="view" data-view="atlas" hidden>
         <div class="panel-grid">
           <div class="card" style="grid-column:1/-1">
-            <h3>Atlas highlights <span class="tag">&middot; only highlighted maps draw in-game</span></h3>
-            <div class="row"><div class="rl hint-row">Each atlas tile's map + <b>rolled content</b> (Powerful Map Boss, Breach, Delirium, hidden content&hellip;) read from memory. <b>Check filters below to ring those maps in-game</b> &mdash; only highlighted maps are drawn, so you can spot content the game hides by default. Open the Atlas in-game, then Refresh.</div></div>
+            <h3>Atlas highlights <span class="tag">&middot; ring matching maps in-game</span></h3>
+            <p class="hint-oneline">Open Atlas in-game — filters auto-refresh while this tab is active.</p>
+            <button type="button" class="hint-toggle" data-hint="hintAtlas">Atlas tips ▾</button>
+            <div class="hint-body" id="hintAtlas" hidden>Toggle Track to ring maps; Arrow points from screen edge when off-screen. F10 in-game inspects a hovered tile.</div>
             <div class="controls" style="margin:6px 0 12px">
               <button class="addbtn" id="atlasRefresh" style="width:auto;margin:0;padding:9px 16px">&#8635; Refresh</button>
               <span style="flex:1"></span>
@@ -468,22 +637,30 @@ internal static class DashboardHtml
                 <span class="hint-row" style="padding:8px;display:block">Open the Atlas in-game + Refresh to list filters.</span>
               </div>
             </div>
-            <div class="row"><div class="rl hint-row">Ring positions are computed automatically from your window size &mdash; no calibration needed. Hover a tile in-game and press <b>F10</b> to inspect its map / content / biome (so you know what to type as a filter above).</div></div>
           </div>
         </div>
       </section>
 
       <section class="view" data-view="settings" hidden>
-        <div class="panel-grid">
+        <div class="settings-layout">
+          <nav class="settings-nav" id="settingsNav">
+            <button type="button" class="on" data-setsec="setDisplay">Display</button>
+            <button type="button" data-setsec="setHp">HP bars</button>
+            <button type="button" data-setsec="setTerrain">Terrain</button>
+            <button type="button" data-setsec="setCalib">Calibration</button>
+            <button type="button" data-setsec="setFlask">Auto-flask</button>
+          </nav>
+          <div class="settings-panels">
+          <div class="settings-section panel-grid" id="setDisplay">
           <div class="card">
-            <h3>Radar Display</h3>
+            <h3>Radar Display <span class="save-stamp" id="stampSettings"></span></h3>
             <div class="row"><div class="rl">Show terrain<small>walkable-terrain bitmap</small></div>
               <label class="sw"><input type="checkbox" data-set="showTerrain"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl">Show player blip<small>blue dot marking your own position</small></div>
               <label class="sw"><input type="checkbox" data-set="showPlayerBlip"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl">Always show overlay<small>draw even when PoE2 isn&rsquo;t focused (e.g. while tweaking this dashboard); auto-flask stays focus-gated</small></div>
               <label class="sw"><input type="checkbox" data-set="alwaysShowOverlay"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Hide junk entities<small>suppress cosmetic / FX / daemon dots</small></div>
+            <div class="row"><div class="rl">Hide map clutter<small>cosmetic FX, daemons, and other noise dots</small></div>
               <label class="sw"><input type="checkbox" data-set="hideJunk"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl">Navigation paths<small>draw A&#42; routes to selected landmarks</small></div>
               <label class="sw"><input type="checkbox" data-set="showPath"><span class="track"></span><span class="knob"></span></label></div>
@@ -494,9 +671,11 @@ internal static class DashboardHtml
             <div class="row"><div class="rl">Show perf stats<small>compact FPS/read/render timings in the nav menu</small></div>
               <label class="sw"><input type="checkbox" data-set="showPerfStats"><span class="track"></span><span class="knob"></span></label></div>
           </div>
+          </div>
+          <div class="settings-section panel-grid" id="setHp" hidden>
           <div class="card">
             <h3>Monster HP Bars <span class="tag">&middot; by rarity</span></h3>
-            <div class="row"><div class="rl hint-row">Toggle the bar on/off per rarity with the <b>On</b> checkbox &mdash; uncheck all to disable HP bars entirely, or leave only the rarities you want. The rest sets the bar <i>geometry</i> per rarity.</div></div>
+            <p class="hint-oneline">Toggle On per rarity; geometry fields set bar size per tier.</p>
             <div class="hpgrid">
               <span class="hph">On</span><span class="hph">Rarity</span><span class="hph">Width</span><span class="hph">Border</span><span class="hph">Thick</span>
               <input type="checkbox" data-set="hpBarNormal">
@@ -527,8 +706,10 @@ internal static class DashboardHtml
               <label>Offset Y<input class="numin" type="number" step="1" data-hp="offsetY"></label>
               <label>ES color<input type="color" class="i-color" data-hpcolor="energyShieldColor"></label>
             </div>
-            <div class="row"><div class="rl hint-row">Bar fill follows the monster icon color; set border color &amp; thickness per rarity (thickness 0 = no border). Offset Y negative = above the mob.</div></div>
+            <p class="hint-oneline" style="margin-top:8px">Offset Y negative = above the mob; thickness 0 = no border.</p>
           </div>
+          </div>
+          <div class="settings-section panel-grid" id="setTerrain" hidden>
           <div class="card">
             <h3>Terrain <span class="tag">&middot; walkable overlay</span></h3>
             <div class="row"><div class="rl">Interior fill<small>wash over walkable cells</small></div>
@@ -545,8 +726,10 @@ internal static class DashboardHtml
               <input class="numin" type="number" step="1" min="1" max="8" data-tnum="imGuiEdgeDetail"></div>
             <div class="row"><div class="rl">ImGui edge thickness<small>visibility of terrain edge points</small></div>
               <input class="numin" type="number" step="0.1" min="0.5" max="4" data-tnum="imGuiEdgeThickness"></div>
-            <div class="row"><div class="rl hint-row">Edits rebuild the terrain bitmap; use &ldquo;Show terrain&rdquo; above to hide it entirely.</div></div>
+            <p class="hint-oneline" style="margin-top:8px">Edits rebuild the terrain bitmap.</p>
           </div>
+          </div>
+          <div class="settings-section panel-grid" id="setCalib" hidden>
           <div class="card">
             <h3>Map Calibration</h3>
             <div class="row"><div class="rl">Large-map scale base<small>GameHelper-style diagonal/zoom multiplier</small></div>
@@ -555,8 +738,10 @@ internal static class DashboardHtml
               <input class="numin" type="number" step="0.01" data-set="scaleMul"></div>
             <div class="row"><div class="rl">Offset X</div><input class="numin" type="number" step="1" data-set="offX"></div>
             <div class="row"><div class="rl">Offset Y</div><input class="numin" type="number" step="1" data-set="offY"></div>
-            <div class="row"><div class="rl hint-row">Adjust here &mdash; changes apply live (no in-game hotkeys).</div></div>
+            <p class="hint-oneline" style="margin-top:8px">Changes apply live.</p>
           </div>
+          </div>
+          <div class="settings-section panel-grid" id="setFlask" hidden>
           <div class="card">
             <h3>Auto-Flask</h3>
             <div class="row"><div class="rl">Life flask triggers on<small>which pool the life flask key watches &mdash; ES is ignored if your build has none</small></div>
@@ -579,10 +764,12 @@ internal static class DashboardHtml
               <input class="numin" type="number" step="100" min="0" data-set="lifeCooldownMs"></div>
             <div class="row"><div class="rl">Mana cooldown<small>min ms between mana taps</small></div>
               <input class="numin" type="number" step="100" min="0" data-set="manaCooldownMs"></div>
-            <div class="row"><div class="rl hint-row">F8 toggles auto-flask in-game. Status: <span id="flaskState">&mdash;</span></div></div>
+            <p class="hint-oneline" style="margin-top:8px">F8 toggles in-game. Status: <span id="flaskState">&mdash;</span></p>
+          </div>
+          </div>
           </div>
         </div>
-        <div style="margin-top:18px; height:14px"><span class="saved" id="savedMsg">&#10003; saved to config</span></div>
+        <div style="margin-top:18px; height:14px"><span class="saved" id="savedMsg">&#10003; saved</span></div>
       </section>
 
     </main>
@@ -595,28 +782,143 @@ const $$ = s => [...document.querySelectorAll(s)];
 let state=null, zone=null;
 let activeTab='filters';
 let atlasData=null, atlasView='region', atlasSel=new Set(), atlasHl=null, atlasArrow=null, atlasHlSelOnly=false;
+let connLive=false, lastTickAt=0, liveEnts=[], liveNavIds=new Set(), liveCatFilter='', livePoiOnly=false, livePoll=null, atlasPoll=null;
+let lmLiveDist=new Map();
+let _liveEntsCache=[], _highlightDrIdx=null;
+const UI_LS='poe2radar-dash-ui';
 
-/* ── tabs ── */
-$$('.tab').forEach(t=>t.onclick=()=>{
-  activeTab=t.dataset.tab;
-  $$('.tab').forEach(x=>x.classList.toggle('on',x===t));
-  $$('.view').forEach(v=>v.hidden = v.dataset.view!==activeTab);
-  if(activeTab==='settings') loadSettings();
-  if(activeTab==='filters') loadFilters();
-  if(activeTab==='landmarks') loadLandmarks();
-  if(activeTab==='atlas'){ if(!atlasData) loadAtlas(); else renderAtlas(); }
+function loadUiState(){
+  try{
+    const u=JSON.parse(localStorage.getItem(UI_LS)||'{}');
+    if(u.tab) activeTab=u.tab;
+    if(u.dbCat) dbCatFilter=u.dbCat;
+    if(u.dbNoRule) { const el=$('#dbNoRule'); if(el) el.checked=u.dbNoRule; }
+    if(typeof lmAreaOnly!=='undefined'&&u.lmAreaOnly!=null) lmAreaOnly=u.lmAreaOnly;
+    if(u.sidebarOff) document.body.classList.add('sidebar-off');
+    syncSidebarToggle();
+    window._pendingSetSec=u.setSec;
+  }catch(_){}
+}
+function saveUiState(extra){
+  try{
+    const u={tab:activeTab,dbCat:dbCatFilter,dbNoRule:$('#dbNoRule')?.checked,lmAreaOnly,setSec:$$('#settingsNav button.on')[0]?.dataset.setsec||'setDisplay',sidebarOff:document.body.classList.contains('sidebar-off'),...extra};
+    localStorage.setItem(UI_LS,JSON.stringify(u));
+  }catch(_){}
+}
+function toast(msg,kind=''){
+  const w=$('#toastWrap'); if(!w) return;
+  const el=document.createElement('div'); el.className='toast'+(kind?' '+kind:''); el.textContent=msg;
+  w.appendChild(el); setTimeout(()=>el.remove(),2800);
+}
+function markStamp(id,label){
+  const el=$('#'+id); if(!el) return;
+  const t=new Date(); el.textContent='· saved '+t.toLocaleTimeString(); el.classList.add('recent');
+  setTimeout(()=>el.classList.remove('recent'),4000);
+}
+function confirmAct(msg){ return window.confirm(msg); }
+
+$$('.hint-toggle').forEach(btn=>btn.onclick=()=>{
+  const id=btn.dataset.hint, el=$('#'+id); if(!el) return;
+  const open=!el.hidden; el.hidden=open; btn.textContent=btn.textContent.replace(open?'▾':'▸',open?'▸':'▾');
 });
+function syncSidebarToggle(){
+  const btn=$('#sidebarToggle'), off=document.body.classList.contains('sidebar-off');
+  if(btn){ btn.textContent=off?'☰':'◧'; btn.title=off?'Show sidebar':'Hide sidebar'; btn.setAttribute('aria-pressed',off?'true':'false'); }
+}
+$('#sidebarToggle')?.addEventListener('click',()=>{
+  document.body.classList.toggle('sidebar-off');
+  syncSidebarToggle();
+  saveUiState();
+});
+syncSidebarToggle();
+$$('#settingsNav button').forEach(b=>b.onclick=()=>showSettingsSection(b.dataset.setsec));
+function showSettingsSection(id){
+  $$('#settingsNav button').forEach(b=>b.classList.toggle('on',b.dataset.setsec===id));
+  $$('.settings-section').forEach(s=>s.hidden=s.id!==id);
+  saveUiState();
+}
+function switchTab(tab){
+  activeTab=tab;
+  $$('.tab').forEach(x=>x.classList.toggle('on',x.dataset.tab===tab));
+  $$('.view').forEach(v=>v.hidden=v.dataset.view!==tab);
+  saveUiState();
+  if(tab==='settings') loadSettings();
+  if(tab==='filters') loadFilters();
+  if(tab==='live') loadLive();
+  if(tab==='database') loadDb();
+  if(tab==='landmarks') loadLandmarks();
+  if(tab==='atlas'){ if(!atlasData) loadAtlas(); else renderAtlas(); startAtlasPoll(); }
+  else stopAtlasPoll();
+  if(tab==='live') startLivePoll(); else stopLivePoll();
+  if(tab==='filters') startZoneTypesPoll(); else stopZoneTypesPoll();
+}
+$$('.tab').forEach(t=>t.onclick=()=>switchTab(t.dataset.tab));
+const TAB_KEYS=['filters','live','database','landmarks','atlas','settings'];
+document.addEventListener('keydown',e=>{
+  if(e.target.matches('input,textarea,select')&&!e.ctrlKey&&!e.metaKey) return;
+  if(e.key==='/'&&!e.ctrlKey&&!e.metaKey){
+    if(activeTab==='filters'){
+      e.preventDefault();
+      const el=e.shiftKey?$('#typeSearch'):$('#drSearch');
+      if(el){ el.focus(); el.select(); }
+      return;
+    }
+    const map={live:'#liveSearch',database:'#dbSearch',landmarks:'#lmSearch',atlas:'#atlasHlFilter'};
+    const sel=map[activeTab]; if(sel){ e.preventDefault(); const el=$(sel); if(el){ el.focus(); el.select(); } }
+    return;
+  }
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){ e.preventDefault(); if(activeTab==='filters') saveDrules(); else if(activeTab==='settings') toast('Settings save on change'); }
+  if(e.key==='Escape'){ $('#pickPop')?.classList.remove('open'); $('#iconPop')?.classList.remove('open'); _pickEl?.classList.remove('open'); }
+  const n=+e.key; if(n>=1&&n<=6&&!e.ctrlKey&&!e.metaKey){ switchTab(TAB_KEYS[n-1]); }
+});
+function openLiveTab(opts={}){
+  if(!opts.poi) livePoiOnly=false;
+  switchTab('live');
+  if(opts.category){ liveCatFilter=opts.category; livePoiOnly=false; saveUiState(); }
+  if(opts.search){ const el=$('#liveSearch'); if(el) el.value=opts.search; }
+  filterLive();
+}
+$('#tallyEnt')?.addEventListener('click',()=>openLiveTab());
+$('#tallyPoi')?.addEventListener('click',()=>{ livePoiOnly=true; liveCatFilter=''; openLiveTab(); });
+$('#tallyMon')?.addEventListener('click',()=>openLiveTab({category:'Monster'}));
+$('#tallyLm')?.addEventListener('click',()=>switchTab('landmarks'));
+function startLivePoll(){ stopLivePoll(); livePoll=setInterval(()=>{ if(activeTab==='live') loadLive(true); },2000); }
+function stopLivePoll(){ if(livePoll){ clearInterval(livePoll); livePoll=null; } }
+function startAtlasPoll(){ stopAtlasPoll(); atlasPoll=setInterval(()=>{ if(activeTab==='atlas') loadAtlas(true); },5000); }
+function stopAtlasPoll(){ if(atlasPoll){ clearInterval(atlasPoll); atlasPoll=null; } }
 
 /* ── polling (left rail vitals/zone/census) ── */
 async function getJSON(u){ const r=await fetch(u,{cache:'no-store'}); if(!r.ok) throw 0; return r.json(); }
-function setConn(live){ $('#conn').classList.toggle('live',live); $('#connTxt').textContent = live?'live':'offline'; }
+function setConn(live){
+  connLive=live;
+  document.body.classList.toggle('offline',!live);
+  $('#conn').classList.toggle('live',live);
+  $('#connTxt').textContent=live?'Live':'Offline';
+  const b=$('#staleBanner'); if(b) b.hidden=live;
+  if(!live&&lastTickAt){ const t=$('#staleTime'); if(t) t.textContent='Last update '+new Date(lastTickAt).toLocaleTimeString(); }
+}
+function updateHeaderQuick(){
+  const s=state; if(!s) return;
+  const map=$('#hqMap'); if(map){ map.textContent='Map '+(s.mapVisible?'open':'closed'); map.className='hq '+(s.mapVisible?'on':'off'); }
+  const fl=$('#hqFlask'); if(fl){ fl.textContent='Flask '+(s.autoFlask?'ON':'off'); fl.className='hq '+(s.autoFlask?'on':'off'); }
+}
+async function refreshHeaderJunk(){
+  try{ const st=await getJSON('/api/settings'); const j=$('#hqJunk'); if(j){ j.textContent='Clutter '+(st.hideJunk?'hidden':'shown'); j.className='hq '+(st.hideJunk?'on':'off'); } }catch(_){}
+}
+$('#hqJunk')?.addEventListener('click',async()=>{
+  try{ const st=await getJSON('/api/settings'); await saveSetting('hideJunk',!st.hideJunk); refreshHeaderJunk(); }catch(_){}
+});
+$('#hqFlask')?.addEventListener('click',()=>switchTab('settings')); showSettingsSection('setFlask');
+$('#hqMap')?.addEventListener('click',()=>switchTab('settings')); showSettingsSection('setDisplay');
 
 async function tick(){
   try{
     state = await getJSON('/state');
     setConn(true);
+    lastTickAt=Date.now();
     try{ zone = await getJSON('/api/zone'); }catch(e){ zone=null; }
     renderState();
+    if(activeTab==='live') filterLive();
   }catch(e){ setConn(false); }
 }
 
@@ -639,7 +941,9 @@ async function saveSetting(key,val){
   try{
     await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[key]:val})});
     const m=$('#savedMsg'); m.classList.add('show'); clearTimeout(m._t); m._t=setTimeout(()=>m.classList.remove('show'),1100);
-  }catch(e){}
+    markStamp('stampSettings'); toast('Settings saved','ok');
+    if(key==='hideJunk') updateHeaderQuick();
+  }catch(e){ toast('Settings save failed'); }
 }
 function wireSettings(){
   $$('[data-set]').forEach(el=>{
@@ -667,12 +971,17 @@ const pct=o=>Math.round((o==null?1:o)*100);
 const spriteOf=o=>o.sprite||(o.sprite={sheet:'icons.png',col:0,row:0,cellSize:64,scale:1});
 function spriteCtl(o){
   const s=o.sprite||{};
-  return `<span class="sprctl" title="icons.png sprite cell">
+  return `<span class="sprctl" title="Icon from sheet (icons.png)">
+    <span class="spr-preview" data-spr-preview>${iconPreview(o.shape||'Circle',o.color,s,20)}</span>
     <span>col</span><input class="numin sprin" type="number" min="0" step="1" data-spr="col" value="${s.col??0}">
     <span>row</span><input class="numin sprin" type="number" min="0" step="1" data-spr="row" value="${s.row??0}">
     <span>cell</span><input class="numin sprin" type="number" min="16" step="1" data-spr="cellSize" value="${s.cellSize??64}">
     <span>x</span><input class="numin sprin" type="number" min="0.2" step="0.1" data-spr="scale" value="${s.scale??1}">
   </span>`;
+}
+function refreshSpritePreview(row,o){
+  const el=row.querySelector('[data-spr-preview]'); if(!el) return;
+  el.innerHTML=iconPreview(o.shape||'Circle',o.color,o.sprite,20);
 }
 function wireSprite(row,o,save){
   row.querySelectorAll('[data-spr]').forEach(el=>el.onchange=()=>{
@@ -680,34 +989,68 @@ function wireSprite(row,o,save){
     const s=spriteOf(o), k=el.dataset.spr;
     s[k]=k==='scale'?v:Math.round(v);
     s.sheet='icons.png';
+    refreshSpritePreview(row,o);
     save();
   });
 }
 
-/* ── SVG icon library (served by /api/icons): drives both the in-page previews and the picker grid. ── */
-let ICONS=[]; const ICONMAP={};
+/* ── icons.png sprite sheet (primary) + SVG library fallback ── */
+let ICONS=[], SPRITE_META=null; const ICONMAP={};
+async function loadSpriteMeta(){
+  try{ SPRITE_META=await getJSON('/api/sprite-meta'); }catch(_){ SPRITE_META=null; }
+}
 async function loadIcons(){
+  await loadSpriteMeta();
   try{ ICONS=await getJSON('/api/icons')||[]; }catch(e){ ICONS=[]; }
   for(const k in ICONMAP) delete ICONMAP[k];
   ICONS.forEach(d=>ICONMAP[(d.name||'').toLowerCase()]=d);
 }
 const iconDef=name=>ICONMAP[(name||'').toLowerCase()]||null;
+function syncShapeSprite(o,shape){
+  const sh=SPRITE_META?.shapes?.[shape]||SPRITE_META?.shapes?.[(shape||'').toLowerCase()];
+  if(!sh) return;
+  const s=spriteOf(o); s.col=sh.col; s.row=sh.row; s.sheet='icons.png';
+}
+function resolveSprite(name,spriteObj){
+  if(spriteObj&&spriteObj.col!=null) return {col:spriteObj.col,row:spriteObj.row,cell:spriteObj.cellSize||64};
+  const shapes=SPRITE_META?.shapes||{};
+  const key=(name||'Circle');
+  const sh=shapes[key]||shapes[key.toLowerCase()]||shapes.Circle;
+  return sh?{col:sh.col,row:sh.row,cell:SPRITE_META?.cellSize||64}:null;
+}
+function iconPreview(name,color,spriteObj,px){
+  px=px||16;
+  const sp=resolveSprite(name,spriteObj);
+  if(SPRITE_META&&sp){
+    const cs=sp.cell||SPRITE_META.cellSize||64, aw=SPRITE_META.width, ah=SPRITE_META.height;
+    const bw=aw/cs*px, bh=ah/cs*px;
+    return `<span class="spr-icon" style="width:${px}px;height:${px}px;background-position:${-sp.col*px}px ${-sp.row*px}px;background-size:${bw}px ${bh}px" title="${esc(name||'')}"></span>`;
+  }
+  return iconSvg(name,color);
+}
 function iconSvg(name,color){
-  const d=iconDef(name); if(!d) return '';
+  const d=iconDef(name); if(!d) return '<span class="spr-icon" style="width:16px;height:16px;opacity:.3"></span>';
   const c=color||'currentColor';
-  return `<svg viewBox="${d.viewBox}" preserveAspectRatio="xMidYMid meet">`
+  return `<svg viewBox="${d.viewBox}" preserveAspectRatio="xMidYMid meet" width="${16}" height="${16}">`
     + (d.paths||[]).map(p=>`<path d="${esc(p)}" fill="${c}"/>`).join('') + `</svg>`;
 }
-function pickerHtml(name,color){
-  const d=iconDef(name), nm=d?d.name:(name||'Circle');
-  return `<span class="iconpick" data-val="${esc(nm)}"><span class="ipreview" style="color:${color||'var(--ink)'}">`
-    + iconSvg(nm,color) + `</span><span class="ipname">${esc(nm)}</span><span class="ipcar">▼</span></span>`;
+function pickerNames(){
+  if(SPRITE_META?.shapes){
+    const names=Object.keys(SPRITE_META.shapes).sort();
+    if(names.length) return names;
+  }
+  return ICONS.map(d=>d.name);
 }
-function refreshPicker(pk,name,color){
-  const d=iconDef(name), nm=d?d.name:(name||'Circle');
+function pickerHtml(name,color,spriteObj){
+  const nm=name||'Circle';
+  return `<span class="iconpick" data-val="${esc(nm)}"><span class="ipreview">`
+    + iconPreview(nm,color,spriteObj,16) + `</span><span class="ipname">${esc(nm)}</span><span class="ipcar">▼</span></span>`;
+}
+function refreshPicker(pk,name,color,spriteObj){
+  const nm=name||'Circle';
   pk.dataset.val=nm;
-  const pv=pk.querySelector('.ipreview'); pv.style.color=color||'var(--ink)'; pv.innerHTML=iconSvg(nm,color);
-  pk.querySelector('.ipname').textContent=nm;
+  const pv=pk.querySelector('.ipreview'); if(pv) pv.innerHTML=iconPreview(nm,color,spriteObj,16);
+  const pn=pk.querySelector('.ipname'); if(pn) pn.textContent=nm;
 }
 let _iconPop=null;
 function ensureIconPop(){
@@ -718,11 +1061,12 @@ function ensureIconPop(){
   });
   return _iconPop;
 }
-function openIconPicker(anchor,current,cb){
+function openIconPicker(anchor,current,cb,spriteObj){
   const pop=ensureIconPop();
-  pop.innerHTML='<div class="ipop-grid">'+ICONS.map(d=>
-    `<div class="ipop-cell${d.name.toLowerCase()===(current||'').toLowerCase()?' sel':''}" data-n="${esc(d.name)}" title="${esc(d.name)}">`
-    + iconSvg(d.name) + `<span class="cn">${esc(d.name)}</span></div>`).join('')+'</div>';
+  const names=pickerNames();
+  pop.innerHTML='<div class="ipop-grid">'+names.map(n=>
+    `<div class="ipop-cell${n.toLowerCase()===(current||'').toLowerCase()?' sel':''}" data-n="${esc(n)}" title="${esc(n)}">`
+    + iconPreview(n,null,null,20) + `<span class="cn">${esc(n)}</span></div>`).join('')+'</div>';
   pop.querySelectorAll('.ipop-cell').forEach(c=>c.onclick=()=>{ pop.classList.remove('open'); cb(c.dataset.n); });
   pop.classList.add('open');
   const r=anchor.getBoundingClientRect(), pw=pop.offsetWidth, ph=pop.offsetHeight;
@@ -783,8 +1127,8 @@ function renderIcons(){
     const o=styles[row.dataset.k]; if(!o) return;
     const pk=row.querySelector('.iconpick');
     row.querySelector('.i-en').onchange=e=>{ o.enabled=e.target.checked; saveStyles(); };
-    pk.onclick=()=>openIconPicker(pk,o.shape,n=>{ o.shape=n; refreshPicker(pk,n,o.color); saveStyles(); });
-    row.querySelector('.i-color').onchange=e=>{ o.color=e.target.value; refreshPicker(pk,o.shape,o.color); saveStyles(); };
+    pk.onclick=()=>openIconPicker(pk,o.shape,n=>{ o.shape=n; syncShapeSprite(o,n); refreshPicker(pk,n,o.color,o.sprite); saveStyles(); });
+    row.querySelector('.i-color').onchange=e=>{ o.color=e.target.value; refreshPicker(pk,o.shape,o.color,o.sprite); saveStyles(); };
     const op=row.querySelector('.i-op'), opv=row.querySelector('.opv');
     op.oninput=()=>{ opv.textContent=op.value+'%'; };
     op.onchange=()=>{ o.opacity=(+op.value)/100; saveStyles(); };
@@ -834,8 +1178,8 @@ function renderMechanics(){
       cb.closest('.catchip').classList.toggle('on',cb.checked);
       const h=row.querySelector('.mcats-hint'); if(h) h.textContent=m.categories.length?'':'all types';
       saveStyles(); }; });
-    pk.onclick=()=>openIconPicker(pk,m.shape,n=>{ m.shape=n; refreshPicker(pk,n,m.color); saveStyles(); });
-    row.querySelector('.m-color').onchange=e=>{ m.color=e.target.value; refreshPicker(pk,m.shape,m.color); saveStyles(); };
+    pk.onclick=()=>openIconPicker(pk,m.shape,n=>{ m.shape=n; syncShapeSprite(m,n); refreshPicker(pk,n,m.color,m.sprite); saveStyles(); });
+    row.querySelector('.m-color').onchange=e=>{ m.color=e.target.value; refreshPicker(pk,m.shape,m.color,m.sprite); saveStyles(); };
     const op=row.querySelector('.m-op'), opv=row.querySelector('.opv');
     op.oninput=()=>{ opv.textContent=op.value+'%'; };
     op.onchange=()=>{ m.opacity=(+op.value)/100; saveStyles(); };
@@ -845,22 +1189,150 @@ function renderMechanics(){
   });
 }
 /* ── Rules tab: unified Display Rules + Hidden cull patterns ── */
-let hidden=[], drules=[];
-function flashF(){ const m=$('#savedMsgF'); if(!m) return; m.classList.add('show'); clearTimeout(m._t); m._t=setTimeout(()=>m.classList.remove('show'),1100); }
-async function postHidden(body){ try{ await fetch('/api/hidden',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); flashF(); }catch(e){} }
+let hidden=[], drules=[], zoneTypesData=null, typeSearchQ='', drSearchQ='';
+let zoneTypesPoll=null;
+const KNOWN_SEMANTIC_NAMES=new Set(['Boss','Monster · Unique','Monster · Rare','Monster · Magic','Monster · Normal',
+  'Player','NPC','Chest · Unique','Chest · Rare','Transition','Quest object','Quest marker','Waypoint','Bridge','Portal',
+  'Checkpoint','Map marker','Point of Interest','Stash','Town portal','Expedition','Ritual','Breach','Abyss','Delirium',
+  'Strongbox','Essence','Shrine','Summoning Circle','Wisp','Rogue Exile']);
+const _ztOpen={};
+function isStateHideRule(r){ return r.hide&&(r.life==='Dead'||r.chest==='Opened'||r.encounter==='Complete'); }
+function isPerTypeEntityRule(r){
+  if(isStateHideRule(r)) return false;
+  if((r.categories||[]).length>0) return false;
+  if(!r.match||r.match.length!==1) return false;
+  if((r.name||'').startsWith('Type override:')) return true;
+  return !KNOWN_SEMANTIC_NAMES.has(r.name);
+}
+function druleVisible(r){
+  if(isPerTypeEntityRule(r)) return false;
+  const q=(drSearchQ||'').trim().toLowerCase();
+  if(!q) return true;
+  if((r.name||'').toLowerCase().includes(q)) return true;
+  if((r.match||[]).some(m=>m.toLowerCase().includes(q))) return true;
+  if((r.categories||[]).some(c=>c.toLowerCase().includes(q))) return true;
+  for(const f of ['rarity','reaction','life','chest','poi','encounter']){
+    if(r[f]&&String(r[f]).toLowerCase().includes(q)) return true;
+  }
+  return false;
+}
+function ztTierOpen(key){ if(_ztOpen[key]===undefined) _ztOpen[key]=true; return _ztOpen[key]; }
+function flashF(){ const m=$('#savedMsgF'); if(!m) return; m.classList.add('show'); clearTimeout(m._t); m._t=setTimeout(()=>m.classList.remove('show'),1100); markStamp('stampRules'); toast('Rules saved','ok'); }
+async function postHidden(body){ try{ await fetch('/api/hidden',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); flashF(); }catch(e){ toast('Save failed'); } }
 async function loadFilters(){
   await loadDrules();
+  await loadZoneTypes();
   try{ const h=await getJSON('/api/hidden'); hidden=h.patterns||[]; }catch(e){ hidden=[]; }
   renderHidden();
 }
+async function loadZoneTypes(silent){
+  try{
+    zoneTypesData=await getJSON('/api/zone-types');
+    renderZoneTypes();
+  }catch(_){
+    const h=$('#zoneTypesHost');
+    if(h&&!silent) h.innerHTML='<div class="hint-row">Could not load zone types.</div>';
+  }
+}
+function renderZoneTypes(){
+  const host=$('#zoneTypesHost'); if(!host) return;
+  const d=zoneTypesData;
+  const tag=$('#ztAreaTag');
+  if(tag) tag.textContent=d?.areaCode ? '· '+d.areaCode : '· zone type overrides';
+  if(!d){ host.innerHTML='<div class="hint-row">Loading…</div>'; return; }
+  if(d.empty){
+    host.innerHTML='<div class="hint-row">No entities in range (enter a zone / move closer).</div>';
+    return;
+  }
+  const q=(typeSearchQ||'').trim().toLowerCase();
+  const tiers=(d.tiers||[]).map(tier=>{
+    const types=(tier.types||[]).filter(t=>{
+      if(!q) return true;
+      return (t.label||'').toLowerCase().includes(q)||(t.token||'').toLowerCase().includes(q);
+    });
+    if(!types.length) return '';
+    const open=ztTierOpen(tier.tier);
+    const rows=types.map(t=>{
+      const zMark=t.hasZoneOverride?'<span class="zt-zone">· zone</span>':'';
+      return `<div class="zt-row" data-token="${esc(t.token)}">
+        <label><input type="checkbox" class="zt-show"${t.show?' checked':''}> Show</label>
+        <label><input type="checkbox" class="zt-nav"${t.nav?' checked':''}${t.show?'':' disabled'}> Path</label>
+        <span class="zt-count">x${t.count}</span>
+        <span class="zt-label">${esc(t.label||t.token)}</span>${zMark}</div>`;
+    }).join('');
+    const grp=tier.ruleNames&&tier.ruleNames.length?`<div class="zt-tier-grp">
+        <label><input type="checkbox" class="zt-grp-show"${tier.groupShow?' checked':''}> Show</label>
+        <label><input type="checkbox" class="zt-grp-nav"${tier.groupNav?' checked':''}${tier.groupShow?'':' disabled'}> Path</label>
+        <span>tier defaults</span></div>`:'';
+    return `<div class="zt-tier" data-tier="${esc(tier.tier)}">
+      <div class="zt-tier-h"><span class="zt-caret">${open?'▾':'▸'}</span> ${esc(tier.label)} (${tier.count})</div>
+      ${open?`<div class="zt-tier-body">${grp}${rows}</div>`:''}</div>`;
+  }).filter(Boolean).join('');
+  host.innerHTML=tiers||'<div class="hint-row">No types match this search.</div>';
+  host.querySelectorAll('.zt-tier-h').forEach(h=>{
+    h.onclick=()=>{ const k=h.closest('.zt-tier').dataset.tier; _ztOpen[k]=!ztTierOpen(k); renderZoneTypes(); };
+  });
+  host.querySelectorAll('.zt-tier').forEach(block=>{
+    const tier=block.dataset.tier;
+    const grpShow=block.querySelector('.zt-grp-show');
+    const grpNav=block.querySelector('.zt-grp-nav');
+    if(grpShow) grpShow.onchange=async e=>{
+      const show=e.target.checked; if(grpNav) grpNav.disabled=!show;
+      try{
+        await fetch('/api/zone-types/tier',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({tier,show,nav:grpNav?.checked||false})});
+        const r=await getJSON('/api/display-rules'); drules=r.rules||[]; renderDrules();
+        await loadZoneTypes(true);
+      }catch(_){ toast('Tier update failed'); }
+    };
+    if(grpNav) grpNav.onchange=async e=>{
+      try{
+        await fetch('/api/zone-types/tier',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({tier,show:grpShow?.checked||false,nav:e.target.checked})});
+        const r=await getJSON('/api/display-rules'); drules=r.rules||[]; renderDrules();
+        await loadZoneTypes(true);
+      }catch(_){ toast('Tier update failed'); }
+    };
+    block.querySelectorAll('.zt-row').forEach(row=>{
+      const token=row.dataset.token, showCb=row.querySelector('.zt-show'), navCb=row.querySelector('.zt-nav');
+      showCb?.addEventListener('change',async e=>{
+        const show=e.target.checked; if(navCb){ navCb.disabled=!show; if(!show) navCb.checked=false; }
+        try{
+          await fetch('/api/zone-types',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({token,show,nav:navCb?.checked||false})});
+          await loadZoneTypes(true);
+        }catch(_){ toast('Zone override failed'); }
+      });
+      navCb?.addEventListener('change',async e=>{
+        try{
+          await fetch('/api/zone-types',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({token,show:showCb?.checked||false,nav:e.target.checked})});
+          await loadZoneTypes(true);
+        }catch(_){ toast('Zone override failed'); }
+      });
+    });
+  });
+}
+function startZoneTypesPoll(){ stopZoneTypesPoll(); zoneTypesPoll=setInterval(()=>{ if(activeTab==='filters') loadZoneTypes(true); },2000); }
+function stopZoneTypesPoll(){ if(zoneTypesPoll){ clearInterval(zoneTypesPoll); zoneTypesPoll=null; } }
 
 /* ── Display Rules: the unified ordered ruleset. The page holds the array, edits it, and re-POSTs
    the WHOLE list on any change (add / remove / reorder / toggle / field) — same pattern styles used. ── */
 const DR_CATS=['Monster','Chest','Npc','Object','Other','Transition','Player','Tile'];
 const DR_SELECTS=[['rarity','Rarity',['Normal','Magic','Rare','Unique']],['reaction','Reaction',['Hostile','Friendly']],
   ['life','Life',['Alive','Dead']],['chest','Chest',['Opened','Unopened']],['poi','POI',['Yes','No']],['encounter','Encounter',['Active','Complete']]];
-async function saveDrules(){ try{ await fetch('/api/display-rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules:drules})}); flashF(); }catch(e){} }
-async function loadDrules(){ try{ const r=await getJSON('/api/display-rules'); drules=r.rules||[]; }catch(e){ drules=[]; } renderDrules(); }
+async function saveDrules(){ try{ await fetch('/api/display-rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules:drules})}); flashF(); updateLiveRuleCol(); }catch(e){ toast('Save failed'); } }
+async function refreshLiveCache(){ try{ _liveEntsCache=await getJSON('/entities?limit=2000')||[]; }catch(_){ _liveEntsCache=[]; } }
+async function loadDrules(){ try{ const r=await getJSON('/api/display-rules'); drules=r.rules||[]; }catch(e){ drules=[]; } await refreshLiveCache(); renderDrules(); }
+function findDbRule(path){
+  const seg=lastSeg(path);
+  for(let i=0;i<drules.length;i++){ const r=drules[i]; if((r.match||[]).some(m=>path.includes(m)||seg===m)) return {i,r}; }
+  return null;
+}
+function dbRuleBadge(path){
+  const hit=findDbRule(path); if(!hit) return '';
+  const r=hit.r; return `<span class="db-cat" style="color:${r.color||'var(--accent)'};border-color:${r.color||'var(--accent)'}">${esc(r.name||'rule')}</span>`;
+}
 function drSel(f,l,o,cur){ return `<label class="drsel">${l}<select class="dr-cond" data-f="${f}"><option value=""${!cur?' selected':''}>any</option>`
   +o.map(x=>`<option${cur===x?' selected':''}>${x}</option>`).join('')+`</select></label>`; }
 /* Concise matcher→action summary shown on the collapsed row so the list stays scannable. */
@@ -871,62 +1343,129 @@ function drSummary(r){
   ['rarity','reaction','life','chest','poi','encounter'].forEach(f=>{ if(r[f]) p.push(r[f]); });
   return esc(p.join(' · '));
 }
+function compileTerm(term){
+  if(!/[?*]/.test(term)) return {sub:term,re:null};
+  const p=term.replace(/[.+^${}()|[\]\\]/g,'\\$&').replace(/\?/g,'.').replace(/\*/g,'.*');
+  return {sub:null,re:new RegExp('^'+p+'$','i')};
+}
+function termMatches(meta,term){
+  const c=compileTerm(term); const m=meta||'';
+  if(c.re) return c.re.test(m);
+  return m.toLowerCase().includes((c.sub||'').toLowerCase());
+}
+function ruleMatchesEntity(e,r){
+  if(!r.enabled) return false;
+  const cats=r.categories||[];
+  if(cats.length&&!cats.some(c=>c.toLowerCase()===(e.category||'').toLowerCase())) return false;
+  const match=r.match||[];
+  if(match.length&&!match.some(t=>termMatches(e.metadata,t))) return false;
+  if(r.rarity&&r.rarity!==e.rarity) return false;
+  if(r.reaction==='Friendly'&&!e.friendly) return false;
+  if(r.reaction==='Hostile'&&e.friendly) return false;
+  const alive=(e.hpMax||0)<=0||(e.hpCur||0)>0;
+  if(r.life==='Alive'&&!alive) return false;
+  if(r.life==='Dead'&&alive) return false;
+  if(r.chest==='Opened'&&!e.opened) return false;
+  if(r.chest==='Unopened'&&e.opened) return false;
+  if(r.poi==='Yes'&&!e.poi) return false;
+  if(r.poi==='No'&&e.poi) return false;
+  if(r.encounter==='Active'&&e.iconComplete) return false;
+  if(r.encounter==='Complete'&&!e.iconComplete) return false;
+  return true;
+}
+function countRuleMatches(r){ return _liveEntsCache.filter(e=>ruleMatchesEntity(e,r)).length; }
+function winningRuleForEntity(e){
+  for(const r of drules){ if(r.enabled&&ruleMatchesEntity(e,r)) return r; }
+  return null;
+}
+function highlightDrRow(i){
+  _highlightDrIdx=i; renderDrules();
+  const row=$$('#drList .drrow').find(r=>+r.dataset.i===i);
+  if(row){ row.classList.add('dr-new'); row.scrollIntoView({block:'center'}); setTimeout(()=>row.classList.remove('dr-new'),1400); }
+}
 function drRow(r,i){
   const open=!!r._open, cats=r.categories||[];
-  const badges=(r.hide?'<span class="drbadge hide">hide</span>':'')
+  const mc=_liveEntsCache.length?countRuleMatches(r):'—';
+  const badges=(!r.enabled?'<span class="drbadge paused">paused</span>':'')
+    +(r.hide?'<span class="drbadge hide">hidden</span>':'')
     +(r.navigable?'<span class="drbadge">path</span>':'');
   const body=open?`<div class="drbody">
-      <div class="top"><input class="mname dr-name" value="${esc(r.name)}" placeholder="rule name"></div>
-      <input class="matchin dr-match" placeholder="match: metadata terms, comma-separated (blank = any)" value="${esc((r.match||[]).join(', '))}">
-      <div class="mcats"><span class="mcats-lbl">Type</span>${DR_CATS.map(c=>
+      <div class="dr-section">When this matches</div>
+      <div class="top"><input class="mname dr-name" value="${esc(r.name)}" placeholder="Rule name"></div>
+      <label class="hint-oneline" style="display:block;margin-bottom:4px">Name contains <span style="color:var(--ink-faint)">(e.g. Waypoint, Ritual, *Daemon* — blank = any)</span></label>
+      <input class="matchin dr-match" placeholder="Waypoint, Strongbox, …" value="${esc((r.match||[]).join(', '))}">
+      <div class="mcats"><span class="mcats-lbl">Entity type</span>${DR_CATS.map(c=>
         `<label class="catchip${cats.includes(c)?' on':''}"><input type="checkbox" class="dr-cat" data-cat="${c}"${cats.includes(c)?' checked':''}>${c}</label>`).join('')}</div>
       <div class="drconds">${DR_SELECTS.map(([f,l,o])=>drSel(f,l,o,r[f])).join('')}</div>
+      <div class="dr-section">Then on the map</div>
+      <div class="dr-preview-lg">${r.hide?'':iconPreview(r.shape,r.color,r.sprite,32)}</div>
       <div class="ctl">
-        <label class="drflag dr-hideflag" title="hide matching entities entirely"><input type="checkbox" class="dr-hide"${r.hide?' checked':''}> Hide</label>
-        ${pickerHtml(r.shape,r.color)}
+        <label class="drflag dr-hideflag" title="Don&rsquo;t draw on the radar when this rule matches"><input type="checkbox" class="dr-hide"${r.hide?' checked':''}> Don&rsquo;t show on map</label>
+        ${pickerHtml(r.shape,r.color,r.sprite)}
         <input type="color" class="dr-color" value="${r.color||'#ffffff'}">
         <input type="range" class="op dr-op" min="0" max="100" value="${pct(r.opacity)}"><span class="opv">${pct(r.opacity)}%</span>
         <input type="number" class="numin sz dr-size" step="0.1" min="0.5" value="${r.size}">
-        ${spriteCtl(r)}
-        <input class="mname dr-label" style="flex:1;min-width:70px" value="${esc(r.label||'')}" placeholder="label (optional)">
-        <label class="drflag" title="qualify as an auto-path navigation target"><input type="checkbox" class="dr-nav"${r.navigable?' checked':''}> Auto-path</label>
+        <span class="mcats-lbl">Icon from sheet</span>${spriteCtl(r)}
+        <input class="mname dr-label" style="flex:1;min-width:70px" value="${esc(r.label||'')}" placeholder="Label (optional)">
+        <label class="drflag" title="Draw a walking path to this (needs paths enabled in Settings)"><input type="checkbox" class="dr-nav"${r.navigable?' checked':''}> Show path to this</label>
       </div>
     </div>`:'';
-  return `<div class="mechrow drrow${r.hide?' hideon':''}${open?' open':''}${r.enabled?'':' off'}" data-i="${i}">
+  return `<div class="mechrow drrow${r.hide?' hideon':''}${open?' open':''}${r.enabled?'':' off'}" data-i="${i}" draggable="true">
     <div class="drhead">
-      <label class="sw" title="enabled"><input type="checkbox" class="dr-en"${r.enabled?' checked':''}><span class="track"></span><span class="knob"></span></label>
+      <button type="button" class="ordbtn dr-drag" title="Drag to reorder">⠿</button>
+      <label class="sw" title="When paused, this rule is ignored and the next rule can match"><input type="checkbox" class="dr-en"${r.enabled?' checked':''}><span class="track"></span><span class="knob"></span></label>
+      <span class="dr-status${r.enabled?'':' paused'}">${r.enabled?'Active':'Paused'}</span>
       <span class="drcaret">${open?'▾':'▸'}</span>
-      <span class="drswatch" style="color:${r.color||'#fff'}">${r.hide?'':iconSvg(r.shape,r.color)}</span>
+      <span class="drswatch">${r.hide?'':iconPreview(r.shape,r.color,r.sprite,15)}</span>
       <span class="drnm">${esc(r.name||'(unnamed)')}</span>
       <span class="drsum">${drSummary(r)}</span>
+      <span class="drmatch" title="entities in zone matching this rule">${mc}</span>
       <span class="drbadges">${badges}</span>
-      <span class="drord"><button class="ordbtn dr-up" title="higher precedence">▲</button><button class="ordbtn dr-dn" title="lower precedence">▼</button></span>
-      <button class="delbtn dr-del" title="remove">✕</button>
+      <span class="drord"><button type="button" class="ordbtn dr-up" title="Move up (higher priority)">▲</button><button type="button" class="ordbtn dr-dn" title="Move down (lower priority)">▼</button></span>
+      <button type="button" class="ordbtn dr-dup" title="duplicate">⧉</button>
+      <button type="button" class="delbtn dr-del" title="remove">✕</button>
     </div>
     ${body}
   </div>`;
 }
 function renderDrules(){
   const host=$('#drList'); if(!host) return;
-  host.innerHTML = drules.length ? drules.map(drRow).join('') : '<div class="row"><div class="rl hint-row">No display rules yet. Add one below.</div></div>';
+  const visibleIdx=drules.map((r,i)=>druleVisible(r)?i:-1).filter(i=>i>=0);
+  host.innerHTML=visibleIdx.length?visibleIdx.map(i=>drRow(drules[i],i)).join('')
+    :(drules.length?'<div class="row"><div class="rl hint-row">No rules match this search.</div></div>'
+    :'<div class="row"><div class="rl hint-row">No radar rules yet. Add one below.</div></div>');
   $$('#drList .drrow').forEach(row=>{
     const i=+row.dataset.i, r=drules[i]; if(!r) return;
     const save=saveDrules;
     // Header (always present): click anywhere except a control toggles expand.
     row.querySelector('.drhead').onclick=e=>{ if(e.target.closest('input,button,select,label,.drord')) return; r._open=!r._open; renderDrules(); };
-    row.querySelector('.dr-en').onchange=e=>{ r.enabled=e.target.checked; row.classList.toggle('off',!r.enabled); save(); };
+    row.querySelector('.dr-en').onchange=e=>{
+      r.enabled=e.target.checked; row.classList.toggle('off',!r.enabled);
+      const st=row.querySelector('.dr-status'); if(st){ st.textContent=r.enabled?'Active':'Paused'; st.classList.toggle('paused',!r.enabled); }
+      save(); renderDrules();
+    };
     row.querySelector('.dr-up').onclick=()=>{ if(i>0){ const t=drules[i-1]; drules[i-1]=drules[i]; drules[i]=t; renderDrules(); save(); } };
     row.querySelector('.dr-dn').onclick=()=>{ if(i<drules.length-1){ const t=drules[i+1]; drules[i+1]=drules[i]; drules[i]=t; renderDrules(); save(); } };
-    row.querySelector('.dr-del').onclick=()=>{ drules.splice(i,1); renderDrules(); save(); };
+    row.querySelector('.dr-dup').onclick=()=>{ const c=JSON.parse(JSON.stringify(r)); delete c._open; c.name=(r.name||'Rule')+' copy'; drules.splice(i+1,0,c); renderDrules(); save(); };
+    row.querySelector('.dr-del').onclick=()=>{ if(!confirmAct('Remove rule “'+(r.name||'unnamed')+'”?')) return; drules.splice(i,1); renderDrules(); save(); };
+    let dragFrom=null;
+    row.addEventListener('dragstart',e=>{ dragFrom=i; row.classList.add('drag-over'); e.dataTransfer.effectAllowed='move'; });
+    row.addEventListener('dragend',()=>{ dragFrom=null; row.classList.remove('drag-over'); $$('#drList .drrow').forEach(x=>x.classList.remove('drag-over')); });
+    row.addEventListener('dragover',e=>{ e.preventDefault(); if(dragFrom!=null&&dragFrom!==i) row.classList.add('drag-over'); });
+    row.addEventListener('dragleave',()=>row.classList.remove('drag-over'));
+    row.addEventListener('drop',e=>{ e.preventDefault(); row.classList.remove('drag-over'); if(dragFrom==null||dragFrom===i) return; const item=drules[dragFrom]; drules.splice(dragFrom,1); drules.splice(i,0,item); renderDrules(); save(); });
     if(!r._open) return; // body controls only exist when expanded
     const pk=row.querySelector('.iconpick');
     row.querySelector('.dr-name').onchange=e=>{ r.name=e.target.value; save(); };
     row.querySelector('.dr-match').onchange=e=>{ r.match=e.target.value.split(',').map(s=>s.trim()).filter(Boolean); save(); };
     row.querySelectorAll('.dr-cat').forEach(cb=>cb.onchange=()=>{ r.categories=[...row.querySelectorAll('.dr-cat:checked')].map(c=>c.dataset.cat); cb.closest('.catchip').classList.toggle('on',cb.checked); save(); });
     row.querySelectorAll('.dr-cond').forEach(sel=>sel.onchange=()=>{ r[sel.dataset.f]=sel.value||null; save(); });
-    row.querySelector('.dr-hide').onchange=e=>{ r.hide=e.target.checked; row.classList.toggle('hideon',r.hide); save(); };
-    pk.onclick=()=>openIconPicker(pk,r.shape,n=>{ r.shape=n; refreshPicker(pk,n,r.color); save(); });
-    row.querySelector('.dr-color').onchange=e=>{ r.color=e.target.value; refreshPicker(pk,r.shape,r.color); save(); };
+    row.querySelector('.dr-hide').onchange=e=>{
+      if(e.target.checked&&!r.hide&&!confirmAct('Matched entities won\u2019t appear on the radar.')){ e.target.checked=false; return; }
+      r.hide=e.target.checked; save(); renderDrules();
+    };
+    pk.onclick=()=>openIconPicker(pk,r.shape,n=>{ r.shape=n; syncShapeSprite(r,n); refreshPicker(pk,n,r.color,r.sprite); refreshSpritePreview(row,r); save(); });
+    row.querySelector('.dr-color').onchange=e=>{ r.color=e.target.value; refreshPicker(pk,r.shape,r.color,r.sprite); save(); };
     const op=row.querySelector('.dr-op'),opv=row.querySelector('.opv'); op.oninput=()=>opv.textContent=op.value+'%'; op.onchange=()=>{ r.opacity=(+op.value)/100; save(); };
     row.querySelector('.dr-size').onchange=e=>{ const v=parseFloat(e.target.value); if(!isNaN(v)){ r.size=v; save(); } };
     wireSprite(row,r,save);
@@ -934,7 +1473,26 @@ function renderDrules(){
     row.querySelector('.dr-nav').onchange=e=>{ r.navigable=e.target.checked; save(); };
   });
 }
-$('#drAdd')?.addEventListener('click',()=>{ drules.push({enabled:true,name:'New rule',categories:[],match:[],shape:'Circle',color:'#ffd926',opacity:1,size:4,_open:true}); renderDrules(); saveDrules(); });
+$('#drSearch')?.addEventListener('input',()=>{ drSearchQ=$('#drSearch').value; renderDrules(); });
+$('#typeSearch')?.addEventListener('input',()=>{ typeSearchQ=$('#typeSearch').value; renderZoneTypes(); });
+$('#drAdd')?.addEventListener('click',()=>{ drules.push({enabled:true,name:'New rule',categories:[],match:[],shape:'Circle',color:'#ffd926',opacity:1,size:4,_open:true}); renderDrules(); saveDrules(); highlightDrRow(drules.length-1); });
+$('#drExport')?.addEventListener('click',async()=>{
+  try{ const h=await getJSON('/api/hidden'); const blob=new Blob([JSON.stringify({rules:drules,hidden:h.patterns||[]},null,2)],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='poe2radar-rules.json'; a.click(); URL.revokeObjectURL(a.href);
+  }catch(e){ toast('Export failed'); }
+});
+$('#drImport')?.addEventListener('click',()=>{
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='.json';
+  inp.onchange=()=>{ const f=inp.files&&inp.files[0]; if(!f) return; const rd=new FileReader();
+    rd.onload=async()=>{ try{
+      const j=JSON.parse(rd.result);
+      if(j.rules) drules=j.rules; renderDrules(); await saveDrules();
+      if(j.hidden&&j.hidden.length) await postHidden({clear:true}); for(const p of (j.hidden||[])) await postHidden({add:p});
+      toast('Rules imported','ok');
+    }catch(_){ toast('Invalid JSON'); } };
+    rd.readAsText(f); };
+  inp.click();
+});
 
 /* ── Add-rule picker: browse the area's live ENTITIES + terrain TILE names, filter, click to seed a
    rule (entity → entity rule by category; tile → Tile rule). Removes the guesswork of typing metadata. ── */
@@ -945,7 +1503,7 @@ function ensurePick(){
   _pickEl=document.createElement('div'); _pickEl.id='pickPop';
   _pickEl.innerHTML=`<div class="pickbox">
     <div class="pickhead">
-      <input id="pickSearch" type="search" placeholder="filter by name / metadata / tile path…">
+      <input id="pickSearch" type="search" placeholder="filter by name or path…">
       <span class="pickkinds"><button class="chip on" data-k="all">All</button><button class="chip" data-k="entity">Entities</button><button class="chip" data-k="tile">Tiles</button></span>
       <button class="pickclose" title="close">✕</button>
     </div>
@@ -997,13 +1555,133 @@ function pickItem(it){
     : {enabled:true,name:it.name,categories:[it.cat],match:[lastSeg(it.sub)],shape:'Star',color:'#ffd926',opacity:1,size:6,_open:true};
   drules.unshift(r); renderDrules(); saveDrules();
   _pickEl.classList.remove('open');
-  const first=$('#drList .drrow'); if(first) first.scrollIntoView({block:'center'});
+  highlightDrRow(0);
 }
 $('#drPick')?.addEventListener('click',openPicker);
+
+/* ── Entity database (static GGPK paths via /api/database) ── */
+let db=[], dbCatFilter='';
+const JUNK_PATTERNS=['/attachments','monstermods','microtransactions','/timelines/','stashskins','/fx/','/mat/','/ao/','/epk/','/graph/','/audio/','/pet/','/clone/','playersummoned','essencemoddaemons','tormentedspirits','/daemon/','bossroomminimapicon','/environment/','hairstyles','/outfits/','/runemarked'];
+function isJunkDb(p){const l=p.toLowerCase();return JUNK_PATTERNS.some(j=>l.includes(j));}
+function getDbCat(p){const parts=p.split('/');return parts.length>=2?parts[1]:'?';}
+function inferDbCategories(path){
+  const c=getDbCat(path).toLowerCase();
+  if(c==='monsters') return ['Monster'];
+  if(c==='npcs'||c==='npc') return ['Npc'];
+  if(c==='chests') return ['Chest'];
+  if(c==='terrain') return ['Transition'];
+  if(c==='characters') return ['Player'];
+  return ['Other'];
+}
+function hasDbRule(path){
+  const seg=lastSeg(path);
+  return drules.some(r=>(r.match||[]).some(m=>path.includes(m)||seg===m));
+}
+async function loadDb(){
+  const cnt=$('#dbCount'); if(cnt) cnt.textContent='Loading…';
+  try{ db=await getJSON('/api/database')||[]; }catch(_){ db=[]; }
+  if(cnt) cnt.textContent=db.length+' paths';
+  filterDb();
+}
+function filterDb(){
+  const s=($('#dbSearch')?.value||'').toLowerCase();
+  const hj=$('#dbHideJunk')?.checked;
+  const noRule=$('#dbNoRule')?.checked;
+  const cats=new Set();
+  const f=db.filter(p=>{
+    if(hj&&isJunkDb(p)) return false;
+    if(s&&!p.toLowerCase().includes(s)) return false;
+    if(noRule&&hasDbRule(p)) return false;
+    const c=getDbCat(p); cats.add(c);
+    return !dbCatFilter||c===dbCatFilter;
+  });
+  const filt=$('#dbCatFilters');
+  if(filt) filt.innerHTML=['All',...[...cats].sort()].map(c=>
+    `<button class="filter-btn ${dbCatFilter===(c==='All'?'':c)?'active':''}" onclick="setDbCat('${c==='All'?'':c}')">${c}</button>`).join('');
+  const show=f.slice(0,200);
+  const body=$('#dbBody');
+  if(body) body.innerHTML=show.map(p=>{
+    const ruled=hasDbRule(p);
+    return `<tr class="${ruled?'watched':''}"><td><span class="db-cat">${esc(getDbCat(p))}</span></td>
+      <td class="db-path" title="${esc(p)}">${esc(p)}</td>
+      <td>${ruled?dbRuleBadge(p):`<button class="addbtn db-rule-btn" style="padding:4px 10px;margin:0" data-path="${esc(p)}">+ Rule</button>`}</td></tr>`;
+  }).join('')+(f.length>200?`<tr><td colspan="3" class="hint-row">Showing 200/${f.length}. Narrow search.</td></tr>`:'');
+  $$('#dbBody .db-rule-btn').forEach(b=>b.onclick=()=>dbAddRule(b.dataset.path));
+  const cnt=$('#dbCount'); if(cnt) cnt.textContent=f.length+' matches';
+}
+function setDbCat(c){dbCatFilter=c;saveUiState();filterDb();}
+async function dbAddRule(path){
+  const r={enabled:true,name:lastSeg(path),categories:inferDbCategories(path),match:[lastSeg(path)],shape:'Star',color:'#ffd926',opacity:1,size:6,_open:true};
+  drules.unshift(r); renderDrules(); await saveDrules(); filterDb();
+  switchTab('filters'); highlightDrRow(0);
+}
+{ const el=$('#dbSearch'); if(el) el.addEventListener('input',filterDb); }
+{ const el=$('#dbHideJunk'); if(el) el.onchange=filterDb; }
+{ const el=$('#dbNoRule'); if(el) el.onchange=()=>{ saveUiState(); filterDb(); }; }
+
+/* ── Live entities tab ── */
+async function loadLive(silent){
+  if(!silent){ const c=$('#liveCount'); if(c) c.textContent='Loading…'; }
+  try{
+    const alive=$('#liveAlive')?.checked;
+    const rad=parseFloat($('#liveRadius')?.value||'0')||0;
+    let url='/entities?limit=1000'; if(alive) url+='&alive=true'; if(rad>0) url+='&radius='+rad;
+    liveEnts=await getJSON(url)||[];
+    _liveEntsCache=liveEnts;
+    try{ const nav=await getJSON('/api/nav'); liveNavIds=new Set((nav.selected||[]).map(s=>s.id)); }catch(_){ liveNavIds=new Set(); }
+    filterLive();
+    if(activeTab==='filters') renderDrules();
+  }catch(_){ liveEnts=[]; filterLive(); }
+}
+function filterLive(){
+  const q=($('#liveSearch')?.value||'').toLowerCase();
+  const cats=new Set();
+  let rows=liveEnts.filter(e=>{
+    if(livePoiOnly&&!e.poi) return false;
+    if(liveCatFilter&&e.category!==liveCatFilter) return false;
+    if(q&&!((e.name||'').toLowerCase().includes(q)||(e.metadata||'').toLowerCase().includes(q)||(e.category||'').toLowerCase().includes(q))) return false;
+    cats.add(e.category); return true;
+  });
+  const filt=$('#liveCatFilters');
+  if(filt) filt.innerHTML=['All',...[...cats].sort()].map(c=>
+    `<button type="button" class="filter-btn ${liveCatFilter===(c==='All'?'':c)?'active':''}" data-lc="${c==='All'?'':c}">${c}</button>`).join('');
+  filt?.querySelectorAll('[data-lc]').forEach(b=>b.onclick=()=>{ liveCatFilter=b.dataset.lc; livePoiOnly=false; filterLive(); });
+  const show=rows.slice(0,300);
+  const body=$('#liveBody');
+  if(body) body.innerHTML=show.map(e=>{
+    const wr=winningRuleForEntity(e);
+    const hp=e.hpMax>0?Math.round(100*e.hpCur/e.hpMax):'—';
+    const navId='e:'+e.id, navOn=liveNavIds.has(navId);
+    return `<tr data-id="${esc(navId)}"><td>${esc(e.name||lastSeg(e.metadata))}</td><td>${esc(e.category)}</td>
+      <td class="rar-${esc(e.rarity)}">${esc(e.rarity)}</td><td class="num-r">${e.dist||0}</td>
+      <td>${hp==='—'?hp:`<span class="hpbar"><i style="width:${hp}%"></i></span>`}</td>
+      <td>${wr?esc(wr.name):'<span class="hint-row">—</span>'}</td>
+      <td class="live-actions"><button type="button" class="chip live-nav${navOn?' on':''}">${navOn?'Nav ✓':'Nav'}</button>
+      <button type="button" class="chip live-rule">+ Rule</button></td></tr>`;
+  }).join('')+(rows.length>300?`<tr><td colspan="7" class="hint-row">Showing 300/${rows.length}.</td></tr>`:'');
+  $$('#liveBody tr[data-id]').forEach(tr=>{
+    const id=tr.dataset.id, ent=liveEnts.find(x=>'e:'+x.id===id); if(!ent) return;
+    tr.querySelector('.live-nav')?.addEventListener('click',async()=>{
+      try{ await fetch('/api/nav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({toggle:id})}); await loadLive(true); }catch(_){}
+    });
+    tr.querySelector('.live-rule')?.addEventListener('click',()=>{
+      const r={enabled:true,name:ent.name||lastSeg(ent.metadata),categories:[ent.category],match:[lastSeg(ent.metadata)],shape:'Star',color:'#ffd926',opacity:1,size:6,_open:true};
+      drules.unshift(r); renderDrules(); saveDrules(); switchTab('filters'); highlightDrRow(0);
+    });
+  });
+  const lc=$('#liveCount'); if(lc) lc.textContent=rows.length+' shown';
+  const nc=$('#liveNavCount'); if(nc) nc.textContent=liveNavIds.size+' nav targets';
+}
+function updateLiveRuleCol(){ if(activeTab==='live') filterLive(); }
+$('#liveSearch')?.addEventListener('input',filterLive);
+$('#liveAlive')?.addEventListener('change',()=>loadLive());
+$('#liveRadius')?.addEventListener('change',()=>loadLive());
+$('#liveNavClear')?.addEventListener('click',async()=>{ try{ await fetch('/api/nav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clear:true})}); await loadLive(true); }catch(_){} });
+
 function renderHidden(){
   $('#hideList').innerHTML = hidden.length ? hidden.map(p=>
     `<span class="chip on" data-p="${esc(p)}">${esc(p)} <b style="margin-left:5px;cursor:pointer">&#10005;</b></span>`).join('')
-    : '<span style="color:var(--ink-faint);font-size:11px;font-style:italic">Nothing hidden.</span>';
+    : '<span style="color:var(--ink-faint);font-size:11px">Block list is empty.</span>';
   $$('#hideList .chip').forEach(c=>c.querySelector('b').onclick=()=>{ postHidden({remove:c.dataset.p}).then(loadFilters); });
 }
 $('#hideAdd').onclick=()=>{
@@ -1015,25 +1693,44 @@ $('#hidePattern').onkeydown=e=>{ if(e.key==='Enter') $('#hideAdd').click(); };
 
 /* ── Landmarks tab: view/edit the curated map-label table (baked + user overlay) + import/export ── */
 let lmEntries=[], lmAreaOnly=true, lmQ='';
-function flashL(){ const m=$('#savedMsgL'); if(!m) return; m.classList.add('show'); clearTimeout(m._t); m._t=setTimeout(()=>m.classList.remove('show'),1100); }
+function flashL(){ const m=$('#savedMsgL'); if(!m) return; m.classList.add('show'); clearTimeout(m._t); m._t=setTimeout(()=>m.classList.remove('show'),1100); markStamp('stampLm'); toast('Landmarks saved','ok'); }
+async function loadLmTiles(){
+  try{ const t=await getJSON('/api/tiles'); const dl=$('#lmTileList'); if(dl) dl.innerHTML=(t.tiles||[]).slice(0,500).map(p=>`<option value="${esc(p)}">`).join(''); }catch(_){}
+}
+async function loadLmLiveDist(){
+  lmLiveDist=new Map();
+  try{
+    const live=await getJSON('/landmarks')||[];
+    live.forEach(l=>{ if(l.path) lmLiveDist.set(l.path,l.dist); if(l.name) lmLiveDist.set(l.name,l.dist); });
+  }catch(_){}
+}
 async function loadLandmarks(){
   try{ const r=await getJSON('/api/landmarks'); lmEntries=r.entries||[]; }catch(e){ lmEntries=[]; }
+  await loadLmLiveDist();
+  loadLmTiles();
   const a=$('#lmArea'); if(a && !a.value) a.value=(state&&state.areaCode)||'';
+  $('#lmAreaOnly')?.classList.toggle('on',lmAreaOnly);
   renderLandmarks();
 }
 async function postLandmarks(body){
   try{ const r=await fetch('/api/landmarks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); const j=await r.json(); if(j&&j.entries) lmEntries=j.entries; flashL(); }catch(e){}
   renderLandmarks();
 }
+function lmDistFor(e){
+  for(const [k,d] of lmLiveDist){ if(e.pattern&&e.pattern.includes(k)||(e.label&&k===e.label)) return d; }
+  return null;
+}
 function lmRow(e){
   const badge=e.suppressed?'hidden':e.source;
   const del=e.suppressed?'Restore':(e.source==='user'?'Remove':'Hide');
+  const dist=lmDistFor(e);
   return `<div class="lmrow${e.suppressed?' sup':''}" data-area="${esc(e.area)}" data-pat="${esc(e.pattern)}">
     <span class="lmbadge ${badge}">${badge}</span>
     <span class="lmarea">${esc(e.area)}</span>
+    <span class="lm-dist">${dist!=null?dist+'u':'—'}</span>
     <input class="mname lmlabel" value="${esc(e.label||'')}" placeholder="${e.suppressed?'(hidden)':'label'}">
     <span class="lmpath" title="${esc(e.pattern)}">${esc(e.pattern)}</span>
-    <button class="delbtn lm-del">${del}</button>
+    <button type="button" class="delbtn lm-del">${del}</button>
   </div>`;
 }
 function renderLandmarks(){
@@ -1056,7 +1753,7 @@ function renderLandmarks(){
   });
 }
 $('#lmSearch')?.addEventListener('input',e=>{ lmQ=e.target.value.toLowerCase(); renderLandmarks(); });
-$('#lmAreaOnly')?.addEventListener('click',()=>{ lmAreaOnly=!lmAreaOnly; $('#lmAreaOnly').classList.toggle('on',lmAreaOnly); renderLandmarks(); });
+$('#lmAreaOnly')?.addEventListener('click',()=>{ lmAreaOnly=!lmAreaOnly; $('#lmAreaOnly').classList.toggle('on',lmAreaOnly); saveUiState(); renderLandmarks(); });
 $('#lmAdd')?.addEventListener('click',()=>{
   const area=($('#lmArea').value||'').trim(), pat=($('#lmPat').value||'').trim(), label=($('#lmLabel').value||'').trim();
   if(!area||!pat||!label) return;
@@ -1078,8 +1775,8 @@ $('#lmImport')?.addEventListener('click',()=>{
 });
 
 /* ── atlas tab (read-only inspection of the map-data we can read) ── */
-async function loadAtlas(){
-  $('#atlasStatus').textContent='reading…';
+async function loadAtlas(silent){
+  if(!silent){ const st=$('#atlasStatus'); if(st) st.textContent='reading…'; }
   try{ atlasData=await getJSON('/api/atlas'); }catch(e){ atlasData={located:false,note:'request failed'}; }
   renderAtlas();
 }
@@ -1162,7 +1859,7 @@ async function postAtlasHighlight(){
     .map(r=>{const k=r.title.toLowerCase(); return {tag:r.title, color:(CATCOL[r.cat]||'#3ca0ff'), track:atlasHl.has(k), arrow:atlasArrow.has(k)};});
   try{ await fetch('/api/atlas-highlight',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules})}); }catch(e){}
 }
-$('#atlasHlClear')?.addEventListener('click',()=>{ atlasHl.clear(); atlasArrow.clear(); if(atlasData) renderAtlasHighlight(atlasData); postAtlasHighlight(); });
+$('#atlasHlClear')?.addEventListener('click',()=>{ if(!confirmAct('Clear all atlas track/arrow filters?')) return; atlasHl.clear(); atlasArrow.clear(); if(atlasData) renderAtlasHighlight(atlasData); postAtlasHighlight(); });
 $('#atlasHlFilter')?.addEventListener('input',()=>{ if(atlasData) renderAtlasHighlight(atlasData); });
 $('#atlasHlSelOnly')?.addEventListener('click',e=>{ atlasHlSelOnly=!atlasHlSelOnly; e.target.classList.toggle('on',atlasHlSelOnly); if(atlasData) renderAtlasHighlight(atlasData); });
 
@@ -1226,8 +1923,9 @@ function renderState(){
   $('#cMon').textContent=(s.counts&&s.counts.Monster)||0;
   $('#cLm').textContent=s.landmarkCount||0;
   $('#areaChip').innerHTML = (areaName||s.areaCode||'—') + ' <b>·</b> ' + (s.inGame?'in game':'town/menu');
+  const cc=$('#charChip'); if(cc&&s.charName){ cc.hidden=false; $('#charName').textContent=s.charName; $('#charLvl').textContent=s.charLevel||'—'; }
+  updateHeaderQuick(); refreshHeaderJunk();
 
-  // Zone leveling notes (from /api/zone): title + note text, hidden when there's nothing to show.
   const zn=$('#zoneNotes');
   if(zone && (zone.notes||'').trim()){
     zn.hidden=false;
@@ -1248,7 +1946,13 @@ async function checkVersion(){
 }
 
 wireSettings(); wireHpBars(); wireTerrain();
-loadIcons().then(()=>{ loadSettings(); loadFilters(); }); // Rules is the default tab
+loadUiState();
+loadIcons().then(()=>{
+  if(window._pendingSetSec) showSettingsSection(window._pendingSetSec);
+  switchTab(activeTab);
+  if(activeTab!=='filters') loadFilters();
+  refreshHeaderJunk();
+});
 tick(); setInterval(tick, 1000);
 checkVersion();
 </script>

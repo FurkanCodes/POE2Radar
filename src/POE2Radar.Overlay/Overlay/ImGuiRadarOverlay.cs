@@ -1101,21 +1101,21 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 ImGui.SetTooltip("Continuously draw paths to the nearest navigation targets — endgame mechanics, rares, uniques, POIs by default. Toggle groups/types below.");
 
             bool showAll = !s.ImportantOnly;
-            if (ImGui.Checkbox("Show everything (include trash)", ref showAll))
+            if (ImGui.Checkbox("Show all monsters (including clutter)", ref showAll))
                 s.ImportantOnly = !showAll;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
-                ImGui.SetTooltip("Reveal normal/magic grey monsters and other clutter on the radar map.");
+                ImGui.SetTooltip("Show normal/magic grey monsters and other map clutter on the radar.");
         }
 
         if (_displayRules is null)
         {
-            ImGui.TextDisabled("Display rules not wired yet.");
+            ImGui.TextDisabled("Radar rules not wired yet.");
             return;
         }
 
         DrawTypesInZone(ctx, s);
 
-        if (ImGui.CollapsingHeader("Global display rules"))
+        if (ImGui.CollapsingHeader("Radar rules (all zones)"))
         {
             var gen = _displayRules.Generation;
             if (gen != _rulesUiGeneration)
@@ -1124,7 +1124,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 _rulesUiCache = _displayRules.All.ToList();
             }
 
-            ImGui.TextDisabled("Semantic categories everywhere (boss, quest, waypoint, mechanics…). Zone-specific toggles live above.");
+            ImGui.TextDisabled("First matching active rule applies. Active = rule can match; Paused = skipped.");
             float iconScale = s.GlobalIconScale;
             ImGui.SetNextItemWidth(180f);
             if (ImGui.SliderFloat("Global icon scale", ref iconScale, 0.5f, 3f, "%.2f"))
@@ -1135,8 +1135,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             ImGui.SetNextItemWidth(-1f);
             ImGui.InputTextWithHint("##rulesearch", "search rules by name…", ref _ruleSearch, 128);
 
-            // Column legend so the compact checkboxes are legible (On = enabled, H = hide, Nav = auto-path).
-            ImGui.TextDisabled("On  H  Nav   Icon  Color  Alpha  Size  Spr   Name");
+            ImGui.TextDisabled("Active  Hide  Path   Icon  Color  Alpha  Size  Spr   Name");
             ImGui.BeginChild("EntityRulesList", new NumVec2(0, 220));
 
             var filter = _ruleSearch.Trim();
@@ -1157,7 +1156,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     c.Enabled = en;
                     _displayRules.Update(i, c);
                 }
-                if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Enable / disable this rule");
+                if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                    ImGui.SetTooltip("Active: rule can match. Paused: skipped — next rule below can match.");
 
                 ImGui.SameLine();
                 bool hide = rule.Hide;
@@ -1167,7 +1167,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     c.Hide = hide;
                     _displayRules.Update(i, c);
                 }
-                if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Hide: matching entities are not drawn");
+                if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                    ImGui.SetTooltip("Don't show on map when this rule matches.");
 
                 ImGui.SameLine();
                 bool nav = rule.Navigable;
@@ -1177,7 +1178,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     c.Navigable = nav;
                     _displayRules.Update(i, c);
                 }
-                if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Nav: add this entity type to the navigation-target set, so 'Auto-path to nearest targets' (and F6) will route to them");
+                if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                    ImGui.SetTooltip("Show path to this (needs Auto-path to nearest targets enabled above).");
 
                 ImGui.SameLine();
                 DrawRuleSpriteButton(i, rule);
@@ -1240,10 +1242,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
         if (_hidden is null) return;
 
-        if (ImGui.CollapsingHeader("Hidden by metadata", ImGuiTreeNodeFlags.DefaultOpen))
+        if (ImGui.CollapsingHeader("Block list (never show)", ImGuiTreeNodeFlags.DefaultOpen))
         {
+            ImGui.TextDisabled("Never show these anywhere — checked before radar rules.");
             ImGui.SetNextItemWidth(-80f);
-            ImGui.InputText("##hidepat", ref _hidePatternInput, 256);
+            ImGui.InputTextWithHint("##hidepat", "e.g. AbyssCrack, *Daemon*", ref _hidePatternInput, 256);
             ImGui.SameLine();
             if (ImGui.Button("Add") && _hidePatternInput.Trim().Length > 0)
             {
@@ -1251,7 +1254,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 _hidePatternInput = "";
             }
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
-                ImGui.SetTooltip("Substring or glob (* ?) — matched entities never appear on radar or nav list");
+                ImGui.SetTooltip("Substring or glob (* ?) — not on map, not in lists, not for paths.");
 
             foreach (var p in _hidden.All)
             {
@@ -1277,7 +1280,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         var entities = ctx.Entities;
         var areaCode = ctx.AreaCode;
 
-        ImGui.TextDisabled("Show = minimap + map · Nav = auto-path. Overrides apply to this zone type only.");
+        ImGui.TextDisabled("Show on map · Path. Overrides apply to this zone type only.");
         ImGui.SetNextItemWidth(-1f);
         ImGui.InputTextWithHint("##typesearch", "search types…", ref _typeSearch, 128);
 
@@ -1453,8 +1456,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             bool sp = s.ShowPath; ImGui.Checkbox("Show Paths", ref sp); s.ShowPath = sp;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Draw guidance route polylines between you and selected targets");
 
-            bool hj = s.HideJunk; ImGui.Checkbox("Hide Junk", ref hj); s.HideJunk = hj;
-            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Filter out common clutter entities (rocks, debris, etc.)");
+            bool hj = s.HideJunk; ImGui.Checkbox("Hide map clutter", ref hj); s.HideJunk = hj;
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Hide cosmetic FX, daemons, and other noise dots on the map.");
 
             bool cl = s.UseCuratedLandmarks; ImGui.Checkbox("Curated Landmarks", ref cl); s.UseCuratedLandmarks = cl;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Use community-curated friendly names for landmarks instead of raw tile paths");
@@ -1515,10 +1518,10 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Color and opacity for walkable terrain boundary edges");
         }
 
-        if (ImGui.CollapsingHeader("Display Rules"))
+        if (ImGui.CollapsingHeader("Radar rules (web dashboard)"))
         {
-            ImGui.TextDisabled("Display rules are managed via the web dashboard or display_rules.json");
-            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Open the web dashboard (F12) to edit per-entity display rules — shape, color, size, and match conditions");
+            ImGui.TextDisabled("Edit radar rules in the web dashboard (F12) or display_rules.json");
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Open the web dashboard (F12) to edit what shows on the map — icons, colors, hide, and paths.");
         }
 
         if (ImGui.Button("Save Settings"))
@@ -1825,7 +1828,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         if (ImGui.Button(_bindingHideHotkey ? "…##bind" : "Bind##bind"))
             _bindingHideHotkey = true;
         if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
-            ImGui.SetTooltip("Bind hotkey: hover an entity on the map, press the key to add its type to Hidden by metadata.");
+            ImGui.SetTooltip("Bind hotkey: hover an entity on the map, press the key to add its type to the block list.");
         ImGui.SameLine();
         if (ImGui.Button("Clear##clear") && s.HideEntityHotkey > 0)
         {

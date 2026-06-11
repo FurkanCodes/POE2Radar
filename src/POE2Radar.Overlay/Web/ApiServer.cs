@@ -1,4 +1,5 @@
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -47,6 +48,8 @@ public sealed class ApiServer : IDisposable
     private readonly Action _navClear;
     private readonly HiddenEntities _hidden;
     private readonly DisplayRules _displayRules;
+    private readonly ZoneEntityOverrides _zoneOverrides;
+    private readonly DisplayRuleEngine _ruleEngine;
     private readonly LandmarkStore _landmarkStore;
     private readonly Func<IReadOnlyList<string>> _tiles;
     // Atlas map-data provider (catalog + current-region map set). Read-only, computed on demand (it
@@ -70,6 +73,8 @@ public sealed class ApiServer : IDisposable
         Action navClear,
         HiddenEntities hidden,
         DisplayRules displayRules,
+        ZoneEntityOverrides zoneOverrides,
+        DisplayRuleEngine ruleEngine,
         LandmarkStore landmarkStore,
         Func<IReadOnlyList<string>> tilesProvider,
         Func<object>? atlasProvider = null,
@@ -89,6 +94,8 @@ public sealed class ApiServer : IDisposable
         _navClear = navClear;
         _hidden = hidden;
         _displayRules = displayRules;
+        _zoneOverrides = zoneOverrides;
+        _ruleEngine = ruleEngine;
         _landmarkStore = landmarkStore;
         _tiles = tilesProvider;
         _listener.Prefixes.Add($"http://localhost:{port}/");
@@ -141,6 +148,7 @@ public sealed class ApiServer : IDisposable
                     s.InGame, areaCode = s.AreaCode, areaHash = s.AreaHash, areaLevel = s.AreaLevel,
                     areaName = ZoneGuide.Shared.FriendlyName(s.AreaCode),
                     areaAct = ZoneGuide.Shared.Area(s.AreaCode)?.Act ?? 0,
+                    charName = s.CharName, charLevel = s.CharLevel,
                     mapVisible = s.MapVisible, zoom = s.Zoom,
                     hpPct = s.HpPct, manaPct = s.ManaPct, esPct = s.EsPct, autoFlask = s.AutoFlask, flask = s.FlaskNote,
                     player = new { x = s.Player.X, y = s.Player.Y },
@@ -166,6 +174,31 @@ public sealed class ApiServer : IDisposable
                 var iconsPath = Path.Combine(AppContext.BaseDirectory, "Overlay", "icons.png");
                 if (!File.Exists(iconsPath)) { Write(ctx, 404, JsonSerializer.Serialize(new { error = "icons.png not found" }, Json)); break; }
                 WriteBytes(ctx, 200, "image/png", File.ReadAllBytes(iconsPath));
+                break;
+            }
+
+            case "/api/sprite-meta":
+            {
+                var iconsPath = Path.Combine(AppContext.BaseDirectory, "Overlay", "icons.png");
+                int w = 0, h = 0;
+                if (File.Exists(iconsPath))
+                {
+                    using var img = SixLabors.ImageSharp.Image.Load(iconsPath);
+                    w = img.Width;
+                    h = img.Height;
+                }
+                var shapes = SpriteCatalog.ShapeSpritesMap.ToDictionary(
+                    kv => kv.Key,
+                    kv => new { col = kv.Value.Col, row = kv.Value.Row },
+                    StringComparer.OrdinalIgnoreCase);
+                Write(ctx, 200, JsonSerializer.Serialize(new
+                {
+                    sheet = "/api/sprite-sheet",
+                    cellSize = IconAtlas.IconSize,
+                    width = w,
+                    height = h,
+                    shapes,
+                }, Json));
                 break;
             }
 
@@ -403,6 +436,10 @@ public sealed class ApiServer : IDisposable
                 break;
             }
 
+            case "/api/database":
+                Write(ctx, 200, JsonSerializer.Serialize(LoadEntityDatabase(), Json));
+                break;
+
             case "/api/display-rules":
             {
                 if (ctx.Request.HttpMethod == "GET")
@@ -423,6 +460,45 @@ public sealed class ApiServer : IDisposable
                 {
                     Write(ctx, 405, JsonSerializer.Serialize(new { error = "method not allowed" }, Json));
                 }
+                break;
+            }
+
+            case "/api/zone-types":
+            {
+                if (ctx.Request.HttpMethod == "GET")
+                {
+                    Write(ctx, 200, JsonSerializer.Serialize(BuildZoneTypes(s), Json));
+                    break;
+                }
+                if (ctx.Request.HttpMethod != "POST")
+                {
+                    Write(ctx, 405, JsonSerializer.Serialize(new { error = "method not allowed" }, Json));
+                    break;
+                }
+                if (!IsLoopbackHost(ctx.Request))
+                {
+                    Write(ctx, 403, JsonSerializer.Serialize(new { error = "forbidden host" }, Json));
+                    break;
+                }
+                ApplyZoneTypeToggle(s, ReadBody(ctx));
+                Write(ctx, 200, JsonSerializer.Serialize(BuildZoneTypes(s), Json));
+                break;
+            }
+
+            case "/api/zone-types/tier":
+            {
+                if (ctx.Request.HttpMethod != "POST")
+                {
+                    Write(ctx, 405, JsonSerializer.Serialize(new { error = "method not allowed" }, Json));
+                    break;
+                }
+                if (!IsLoopbackHost(ctx.Request))
+                {
+                    Write(ctx, 403, JsonSerializer.Serialize(new { error = "forbidden host" }, Json));
+                    break;
+                }
+                ApplyZoneTierToggle(ReadBody(ctx));
+                Write(ctx, 200, JsonSerializer.Serialize(new { ok = true, rules = _displayRules.All }, Json));
                 break;
             }
 
@@ -738,6 +814,196 @@ public sealed class ApiServer : IDisposable
         _displayRules.Replace(list);
     }
 
+    private object BuildZoneTypes(RadarState s)
+    {
+        var areaCode = s.AreaCode;
+        var importantOnly = _settings.ImportantOnly;
+        var entities = s.Entities;
+        if (entities.Count == 0)
+            return new { areaCode, importantOnly, empty = true, tiers = Array.Empty<object>() };
+
+        var byTier = new Dictionary<EntityImportance, Dictionary<string, (string label, int count, Poe2Live.EntityDot sample)>>();
+        foreach (var e in entities)
+        {
+            var tier = EntityImportanceHelper.Classify(e, _settings.Styles);
+            if (importantOnly && EntityImportanceHelper.IsTrash(tier)) continue;
+
+            var token = EntityDisplayHelper.TypeToken(e.Metadata);
+            if (token.Length == 0) continue;
+
+            if (!byTier.TryGetValue(tier, out var bucket))
+                byTier[tier] = bucket = new Dictionary<string, (string, int, Poe2Live.EntityDot)>(StringComparer.Ordinal);
+
+            var globalRule = _ruleEngine.ResolveGlobal(e);
+            var label = EntityDisplayHelper.FormatEntityLabel(e, globalRule, entities, areaCode);
+            if (label.Length == 0) label = token;
+
+            if (bucket.TryGetValue(token, out var g))
+                bucket[token] = (g.label, g.count + 1, g.sample);
+            else
+                bucket[token] = (label, 1, e);
+        }
+
+        var tiers = new List<object>();
+        foreach (var tier in EntityImportanceHelper.DisplayOrder)
+        {
+            if (importantOnly && EntityImportanceHelper.IsTrash(tier)) continue;
+            if (!byTier.TryGetValue(tier, out var bucket) || bucket.Count == 0) continue;
+
+            var ruleNames = EntityImportanceHelper.RuleNamesForTier(tier);
+            var (groupShow, groupNav) = GroupRuleState(ruleNames);
+            var tierCount = bucket.Values.Sum(v => v.count);
+
+            var types = bucket
+                .Select(kv =>
+                {
+                    var token = kv.Key;
+                    var (label, count, sample) = kv.Value;
+                    var merged = _ruleEngine.Resolve(sample, areaCode, importantOnly);
+                    var rawHide = merged is { Hide: true };
+                    var rawNav = merged?.Navigable ?? false;
+                    return new
+                    {
+                        token,
+                        label,
+                        count,
+                        show = !rawHide,
+                        nav = !rawHide && rawNav,
+                        hasZoneOverride = _zoneOverrides.HasOverride(areaCode, token),
+                    };
+                })
+                .OrderByDescending(t => t.count)
+                .ThenBy(t => t.label, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            tiers.Add(new
+            {
+                tier = tier.ToString(),
+                label = EntityImportanceHelper.TierLabel(tier),
+                count = tierCount,
+                ruleNames,
+                groupShow,
+                groupNav,
+                types,
+            });
+        }
+
+        return new { areaCode, importantOnly, empty = false, tiers };
+    }
+
+    private (bool shown, bool nav) GroupRuleState(IReadOnlyList<string> names)
+    {
+        if (names.Count == 0) return (true, false);
+
+        var matched = _displayRules.All.Where(r => names.Contains(r.Name, StringComparer.OrdinalIgnoreCase)).ToList();
+        if (matched.Count == 0)
+            return (true, EntityImportanceHelper.IsNavDefault(EntityImportance.Mechanic));
+
+        return (matched.All(r => !r.Hide), matched.All(r => r.Navigable));
+    }
+
+    private void ApplyZoneTypeToggle(RadarState s, string body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return;
+        using var doc = JsonDocument.Parse(body);
+        var root = doc.RootElement;
+        if (root.ValueKind != JsonValueKind.Object) return;
+
+        var token = root.TryGetProperty("token", out var tv) ? tv.GetString()?.Trim() : null;
+        if (string.IsNullOrEmpty(token)) return;
+
+        var areaCode = s.AreaCode;
+        if (string.IsNullOrEmpty(areaCode)) return;
+
+        Poe2Live.EntityDot? sample = null;
+        foreach (var e in s.Entities)
+        {
+            if (string.Equals(EntityDisplayHelper.TypeToken(e.Metadata), token, StringComparison.Ordinal))
+            {
+                sample = e;
+                break;
+            }
+        }
+        if (sample is null) return;
+        var ent = sample.Value;
+
+        var globalRule = _ruleEngine.ResolveGlobal(ent);
+        var merged = _ruleEngine.Resolve(ent, areaCode, _settings.ImportantOnly);
+        var rawHide = merged is { Hide: true };
+        var rawNav = merged?.Navigable ?? false;
+
+        var hide = rawHide;
+        var navigable = rawNav;
+        if (root.TryGetProperty("show", out var sv) && TryBool(sv, out var show))
+            hide = !show;
+        else if (root.TryGetProperty("hide", out var hv) && TryBool(hv, out var h))
+            hide = h;
+
+        if (root.TryGetProperty("nav", out var nv) && TryBool(nv, out var nav))
+            navigable = nav;
+        else if (root.TryGetProperty("navigable", out var ngv) && TryBool(ngv, out var ng))
+            navigable = ng;
+
+        ApplyZoneOverride(areaCode, token, hide, navigable, globalRule);
+    }
+
+    private void ApplyZoneOverride(string areaCode, string token, bool hide, bool navigable, DisplayRule? globalRule)
+    {
+        var globalHide = globalRule is { Hide: true };
+        var globalNav = globalRule?.Navigable ?? false;
+        if (hide == globalHide && navigable == globalNav)
+            _zoneOverrides.ClearOverride(areaCode, token);
+        else
+            _zoneOverrides.SetOverride(areaCode, token, hide, navigable);
+    }
+
+    private void ApplyZoneTierToggle(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return;
+        using var doc = JsonDocument.Parse(body);
+        var root = doc.RootElement;
+        if (root.ValueKind != JsonValueKind.Object) return;
+
+        var tierName = root.TryGetProperty("tier", out var tv) ? tv.GetString() : null;
+        if (string.IsNullOrEmpty(tierName) || !Enum.TryParse<EntityImportance>(tierName, ignoreCase: true, out var tier))
+            return;
+
+        var ruleNames = EntityImportanceHelper.RuleNamesForTier(tier);
+        if (ruleNames.Length == 0) return;
+
+        var (shown, nav) = GroupRuleState(ruleNames);
+        var hide = !shown;
+        if (root.TryGetProperty("show", out var sv) && TryBool(sv, out var show))
+            hide = !show;
+        else if (root.TryGetProperty("hide", out var hv) && TryBool(hv, out var h))
+            hide = h;
+
+        var navigable = nav;
+        if (root.TryGetProperty("nav", out var nv) && TryBool(nv, out var n))
+            navigable = n;
+        else if (root.TryGetProperty("navigable", out var ngv) && TryBool(ngv, out var ng))
+            navigable = ng;
+
+        ApplyToRulesByNames(ruleNames, hide, navigable);
+    }
+
+    private void ApplyToRulesByNames(IReadOnlyList<string> names, bool hide, bool navigable)
+    {
+        if (names.Count == 0) return;
+
+        var all = _displayRules.All.ToList();
+        var nameSet = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
+        var changed = false;
+        for (var i = 0; i < all.Count; i++)
+        {
+            if (!nameSet.Contains(all[i].Name)) continue;
+            all[i].Hide = hide;
+            all[i].Navigable = navigable;
+            changed = true;
+        }
+        if (changed) _displayRules.Replace(all);
+    }
+
     // Valid rule categories: the entity categories plus the pseudo-category "Tile" (matches terrain
     // tiles by path instead of an entity).
     private static readonly string[] CategoryNames = Enum.GetNames<Poe2Live.EntityCategory>().Append("Tile").ToArray();
@@ -884,6 +1150,23 @@ public sealed class ApiServer : IDisposable
     private static void TryWrite(HttpListenerContext ctx, int status, string body)
     {
         try { Write(ctx, status, body); } catch { /* client gone */ }
+    }
+
+    private static string[]? _dbCache;
+
+    private static string[] LoadEntityDatabase()
+    {
+        if (_dbCache != null) return _dbCache;
+        try
+        {
+            var asm = typeof(ApiServer).Assembly;
+            var name = asm.GetManifestResourceNames().FirstOrDefault(n => n.Contains("entity_database"));
+            if (name == null) return _dbCache = [];
+            using var stream = asm.GetManifestResourceStream(name)!;
+            _dbCache = JsonSerializer.Deserialize<string[]>(stream) ?? [];
+        }
+        catch { _dbCache = []; }
+        return _dbCache;
     }
 
     public void Dispose()

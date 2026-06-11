@@ -69,6 +69,9 @@ public static class SpriteCatalog
         return ShapeSprites.TryGetValue(shape, out var spr) ? spr : null;
     }
 
+    /// <summary>Shape names → icons.png cell (for dashboard sprite previews).</summary>
+    public static IReadOnlyDictionary<string, SpriteIconRef> ShapeSpritesMap => ShapeSprites;
+
     private static readonly Dictionary<string, SpriteIconRef> ShapeSprites = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Circle"] = NormalMonster(),
