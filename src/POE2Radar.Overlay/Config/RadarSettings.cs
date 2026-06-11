@@ -34,7 +34,7 @@ public sealed class RadarSettings
     // ── In-game hotkey to toggle <see cref="AutoPathNavigable"/> (default F3 = 0x72). 0 = disabled. ──
     public int AutoPathToggleHotkey { get; set; } = 0x72;
 
-    // ── After a mechanic/strongbox is completed, hide that metadata type until instance reset or TTL. ──
+    // ── After map content is consumed, hide that metadata type until instance reset or TTL. ──
     public bool SuppressCompletedContent { get; set; } = true;
     public int CompletedSuppressMinutes { get; set; } = 15;
 

@@ -32,22 +32,27 @@ public static class EntityDisplayHelper
 
     public static string SpecificNameFromMetadata(string metadata)
     {
+        var catalog = BossDisplayNameCatalog.Shared.Resolve(metadata);
+        if (catalog is { Length: > 0 }) return catalog;
+
         var resolved = EntityNameResolver.Shared.Resolve(metadata);
         if (resolved is { Length: > 0 } && !MetadataLabelHelper.IsTokenEquivalent(metadata, resolved))
         {
             const string dnt = "[DNT-UNUSED] ";
             if (resolved.StartsWith(dnt, StringComparison.Ordinal)) resolved = resolved[dnt.Length..];
-            return resolved;
+            if (!IsMetadataDerivedBossLabel(metadata, resolved)) return resolved;
         }
 
         var token = TypeToken(metadata);
         if (token.Length > 0)
         {
             var humanized = HumanizeToken(token);
-            if (humanized.Length > 0) return humanized;
+            if (humanized.Length > 0 && !IsMetadataDerivedBossLabel(metadata, humanized)) return humanized;
         }
 
-        return EntityNameResolver.Shared.ResolveOrShorten(metadata);
+        var shortened = EntityNameResolver.Shared.ResolveOrShorten(metadata);
+        if (IsMetadataDerivedBossLabel(metadata, shortened)) return "";
+        return shortened;
     }
 
     /// <summary>Insert spaces before interior capitals / digit-letter edges (e.g. Waypoint_LongActivationRadius).</summary>
@@ -163,7 +168,10 @@ public static class EntityDisplayHelper
         IReadOnlyList<Poe2Live.EntityDot>? peers,
         string? areaCode)
     {
-        var name = SpecificEntityName(e);
+        var name = BossDisplayNameCatalog.Shared.Resolve(e.Metadata) ?? "";
+        if (name.Length == 0) name = ZoneBossCatalog.Shared.BossName(areaCode) ?? "";
+        if (name.Length == 0) name = SpecificEntityName(e);
+        if (name.Length > 0 && IsMetadataDerivedBossLabel(e.Metadata, name)) name = "";
         if (!IsPlausibleBossDisplayName(name)) name = "";
         if (name.Length == 0 && e.Metadata.Contains("/Monsters/", StringComparison.OrdinalIgnoreCase))
             name = DeriveMonsterBossName(e.Metadata);
@@ -201,7 +209,8 @@ public static class EntityDisplayHelper
             if (e.Category != Poe2Live.EntityCategory.Monster) continue;
             if (e.Rarity != Poe2Live.Rarity.Unique) continue;
             if (IsBossRoomMetadata(e.Metadata) || IsBossMinimapIcon(e.Metadata)) continue;
-            var name = SpecificEntityName(e);
+            var name = BossDisplayNameCatalog.Shared.Resolve(e.Metadata) ?? SpecificEntityName(e);
+            if (name.Length > 0 && IsMetadataDerivedBossLabel(e.Metadata, name)) continue;
             if (IsPlausibleBossDisplayName(name) && !IsGenericBossLabel(name)) return name;
         }
         return null;
@@ -299,9 +308,41 @@ public static class EntityDisplayHelper
             var token = TypeToken(seg);
             if (token.Length == 0 || MonsterSegmentSkip.Contains(token)) continue;
             var humanized = HumanizeToken(token);
-            if (humanized.Length > 0 && IsPlausibleBossDisplayName(humanized)) return humanized;
+            if (humanized.Length > 0
+                && IsPlausibleBossDisplayName(humanized)
+                && !IsMetadataDerivedBossLabel(metadata, humanized))
+                return humanized;
         }
         return "";
+    }
+
+    /// <summary>True when <paramref name="label"/> is a humanized type token (FireBeastBoss → Fire Beast Boss),
+    /// not a character name (Vornas, Balbala).</summary>
+    public static bool IsMetadataDerivedBossLabel(string metadata, string label)
+    {
+        if (string.IsNullOrEmpty(metadata) || string.IsNullOrEmpty(label)) return false;
+
+        var token = TypeToken(metadata);
+        if (token.Length == 0) return false;
+
+        if (MetadataLabelHelper.IsTokenEquivalent(metadata, label)) return true;
+
+        var fromToken = HumanizeToken(token);
+        if (string.Equals(label, fromToken, StringComparison.OrdinalIgnoreCase)) return true;
+
+        if (!token.EndsWith("boss", StringComparison.OrdinalIgnoreCase)) return false;
+
+        if (fromToken.Contains(' ') || label.Contains(' '))
+            return string.Equals(label, fromToken, StringComparison.OrdinalIgnoreCase);
+
+        if (token.Length <= 4) return true;
+
+        var stem = token[..^4];
+        var fromStem = HumanizeToken(stem);
+        if (fromStem.Length > 0 && string.Equals(label, fromStem, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return true;
     }
 
     private static bool IsPlausibleBossDisplayName(string name)
@@ -347,6 +388,16 @@ public static class EntityDisplayHelper
 
     public static bool IsStateHideRule(DisplayRule r)
         => r.Hide && (r.Life == "Dead" || r.Chest == "Opened" || r.Encounter == "Complete");
+
+    /// <summary>True when interactable map content is consumed — mirrors display-rules state-hide signals
+    /// (completed encounter, opened chest/shrine/strongbox, killed boss/rare). Normal/magic clutter excluded.</summary>
+    public static bool IsCompletedContentState(Poe2Live.EntityDot e)
+    {
+        if (e.IconComplete || e.Opened) return true;
+        if (e.HasLife && !e.IsAlive && e.Category == Poe2Live.EntityCategory.Monster)
+            return e.Rarity is Poe2Live.Rarity.Rare or Poe2Live.Rarity.Unique;
+        return false;
+    }
 
     public static bool IsPerTypeEntityRule(DisplayRule r)
     {

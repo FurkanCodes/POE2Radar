@@ -703,7 +703,7 @@ internal static class DashboardHtml
                 <option value="BottomLeft">Bottom left</option>
                 <option value="BottomRight">Bottom right</option>
               </select></div>
-            <div class="row"><div class="rl">Hide completed mechanics<small>per type: hide finished league mechanics and opened strongboxes until instance reset or timer</small></div>
+            <div class="row"><div class="rl">Hide completed content<small>per type: hide finished mechanics, POIs, chests, shrines, killed bosses/rares until instance reset or timer</small></div>
               <label class="sw"><input type="checkbox" data-set="suppressCompletedContent"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl">Completed hide duration<small>minutes before type can show again in the same instance</small></div>
               <input class="numin" type="number" step="1" min="1" max="60" data-set="completedSuppressMinutes"></div>

@@ -360,7 +360,9 @@ public sealed class Poe2Live
             var opened = false;
             if (cat is EntityCategory.Monster or EntityCategory.Player) (hpCur, hpMax) = ReadHp(entity);
             if (cat is EntityCategory.Monster or EntityCategory.Chest) rarity = ReadRarity(entity);
-            if (cat == EntityCategory.Chest) opened = ReadChestOpened(entity);
+            // Chest component open state applies to chests, POIs, shrines, quest objects, etc. — not combat monsters.
+            if (cat is not (EntityCategory.Monster or EntityCategory.Player))
+                opened = ReadChestOpened(entity);
 
             var (poi, iconComplete) = ReadIcon(entity);
             dots.Add(new EntityDot(id, entity, g, wv, terrainHeight, cat, _meta.GetValueOrDefault(entity, ""), hpCur, hpMax,

@@ -3,6 +3,12 @@ namespace POE2Radar.Overlay.Config;
 /// <summary>Display names for Win32 virtual-key codes used in settings hotkey binds.</summary>
 public static class VirtualKeyHelper
 {
+    /// <summary>Win32 VK codes for mouse buttons (excludes VK_CANCEL 0x03).</summary>
+    public static readonly int[] MouseButtonVks = [0x01, 0x02, 0x04, 0x05, 0x06];
+
+    public static bool IsMouseButton(int vk)
+        => vk is 0x01 or 0x02 or 0x04 or 0x05 or 0x06;
+
     public static string Name(int vk, bool requireShift = false)
     {
         if (vk <= 0) return "(none)";
@@ -14,6 +20,11 @@ public static class VirtualKeyHelper
 
     private static readonly Dictionary<int, string> VkNames = new()
     {
+        [0x01] = "Mouse Left",
+        [0x02] = "Mouse Right",
+        [0x04] = "Mouse Middle",
+        [0x05] = "Mouse 4",
+        [0x06] = "Mouse 5",
         [0x08] = "Backspace",
         [0x09] = "Tab",
         [0x0D] = "Enter",

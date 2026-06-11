@@ -3,8 +3,8 @@ using POE2Radar.Overlay.Config;
 
 namespace POE2Radar.Overlay.Web;
 
-/// <summary>Per-instance, per-type-token hide for completed league mechanics and opened chests.
-/// Tokens reappear after TTL expiry or when <see cref="OnAreaHashChanged"/> clears the instance bucket.</summary>
+/// <summary>Per-instance, per-type-token hide for consumed map content (mechanics, POIs, chests,
+/// killed bosses/rares). Tokens reappear after TTL expiry or when <see cref="OnAreaHashChanged"/> clears the instance bucket.</summary>
 public sealed class CompletedContentSuppressor
 {
     private readonly object _gate = new();
@@ -36,7 +36,7 @@ public sealed class CompletedContentSuppressor
             PruneExpired(suppressMinutes);
             foreach (var e in entities)
             {
-                if (!IsCompleted(e)) continue;
+                if (!EntityDisplayHelper.IsCompletedContentState(e)) continue;
                 var token = EntityDisplayHelper.TypeToken(e.Metadata);
                 if (token.Length == 0) continue;
                 _byToken.TryAdd(token, DateTime.UtcNow);
@@ -68,6 +68,4 @@ public sealed class CompletedContentSuppressor
                 _byToken.Remove(key);
     }
 
-    private static bool IsCompleted(Poe2Live.EntityDot e)
-        => e.IconComplete || (e.Category == Poe2Live.EntityCategory.Chest && e.Opened);
 }

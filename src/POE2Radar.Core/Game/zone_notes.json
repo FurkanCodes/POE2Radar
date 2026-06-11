@@ -431,6 +431,12 @@
 		},
 		{
 			"lockNoteOption": "unlocked",
+			"zoneCode": "P2_5",
+			"zoneName": "The Galai Gates",
+			"notes": "Boss: Vornas\n\nExit toward Qimah or The Khari Crossing"
+		},
+		{
+			"lockNoteOption": "unlocked",
 			"zoneCode": "P2_Town",
 			"zoneName": "The Stolen Barya",
 			"notes": "The Khari Crossing - Skullmaw Stairway - 5% Max Life\nThe Khari Crossing - Worm and Scorpion - +2 Passives\nQimah - Choice of 7 buffs (can change later)"

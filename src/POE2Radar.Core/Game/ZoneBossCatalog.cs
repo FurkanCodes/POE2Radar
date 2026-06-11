@@ -97,6 +97,9 @@ public sealed class ZoneBossCatalog
 
             var list = ListEntryRegex.Match(trimmed);
             if (list.Success) return CleanupBossName(list.Groups[1].Value);
+
+            var bossLabel = BossLabelRegex.Match(trimmed);
+            if (bossLabel.Success) return CleanupBossName(bossLabel.Groups[1].Value);
         }
         return null;
     }
@@ -131,6 +134,10 @@ public sealed class ZoneBossCatalog
     private static readonly Regex ListEntryRegex = new(
         @"^\d+\)\s*([A-Za-z][A-Za-z'-]+)\s+-",
         RegexOptions.Compiled);
+
+    private static readonly Regex BossLabelRegex = new(
+        @"\bBoss:\s*([A-Za-z][A-Za-z' -]+)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
 }

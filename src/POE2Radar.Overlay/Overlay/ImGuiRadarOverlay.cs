@@ -50,6 +50,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private bool _bindingHideHotkey;
     private bool _bindingTrackHotkey;
     private bool _bindingAutoPathHotkey;
+    private bool _hotkeyBindArmed;
 
     private static readonly Vector4[] PathPalette =
     [
@@ -1108,10 +1109,10 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 ImGui.SetTooltip("Show normal/magic grey monsters and other map clutter on the radar.");
 
             bool suppressDone = s.SuppressCompletedContent;
-            if (ImGui.Checkbox("Hide completed mechanics (per type)", ref suppressDone))
+            if (ImGui.Checkbox("Hide completed content (per type)", ref suppressDone))
                 s.SuppressCompletedContent = suppressDone;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
-                ImGui.SetTooltip("Hide finished league mechanics and opened strongboxes by metadata type until instance reset or the timer below.");
+                ImGui.SetTooltip("Hide consumed map content by metadata type — mechanics, POIs, chests, shrines, killed bosses/rares — until instance reset or the timer below.");
 
             int suppressMin = s.CompletedSuppressMinutes;
             ImGui.SetNextItemWidth(120f);
@@ -1835,12 +1836,15 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         ImGui.TextUnformatted("Hotkey:");
         ImGui.SameLine();
         if (_bindingHideHotkey)
-            ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Press a key…");
+            ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Press key or mouse…");
         else
             ImGui.TextUnformatted(VirtualKeyHelper.Name(s.HideEntityHotkey));
         ImGui.SameLine();
         if (ImGui.Button(_bindingHideHotkey ? "…##bind" : "Bind##bind"))
+        {
             _bindingHideHotkey = true;
+            _hotkeyBindArmed = false;
+        }
         if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
             ImGui.SetTooltip("Bind hotkey: hover an entity on the map, press the key to add its type to Never show.");
         ImGui.SameLine();
@@ -1865,12 +1869,15 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         ImGui.TextUnformatted("Toggle key:");
         ImGui.SameLine();
         if (_bindingAutoPathHotkey)
-            ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Press a key…");
+            ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Press key or mouse…");
         else
             ImGui.TextUnformatted(VirtualKeyHelper.Name(s.AutoPathToggleHotkey));
         ImGui.SameLine();
         if (ImGui.Button(_bindingAutoPathHotkey ? "…##bind" : "Bind##bind"))
+        {
             _bindingAutoPathHotkey = true;
+            _hotkeyBindArmed = false;
+        }
         if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
             ImGui.SetTooltip("Toggle Auto-path to nearest targets (default F3). Enables Show Paths when turning on.");
         ImGui.SameLine();
@@ -1891,12 +1898,15 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         ImGui.TextUnformatted("Hotkey:");
         ImGui.SameLine();
         if (_bindingTrackHotkey)
-            ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Press a key…");
+            ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Press key or mouse…");
         else
             ImGui.TextUnformatted(VirtualKeyHelper.Name(s.TrackEntityHotkey));
         ImGui.SameLine();
         if (ImGui.Button(_bindingTrackHotkey ? "…##bind" : "Bind##bind"))
+        {
             _bindingTrackHotkey = true;
+            _hotkeyBindArmed = false;
+        }
         if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
             ImGui.SetTooltip("Bind hotkey: hover an entity and press to print its identity to the console (F4 default).");
         ImGui.SameLine();
@@ -1915,31 +1925,70 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     {
         if (!_bindingHideHotkey && !_bindingTrackHotkey && !_bindingAutoPathHotkey) return;
 
-        for (var vk = 0x08; vk <= 0xFE; vk++)
+        // Ignore input until the Bind click's mouse button is released.
+        if (!_hotkeyBindArmed)
         {
-            if (vk is 0x0A or 0x0B) continue;
-            if (vk is >= 0x01 and <= 0x06) continue;
-            if ((OverlayNative.GetAsyncKeyState(vk) & 0x8000) == 0) continue;
-
-            if (_bindingHideHotkey)
-            {
-                s.HideEntityHotkey = vk;
-                _bindingHideHotkey = false;
-            }
-            else if (_bindingTrackHotkey)
-            {
-                s.TrackEntityHotkey = vk;
-                _bindingTrackHotkey = false;
-            }
-            else
-            {
-                s.AutoPathToggleHotkey = vk;
-                _bindingAutoPathHotkey = false;
-            }
-
-            SaveSettings();
+            if (IsAnyMouseButtonDown()) return;
+            _hotkeyBindArmed = true;
             return;
         }
+
+        if (!TryPollPressedVk(out var vk)) return;
+
+        if (vk == 0x1B)
+        {
+            _bindingHideHotkey = false;
+            _bindingTrackHotkey = false;
+            _bindingAutoPathHotkey = false;
+            return;
+        }
+
+        if (_bindingHideHotkey)
+        {
+            s.HideEntityHotkey = vk;
+            _bindingHideHotkey = false;
+        }
+        else if (_bindingTrackHotkey)
+        {
+            s.TrackEntityHotkey = vk;
+            _bindingTrackHotkey = false;
+        }
+        else
+        {
+            s.AutoPathToggleHotkey = vk;
+            _bindingAutoPathHotkey = false;
+        }
+
+        SaveSettings();
+    }
+
+    private static bool IsAnyMouseButtonDown()
+    {
+        foreach (var vk in VirtualKeyHelper.MouseButtonVks)
+            if ((OverlayNative.GetAsyncKeyState(vk) & 0x8000) != 0) return true;
+        return false;
+    }
+
+    private static bool TryPollPressedVk(out int vk)
+    {
+        foreach (var mb in VirtualKeyHelper.MouseButtonVks)
+        {
+            if ((OverlayNative.GetAsyncKeyState(mb) & 0x8000) != 0)
+            {
+                vk = mb;
+                return true;
+            }
+        }
+
+        for (vk = 0x08; vk <= 0xFE; vk++)
+        {
+            if (vk is 0x0A or 0x0B) continue;
+            if ((OverlayNative.GetAsyncKeyState(vk) & 0x8000) == 0) continue;
+            return true;
+        }
+
+        vk = 0;
+        return false;
     }
 
     // ── Helpers ──
