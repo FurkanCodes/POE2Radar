@@ -70,6 +70,12 @@ public sealed class RadarSettings
     // ── One-time: refresh Abyss/Object matchers + catalog-first resolve (gates, troves). ──
     public bool EndgameMechanicsV2Migrated { get; set; } = false;
 
+    // ── One-time: Essence frozen-mob matchers + mechanics ordered before Monster Rare. ──
+    public bool EndgameMechanicsV3Migrated { get; set; } = false;
+
+    // ── One-time: Essence rare+POI cluster + any-category Essence rule matchers. ──
+    public bool EndgameMechanicsV7Migrated { get; set; } = false;
+
     // ── One-time: atlas display settings upgrade (AtlasDrawAll → AtlasShowOnScreenNodes). ──
     public bool AtlasDisplayMigrated { get; set; } = false;
 

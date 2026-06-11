@@ -31,7 +31,8 @@ public sealed class ZoneBossCatalog
             var resName = asm.GetManifestResourceNames().FirstOrDefault(n => n.Contains("zone_notes"));
             if (resName == null) return catalog;
 
-            using var stream = asm.GetManifestResourceStream(resName)!;
+            using var stream = asm.GetManifestResourceStream(resName);
+            if (stream is null) return catalog;
             using var doc = JsonDocument.Parse(stream);
             var root = doc.RootElement;
 

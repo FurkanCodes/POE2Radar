@@ -1114,7 +1114,7 @@ static int RunValidate(ProcessHandle process, MemoryReader reader, int perBucket
         if (ent == 0 || id >= Poe2.EntityList.VisualIdThreshold) continue;
         var meta = ReadEntityMetadata(reader, ent);
         if (meta.Contains("/Monsters/", StringComparison.Ordinal)) { if (monsters.Count < perBucket) monsters.Add(ent); }
-        else if (meta.Contains("/Chests", StringComparison.Ordinal)) { if (chests.Count < perBucket) chests.Add(ent); }
+        else if (meta.Contains("/chests/", StringComparison.OrdinalIgnoreCase)) { if (chests.Count < perBucket) chests.Add(ent); }
         else if (meta.Contains("Transition", StringComparison.Ordinal)) { if (transitions.Count < perBucket) transitions.Add(ent); }
     }
 

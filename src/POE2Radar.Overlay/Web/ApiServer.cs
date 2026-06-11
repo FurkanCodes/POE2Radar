@@ -896,7 +896,8 @@ public sealed class ApiServer : IDisposable
         var byTier = new Dictionary<EntityImportance, Dictionary<string, (string label, int count, Poe2Live.EntityDot sample)>>();
         foreach (var e in entities)
         {
-            var tier = EntityImportanceHelper.Classify(e, _settings.Styles);
+            var globalRule = _ruleEngine.ResolveGlobal(e, entities);
+            var tier = EntityImportanceHelper.Classify(e, _settings.Styles, globalRule);
             if (importantOnly && EntityImportanceHelper.IsTrash(tier)) continue;
 
             var token = EntityDisplayHelper.TypeToken(e.Metadata);
@@ -904,8 +905,6 @@ public sealed class ApiServer : IDisposable
 
             if (!byTier.TryGetValue(tier, out var bucket))
                 byTier[tier] = bucket = new Dictionary<string, (string, int, Poe2Live.EntityDot)>(StringComparer.Ordinal);
-
-            var globalRule = _ruleEngine.ResolveGlobal(e);
             var label = EntityDisplayHelper.FormatEntityLabel(e, globalRule, entities, areaCode);
             if (label.Length == 0) label = token;
 
@@ -930,7 +929,7 @@ public sealed class ApiServer : IDisposable
                 {
                     var token = kv.Key;
                     var (label, count, sample) = kv.Value;
-                    var merged = _ruleEngine.Resolve(sample, areaCode, importantOnly);
+                    var merged = _ruleEngine.Resolve(sample, areaCode, importantOnly, entities);
                     var rawHide = merged is { Hide: true };
                     var rawNav = merged?.Navigable ?? false;
                     return new
@@ -998,8 +997,8 @@ public sealed class ApiServer : IDisposable
         if (sample is null) return;
         var ent = sample.Value;
 
-        var globalRule = _ruleEngine.ResolveGlobal(ent);
-        var merged = _ruleEngine.Resolve(ent, areaCode, _settings.ImportantOnly);
+        var globalRule = _ruleEngine.ResolveGlobal(ent, s.Entities);
+        var merged = _ruleEngine.Resolve(ent, areaCode, _settings.ImportantOnly, s.Entities);
         var rawHide = merged is { Hide: true };
         var rawNav = merged?.Navigable ?? false;
 

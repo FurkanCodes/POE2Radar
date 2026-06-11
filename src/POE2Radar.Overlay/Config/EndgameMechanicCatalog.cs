@@ -56,6 +56,17 @@ public static class EndgameMechanicCatalog
     public static bool Matches(Poe2Live.EntityDot e, EndgameMechanicDef d)
         => Matches(e.Metadata, e.Category, d);
 
+    /// <summary>True when metadata matches any catalog mechanic except Essence.</summary>
+    public static bool MatchesNonEssenceMechanic(Poe2Live.EntityDot e)
+    {
+        foreach (var def in Defs)
+        {
+            if (string.Equals(def.Name, "Essence", StringComparison.OrdinalIgnoreCase)) continue;
+            if (Matches(e.Metadata, e.Category, def)) return true;
+        }
+        return false;
+    }
+
     public static bool Matches(string metadata, Poe2Live.EntityCategory category, EndgameMechanicDef d)
     {
         if (string.IsNullOrEmpty(metadata)) return false;
@@ -142,26 +153,25 @@ public static class EndgameMechanicCatalog
             }
         }
 
-        var mapIdx = FindMapMarkerIndex(rules);
+        var insertBefore = FindMechanicInsertIndex(rules);
 
         foreach (var def in Defs)
         {
             var existing = rules.FirstOrDefault(r => string.Equals(r.Name, def.Name, StringComparison.OrdinalIgnoreCase));
             if (existing is null)
             {
-                var insertAt = mapIdx >= 0 ? mapIdx : rules.Count;
-                rules.Insert(insertAt, ToDisplayRule(def));
-                if (mapIdx >= 0) mapIdx++;
+                rules.Insert(insertBefore, ToDisplayRule(def));
+                insertBefore++;
                 changed = true;
                 continue;
             }
 
-            foreach (var term in def.Match)
-                if (!existing.Match.Contains(term, StringComparer.OrdinalIgnoreCase))
-                {
-                    existing.Match.Add(term);
-                    changed = true;
-                }
+            var canonicalMatch = new List<string>(def.Match);
+            if (!existing.Match.SequenceEqual(canonicalMatch, StringComparer.OrdinalIgnoreCase))
+            {
+                existing.Match = canonicalMatch;
+                changed = true;
+            }
 
             var catList = def.Categories is { Length: > 0 } ? new List<string>(def.Categories) : new List<string>();
             if (!existing.Categories.SequenceEqual(catList, StringComparer.OrdinalIgnoreCase))
@@ -183,8 +193,7 @@ public static class EndgameMechanicCatalog
         var mechanicBlock = rules.Where(r => catalogNames.Contains(r.Name)).ToList();
         if (mechanicBlock.Count == 0) return changed;
 
-        mapIdx = FindMapMarkerIndex(rules);
-        var targetIdx = mapIdx >= 0 ? mapIdx : rules.Count;
+        var targetIdx = FindMechanicInsertIndex(rules);
 
         foreach (var r in mechanicBlock)
         {
@@ -192,14 +201,28 @@ public static class EndgameMechanicCatalog
             if (curIdx < 0) continue;
             if (curIdx < targetIdx) continue;
             rules.RemoveAt(curIdx);
-            if (curIdx < mapIdx) mapIdx--;
+            if (curIdx < targetIdx) targetIdx--;
             rules.Insert(targetIdx, r);
             targetIdx++;
-            mapIdx++;
             changed = true;
         }
 
         return changed;
+    }
+
+    /// <summary>Insert mechanics before category defaults (Boss / rare monsters) and Map marker.</summary>
+    private static int FindMechanicInsertIndex(List<DisplayRule> rules)
+    {
+        for (var i = 0; i < rules.Count; i++)
+        {
+            var n = rules[i].Name;
+            if (string.Equals(n, "Boss", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(n, "Monster · Rare", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(n, "Monster · Magic", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(n, "Monster · Normal", StringComparison.OrdinalIgnoreCase))
+                return i;
+        }
+        return FindMapMarkerIndex(rules);
     }
 
     private static int FindMapMarkerIndex(List<DisplayRule> rules)
@@ -260,9 +283,29 @@ public static class EndgameMechanicCatalog
             "Square", "#FFB300", 1f, 10f, SpriteCatalog.Strongbox()),
         new EndgameMechanicDef(
             "Essence",
-            ["Essence"],
+            [
+                "fireessencemod", "coldessencemod", "lifeessencemod", "chaosessencemod",
+                "physicalessencemod", "manaessencemod", "speedessencemod",
+                "casteressencemod", "attackessencemod", "attributeessencemod",
+                "greaterchaosessencemod", "greatercoldessencemod", "greaterlifeessencemod",
+                "greaterphysicalessencemod",
+                "essencehorror", "essencehysteria", "essenceinsanity",
+                "essencestartcalm",
+                "/essencemoddaemons/essencemod",
+            ],
             null,
-            ["EssenceOfTheAbyss"],
+            [
+                "EssenceOfTheAbyss",
+                "essenceinsanityproxtrigger",
+                "coldessencedeliveryobject",
+                "fireessencemodsolarorb",
+                "chaosessencevine",
+                "essencebonewall",
+                "reaperboss",
+                "essencedelirium",
+                "hysteriaorbdaemon",
+                "breachessencedaemon",
+            ],
             "Triangle", "#33E0FF", 1f, 12f, SpriteCatalog.Essence()),
         new EndgameMechanicDef(
             "Shrine",

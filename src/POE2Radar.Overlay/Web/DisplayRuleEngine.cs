@@ -9,30 +9,35 @@ public sealed class DisplayRuleEngine
 {
     private readonly DisplayRules _global;
     private readonly ZoneEntityOverrides _zoneOverrides;
-    private readonly RadarStyles _styles;
+    private readonly Func<RadarStyles> _getStyles;
     private static readonly DisplayRule HiddenTrash = new() { Hide = true, Name = "(hidden)" };
 
-    public DisplayRuleEngine(DisplayRules global, ZoneEntityOverrides zoneOverrides, RadarStyles styles)
+    /// <param name="getStyles">Live accessor — dashboard POST replaces <c>_settings.Styles</c> wholesale.</param>
+    public DisplayRuleEngine(DisplayRules global, ZoneEntityOverrides zoneOverrides, Func<RadarStyles> getStyles)
     {
         _global = global;
         _zoneOverrides = zoneOverrides;
-        _styles = styles;
+        _getStyles = getStyles;
     }
+
+    private RadarStyles Styles => _getStyles();
 
     public int Generation => _global.Generation + _zoneOverrides.Generation;
 
     /// <summary>Global rule only (state hides + semantic rules), without zone overrides or ImportantOnly.</summary>
-    public DisplayRule? ResolveGlobal(Poe2Live.EntityDot e)
+    public DisplayRule? ResolveGlobal(Poe2Live.EntityDot e, IReadOnlyList<Poe2Live.EntityDot>? peers = null)
     {
         var state = _global.ResolveStateHide(e);
         if (state != null) return state;
-        if (EndgameMechanicCatalog.TryMatch(e, out var mechanic))
-            return EndgameMechanicCatalog.ToDisplayRule(mechanic!);
-        return _global.ResolveContent(e);
+        return FinalizeEssence(e, _global.ResolveContent(e), peers);
     }
 
-    /// <summary>Full merged resolve: state hides → catalog mechanics → zone override patch → global rules → ImportantOnly trash.</summary>
-    public DisplayRule? Resolve(Poe2Live.EntityDot e, string areaCode, bool importantOnly)
+    /// <summary>Full merged resolve: state hides → display_rules (first match) → zone override → ImportantOnly trash.</summary>
+    public DisplayRule? Resolve(
+        Poe2Live.EntityDot e,
+        string areaCode,
+        bool importantOnly,
+        IReadOnlyList<Poe2Live.EntityDot>? peers = null)
     {
         var state = _global.ResolveStateHide(e);
         if (state != null) return state;
@@ -40,11 +45,7 @@ public sealed class DisplayRuleEngine
         var token = EntityDisplayHelper.TypeToken(e.Metadata);
         var zoneOv = _zoneOverrides.GetOverride(areaCode, token);
 
-        // Catalog mechanics beat the Map-marker POI catch-all regardless of display_rules.json order.
-        DisplayRule? global = null;
-        if (EndgameMechanicCatalog.TryMatch(e, out var mechanic))
-            global = EndgameMechanicCatalog.ToDisplayRule(mechanic!);
-        global ??= _global.ResolveContent(e);
+        DisplayRule? global = FinalizeEssence(e, _global.ResolveContent(e), peers);
 
         if (zoneOv != null)
         {
@@ -67,18 +68,18 @@ public sealed class DisplayRuleEngine
 
         if (global != null)
         {
-            if (importantOnly && !global.Hide && IsTrash(e))
+            if (importantOnly && !global.Hide && IsTrash(e, peers))
                 return HiddenTrash;
             return global;
         }
 
-        if (importantOnly && IsTrash(e))
+        if (importantOnly && IsTrash(e, peers))
             return HiddenTrash;
         return null;
     }
 
-    private bool IsTrash(Poe2Live.EntityDot e)
-        => EntityImportanceHelper.IsTrash(EntityImportanceHelper.Classify(e, _styles));
+    private bool IsTrash(Poe2Live.EntityDot e, IReadOnlyList<Poe2Live.EntityDot>? peers)
+        => EntityImportanceHelper.IsTrash(EntityImportanceHelper.Classify(e, Styles, FinalizeEssence(e, _global.ResolveContent(e), peers)));
 
     private static DisplayRule Patch(DisplayRule global, ZoneEntityOverride zoneOv)
     {
@@ -86,6 +87,41 @@ public sealed class DisplayRuleEngine
         if (zoneOv.Hide.HasValue) r.Hide = zoneOv.Hide.Value;
         if (zoneOv.Navigable.HasValue) r.Navigable = zoneOv.Navigable.Value;
         return r;
+    }
+
+    private DisplayRule? FinalizeEssence(
+        Poe2Live.EntityDot e,
+        DisplayRule? rule,
+        IReadOnlyList<Poe2Live.EntityDot>? peers)
+    {
+        var peerList = peers ?? Array.Empty<Poe2Live.EntityDot>();
+        rule = PromoteEssenceCluster(e, rule, peerList);
+        if (rule is { Name: var n }
+            && string.Equals(n, "Essence", StringComparison.OrdinalIgnoreCase)
+            && EssenceEncounterHelper.ShouldHidePoiDuplicate(e, peerList))
+            return HiddenTrash;
+        return rule;
+    }
+
+    private DisplayRule? PromoteEssenceCluster(
+        Poe2Live.EntityDot e,
+        DisplayRule? rule,
+        IReadOnlyList<Poe2Live.EntityDot> peers)
+    {
+        if (rule is null || !EssenceEncounterHelper.ShouldPromoteToEssence(rule)) return rule;
+        if (!EssenceEncounterHelper.IsEssenceClusterMember(e, peers)) return rule;
+        return EssenceDisplayRule();
+    }
+
+    private DisplayRule EssenceDisplayRule()
+    {
+        foreach (var r in _global.All)
+            if (string.Equals(r.Name, "Essence", StringComparison.OrdinalIgnoreCase))
+                return r;
+        foreach (var def in EndgameMechanicCatalog.All)
+            if (string.Equals(def.Name, "Essence", StringComparison.OrdinalIgnoreCase))
+                return EndgameMechanicCatalog.ToDisplayRule(def);
+        return new DisplayRule { Name = "Essence", Label = "Essence", Enabled = true, Navigable = true };
     }
 
     private static DisplayRule CloneRule(DisplayRule r) => new()

@@ -69,8 +69,8 @@ public static class EntityDisplayHelper
         if (IsBossMonster(e, rule) || IsBossMinimapIcon(e.Metadata))
             return FormatBossDisplayName(e, peers, areaCode);
 
-        if (EndgameMechanicCatalog.TryMatch(e, out var mechanic))
-            return mechanic!.Name;
+        if (rule is { Name: { Length: > 0 } rn } && IsMechanicRuleName(rn))
+            return RuleLabel(rule);
 
         if (IsBossRoomMetadata(e.Metadata))
             return FormatBossRoomLabel(e.Metadata, peers, areaCode);
@@ -417,4 +417,11 @@ public static class EntityDisplayHelper
         "Expedition", "Ritual", "Breach", "Abyss", "Delirium", "Strongbox", "Essence", "Shrine",
         "Summoning Circle", "Wisp", "Rogue Exile",
     };
+
+    public static bool IsMechanicRuleName(string name)
+    {
+        foreach (var n in EndgameMechanicCatalog.RuleNames)
+            if (string.Equals(n, name, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
 }

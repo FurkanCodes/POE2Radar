@@ -231,8 +231,8 @@ public sealed class RadarApp : IDisposable
         // so behavior is identical; thereafter it's the authoritative, editable, ordered ruleset.
         _displayRules = new DisplayRules(Path.Combine(ConfigDir, "display_rules.json"));
         _zoneOverrides = new ZoneEntityOverrides(Path.Combine(ConfigDir, "zone_entity_overrides.json"));
-        _ruleEngine = new DisplayRuleEngine(_displayRules, _zoneOverrides, _settings.Styles);
-        _resolveEntity = e => _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly);
+        _ruleEngine = new DisplayRuleEngine(_displayRules, _zoneOverrides, () => _settings.Styles);
+        _resolveEntity = e => _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly, _entities);
         _resolveTileDraw = p => _displayRules.ResolveTile(p, requireMatch: false);
         if (_displayRules.Count == 0)
         {
@@ -381,6 +381,26 @@ public sealed class RadarApp : IDisposable
             _settings.EndgameMechanicsV2Migrated = true;
             _settings.Save();
             Console.WriteLine("Endgame mechanics v2: Abyss gates/troves (Object+Other), catalog resolves before Map marker.");
+        }
+        if (!_settings.EndgameMechanicsV3Migrated)
+        {
+            var rules = _displayRules.All.ToList();
+            if (DisplayRules.MigrateEndgameMechanics(rules))
+                _displayRules.Replace(rules);
+            _settings.Styles.Mechanics = EndgameMechanicCatalog.DefaultMechanicStyles();
+            _settings.EndgameMechanicsV3Migrated = true;
+            _settings.Save();
+            Console.WriteLine("Endgame mechanics v3: Essence frozen-mob matchers; mechanics before Monster Rare; display_rules authoritative.");
+        }
+        if (!_settings.EndgameMechanicsV7Migrated)
+        {
+            var rules = _displayRules.All.ToList();
+            if (DisplayRules.MigrateEndgameMechanics(rules))
+                _displayRules.Replace(rules);
+            _settings.Styles.Mechanics = EndgameMechanicCatalog.DefaultMechanicStyles();
+            _settings.EndgameMechanicsV7Migrated = true;
+            _settings.Save();
+            Console.WriteLine("Endgame mechanics v7: Essence rare+POI cluster; Essence rule any-category + monolith matchers.");
         }
         LogMissingHpBarTextures();
         _displayRulesGen = _ruleEngine.Generation;
@@ -827,7 +847,7 @@ public sealed class RadarApp : IDisposable
                 _                      => false,
             };
             if (!on) continue;
-            var rule = _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly);
+            var rule = _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly, _entities);
             if (rule is null || rule.Hide) continue;                   // no bars over hidden mobs
             var (bw, fillHex, borderW, borderHex) = e.Rarity switch    // geometry per rarity; fill = dot colour
             {
@@ -1074,7 +1094,7 @@ public sealed class RadarApp : IDisposable
     {
         if (!TryPickEntityUnderCursor("inspect", out var entity)) return;
 
-        var rule = _ruleEngine.Resolve(entity, _areaCode, _settings.ImportantOnly);
+        var rule = _ruleEngine.Resolve(entity, _areaCode, _settings.ImportantOnly, _entities);
         var label = EntityLabel(entity, rule);
         var token = EntityDisplayHelper.TypeToken(entity.Metadata);
         var ruleName = rule?.Name ?? "(none)";
@@ -1174,7 +1194,7 @@ public sealed class RadarApp : IDisposable
         // Nav/Hide toggles (and the web dashboard) actually include/exclude a type from auto-path.
         var pois = _entities
             .Where(e => e.IsAlive && !e.IconComplete)
-            .Select(e => (e, rule: _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly)))
+            .Select(e => (e, rule: _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly, _entities)))
             .Where(x => x.rule is { Hide: false, Navigable: true })
             .OrderBy(x => NumVec2.DistanceSquared(x.e.Grid, player));
         foreach (var (e, rule) in pois)
@@ -1591,7 +1611,7 @@ public sealed class RadarApp : IDisposable
             foreach (var e in _entities)
             {
                 if (e.Id != entityId) continue;
-                var label = EntityLabel(e, _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly));
+                var label = EntityLabel(e, _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly, _entities));
                 RememberTargetSnapshot(id, label, e.Grid, isEntity: true);
                 info = new TargetRenderInfo(id, label, e.Grid, IsEntity: true, NavTargetStatus.Live);
                 return true;

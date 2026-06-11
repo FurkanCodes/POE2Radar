@@ -1,4 +1,5 @@
 using POE2Radar.Core.Game;
+using POE2Radar.Overlay.Web;
 
 namespace POE2Radar.Overlay.Config;
 
@@ -20,15 +21,11 @@ public enum EntityImportance
 /// <see cref="RadarStyles.Mechanics"/> plus category/rarity/POI signals.</summary>
 public static class EntityImportanceHelper
 {
-    public static EntityImportance Classify(Poe2Live.EntityDot e, RadarStyles styles)
+    /// <param name="contentRule">First matching enabled display rule (from <see cref="DisplayRules.ResolveContent"/>).</param>
+    public static EntityImportance Classify(Poe2Live.EntityDot e, RadarStyles styles, DisplayRule? contentRule = null)
     {
-        if (EndgameMechanicCatalog.TryMatch(e, out _))
+        if (contentRule is { Name: { Length: > 0 } n } && EntityDisplayHelper.IsMechanicRuleName(n))
             return EntityImportance.Mechanic;
-
-        if (styles.Mechanics is { Count: > 0 })
-            foreach (var m in styles.Mechanics)
-                if (m.Enabled && MatchesMechanic(e, m))
-                    return EntityImportance.Mechanic;
 
         if (e.Category == Poe2Live.EntityCategory.Monster)
         {
@@ -95,25 +92,4 @@ public static class EntityImportanceHelper
         EntityImportance.NormalMonster,
         EntityImportance.Other,
     ];
-
-    private static bool MatchesMechanic(Poe2Live.EntityDot e, MechanicStyle m)
-    {
-        if (m.Match is not { Count: > 0 }) return false;
-
-        if (m.Categories is { Count: > 0 })
-        {
-            var cat = e.Category.ToString();
-            var ok = false;
-            foreach (var c in m.Categories)
-                if (string.Equals(c, cat, StringComparison.OrdinalIgnoreCase)) { ok = true; break; }
-            if (!ok) return false;
-        }
-
-        foreach (var term in m.Match)
-        {
-            if (string.IsNullOrEmpty(term)) continue;
-            if (e.Metadata.Contains(term, StringComparison.OrdinalIgnoreCase)) return true;
-        }
-        return false;
-    }
 }

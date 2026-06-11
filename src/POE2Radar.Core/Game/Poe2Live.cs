@@ -1168,8 +1168,10 @@ public sealed class Poe2Live
             _ when meta.Contains("/Monsters/", StringComparison.Ordinal)   => EntityCategory.Monster,
             _ when meta.Contains("/Characters/", StringComparison.Ordinal)  => EntityCategory.Player,
             // Real chests only — exclude breakable props (urns/vases/pots/etc.) under /Chests/.
-            _ when meta.Contains("/Chests", StringComparison.Ordinal) && IsBreakableProp(meta) => EntityCategory.Other,
-            _ when meta.Contains("/Chests", StringComparison.Ordinal)       => EntityCategory.Chest,
+            // Live metadata is lowercase (Metadata/chests/…); case-sensitive matching mislabels them as
+            // Other, which ImportantOnly then treats as trash and hides from the map.
+            _ when IsChestMetadata(meta) && IsBreakableProp(meta) => EntityCategory.Other,
+            _ when IsChestMetadata(meta)                               => EntityCategory.Chest,
             _ when meta.Contains("Transition", StringComparison.Ordinal)    => EntityCategory.Transition,
             _ when meta.Contains("/Terrain/", StringComparison.Ordinal)     => EntityCategory.Object,
             _                                                              => EntityCategory.Other,
@@ -1177,6 +1179,9 @@ public sealed class Poe2Live
         _category[entity] = c;
         return c;
     }
+
+    private static bool IsChestMetadata(string meta)
+        => meta.Contains("/chests/", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>True for "/Chests/" entities that are destructible scenery (urns, vases, pots…) not loot chests.</summary>
     private static bool IsBreakableProp(string meta) =>

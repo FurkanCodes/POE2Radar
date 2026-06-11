@@ -413,7 +413,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     var rule = ctx.Resolve?.Invoke(e);
                     if (rule is { Hide: true }) continue;
                     if (ctx.ImportantOnly && EntityImportanceHelper.IsTrash(
-                            EntityImportanceHelper.Classify(e, ctx.Styles))) continue;
+                            EntityImportanceHelper.Classify(e, ctx.Styles, rule))) continue;
                     var p = Project(e.Grid, ctx.PlayerGrid, center, scale, e.TerrainHeight - frame.PlayerTerrainHeight);
                     if (p.X < -40 || p.Y < -40 || p.X > W + 40 || p.Y > H + 40) continue;
                     var (sprite, shape, radius, color, opacity) = rule is not null
@@ -1303,7 +1303,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         var byTier = new Dictionary<EntityImportance, Dictionary<string, (string label, int count, Poe2Live.EntityDot sample)>>();
         foreach (var e in entities)
         {
-            var tier = EntityImportanceHelper.Classify(e, ctx.Styles);
+            var tier = EntityImportanceHelper.Classify(e, ctx.Styles, ctx.Resolve?.Invoke(e));
             if (s.ImportantOnly && EntityImportanceHelper.IsTrash(tier)) continue;
 
             var token = TypeToken(e.Metadata);
@@ -2040,9 +2040,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private static (SpriteIconRef? Sprite, string? Shape, float Size, string Color, float Opacity) ResolveEntityDrawStyle(
         Poe2Live.EntityDot e, RadarStyles styles)
     {
-        if (EndgameMechanicCatalog.TryMatch(e, out var def))
-            return (def!.Sprite.Clone(), def.Shape, def.Size, def.Color, def.Opacity);
-
         switch (e.Category)
         {
             case Poe2Live.EntityCategory.Monster:
