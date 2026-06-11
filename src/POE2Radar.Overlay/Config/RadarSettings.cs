@@ -184,6 +184,19 @@ public sealed class RadarSettings
     // ── Inspect entity under cursor: print identity to console (F4 default). JSON key kept for compat. ──
     public int TrackEntityHotkey { get; set; } = 0x73;
 
+    // ── Path / overlay / atlas hotkeys (0 = disabled; gamepad uses 0x10000 | XINPUT button mask). ──
+    public int AddNearestPathHotkey { get; set; } = 0x75;
+    public int ClearPathsHotkey { get; set; } = 0x76;
+    public int AutoFlaskToggleHotkey { get; set; } = 0x77;
+    public int QuitHotkey { get; set; } = 0x78;
+    public int AtlasPickHotkey { get; set; } = 0x79;
+    public int ToggleSettingsHotkey { get; set; } = 0x7A;
+    public int OpenDashboardHotkey { get; set; } = 0x7B;
+
+    // ── Xbox / XInput controller (player slot 0–3). ──
+    public bool GamepadHotkeysEnabled { get; set; } = true;
+    public int GamepadUserIndex { get; set; } = 0;
+
     // ── HTTP API. ──
     public int ApiPort { get; set; } = 7777;
 

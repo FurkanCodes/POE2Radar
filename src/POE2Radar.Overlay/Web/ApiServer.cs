@@ -542,6 +542,15 @@ public sealed class ApiServer : IDisposable
         hideEntityHotkey = _settings.HideEntityHotkey,
         trackEntityHotkey = _settings.TrackEntityHotkey,
         autoPathToggleHotkey = _settings.AutoPathToggleHotkey,
+        addNearestPathHotkey = _settings.AddNearestPathHotkey,
+        clearPathsHotkey = _settings.ClearPathsHotkey,
+        autoFlaskToggleHotkey = _settings.AutoFlaskToggleHotkey,
+        quitHotkey = _settings.QuitHotkey,
+        atlasPickHotkey = _settings.AtlasPickHotkey,
+        toggleSettingsHotkey = _settings.ToggleSettingsHotkey,
+        openDashboardHotkey = _settings.OpenDashboardHotkey,
+        gamepadHotkeysEnabled = _settings.GamepadHotkeysEnabled,
+        gamepadUserIndex = _settings.GamepadUserIndex,
         suppressCompletedContent = _settings.SuppressCompletedContent,
         completedSuppressMinutes = _settings.CompletedSuppressMinutes,
         hpBarNormal = _settings.HpBarNormal,
@@ -628,15 +637,51 @@ public sealed class ApiServer : IDisposable
                     applied.Add(p.Name);
                     break;
                 case "hideEntityHotkey" when TryInt(p.Value, out var hk):
-                    _settings.HideEntityHotkey = Math.Clamp(hk, 0, 255);
+                    _settings.HideEntityHotkey = ClampHotkey(hk);
                     applied.Add(p.Name);
                     break;
                 case "trackEntityHotkey" when TryInt(p.Value, out var tk):
-                    _settings.TrackEntityHotkey = Math.Clamp(tk, 0, 255);
+                    _settings.TrackEntityHotkey = ClampHotkey(tk);
                     applied.Add(p.Name);
                     break;
                 case "autoPathToggleHotkey" when TryInt(p.Value, out var apk):
-                    _settings.AutoPathToggleHotkey = Math.Clamp(apk, 0, 255);
+                    _settings.AutoPathToggleHotkey = ClampHotkey(apk);
+                    applied.Add(p.Name);
+                    break;
+                case "addNearestPathHotkey" when TryInt(p.Value, out var an):
+                    _settings.AddNearestPathHotkey = ClampHotkey(an);
+                    applied.Add(p.Name);
+                    break;
+                case "clearPathsHotkey" when TryInt(p.Value, out var cp):
+                    _settings.ClearPathsHotkey = ClampHotkey(cp);
+                    applied.Add(p.Name);
+                    break;
+                case "autoFlaskToggleHotkey" when TryInt(p.Value, out var af):
+                    _settings.AutoFlaskToggleHotkey = ClampHotkey(af);
+                    applied.Add(p.Name);
+                    break;
+                case "quitHotkey" when TryInt(p.Value, out var qk):
+                    _settings.QuitHotkey = ClampHotkey(qk);
+                    applied.Add(p.Name);
+                    break;
+                case "atlasPickHotkey" when TryInt(p.Value, out var ap):
+                    _settings.AtlasPickHotkey = ClampHotkey(ap);
+                    applied.Add(p.Name);
+                    break;
+                case "toggleSettingsHotkey" when TryInt(p.Value, out var ts):
+                    _settings.ToggleSettingsHotkey = ClampHotkey(ts);
+                    applied.Add(p.Name);
+                    break;
+                case "openDashboardHotkey" when TryInt(p.Value, out var od):
+                    _settings.OpenDashboardHotkey = ClampHotkey(od);
+                    applied.Add(p.Name);
+                    break;
+                case "gamepadHotkeysEnabled" when TryBool(p.Value, out var gpe):
+                    _settings.GamepadHotkeysEnabled = gpe;
+                    applied.Add(p.Name);
+                    break;
+                case "gamepadUserIndex" when TryInt(p.Value, out var gi):
+                    _settings.GamepadUserIndex = Math.Clamp(gi, 0, 3);
                     applied.Add(p.Name);
                     break;
                 case "suppressCompletedContent" when TryBool(p.Value, out var sc):
@@ -1158,6 +1203,8 @@ public sealed class ApiServer : IDisposable
         if (e.ValueKind == JsonValueKind.Number && e.TryGetSingle(out v)) return true;
         v = 0f; return false;
     }
+
+    private static int ClampHotkey(int code) => Math.Clamp(code, 0, 0x1FFFF);
 
     private static bool TryInt(JsonElement e, out int v)
     {

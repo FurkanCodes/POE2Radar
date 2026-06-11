@@ -38,7 +38,14 @@ public sealed class RouteTracker
 
     /// <summary>Waypoints from the cursor onward — what the renderer draws for this target.</summary>
     public IReadOnlyList<(int x, int y)> CurrentPoints
-        => _cursor <= 0 ? _waypoints : _waypoints.GetRange(_cursor, _waypoints.Count - _cursor);
+    {
+        get
+        {
+            if (_waypoints.Count == 0) return Array.Empty<(int x, int y)>();
+            if (_cursor <= 0) return _waypoints.ToArray();
+            return _waypoints.GetRange(_cursor, _waypoints.Count - _cursor);
+        }
+    }
 
     /// <summary>
     /// CHEAP per-tick maintenance: project the player onto the path and advance the cursor past

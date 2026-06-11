@@ -112,6 +112,7 @@ public sealed class RadarApp : IDisposable
     private bool _autoFlask = true;                        // auto-on; toggle with F8
     private DateTime _lifeFiredAt = DateTime.MinValue, _manaFiredAt = DateTime.MinValue;
     private DateTime _nextToggleAt = DateTime.MinValue;
+    private DateTime _nextQuitAt = DateTime.MinValue;
     private DateTime _nextPathKeyAt = DateTime.MinValue;
     private DateTime _nextAutoPathToggleAt = DateTime.MinValue;
     private DateTime _nextBrowserAt = DateTime.MinValue;
@@ -142,8 +143,6 @@ public sealed class RadarApp : IDisposable
     // at the palette size so colors stay distinct (and per-tick planning stays bounded). On a zone
     // change the selection is cleared, then the persistent auto-nav patterns re-select matching
     // targets in the new zone.
-    private const int AddNearestVk = 0x75; // F6
-    private const int ClearPathsVk = 0x76; // F7
     private const int MaxSelectedTargets = 8;
     // Background A* replanner (single reused PathPlanner on a worker thread) + one RouteTracker per
     // selected id. The tick thread does only CHEAP per-tick maintenance (cursor advance) and rebuilds
@@ -193,17 +192,7 @@ public sealed class RadarApp : IDisposable
         CrashLog.Write("Backend selected", "Starting ImGuiDx backend.");
         try
         {
-            _imguiOverlay = new ImGuiRadarOverlay(
-                cmd => _commandQueue.Enqueue(cmd),
-                id => TogglePathTarget(id),
-                corner =>
-                {
-                    _settings.NavMenuCorner = corner;
-                    _settings.Save();
-                },
-                () => AddNearestPathTarget(),
-                () => ClearPathTargets(),
-                _settings);
+            _imguiOverlay = CreateImGuiOverlay();
             _imguiThread = new Thread(RunImGuiOverlayThread)
             {
                 IsBackground = true,
@@ -416,8 +405,8 @@ public sealed class RadarApp : IDisposable
                              AtlasJson, SetAtlasSelection, SetAtlasHighlight, VersionJson, _settings.ApiPort);
         try { _api.Start(); Console.WriteLine($"API on http://localhost:{_settings.ApiPort} (dashboard at /)"); }
         catch (Exception ex) { Console.Error.WriteLine($"API server disabled: {ex.Message}"); }
-        Console.WriteLine("Hotkeys: F3=auto-path toggle  F4=inspect  F5=never-show  "
-                          + "F6=add nearest path  F7=clear paths  F8=auto-flask  F9=quit  F12=dashboard");
+        Console.WriteLine("Hotkeys: configurable in dashboard (Settings → Hotkeys) or overlay settings. "
+                          + "Xbox pad supported when Gamepad hotkeys is enabled.");
         // Best-effort version check against GitHub (non-blocking; never fails startup).
         _ = Task.Run(async () =>
         {
@@ -432,21 +421,52 @@ public sealed class RadarApp : IDisposable
 
     private void RunImGuiOverlayThread()
     {
-        try
+        while (!_shutdown)
         {
-            if (_imguiOverlay is not null)
-                _imguiOverlay.Run().GetAwaiter().GetResult();
-            if (!_shutdown)
+            try
             {
-                CrashLog.Write("ImGuiDx backend stopped", "The ImGuiDx overlay loop exited while POE2Radar was still running.");
-                RequestShutdown();
+                if (_imguiOverlay is null) return;
+                _imguiOverlay.Run().GetAwaiter().GetResult();
+                if (_shutdown) return;
+                CrashLog.Write("ImGuiDx backend stopped", "Overlay loop exited unexpectedly; restarting in 1s.");
+                Thread.Sleep(1000);
+                RestartImGuiOverlay();
+            }
+            catch (Exception ex)
+            {
+                if (_shutdown) return;
+                CrashLog.Write("ImGuiDx backend crashed; restarting in 1s", ex);
+                Thread.Sleep(1000);
+                try { RestartImGuiOverlay(); }
+                catch (Exception restartEx)
+                {
+                    CrashLog.Write("ImGuiDx backend restart failed", restartEx);
+                    RequestShutdown();
+                    return;
+                }
             }
         }
-        catch (Exception ex)
-        {
-            CrashLog.Write("ImGuiDx backend crashed", ex);
-            RequestShutdown();
-        }
+    }
+
+    private ImGuiRadarOverlay CreateImGuiOverlay()
+        => new ImGuiRadarOverlay(
+            cmd => _commandQueue.Enqueue(cmd),
+            id => TogglePathTarget(id),
+            corner =>
+            {
+                _settings.NavMenuCorner = corner;
+                _settings.Save();
+            },
+            () => AddNearestPathTarget(),
+            () => ClearPathTargets(),
+            _settings);
+
+    private void RestartImGuiOverlay()
+    {
+        _imguiOverlay = CreateImGuiOverlay();
+        _imguiOverlay.AttachEntityStores(_displayRules, _zoneOverrides, _ruleEngine, _hidden);
+        if (_gameHwnd != 0)
+            TrackImGuiGameWindow(_gameHwnd);
     }
 
     /// <summary>API (/api/version): this build's version + the latest known on GitHub + a download URL.
@@ -644,7 +664,8 @@ public sealed class RadarApp : IDisposable
                     var esFrac = esMax > 0 && esCur > 0 ? Math.Clamp((float)esCur / esMax, 0f, 1f) : 0f;
                     hpFrame.Add(new HpBarTarget(w, Math.Clamp((float)cur / max, 0f, 1f), esFrac, spec.Width, spec.Fill, spec.BorderWidth, spec.Border));
                 }
-                _hpFrame = hpFrame;
+                // Immutable publish — the ImGui thread enumerates this every frame.
+                _hpFrame = hpFrame.Count > 0 ? hpFrame.ToArray() : Array.Empty<HpBarTarget>();
                 hpBarsMs = ElapsedMs(hpBarsStart);
             }
             else if (_hpFrame.Count > 0)
@@ -685,7 +706,7 @@ public sealed class RadarApp : IDisposable
             MiniMap: miniMap,
             MapFrame: mapFrame,
             MiniMapFrame: miniMapFrame,
-            Entities: _entities,
+            Entities: _entities.Count > 0 ? _entities.ToArray() : Array.Empty<Poe2Live.EntityDot>(),
             Landmarks: _landmarks,
             AreaHash: _areaHash,
             Terrain: _terrain,
@@ -919,76 +940,59 @@ public sealed class RadarApp : IDisposable
         }
     }
 
-    /// <summary>Poll overlay hotkeys: F8 auto-flask toggle, F9 quit, F12 dashboard, F6/F7 path targets.
-    /// Map calibration is web-config-only (no in-game keys, to avoid accidental presses).</summary>
+    /// <summary>Poll overlay hotkeys (keyboard, mouse VK, or Xbox pad). Map calibration is web-only.</summary>
     private void HandleHotkeys()
     {
-        // F8 master kill-switch for auto-flask (debounced).
-        if (Down(0x77) && DateTime.UtcNow >= _nextToggleAt)
+        HotkeyPoll.BeginTick(_settings.GamepadHotkeysEnabled, _settings.GamepadUserIndex);
+
+        if (HotkeyPressed(_settings.AutoFlaskToggleHotkey, ref _nextToggleAt))
         {
             _autoFlask = !_autoFlask;
-            _nextToggleAt = DateTime.UtcNow.AddMilliseconds(300);
             Console.WriteLine($"\nAuto-flask: {(_autoFlask ? "ON" : "OFF")}");
         }
-        // F9 quits the overlay (besides the tray-icon Exit).
-        if (Down(0x78)) { Console.WriteLine("\nF9 — exiting."); RequestShutdown(); }
 
-        // F12 opens the web dashboard in the default browser — only while PoE2 is the foreground
-        // window (debounced). Purely launches a browser; sends nothing to the game.
-        if (Down(0x7B) && DateTime.UtcNow >= _nextBrowserAt
-            && _gameHwnd != 0 && GetForegroundWindow() == _gameHwnd)
-        {
-            _nextBrowserAt = DateTime.UtcNow.AddMilliseconds(800);
+        if (HotkeyPressed(_settings.QuitHotkey, ref _nextQuitAt, debounceMs: 0))
+            { Console.WriteLine("\nQuit hotkey — exiting."); RequestShutdown(); }
+
+        if (HotkeyPressed(_settings.OpenDashboardHotkey, ref _nextBrowserAt, debounceMs: 800, requireGameFocus: true))
             OpenDashboard();
-        }
 
-        // F11 toggles the in-overlay settings panel (debounced).
-        if (Down(0x7A) && DateTime.UtcNow >= _nextSettingsAt
-            && _gameHwnd != 0 && GetForegroundWindow() == _gameHwnd)
-        {
-            _nextSettingsAt = DateTime.UtcNow.AddMilliseconds(300);
+        if (HotkeyPressed(_settings.ToggleSettingsHotkey, ref _nextSettingsAt, requireGameFocus: true))
             _imguiOverlay?.ToggleSettings();
-        }
 
-        // F6 adds the nearest not-yet-selected landmark to the path selection; F7 clears it.
-        // Both debounced.
         if (DateTime.UtcNow >= _nextPathKeyAt)
         {
-            if (Down(AddNearestVk))
-            {
+            if (HotkeyPressed(_settings.AddNearestPathHotkey, ref _nextPathKeyAt))
                 AddNearestPathTarget();
-                _nextPathKeyAt = DateTime.UtcNow.AddMilliseconds(300);
-            }
-            else if (Down(ClearPathsVk))
-            {
+            else if (HotkeyPressed(_settings.ClearPathsHotkey, ref _nextPathKeyAt))
                 ClearPathTargets();
-                _nextPathKeyAt = DateTime.UtcNow.AddMilliseconds(300);
-            }
         }
 
-        var apVk = _settings.AutoPathToggleHotkey;
-        if (apVk > 0 && _gameHwnd != 0 && GetForegroundWindow() == _gameHwnd
-            && Down(apVk) && DateTime.UtcNow >= _nextAutoPathToggleAt)
+        if (HotkeyPressed(_settings.AutoPathToggleHotkey, ref _nextAutoPathToggleAt, requireGameFocus: true))
         {
-            _nextAutoPathToggleAt = DateTime.UtcNow.AddMilliseconds(300);
             _settings.AutoPathNavigable = !_settings.AutoPathNavigable;
             if (_settings.AutoPathNavigable) _settings.ShowPath = true;
             _settings.Save();
             Console.WriteLine($"\nAuto-path: {(_settings.AutoPathNavigable ? "ON" : "OFF")}");
         }
 
-        // Atlas tile inspector: F10 = dump the tile under the cursor (map/content/biome/flags) as an
-        // on-atlas tooltip so you can see what to set as a web-UI filter.
-        if (Down(0x79) && DateTime.UtcNow >= _nextInspectAt) // F10
-        {
-            _nextInspectAt = DateTime.UtcNow.AddMilliseconds(250);
+        if (HotkeyPressed(_settings.AtlasPickHotkey, ref _nextInspectAt, debounceMs: 250))
             AtlasRoutePick();
-        }
+    }
+
+    private bool HotkeyPressed(int binding, ref DateTime nextAt, int debounceMs = 300, bool requireGameFocus = false)
+    {
+        if (binding <= 0 || !HotkeyPoll.IsDown(binding)) return false;
+        if (requireGameFocus && (_gameHwnd == 0 || GetForegroundWindow() != _gameHwnd)) return false;
+        if (debounceMs > 0 && DateTime.UtcNow < nextAt) return false;
+        if (debounceMs > 0) nextAt = DateTime.UtcNow.AddMilliseconds(debounceMs);
+        return true;
     }
 
     /// <summary>F4/F5 cursor picks — run after map frames + entities are refreshed this tick.</summary>
     private void HandleCursorPickHotkeys()
     {
+        HotkeyPoll.BeginTick(_settings.GamepadHotkeysEnabled, _settings.GamepadUserIndex);
         if (_gameHwnd == 0 || GetForegroundWindow() != _gameHwnd || _areaInstanceForApi == 0) return;
 
         var settingsOpen = _imguiOverlay?.IsSettingsOpen == true;
@@ -1000,14 +1004,12 @@ public sealed class RadarApp : IDisposable
         _settingsWereOpen = settingsOpen;
         if (settingsOpen) return;
 
-        var hideVk = _settings.HideEntityHotkey;
-        var hideDown = hideVk > 0 && Down(hideVk);
+        var hideDown = _settings.HideEntityHotkey > 0 && HotkeyPoll.IsDown(_settings.HideEntityHotkey);
         if (hideDown && !_hideKeyWasDown)
             HideEntityUnderCursor();
         _hideKeyWasDown = hideDown;
 
-        var inspectVk = _settings.TrackEntityHotkey;
-        var inspectDown = inspectVk > 0 && Down(inspectVk);
+        var inspectDown = _settings.TrackEntityHotkey > 0 && HotkeyPoll.IsDown(_settings.TrackEntityHotkey);
         if (inspectDown && !_trackKeyWasDown)
             InspectEntityUnderCursor();
         _trackKeyWasDown = inspectDown;
@@ -1710,12 +1712,12 @@ public sealed class RadarApp : IDisposable
                 if (TryResolveTargetInfo(id, out var info))
                 {
                     var dist = NumVec2.Distance(info.Grid, player);
-                    paths.Add(new SelectedPath(slot, id, info.Label, info.IsEntity, info.Status, dist, pathDist, pts));
+                    paths.Add(new SelectedPath(slot, id, info.Label, info.IsEntity, info.Status, dist, pathDist, pts.ToArray()));
                 }
                 else
                 {
                     paths.Add(new SelectedPath(slot, id, id, id.StartsWith("e:", StringComparison.Ordinal),
-                        NavTargetStatus.NoPath, -1f, pathDist, pts));
+                        NavTargetStatus.NoPath, -1f, pathDist, pts.ToArray()));
                 }
             }
         }
@@ -2170,16 +2172,11 @@ public sealed class RadarApp : IDisposable
         var url = $"http://localhost:{_settings.ApiPort}/";
         try
         {
-            Console.WriteLine($"F12 — opening {url}");
+            Console.WriteLine($"Opening dashboard — {url}");
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
         }
         catch (Exception ex) { Console.Error.WriteLine($"Open dashboard failed: {ex.Message}"); }
     }
-
-    private static bool Down(int vk) => (GetAsyncKeyState(vk) & 0x8000) != 0;
-
-    [DllImport("user32.dll")]
-    private static extern short GetAsyncKeyState(int vKey);
 
     [DllImport("user32.dll")]
     private static extern nint GetForegroundWindow();

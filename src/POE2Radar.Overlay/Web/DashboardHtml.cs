@@ -416,6 +416,7 @@ internal static class DashboardHtml
   .zt-zone{font-size:10px;color:var(--ink-faint)}
   .dr-search-row{margin:0 0 10px}
   .hkctl{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .pad-menu{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;padding:6px;background:var(--bg-2);border:1px solid var(--line-soft);border-radius:6px}
   .hk-display{min-width:64px;padding:6px 12px;font-weight:600;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:var(--radius-sm);font-size:12px;text-align:center}
   .hkctl .chip.binding{color:var(--accent);border-color:var(--accent);animation:drFlash 1s ease infinite}
   .dr-preview-lg{width:36px;height:36px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;color:var(--ink)}
@@ -844,26 +845,61 @@ internal static class DashboardHtml
           <div class="settings-section panel-grid" id="setHotkeys" hidden>
           <div class="card">
             <h3>In-game hotkeys</h3>
-            <p class="hint-oneline">Click <b>Bind</b>, then press the key you want. <b>Clear</b> disables a bind.</p>
-            <div class="row"><div class="rl">Never show under cursor<small>hover an entity and press this key to add its type to Never show</small></div>
-              <span class="hkctl">
-                <span class="hk-display" data-hk="hideEntityHotkey">F5</span>
+            <p class="hint-oneline">Click <b>Bind</b>, then press a key. Use <b>Pad</b> chips for Xbox buttons, or bind pad buttons in overlay settings (Entities tab).</p>
+            <div class="row"><div class="rl">Gamepad hotkeys<small>XInput / Xbox controller on player slot 0–3</small></div>
+              <label class="sw"><input type="checkbox" data-set="gamepadHotkeysEnabled"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Pad player slot<small>0 = first controller</small></div>
+              <input class="numin" type="number" step="1" min="0" max="3" data-set="gamepadUserIndex"></div>
+            <div class="row"><div class="rl">Never show under cursor<small>hover entity → hide type globally</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="hideEntityHotkey">F5</span>
                 <button type="button" class="chip" data-hk-bind="hideEntityHotkey">Bind</button>
-                <button type="button" class="chip" data-hk-clear="hideEntityHotkey">Clear</button>
-              </span></div>
-            <div class="row"><div class="rl">Inspect under cursor<small>hover an entity and press this key to print its info to the console</small></div>
-              <span class="hkctl">
-                <span class="hk-display" data-hk="trackEntityHotkey">F4</span>
+                <button type="button" class="chip" data-hk-pad="hideEntityHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="hideEntityHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl">Inspect under cursor<small>print entity info to console</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="trackEntityHotkey">F4</span>
                 <button type="button" class="chip" data-hk-bind="trackEntityHotkey">Bind</button>
-                <button type="button" class="chip" data-hk-clear="trackEntityHotkey">Clear</button>
-              </span></div>
-            <div class="row"><div class="rl">Auto-path toggle<small>turn continuous auto-pathing on/off (default F3)</small></div>
-              <span class="hkctl">
-                <span class="hk-display" data-hk="autoPathToggleHotkey">F3</span>
+                <button type="button" class="chip" data-hk-pad="trackEntityHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="trackEntityHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl">Auto-path toggle<small>continuous auto-pathing (default F3)</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="autoPathToggleHotkey">F3</span>
                 <button type="button" class="chip" data-hk-bind="autoPathToggleHotkey">Bind</button>
-                <button type="button" class="chip" data-hk-clear="autoPathToggleHotkey">Clear</button>
-              </span></div>
-            <p class="hint-oneline" style="margin-top:8px">Fixed shortcuts: F6 add nearest path &middot; F7 clear paths &middot; F8 auto-flask &middot; F12 open dashboard</p>
+                <button type="button" class="chip" data-hk-pad="autoPathToggleHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="autoPathToggleHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl">Add nearest path<small>F6 default</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="addNearestPathHotkey">F6</span>
+                <button type="button" class="chip" data-hk-bind="addNearestPathHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="addNearestPathHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="addNearestPathHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl">Clear paths<small>F7 default</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="clearPathsHotkey">F7</span>
+                <button type="button" class="chip" data-hk-bind="clearPathsHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="clearPathsHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="clearPathsHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl">Auto-flask toggle<small>F8 default</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="autoFlaskToggleHotkey">F8</span>
+                <button type="button" class="chip" data-hk-bind="autoFlaskToggleHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="autoFlaskToggleHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="autoFlaskToggleHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl">Atlas tile pick<small>F10 default — atlas routing</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="atlasPickHotkey">F10</span>
+                <button type="button" class="chip" data-hk-bind="atlasPickHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="atlasPickHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="atlasPickHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl">Overlay settings<small>F11 default</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="toggleSettingsHotkey">F11</span>
+                <button type="button" class="chip" data-hk-bind="toggleSettingsHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="toggleSettingsHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="toggleSettingsHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl">Open dashboard<small>F12 default (PoE2 focused)</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="openDashboardHotkey">F12</span>
+                <button type="button" class="chip" data-hk-bind="openDashboardHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="openDashboardHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="openDashboardHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl">Quit overlay<small>F9 default</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="quitHotkey">F9</span>
+                <button type="button" class="chip" data-hk-bind="quitHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="quitHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="quitHotkey">Clear</button></span></div>
           </div>
           </div>
           </div>
@@ -1033,9 +1069,17 @@ const VK_NAMES={
   0xBA:';',0xBB:'=',0xBC:',',0xBD:'-',0xBE:'.',0xBF:'/',0xC0:'`',
   0xDB:'[',0xDC:'\\',0xDD:']',0xDE:"'"
 };
+const GP_FLAG=0x10000;
+const GP_NAMES={
+  0x1000:'Pad A',0x2000:'Pad B',0x4000:'Pad X',0x8000:'Pad Y',
+  0x0100:'Pad LB',0x0200:'Pad RB',0x0020:'Pad Back',0x0010:'Pad Start',
+  0x0040:'Pad L3',0x0080:'Pad R3',
+  0x0001:'Pad D-Up',0x0002:'Pad D-Down',0x0004:'Pad D-Left',0x0008:'Pad D-Right'
+};
 function vkName(vk){
   vk=+vk||0;
   if(vk<=0) return 'None';
+  if(vk>=GP_FLAG) return GP_NAMES[vk&0xFFFF]||`Pad 0x${(vk&0xFFFF).toString(16)}`;
   if(vk>=0x30&&vk<=0x39) return String.fromCharCode(vk);
   if(vk>=0x41&&vk<=0x5A) return String.fromCharCode(vk);
   return VK_NAMES[vk]||`VK ${vk}`;
@@ -1069,6 +1113,21 @@ function wireHotkeys(){
       _hkBinding=btn.dataset.hkBind;
       btn.textContent='Press key…';
       btn.classList.add('binding');
+    };
+  });
+  $$('[data-hk-pad]').forEach(btn=>{
+    btn.onclick=()=>{
+      const key=btn.dataset.hkPad;
+      const menu=document.createElement('div');
+      menu.className='pad-menu';
+      Object.entries(GP_NAMES).forEach(([mask,name])=>{
+        const b=document.createElement('button');
+        b.type='button'; b.className='chip'; b.textContent=name;
+        b.onclick=()=>{ menu.remove(); saveSetting(key,GP_FLAG+(+mask)).then(()=>updateHotkeyDisplays()); };
+        menu.appendChild(b);
+      });
+      btn.after(menu);
+      setTimeout(()=>document.addEventListener('click',()=>menu.remove(),{once:true}),0);
     };
   });
   $$('[data-hk-clear]').forEach(btn=>{

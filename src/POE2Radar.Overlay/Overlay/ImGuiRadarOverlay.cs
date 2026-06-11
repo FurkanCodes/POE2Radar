@@ -5,6 +5,7 @@ using POE2Radar.Core.Game;
 using POE2Radar.Core.Pathfinding;
 using POE2Radar.Overlay.Config;
 using POE2Radar.Overlay.Diagnostics;
+using POE2Radar.Overlay.Input;
 using POE2Radar.Overlay.Native;
 using POE2Radar.Overlay.Web;
 using NumVec2 = System.Numerics.Vector2;
@@ -47,9 +48,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private string _atlasTagFilter = "";
     private readonly List<MapLabelCandidate> _atlasLabelScratch = new(256);
     private int _spritePickerRuleIndex = -1;
-    private bool _bindingHideHotkey;
-    private bool _bindingTrackHotkey;
-    private bool _bindingAutoPathHotkey;
+    private string? _hotkeyBindTarget;
     private bool _hotkeyBindArmed;
 
     private static readonly Vector4[] PathPalette =
@@ -168,9 +167,10 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
         catch (Exception ex)
         {
+            // Log once per session; keep the overlay alive — Close() used to kill the whole map draw
+            // loop after a cross-thread "collection modified" in DrawNameplates.
             if (Interlocked.Exchange(ref _renderCrashLogged, 1) == 0)
-                CrashLog.Write("ImGui render crashed", ex);
-            Close();
+                CrashLog.Write("ImGui render error (overlay kept alive)", ex);
         }
     }
 
@@ -1120,8 +1120,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 s.CompletedSuppressMinutes = suppressMin;
         }
 
-        DrawAutoPathHotkeyRow(s);
-
         if (_displayRules is null)
         {
             ImGui.TextDisabled("Radar rules not wired yet.");
@@ -1252,8 +1250,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             DrawSpritePickerWindow();
         }
 
-        DrawHideEntityHotkeyRow(s);
-        DrawTrackEntityHotkeyRow(s);
+        DrawHotkeysSection(s);
 
         if (_hidden is null) return;
 
@@ -1828,138 +1825,127 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         lock (_settingsLock) _settings.Save();
     }
 
-    private void DrawHideEntityHotkeyRow(RadarSettings s)
+    private void DrawHotkeysSection(RadarSettings s)
     {
-        if (!ImGui.CollapsingHeader("Hide under cursor", ImGuiTreeNodeFlags.DefaultOpen)) return;
+        if (!ImGui.CollapsingHeader("Hotkeys (keyboard + Xbox)", ImGuiTreeNodeFlags.DefaultOpen)) return;
 
-        ImGui.PushID("HideHotkey");
-        ImGui.TextUnformatted("Hotkey:");
-        ImGui.SameLine();
-        if (_bindingHideHotkey)
-            ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Press key or mouse…");
-        else
-            ImGui.TextUnformatted(VirtualKeyHelper.Name(s.HideEntityHotkey));
-        ImGui.SameLine();
-        if (ImGui.Button(_bindingHideHotkey ? "…##bind" : "Bind##bind"))
-        {
-            _bindingHideHotkey = true;
-            _hotkeyBindArmed = false;
-        }
+        bool gp = s.GamepadHotkeysEnabled;
+        if (ImGui.Checkbox("Gamepad hotkeys", ref gp)) s.GamepadHotkeysEnabled = gp;
         if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
-            ImGui.SetTooltip("Bind hotkey: hover an entity on the map, press the key to add its type to Never show.");
-        ImGui.SameLine();
-        if (ImGui.Button("Clear##clear") && s.HideEntityHotkey > 0)
-        {
-            s.HideEntityHotkey = 0;
-            _bindingHideHotkey = false;
-            SaveSettings();
-        }
-        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
-            ImGui.SetTooltip("Disable hide-under-cursor hotkey");
+            ImGui.SetTooltip("Xbox / XInput controllers on player slot 0–3.");
 
-        ImGui.TextWrapped("Hover an entity (map, minimap, or 3D view) and press the hotkey to hide that type globally.");
-        ImGui.PopID();
+        int gi = s.GamepadUserIndex;
+        ImGui.SetNextItemWidth(120f);
+        if (ImGui.SliderInt("Pad slot", ref gi, 0, 3)) s.GamepadUserIndex = gi;
+
+        ImGui.TextDisabled("Bind: click Bind, then press a key or controller button.");
+
+        DrawHotkeyRow(s, "hideEntityHotkey", "Never show under cursor",
+            "Hover an entity and press to add its type to Never show.");
+        DrawHotkeyRow(s, "trackEntityHotkey", "Inspect under cursor",
+            "Print entity metadata to the console.");
+        DrawHotkeyRow(s, "autoPathToggleHotkey", "Auto-path toggle", "Toggle continuous auto-pathing.");
+        DrawHotkeyRow(s, "addNearestPathHotkey", "Add nearest path", "Add nearest nav target.");
+        DrawHotkeyRow(s, "clearPathsHotkey", "Clear paths", "Clear all path targets.");
+        DrawHotkeyRow(s, "autoFlaskToggleHotkey", "Auto-flask toggle", "Master kill-switch for auto-flask.");
+        DrawHotkeyRow(s, "atlasPickHotkey", "Atlas tile pick", "Pick atlas tile under cursor for routing.");
+        DrawHotkeyRow(s, "toggleSettingsHotkey", "Overlay settings", "Toggle this settings panel.");
+        DrawHotkeyRow(s, "openDashboardHotkey", "Open dashboard", "Open web dashboard (PoE2 focused).");
+        DrawHotkeyRow(s, "quitHotkey", "Quit overlay", "Exit POE2Radar.");
     }
 
-    private void DrawAutoPathHotkeyRow(RadarSettings s)
+    private void DrawHotkeyRow(RadarSettings s, string settingKey, string label, string tooltip)
     {
-        if (!ImGui.CollapsingHeader("Auto-path hotkey", ImGuiTreeNodeFlags.DefaultOpen)) return;
-
-        ImGui.PushID("AutoPathHotkey");
-        ImGui.TextUnformatted("Toggle key:");
-        ImGui.SameLine();
-        if (_bindingAutoPathHotkey)
-            ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Press key or mouse…");
+        ImGui.PushID(settingKey);
+        ImGui.TextUnformatted(label);
+        ImGui.SameLine(200f);
+        var binding = GetHotkey(s, settingKey);
+        if (_hotkeyBindTarget == settingKey)
+            ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Press key / pad…");
         else
-            ImGui.TextUnformatted(VirtualKeyHelper.Name(s.AutoPathToggleHotkey));
+            ImGui.TextUnformatted(HotkeyCodes.DisplayName(binding));
         ImGui.SameLine();
-        if (ImGui.Button(_bindingAutoPathHotkey ? "…##bind" : "Bind##bind"))
+        if (ImGui.Button(_hotkeyBindTarget == settingKey ? "…" : "Bind"))
         {
-            _bindingAutoPathHotkey = true;
+            _hotkeyBindTarget = settingKey;
             _hotkeyBindArmed = false;
         }
-        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
-            ImGui.SetTooltip("Toggle Auto-path to nearest targets (default F3). Enables Show Paths when turning on.");
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip(tooltip);
         ImGui.SameLine();
-        if (ImGui.Button("Clear##clear") && s.AutoPathToggleHotkey > 0)
+        if (ImGui.Button("Clear") && binding > 0)
         {
-            s.AutoPathToggleHotkey = 0;
-            _bindingAutoPathHotkey = false;
+            SetHotkey(s, settingKey, 0);
+            if (_hotkeyBindTarget == settingKey) _hotkeyBindTarget = null;
             SaveSettings();
         }
         ImGui.PopID();
     }
 
-    private void DrawTrackEntityHotkeyRow(RadarSettings s)
+    private static int GetHotkey(RadarSettings s, string key) => key switch
     {
-        if (!ImGui.CollapsingHeader("Inspect under cursor", ImGuiTreeNodeFlags.DefaultOpen)) return;
+        "hideEntityHotkey" => s.HideEntityHotkey,
+        "trackEntityHotkey" => s.TrackEntityHotkey,
+        "autoPathToggleHotkey" => s.AutoPathToggleHotkey,
+        "addNearestPathHotkey" => s.AddNearestPathHotkey,
+        "clearPathsHotkey" => s.ClearPathsHotkey,
+        "autoFlaskToggleHotkey" => s.AutoFlaskToggleHotkey,
+        "atlasPickHotkey" => s.AtlasPickHotkey,
+        "toggleSettingsHotkey" => s.ToggleSettingsHotkey,
+        "openDashboardHotkey" => s.OpenDashboardHotkey,
+        "quitHotkey" => s.QuitHotkey,
+        _ => 0,
+    };
 
-        ImGui.PushID("TrackHotkey");
-        ImGui.TextUnformatted("Hotkey:");
-        ImGui.SameLine();
-        if (_bindingTrackHotkey)
-            ImGui.TextColored(new Vector4(1f, 0.85f, 0.2f, 1f), "Press key or mouse…");
-        else
-            ImGui.TextUnformatted(VirtualKeyHelper.Name(s.TrackEntityHotkey));
-        ImGui.SameLine();
-        if (ImGui.Button(_bindingTrackHotkey ? "…##bind" : "Bind##bind"))
+    private static void SetHotkey(RadarSettings s, string key, int value)
+    {
+        switch (key)
         {
-            _bindingTrackHotkey = true;
-            _hotkeyBindArmed = false;
+            case "hideEntityHotkey": s.HideEntityHotkey = value; break;
+            case "trackEntityHotkey": s.TrackEntityHotkey = value; break;
+            case "autoPathToggleHotkey": s.AutoPathToggleHotkey = value; break;
+            case "addNearestPathHotkey": s.AddNearestPathHotkey = value; break;
+            case "clearPathsHotkey": s.ClearPathsHotkey = value; break;
+            case "autoFlaskToggleHotkey": s.AutoFlaskToggleHotkey = value; break;
+            case "atlasPickHotkey": s.AtlasPickHotkey = value; break;
+            case "toggleSettingsHotkey": s.ToggleSettingsHotkey = value; break;
+            case "openDashboardHotkey": s.OpenDashboardHotkey = value; break;
+            case "quitHotkey": s.QuitHotkey = value; break;
         }
-        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
-            ImGui.SetTooltip("Bind hotkey: hover an entity and press to print its identity to the console (F4 default).");
-        ImGui.SameLine();
-        if (ImGui.Button("Clear##clear") && s.TrackEntityHotkey > 0)
-        {
-            s.TrackEntityHotkey = 0;
-            _bindingTrackHotkey = false;
-            SaveSettings();
-        }
-
-        ImGui.TextWrapped("Prints entity info to the console (map, minimap, or 3D view). Does not add path targets — use legend, F6, or Types in zone to track.");
-        ImGui.PopID();
     }
 
     private void PollHotkeyCapture(RadarSettings s)
     {
-        if (!_bindingHideHotkey && !_bindingTrackHotkey && !_bindingAutoPathHotkey) return;
+        if (_hotkeyBindTarget is null) return;
 
-        // Ignore input until the Bind click's mouse button is released.
         if (!_hotkeyBindArmed)
         {
             if (IsAnyMouseButtonDown()) return;
             _hotkeyBindArmed = true;
+            if (s.GamepadHotkeysEnabled) GamepadInput.ArmBindCapture();
             return;
         }
 
-        if (!TryPollPressedVk(out var vk)) return;
+        if (!TryPollPressedBinding(s.GamepadHotkeysEnabled, out var code)) return;
 
-        if (vk == 0x1B)
+        if (code == 0x1B)
         {
-            _bindingHideHotkey = false;
-            _bindingTrackHotkey = false;
-            _bindingAutoPathHotkey = false;
+            _hotkeyBindTarget = null;
             return;
         }
 
-        if (_bindingHideHotkey)
-        {
-            s.HideEntityHotkey = vk;
-            _bindingHideHotkey = false;
-        }
-        else if (_bindingTrackHotkey)
-        {
-            s.TrackEntityHotkey = vk;
-            _bindingTrackHotkey = false;
-        }
-        else
-        {
-            s.AutoPathToggleHotkey = vk;
-            _bindingAutoPathHotkey = false;
-        }
-
+        SetHotkey(s, _hotkeyBindTarget, code);
+        _hotkeyBindTarget = null;
         SaveSettings();
+    }
+
+    private static bool TryPollPressedBinding(bool gamepadEnabled, out int code)
+    {
+        if (gamepadEnabled && GamepadInput.TryGetBindPress(out var mask))
+        {
+            code = HotkeyCodes.EncodeGamepad(mask);
+            return true;
+        }
+        return TryPollPressedVk(out code);
     }
 
     private static bool IsAnyMouseButtonDown()
