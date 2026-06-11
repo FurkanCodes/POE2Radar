@@ -695,13 +695,15 @@ public sealed class Poe2Live
             _everVisible.Clear();
             _selectedMapEl = 0;
             _selectedMapMisses = 0;
+            UiRootResolver.Invalidate(inGameState);
         }
 
         // GameHelper's stable path reads the LargeMap/MiniMap pointers directly from GameUi -> MapParent.
         // Prefer it when available; the UI-tree scan below remains a patch-drift fallback.
-        if (TryReadDirectMaps(inGameState, windowWidth, windowHeight, out var direct))
+        if (TryReadDirectMaps(inGameState, windowWidth, windowHeight, out var direct)
+            && ScoreMapViews(direct) > 0)
         {
-            _selectedMapEl = direct.LargeMap.Element;
+            _selectedMapEl = direct.LargeMap.Element != 0 ? direct.LargeMap.Element : direct.MiniMap.Element;
             _selectedMapMisses = 0;
             ObserveMapVisibility(direct.LargeMap);
             ObserveMapVisibility(direct.MiniMap);
@@ -784,18 +786,65 @@ public sealed class Poe2Live
         return new MapViews(fallbackLarge, fallbackMini);
     }
 
+    private nint GetUiRoot(nint inGameState) => UiRootResolver.Resolve(_reader, inGameState);
+
+    private bool HasMapParentChain(nint importantUi)
+    {
+        if (importantUi == 0) return false;
+        var mapParent = Ptr(importantUi + Poe2.ImportantUi.MapParentPtr);
+        if (mapParent == 0) return false;
+        var large = Ptr(mapParent + Poe2.MapParent.LargeMapPtr);
+        var mini = Ptr(mapParent + Poe2.MapParent.MiniMapPtr);
+        return large != 0 && mini != 0 && large != mini;
+    }
+
+    /// <summary>Locate GameUi / GameUiController anchors when the hardcoded UiRootStruct offset reads 0.</summary>
+    private void DiscoverGameUiAnchors(nint inGameState, out nint gameUi, out nint controllerGameUi)
+    {
+        gameUi = controllerGameUi = 0;
+        var uiRootStruct = Ptr(inGameState + Poe2.InGameState.UiRootStructPtr);
+        if (uiRootStruct != 0)
+        {
+            gameUi = Ptr(uiRootStruct + Poe2.UiRootStruct.GameUiPtr);
+            controllerGameUi = Ptr(uiRootStruct + Poe2.UiRootStruct.GameUiControllerPtr);
+            if (HasMapParentChain(gameUi) || HasMapParentChain(controllerGameUi)) return;
+        }
+
+        for (var o = 0; o < 0x2000; o += 8)
+        {
+            var s = Ptr(inGameState + o);
+            if (s == 0) continue;
+            var g = Ptr(s + Poe2.UiRootStruct.GameUiPtr);
+            var c = Ptr(s + Poe2.UiRootStruct.GameUiControllerPtr);
+            if (gameUi == 0 && HasMapParentChain(g)) gameUi = g;
+            if (controllerGameUi == 0 && HasMapParentChain(c)) controllerGameUi = c;
+            if (gameUi != 0 && controllerGameUi != 0) return;
+        }
+
+        for (var o = 0; o < 0x3000; o += 8)
+        {
+            var p = Ptr(inGameState + o);
+            if (!HasMapParentChain(p)) continue;
+            if (gameUi == 0) gameUi = p;
+            else if (controllerGameUi == 0 && p != gameUi) controllerGameUi = p;
+            if (gameUi != 0 && controllerGameUi != 0) break;
+        }
+    }
+
     private bool TryReadDirectMaps(nint inGameState, int windowWidth, int windowHeight, out MapViews maps)
     {
         maps = default;
 
-        var uiRoot = Ptr(inGameState + Poe2.InGameState.UiRoot);
-        var uiRootStruct = Ptr(inGameState + Poe2.InGameState.UiRootStructPtr);
-        var gameUi = uiRootStruct != 0 ? Ptr(uiRootStruct + Poe2.UiRootStruct.GameUiPtr) : 0;
-        var controllerGameUi = uiRootStruct != 0 ? Ptr(uiRootStruct + Poe2.UiRootStruct.GameUiControllerPtr) : 0;
+        var uiRoot = GetUiRoot(inGameState);
+        DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
 
-        // Different builds expose ImportantUi from slightly different anchors. Try the GH GameUi path
-        // first, then the direct/root anchors used by older POE2Radar probes.
-        Span<nint> bases = stackalloc nint[] { gameUi, controllerGameUi, uiRoot, inGameState };
+        // PoE2 keeps parallel UI trees: keyboard/mouse GameUi vs controller GameUiController. The first
+        // successful read used to win even when that branch's minimap/large-map visibility was stale
+        // (controller play → overlay paths drew but map wash/icons did not). Score every anchor and pick
+        // the branch that actually has visible map elements (+ resolved screen rects).
+        Span<nint> bases = stackalloc nint[] { controllerGameUi, gameUi, uiRoot, inGameState };
+        MapViews best = default;
+        var bestScore = -1;
         for (var i = 0; i < bases.Length; i++)
         {
             var baseAddr = bases[i];
@@ -810,11 +859,37 @@ public sealed class Poe2Live
             }
             if (duplicate) continue;
 
-            if (TryReadMapsFromImportantUi(baseAddr, windowWidth, windowHeight, out maps))
-                return true;
+            if (!TryReadMapsFromImportantUi(baseAddr, windowWidth, windowHeight, out var candidate))
+                continue;
+
+            var score = ScoreMapViews(candidate);
+            if (score > bestScore)
+            {
+                best = candidate;
+                bestScore = score;
+            }
         }
 
-        return false;
+        if (bestScore < 0) return false;
+        maps = best;
+        return true;
+    }
+
+    /// <summary>Rank a direct-read map pair so we pick the UI tree that actually shows the minimap / overlay map.</summary>
+    private static int ScoreMapViews(MapViews views)
+    {
+        var score = 0;
+        if (views.LargeMap.Element != 0)
+        {
+            if (views.LargeMap.IsVisible) score += 8;
+            if (views.LargeMap.HasScreenRect) score += 2;
+        }
+        if (views.MiniMap.Element != 0)
+        {
+            if (views.MiniMap.IsVisible) score += 4;
+            if (views.MiniMap.HasScreenRect) score += 1;
+        }
+        return score;
     }
 
     private bool TryReadMapsFromImportantUi(nint importantUi, int windowWidth, int windowHeight, out MapViews maps)
@@ -833,6 +908,40 @@ public sealed class Poe2Live
         return true;
     }
 
+    /// <summary>Human-readable dump of every candidate UI branch's map read — for diagnosing why the
+    /// map overlay doesn't draw (e.g. controller GameUiController vs keyboard GameUi).</summary>
+    public string MapDiagnostics(nint inGameState, int windowWidth, int windowHeight)
+    {
+        var sb = new System.Text.StringBuilder();
+        var uiRoot = GetUiRoot(inGameState);
+        var uiRootFixed = Ptr(inGameState + Poe2.InGameState.UiRoot);
+        var uiRootStruct = Ptr(inGameState + Poe2.InGameState.UiRootStructPtr);
+        DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
+
+        sb.Append($"igs=0x{inGameState:X} uiRoot=0x{uiRoot:X}(+0x{UiRootResolver.CachedOffset:X},fixed=0x{uiRootFixed:X}) "
+                + $"uiRootStruct=0x{uiRootStruct:X} gameUi=0x{gameUi:X} ctrlUi=0x{controllerGameUi:X}; ");
+
+        (string Name, nint Base)[] branches =
+        {
+            ("ctrl", controllerGameUi), ("kbm", gameUi), ("root", uiRoot), ("igs", inGameState),
+        };
+        foreach (var (name, b) in branches)
+        {
+            if (b == 0) { sb.Append($"[{name}:null] "); continue; }
+            var mapParent = Ptr(b + Poe2.ImportantUi.MapParentPtr);
+            if (mapParent == 0) { sb.Append($"[{name}:noMapParent] "); continue; }
+            var lp = Ptr(mapParent + Poe2.MapParent.LargeMapPtr);
+            var mp = Ptr(mapParent + Poe2.MapParent.MiniMapPtr);
+            MapUi large = default, mini = default;
+            var lOk = lp != 0 && TryReadMapElement(lp, windowWidth, windowHeight, out large);
+            var mOk = mp != 0 && TryReadMapElement(mp, windowWidth, windowHeight, out mini);
+            sb.Append($"[{name}: L{(lOk ? $"(vis={large.IsVisible},rect={large.HasScreenRect},{large.Width:F0}x{large.Height:F0})" : "x")} "
+                    + $"M{(mOk ? $"(vis={mini.IsVisible},rect={mini.HasScreenRect},{mini.Width:F0}x{mini.Height:F0})" : "x")}] ");
+        }
+        sb.Append($"discoveredEls={_mapEls.Count} selectedEl=0x{_selectedMapEl:X}");
+        return sb.ToString();
+    }
+
     private void ObserveMapVisibility(MapUi ui)
     {
         if (ui.Element == 0) return;
@@ -849,7 +958,7 @@ public sealed class Poe2Live
 
     private void DiscoverMapElements(nint inGameState)
     {
-        var uiRoot = Ptr(inGameState + Poe2.InGameState.UiRoot);
+        var uiRoot = GetUiRoot(inGameState);
         if (uiRoot == 0) return;
         var queue = new Queue<nint>(); queue.Enqueue(uiRoot);
         var visited = new HashSet<nint>();

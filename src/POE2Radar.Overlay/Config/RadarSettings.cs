@@ -194,7 +194,7 @@ public sealed class RadarSettings
     public int OpenDashboardHotkey { get; set; } = 0x7B;
 
     // ── Xbox / XInput controller (player slot 0–3). ──
-    public bool GamepadHotkeysEnabled { get; set; } = true;
+    public bool GamepadHotkeysEnabled { get; set; } = false;
     public int GamepadUserIndex { get; set; } = 0;
 
     // ── HTTP API. ──

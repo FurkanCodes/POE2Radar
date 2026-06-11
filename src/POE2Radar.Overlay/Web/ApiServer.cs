@@ -150,6 +150,9 @@ public sealed class ApiServer : IDisposable
                     areaAct = ZoneGuide.Shared.Area(s.AreaCode)?.Act ?? 0,
                     charName = s.CharName, charLevel = s.CharLevel,
                     mapVisible = s.MapVisible, zoom = s.Zoom,
+                    miniMapVisible = s.MiniMapVisible, miniMapRect = s.MiniMapRect,
+                    miniMapW = s.MiniMapW, miniMapH = s.MiniMapH,
+                    mapDiag = s.MapDiag,
                     hpPct = s.HpPct, manaPct = s.ManaPct, esPct = s.EsPct, autoFlask = s.AutoFlask, flask = s.FlaskNote,
                     player = new { x = s.Player.X, y = s.Player.Y },
                     entityCount = s.Entities.Count,
@@ -1312,7 +1315,12 @@ public sealed record RadarState(
     string AreaCode,
     string CharName,
     int CharLevel,
-    PerfSnapshot Perf)
+    PerfSnapshot Perf,
+    string MapDiag = "",
+    bool MiniMapVisible = false,
+    bool MiniMapRect = false,
+    float MiniMapW = 0f,
+    float MiniMapH = 0f)
 {
     public static readonly RadarState Empty =
         new(false, 0, 0, false, 0, System.Numerics.Vector2.Zero,

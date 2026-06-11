@@ -1,3 +1,4 @@
+using POE2Radar.Overlay.Config;
 using POE2Radar.Overlay.Native;
 
 namespace POE2Radar.Overlay.Input;
@@ -5,11 +6,24 @@ namespace POE2Radar.Overlay.Input;
 /// <summary>Unified keyboard + gamepad binding poll (Win32 VK or encoded gamepad mask).</summary>
 public static class HotkeyPoll
 {
-    public static void BeginTick(bool gamepadEnabled, int gamepadUserIndex)
+    public static void BeginTick(RadarSettings settings)
     {
-        GamepadInput.Configure(gamepadEnabled, gamepadUserIndex);
-        GamepadInput.Poll();
+        var pollPad = settings.GamepadHotkeysEnabled || UsesGamepadBindings(settings);
+        GamepadInput.Configure(pollPad, settings.GamepadUserIndex);
+        if (pollPad) GamepadInput.Poll();
     }
+
+    private static bool UsesGamepadBindings(RadarSettings s)
+        => HotkeyCodes.IsGamepad(s.HideEntityHotkey)
+        || HotkeyCodes.IsGamepad(s.TrackEntityHotkey)
+        || HotkeyCodes.IsGamepad(s.AutoPathToggleHotkey)
+        || HotkeyCodes.IsGamepad(s.AddNearestPathHotkey)
+        || HotkeyCodes.IsGamepad(s.ClearPathsHotkey)
+        || HotkeyCodes.IsGamepad(s.AutoFlaskToggleHotkey)
+        || HotkeyCodes.IsGamepad(s.QuitHotkey)
+        || HotkeyCodes.IsGamepad(s.AtlasPickHotkey)
+        || HotkeyCodes.IsGamepad(s.ToggleSettingsHotkey)
+        || HotkeyCodes.IsGamepad(s.OpenDashboardHotkey);
 
     public static bool IsDown(int binding)
     {

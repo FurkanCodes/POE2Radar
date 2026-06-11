@@ -105,6 +105,7 @@ public sealed class RadarApp : IDisposable
     private uint _areaHash;
     private nint _lastAreaInstance;
     private nint _gameHwnd;
+    private string _mapDiag = "";
     private volatile bool _shutdown;
 
     // ── Auto-flask (opt-in input). Foreground + in-game gated; F8 master kill-switch.
@@ -562,6 +563,7 @@ public sealed class RadarApp : IDisposable
             {
                 maps = _live.ReadMaps(inGameState, areaInstance, windowWidth, windowHeight);
                 _cachedMaps = maps;
+                _mapDiag = _live.MapDiagnostics(inGameState, windowWidth, windowHeight);
             }
             else
                 maps = _cachedMaps;
@@ -682,9 +684,12 @@ public sealed class RadarApp : IDisposable
         var largeMap = maps.LargeMap;
         var miniMap = maps.MiniMap;
         _state = new RadarState(inGame, _areaHash, areaLevel, largeMap.IsVisible, largeMap.Zoom, player, _entities, _landmarks,
-            _hpPct, _manaPct, _esPct, _autoFlask, _flaskNote, _areaCode, _charName, _charLevel, _perfSnapshot);
+            _hpPct, _manaPct, _esPct, _autoFlask, _flaskNote, _areaCode, _charName, _charLevel, _perfSnapshot,
+            MapDiag: _mapDiag,
+            MiniMapVisible: miniMap.IsVisible, MiniMapRect: miniMap.HasScreenRect,
+            MiniMapW: miniMap.Width, MiniMapH: miniMap.Height);
 
-        var realActive = _gameHwnd != 0 && GetForegroundWindow() == _gameHwnd;
+        var realActive = IsGameFocused();
         // "Always show" draws the overlay even when PoE2 isn't focused (for dashboard calibration).
         var drawActive = realActive || _settings.AlwaysShowOverlay;
         var atlasProj = AtlasProjection(); // resolution-correct (auto from window height) or manual calib
@@ -914,7 +919,7 @@ public sealed class RadarApp : IDisposable
         _hpPct = v.HpPct; _manaPct = v.ManaPct; _esPct = v.EsPct;
 
         if (!_autoFlask) { _flaskNote = "OFF (F8)"; return; }
-        if (GetForegroundWindow() != _gameHwnd) { _flaskNote = "paused (PoE2 not focused)"; return; }
+        if (!IsGameFocused()) { _flaskNote = "paused (PoE2 not focused)"; return; }
         _flaskNote = "armed";
 
         // Which pool(s) the single life-flask key watches. ES only participates when a real ES pool is
@@ -943,7 +948,7 @@ public sealed class RadarApp : IDisposable
     /// <summary>Poll overlay hotkeys (keyboard, mouse VK, or Xbox pad). Map calibration is web-only.</summary>
     private void HandleHotkeys()
     {
-        HotkeyPoll.BeginTick(_settings.GamepadHotkeysEnabled, _settings.GamepadUserIndex);
+        HotkeyPoll.BeginTick(_settings);
 
         if (HotkeyPressed(_settings.AutoFlaskToggleHotkey, ref _nextToggleAt))
         {
@@ -983,7 +988,7 @@ public sealed class RadarApp : IDisposable
     private bool HotkeyPressed(int binding, ref DateTime nextAt, int debounceMs = 300, bool requireGameFocus = false)
     {
         if (binding <= 0 || !HotkeyPoll.IsDown(binding)) return false;
-        if (requireGameFocus && (_gameHwnd == 0 || GetForegroundWindow() != _gameHwnd)) return false;
+        if (requireGameFocus && !IsGameFocused()) return false;
         if (debounceMs > 0 && DateTime.UtcNow < nextAt) return false;
         if (debounceMs > 0) nextAt = DateTime.UtcNow.AddMilliseconds(debounceMs);
         return true;
@@ -992,8 +997,8 @@ public sealed class RadarApp : IDisposable
     /// <summary>F4/F5 cursor picks — run after map frames + entities are refreshed this tick.</summary>
     private void HandleCursorPickHotkeys()
     {
-        HotkeyPoll.BeginTick(_settings.GamepadHotkeysEnabled, _settings.GamepadUserIndex);
-        if (_gameHwnd == 0 || GetForegroundWindow() != _gameHwnd || _areaInstanceForApi == 0) return;
+        HotkeyPoll.BeginTick(_settings);
+        if (!IsGameFocused() || _areaInstanceForApi == 0) return;
 
         var settingsOpen = _imguiOverlay?.IsSettingsOpen == true;
         if (_settingsWereOpen && !settingsOpen)
@@ -2178,8 +2183,8 @@ public sealed class RadarApp : IDisposable
         catch (Exception ex) { Console.Error.WriteLine($"Open dashboard failed: {ex.Message}"); }
     }
 
-    [DllImport("user32.dll")]
-    private static extern nint GetForegroundWindow();
+    private bool IsGameFocused()
+        => OverlayNative.IsGameFocused(_gameHwnd, _process.ProcessId);
 
     [StructLayout(LayoutKind.Sequential)] private struct CursorPoint { public int X, Y; }
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out CursorPoint p);

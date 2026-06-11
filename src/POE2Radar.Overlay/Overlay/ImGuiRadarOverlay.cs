@@ -144,11 +144,12 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     DrawAtlas(dl, ctx);
                 else
                 {
-                    if (ctx.Map.IsVisible)
+                    var largeMapOpen = ShouldDrawLargeMapOverlay(ctx.Map);
+                    if (largeMapOpen)
                         DrawMap(dl, ctx, ctx.MapFrame);
-                    if (ctx.MiniMap.IsVisible)
+                    if (ShouldDrawMinimapOverlay(ctx.MiniMap))
                         DrawMap(dl, ctx, ctx.MiniMapFrame);
-                    if (!ctx.Map.IsVisible)
+                    if (!largeMapOpen)
                         DrawPathsWorld(dl, ctx);
                 }
 
@@ -373,6 +374,24 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     }
 
     // ── Map overlay ──
+
+    /// <summary>Large overlay map tab — visibility bit can lie on the keyboard GameUi branch while the
+    /// controller tree (or a resolved screen rect) still shows the full map panel.</summary>
+    private static bool ShouldDrawLargeMapOverlay(Poe2Live.MapUi map)
+    {
+        if (map.Element == 0) return false;
+        if (map.IsVisible) return true;
+        return map.HasScreenRect && map.Width >= 120f && map.Height >= 120f;
+    }
+
+    /// <summary>Corner minimap — controller UI often keeps a valid screen rect even when the parent-chain
+    /// visibility bit reads false on the wrong GameUi anchor.</summary>
+    private static bool ShouldDrawMinimapOverlay(Poe2Live.MapUi map)
+    {
+        if (map.Element == 0) return false;
+        if (map.IsVisible) return true;
+        return map.HasScreenRect && map.Width >= 32f && map.Height >= 32f;
+    }
 
     private void DrawMap(ImDrawListPtr dl, RenderContext ctx, MapFrame frame)
     {
@@ -918,7 +937,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private static void DrawPathLabels(ImDrawListPtr dl, RenderContext ctx)
     {
-        if (ctx.SelectedPaths.Count == 0 || ctx.Map.IsVisible) return;
+        if (ctx.SelectedPaths.Count == 0 || ShouldDrawLargeMapOverlay(ctx.Map)) return;
         float W = ctx.WindowWidth, H = ctx.WindowHeight;
         if (ctx.CameraMatrix is not { Length: >= 16 } m) return;
 

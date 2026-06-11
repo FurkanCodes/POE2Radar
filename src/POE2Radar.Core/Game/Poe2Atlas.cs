@@ -326,7 +326,7 @@ public sealed class Poe2Atlas
     /// hold its last marks through a read miss instead of blanking (the off-screen-arrow flicker).</summary>
     public bool IsAtlasOpen(nint inGameState)
     {
-        var uiRoot = Ptr(inGameState + Poe2.InGameState.UiRoot);
+        var uiRoot = UiRootResolver.Resolve(_reader, inGameState);
         return uiRoot != 0 && AtlasPanelOpen(uiRoot);
     }
 
@@ -345,7 +345,7 @@ public sealed class Poe2Atlas
 
     public List<AtlasNodeLive> ReadNodes(nint inGameState, AtlasNodeReadMode mode = AtlasNodeReadMode.Full)
     {
-        var uiRoot = Ptr(inGameState + Poe2.InGameState.UiRoot);
+        var uiRoot = UiRootResolver.Resolve(_reader, inGameState);
         if (uiRoot == 0) return new List<AtlasNodeLive>();
 
         lock (_nodeLock) // called from both the tick thread (BuildAtlasMarks) and the API thread (AtlasJson)

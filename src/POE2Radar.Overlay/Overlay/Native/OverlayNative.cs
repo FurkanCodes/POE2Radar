@@ -175,6 +175,15 @@ internal static partial class OverlayNative
     [LibraryImport("user32.dll", EntryPoint = "GetForegroundWindow")]
     public static partial nint GetForegroundWindow();
 
+    [LibraryImport("user32.dll", EntryPoint = "IsChild")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool IsChild(nint hWndParent, nint hWnd);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetAncestor")]
+    private static partial nint GetAncestor(nint hwnd, uint gaFlags);
+
+    private const uint GA_ROOT = 2;
+
     /// <summary>
     /// Win32 GetAsyncKeyState. Returns &lt;0 (high bit set) if the key is currently down.
     /// Used for a polled global hotkey check (Insert toggle).
@@ -184,6 +193,27 @@ internal static partial class OverlayNative
 
     /// <summary>True iff the given hwnd is the OS-level foreground window.</summary>
     public static bool IsForeground(nint hwnd) => hwnd != 0 && GetForegroundWindow() == hwnd;
+
+    /// <summary>
+    /// True when the player is interacting with the game — not only when the tracked root HWND
+    /// is foreground. Controller / raw-input paths often focus a child HWND or another window in
+    /// the same process, which made the overlay think PoE2 was unfocused and skip the map draw.
+    /// </summary>
+    public static bool IsGameFocused(nint gameHwnd, int processId)
+    {
+        var fg = GetForegroundWindow();
+        if (fg == 0 || gameHwnd == 0) return false;
+        if (fg == gameHwnd) return true;
+
+        GetWindowThreadProcessId(fg, out var fgPid);
+        if ((int)fgPid == processId) return true;
+
+        if (IsChild(gameHwnd, fg)) return true;
+
+        var fgRoot = GetAncestor(fg, GA_ROOT);
+        var gameRoot = GetAncestor(gameHwnd, GA_ROOT);
+        return fgRoot != 0 && fgRoot == gameRoot;
+    }
 
     /// <summary>Find the main visible window belonging to the given process ID.</summary>
     public static nint FindWindowForProcess(int processId)
