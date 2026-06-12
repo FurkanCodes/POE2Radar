@@ -113,6 +113,11 @@ public sealed class RadarSettings
     public int MaxLiveHpBars { get; set; } = 32;
     public int MetricsRefreshHz { get; set; } = 1;
     public int GpuMetricsRefreshSeconds { get; set; } = 5;
+    public bool SmoothOverlayMotion { get; set; } = true;
+    public int OverlaySmoothingMs { get; set; } = 45;
+    public int ChipSmoothingMs { get; set; } = 70;
+    public bool PixelSnapLabels { get; set; } = true;
+    public bool OverlayVSync { get; set; } = true;
 
     // ── Navigation-menu widget: which screen corner it is pinned to.
     //    One of "TopLeft", "TopRight", "BottomLeft", "BottomRight". ──

@@ -544,6 +544,11 @@ public sealed class ApiServer : IDisposable
         maxLiveHpBars = _settings.MaxLiveHpBars,
         metricsRefreshHz = _settings.MetricsRefreshHz,
         gpuMetricsRefreshSeconds = _settings.GpuMetricsRefreshSeconds,
+        smoothOverlayMotion = _settings.SmoothOverlayMotion,
+        overlaySmoothingMs = _settings.OverlaySmoothingMs,
+        chipSmoothingMs = _settings.ChipSmoothingMs,
+        pixelSnapLabels = _settings.PixelSnapLabels,
+        overlayVSync = _settings.OverlayVSync,
         showPerfStats = _settings.ShowPerfStats,
         showFpsOverlay = _settings.ShowFpsOverlay,
         atlasShowOnScreenNodes = _settings.AtlasShowOnScreenNodes,
@@ -647,6 +652,11 @@ public sealed class ApiServer : IDisposable
                 case "maxLiveHpBars" when TryInt(p.Value, out var n): _settings.MaxLiveHpBars = Math.Clamp(n, 0, 256); applied.Add(p.Name); break;
                 case "metricsRefreshHz" when TryInt(p.Value, out var n): _settings.MetricsRefreshHz = Math.Clamp(n, 1, 10); applied.Add(p.Name); break;
                 case "gpuMetricsRefreshSeconds" when TryInt(p.Value, out var n): _settings.GpuMetricsRefreshSeconds = Math.Clamp(n, 1, 30); applied.Add(p.Name); break;
+                case "smoothOverlayMotion" when TryBool(p.Value, out var b): _settings.SmoothOverlayMotion = b; applied.Add(p.Name); break;
+                case "overlaySmoothingMs" when TryInt(p.Value, out var n): _settings.OverlaySmoothingMs = Math.Clamp(n, 0, 150); applied.Add(p.Name); break;
+                case "chipSmoothingMs" when TryInt(p.Value, out var n): _settings.ChipSmoothingMs = Math.Clamp(n, 0, 250); applied.Add(p.Name); break;
+                case "pixelSnapLabels" when TryBool(p.Value, out var b): _settings.PixelSnapLabels = b; applied.Add(p.Name); break;
+                case "overlayVSync" when TryBool(p.Value, out var b): _settings.OverlayVSync = b; applied.Add(p.Name); break;
                 case "showPerfStats" when TryBool(p.Value, out var b): _settings.ShowPerfStats = b; applied.Add(p.Name); break;
                 case "showFpsOverlay" when TryBool(p.Value, out var b): _settings.ShowFpsOverlay = b; applied.Add(p.Name); break;
                 case "atlasShowOnScreenNodes" when TryBool(p.Value, out var b): _settings.AtlasShowOnScreenNodes = b; applied.Add(p.Name); break;

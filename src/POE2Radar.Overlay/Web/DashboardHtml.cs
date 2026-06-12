@@ -694,6 +694,16 @@ internal static class DashboardHtml
               <input class="numin" type="number" step="1" min="1" max="30" data-set="hpBarRefreshHz"></div>
             <div class="row"><div class="rl">Max live HP bars<small>cap read-heavy nameplates: 0&ndash;256</small></div>
               <input class="numin" type="number" step="1" min="0" max="256" data-set="maxLiveHpBars"></div>
+            <div class="row"><div class="rl">Smooth overlay motion<small>interpolate visual positions between memory samples</small></div>
+              <label class="sw"><input type="checkbox" data-set="smoothOverlayMotion"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Overlay smoothing ms<small>path/player/map transform smoothing: 0&ndash;150</small></div>
+              <input class="numin" type="number" step="1" min="0" max="150" data-set="overlaySmoothingMs"></div>
+            <div class="row"><div class="rl">Chip smoothing ms<small>label chip rectangle smoothing: 0&ndash;250</small></div>
+              <input class="numin" type="number" step="1" min="0" max="250" data-set="chipSmoothingMs"></div>
+            <div class="row"><div class="rl">Pixel snap labels<small>round final text/chip positions to whole pixels</small></div>
+              <label class="sw"><input type="checkbox" data-set="pixelSnapLabels"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Overlay VSync<small>present overlay frames on the display cadence</small></div>
+              <label class="sw"><input type="checkbox" data-set="overlayVSync"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl">FPS / resource overlay<small>tick/render FPS + App CPU/GPU/RAM under POE2Radar nav</small></div>
               <label class="sw"><input type="checkbox" data-set="showFpsOverlay"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl">Extended perf stats<small>extra timing/read lines under the nav menu</small></div>

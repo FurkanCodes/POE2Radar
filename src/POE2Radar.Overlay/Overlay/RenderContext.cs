@@ -117,6 +117,8 @@ public sealed record RenderContext(
     int WindowHeight,
     NumVec2 PlayerGrid,
     System.Numerics.Vector3 PlayerWorld,
+    NumVec2 RawPlayerGrid,
+    System.Numerics.Vector3 RawPlayerWorld,
     Poe2Live.MapUi Map,
     Poe2Live.MapUi MiniMap,
     MapFrame MapFrame,
@@ -169,6 +171,10 @@ public sealed record RenderContext(
     string NavMenuCorner,         // pinned corner: TopLeft/TopRight/BottomLeft/BottomRight
     bool ShowPerfStats,           // extended timing lines in the perf HUD + nav menu
     bool ShowFpsOverlay,          // on-screen FPS / CPU / memory HUD (top-left)
+    bool SmoothOverlayMotion,
+    int OverlaySmoothingMs,
+    int ChipSmoothingMs,
+    bool PixelSnapLabels,
     PerfSnapshot Perf,
     // ── User-tweakable icon style table + HP-bar geometry (mirrored from RadarSettings). ──
     RadarStyles Styles,

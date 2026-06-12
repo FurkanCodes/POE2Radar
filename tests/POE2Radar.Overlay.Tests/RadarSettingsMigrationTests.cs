@@ -61,6 +61,11 @@ public sealed class RadarSettingsMigrationTests
         Assert.Equal(30, s.LiveRefreshHz);
         Assert.Equal(12, s.WorldRefreshHz);
         Assert.Equal(8, s.HpBarRefreshHz);
+        Assert.True(s.SmoothOverlayMotion);
+        Assert.Equal(45, s.OverlaySmoothingMs);
+        Assert.Equal(70, s.ChipSmoothingMs);
+        Assert.True(s.PixelSnapLabels);
+        Assert.True(s.OverlayVSync);
 
         s.FpsCap = 120;
         s.LiveRefreshHz = 60;

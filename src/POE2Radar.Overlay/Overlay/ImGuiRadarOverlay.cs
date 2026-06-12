@@ -49,6 +49,10 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private string _ruleSearch = "";
     private string _atlasTagFilter = "";
     private readonly List<MapLabelCandidate> _atlasLabelScratch = new(256);
+    private readonly Dictionary<string, ScreenPointState> _screenPoints = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _screenKeysThisFrame = new(StringComparer.Ordinal);
+    private long _renderStamp;
+    private long _lastRenderStamp;
     private int _spritePickerRuleIndex = -1;
     private string? _hotkeyBindTarget;
     private bool _hotkeyBindArmed;
@@ -67,6 +71,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private static readonly string[] ShapeNames = ["Circle", "Diamond", "Triangle", "Square", "Star", "Hexagon", "Pentagon", "Cross", "Plus", "Ring", "Heart", "Shield", "Gem"];
 
+    private readonly record struct ScreenPointState(NumVec2 Value, long SeenStamp);
+
     public ImGuiRadarOverlay(Action<Action> enqueue, Action<string> toggleTarget, Action<string> setCorner,
         Action addNearest, Action clearPaths, RadarSettings settings)
         : base("POE2Radar", true, 3840, 2160)
@@ -79,7 +85,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         _settings = settings;
         _settingsLock = new object();
         _navMenuCorner = settings.NavMenuCorner;
-        VSync = false;
+        VSync = settings.OverlayVSync;
     }
 
     public int OverlayWidth => _width;
@@ -104,6 +110,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     public void UpdateSettings(RadarSettings settings)
     {
         lock (_settingsLock) _settings = settings;
+        VSync = settings.OverlayVSync;
     }
 
     public void SetGameBounds(int x, int y, int width, int height)
@@ -124,9 +131,48 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     public bool IsSettingsOpen => _settingsOpen;
 
+    private NumVec2 SmoothScreenPoint(string key, NumVec2 target, int smoothingMs, bool enabled)
+    {
+        if (string.IsNullOrEmpty(key) || !enabled || smoothingMs <= 0)
+            return target;
+
+        _screenKeysThisFrame.Add(key);
+        if (!_screenPoints.TryGetValue(key, out var state))
+        {
+            _screenPoints[key] = new ScreenPointState(target, _renderStamp);
+            return target;
+        }
+
+        var elapsedMs = _lastRenderStamp == 0
+            ? 0f
+            : Math.Max(0.001f, (float)((_renderStamp - _lastRenderStamp) * 1000.0 / Stopwatch.Frequency));
+        var alpha = 1f - MathF.Exp(-elapsedMs / Math.Max(1f, smoothingMs));
+        var value = state.Value + (target - state.Value) * alpha;
+        _screenPoints[key] = new ScreenPointState(value, _renderStamp);
+        return value;
+    }
+
+    private void PruneScreenSmoothing()
+    {
+        if (_screenPoints.Count == 0) return;
+        foreach (var key in _screenPoints.Keys.ToArray())
+        {
+            if (!_screenKeysThisFrame.Contains(key))
+                _screenPoints.Remove(key);
+        }
+    }
+
+    private static NumVec2 PixelSnap(NumVec2 p, bool enabled)
+        => enabled ? new NumVec2(MathF.Round(p.X), MathF.Round(p.Y)) : p;
+
+    private static float PixelSnap(float v, bool enabled)
+        => enabled ? MathF.Round(v) : v;
+
     protected override void Render()
     {
         var frameStart = Stopwatch.GetTimestamp();
+        _renderStamp = frameStart;
+        _screenKeysThisFrame.Clear();
         double mapMs = 0, pathsMs = 0, nameplatesMs = 0, navMenuMs = 0, atlasMs = 0;
         try
         {
@@ -136,6 +182,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
             var io = ImGui.GetIO();
             io.ConfigFlags |= ImGuiConfigFlags.NoMouseCursorChange;
+            VSync = _settings.OverlayVSync;
 
             var ctx = _ctx;
             var inGame = ctx is not null && ctx.InGame;
@@ -201,6 +248,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
         finally
         {
+            PruneScreenSmoothing();
+            _lastRenderStamp = frameStart;
             _renderMetrics.Record(
                 Stopwatch.GetElapsedTime(frameStart).TotalMilliseconds,
                 mapMs, pathsMs, nameplatesMs, navMenuMs, atlasMs);
@@ -375,7 +424,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 if (chipText is { Length: > 0 })
                 {
                     var textCol = ColorU32(colHex, Math.Min(1f, opacity + 0.05f));
-                    labelCandidates.Add(new MapLabelCandidate(c, chipText, textCol, col));
+                    labelCandidates.Add(new MapLabelCandidate($"atlas:{n.X:F1}:{n.Y:F1}:{chipText}", c, chipText, textCol, col));
                 }
             }
 
@@ -464,7 +513,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     if (p.X < -40 || p.Y < -40 || p.X > W + 40 || p.Y > H + 40) continue;
                     DrawIconOrShapePacked(dl, p, e.Size, e.Color, e.Sprite, e.Shape, ctx.GlobalIconScale);
                     if (e.Label.Length > 0 && !MapLabelAlreadyPresent(mapLabels, e.Label))
-                        mapLabels.Add(new MapLabelCandidate(p, e.Label, e.Color, e.Color));
+                        mapLabels.Add(new MapLabelCandidate("map:" + e.Key, p, e.Label, e.Color, e.Color));
                 }
             }
 
@@ -474,11 +523,19 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 if (p.X < -40 || p.Y < -40 || p.X > W + 40 || p.Y > H + 40) continue;
                 DrawIconOrShapePacked(dl, p, lm.Size, lm.Color, lm.Sprite, lm.Shape, ctx.GlobalIconScale);
                 if (lm.Label.Length > 0 && !MapLabelAlreadyPresent(mapLabels, lm.Label))
-                    mapLabels.Add(new MapLabelCandidate(p, lm.Label, lm.Color, lm.Color));
+                    mapLabels.Add(new MapLabelCandidate("map:" + lm.Key, p, lm.Label, lm.Color, lm.Color));
             }
 
             if (mapLabels.Count > 0)
-                DrawMapLabelChips(dl, mapLabels, clipL, clipT, clipR, clipB);
+                DrawMapLabelChips(
+                    dl,
+                    mapLabels,
+                    clipL,
+                    clipT,
+                    clipR,
+                    clipB,
+                    smooth: ctx.SmoothOverlayMotion,
+                    pixelSnap: ctx.PixelSnapLabels);
 
             if (ctx.ShowPlayerBlip)
                 DrawIconOrShape(dl, center, ctx.Styles.Player.Size, ctx.Styles.Player.Color, ctx.Styles.Player.Opacity, ctx.Styles.Player.Sprite, ctx.Styles.Player.Shape, ctx.GlobalIconScale);
@@ -632,7 +689,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
     }
 
-    private static void DrawPathsMap(ImDrawListPtr dl, RenderContext ctx, MapFrame frame, NumVec2 center, float scale)
+    private void DrawPathsMap(ImDrawListPtr dl, RenderContext ctx, MapFrame frame, NumVec2 center, float scale)
     {
         foreach (var path in ctx.SelectedPaths)
         {
@@ -640,9 +697,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (poly.Count < 2) continue;
             var col = PathColor(path.ColorSlot);
             NumVec2? prev = null;
-            foreach (var (x, y) in poly)
+            for (var i = 0; i < poly.Count; i++)
             {
+                var (x, y) = poly[i];
                 var p = Project(new NumVec2(x, y), ctx.PlayerGrid, center, scale, -frame.PlayerTerrainHeight);
+                p = SmoothScreenPoint($"path:map:{frame.IsMinimap}:{path.TargetId}:{i}", p, ctx.OverlaySmoothingMs, ctx.SmoothOverlayMotion);
                 if (prev is { } a) dl.AddLine(a, p, col, 2.2f);
                 prev = p;
             }
@@ -651,7 +710,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     // ── World-space paths (map closed) ──
 
-    private static void DrawPathsWorld(ImDrawListPtr dl, RenderContext ctx)
+    private void DrawPathsWorld(ImDrawListPtr dl, RenderContext ctx)
     {
         if (ctx.CameraMatrix is not { Length: >= 16 } m) return;
         float W = ctx.WindowWidth, H = ctx.WindowHeight;
@@ -663,8 +722,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (fwd.Count == 0) continue;
             var col = PathColor(path.ColorSlot);
             NumVec2? prev = null;
-            foreach (var (gx, gy) in fwd)
+            for (var i = 0; i < fwd.Count; i++)
             {
+                var (gx, gy) = fwd[i];
                 var wx = gx * GridConstants.GridToWorld;
                 var wy = gy * GridConstants.GridToWorld;
                 var cw = wx * m[3] + wy * m[7] + z * m[11] + m[15];
@@ -675,6 +735,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 var sy = (0.5f - cy / cw / 2f) * H;
                 if (!float.IsFinite(sx) || !float.IsFinite(sy)) continue;
                 var p = new NumVec2(sx, sy);
+                p = SmoothScreenPoint($"path:world:{path.TargetId}:{i}", p, ctx.OverlaySmoothingMs, ctx.SmoothOverlayMotion);
                 if (prev is { } pr) dl.AddLine(pr, p, col, 2.4f);
                 dl.AddCircleFilled(p, 3.5f, col, 8);
                 prev = p;
@@ -770,7 +831,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     // ── Map overlay label chips (corner minimap + full-screen overlay map) ──
 
-    private readonly record struct MapLabelCandidate(NumVec2 Pos, string Text, uint TextColor, uint SwatchColor);
+    private readonly record struct MapLabelCandidate(string Key, NumVec2 Pos, string Text, uint TextColor, uint SwatchColor);
 
     private const float LabelChipRowH = 18f;
     private const float LabelChipBodyH = LabelChipRowH - 2f;
@@ -809,7 +870,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     }
 
     /// <summary>Atlas labels: cluster when few; solo chips when many (avoids O(n²) overlap merge).</summary>
-    private static void DrawAtlasLabelChips(
+    private void DrawAtlasLabelChips(
         ImDrawListPtr dl,
         List<MapLabelCandidate> candidates,
         float clipL, float clipT, float clipR, float clipB,
@@ -818,7 +879,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         const int clusterThreshold = 48;
         if (candidates.Count <= clusterThreshold)
         {
-            DrawMapLabelChips(dl, candidates, clipL, clipT, clipR, clipB, labelScale);
+            DrawMapLabelChips(dl, candidates, clipL, clipT, clipR, clipB, labelScale, smooth: false, pixelSnap: true);
             return;
         }
 
@@ -864,11 +925,13 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         return deduped;
     }
 
-    private static void DrawMapLabelChips(
+    private void DrawMapLabelChips(
         ImDrawListPtr dl,
         List<MapLabelCandidate> candidates,
         float clipL, float clipT, float clipR, float clipB,
-        float labelScale = 1f)
+        float labelScale = 1f,
+        bool smooth = true,
+        bool pixelSnap = true)
     {
         var rowH = LabelChipRowH * labelScale;
         foreach (var rawCluster in BuildMapLabelClusters(candidates, labelScale))
@@ -880,6 +943,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 var soloW = LabelChipWidth(c.Text, labelScale);
                 var soloLeft = Math.Clamp(c.Pos.X + 7f * labelScale, clipL + 4f, clipR - soloW - 4f);
                 var soloTop = Math.Clamp(c.Pos.Y - 7f * labelScale, clipT + 4f, clipB - rowH - 4f);
+                var pos = SmoothScreenPoint(c.Key + ":chip", new NumVec2(soloLeft, soloTop), _ctx?.ChipSmoothingMs ?? 70, smooth && (_ctx?.SmoothOverlayMotion ?? true));
+                soloLeft = PixelSnap(pos.X, pixelSnap);
+                soloTop = PixelSnap(pos.Y, pixelSnap);
                 DrawLabelChip(dl, soloLeft, soloTop, c.Text, c.TextColor, c.SwatchColor, labelScale);
                 continue;
             }
@@ -895,6 +961,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             foreach (var c in cluster)
                 maxW = Math.Max(maxW, LabelChipWidth(c.Text, labelScale));
             var left = Math.Clamp(anchor.X + 14f * labelScale, clipL + 4f, clipR - maxW - 4f);
+            var stackPos = SmoothScreenPoint(cluster[0].Key + ":cluster", new NumVec2(left, startTop), _ctx?.ChipSmoothingMs ?? 70, smooth && (_ctx?.SmoothOverlayMotion ?? true));
+            left = PixelSnap(stackPos.X, pixelSnap);
+            startTop = PixelSnap(stackPos.Y, pixelSnap);
 
             for (var i = 0; i < cluster.Count; i++)
             {
@@ -1008,7 +1077,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     // ── Path endpoint labels ──
 
-    private static void DrawPathLabels(ImDrawListPtr dl, RenderContext ctx)
+    private void DrawPathLabels(ImDrawListPtr dl, RenderContext ctx)
     {
         if (ctx.SelectedPaths.Length == 0 || ShouldDrawLargeMapOverlay(ctx.Map)) return;
         float W = ctx.WindowWidth, H = ctx.WindowHeight;
@@ -1016,6 +1085,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
         // Stack path labels at the local player's screen position (not another Player entity in town).
         var playerScreen = ProjectWorldToScreen(ctx.PlayerWorld, m, W, H);
+        playerScreen = SmoothScreenPoint("path-label:player", playerScreen, ctx.OverlaySmoothingMs, ctx.SmoothOverlayMotion);
 
         // Build label rows sorted by color slot so the stack order is stable and matches the legend.
         var labels = new List<(int slot, string text)>();
@@ -1043,6 +1113,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         foreach (var (_, text) in labels)
             maxW = Math.Max(maxW, LabelChipWidth(text));
         var left = Math.Clamp(playerScreen.X + 14f, 4f, W - maxW - 4f);
+        var labelPos = SmoothScreenPoint("path-label:stack", new NumVec2(left, startTop), ctx.ChipSmoothingMs, ctx.SmoothOverlayMotion);
+        left = PixelSnap(labelPos.X, ctx.PixelSnapLabels);
+        startTop = PixelSnap(labelPos.Y, ctx.PixelSnapLabels);
 
         for (var i = 0; i < labels.Count; i++)
         {
@@ -1614,6 +1687,12 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             int inactiveHz = s.InactiveRefreshHz; ImGui.SliderInt("Inactive refresh Hz", ref inactiveHz, 1, 10); s.InactiveRefreshHz = inactiveHz;
             int hpHz = s.HpBarRefreshHz; ImGui.SliderInt("HP bar refresh Hz", ref hpHz, 1, 30); s.HpBarRefreshHz = hpHz;
             int maxHp = s.MaxLiveHpBars; ImGui.SliderInt("Max live HP bars", ref maxHp, 0, 256); s.MaxLiveHpBars = maxHp;
+            bool smooth = s.SmoothOverlayMotion; ImGui.Checkbox("Smooth overlay motion", ref smooth); s.SmoothOverlayMotion = smooth;
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Smooth visual path, map, and label movement between memory samples");
+            int smoothMs = s.OverlaySmoothingMs; ImGui.SliderInt("Overlay smoothing ms", ref smoothMs, 0, 150); s.OverlaySmoothingMs = smoothMs;
+            int chipMs = s.ChipSmoothingMs; ImGui.SliderInt("Chip smoothing ms", ref chipMs, 0, 250); s.ChipSmoothingMs = chipMs;
+            bool snapLabels = s.PixelSnapLabels; ImGui.Checkbox("Pixel snap labels", ref snapLabels); s.PixelSnapLabels = snapLabels;
+            bool vsync = s.OverlayVSync; ImGui.Checkbox("Overlay VSync", ref vsync); s.OverlayVSync = vsync;
 
             bool fpsHud = s.ShowFpsOverlay; ImGui.Checkbox("FPS / resource overlay", ref fpsHud); s.ShowFpsOverlay = fpsHud;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("FPS + App CPU/GPU/RAM under the POE2Radar nav button; sampling is opt-in");

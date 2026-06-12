@@ -16,9 +16,8 @@ namespace POE2Radar.Overlay;
 
 /// <summary>
 /// Drives the PoE2 radar: per-tick resolve chain → read player/entities/terrain/map → render.
-/// Read-only. Render rate is configurable (RadarSettings.FpsCap, default 60 Hz; player blip tracks
-/// live); the heavier entity/terrain walk runs at ~30 Hz. Projection scale/offset are tweakable live
-/// via hotkeys for calibration.
+/// Read-only. Render, live-player, world-scan, HP-bar, and metrics work all use separate configurable
+/// cadences so the overlay can draw smoothly without multiplying memory reads.
 /// </summary>
 public sealed partial class RadarApp : IDisposable
 {
@@ -57,6 +56,7 @@ public sealed partial class RadarApp : IDisposable
     private volatile float _worldTickMs;
     private readonly PerformanceCadence _liveCadence = new();
     private readonly PerformanceCadence _hpBarCadence = new();
+    private readonly VisualMotionSmoother _visualSmoother = new();
     private LiveFrameState _liveFrame = LiveFrameState.Empty;
     private volatile bool _mainLandmarksInvalid;
 
@@ -625,8 +625,26 @@ public sealed partial class RadarApp : IDisposable
         var atlasProj = AtlasProjection();
         var mapFrame = BuildLargeMapFrame(largeMap, windowWidth, windowHeight, live.PlayerTerrainHeight);
         var miniMapFrame = BuildMiniMapFrame(miniMap, windowWidth, windowHeight, live.PlayerTerrainHeight);
-        _lastMapFrame = mapFrame;
-        _lastMiniMapFrame = miniMapFrame;
+        var visual = _visualSmoother.Update(
+            Stopwatch.GetTimestamp(),
+            _settings.SmoothOverlayMotion,
+            Math.Clamp(_settings.OverlaySmoothingMs, 0, 150),
+            new LiveVisualSample(
+                live.InGame,
+                snap.AreaHash,
+                windowWidth,
+                windowHeight,
+                live.PlayerGrid,
+                live.PlayerWorld,
+                live.PlayerTerrainHeight,
+                largeMap,
+                miniMap,
+                mapFrame,
+                miniMapFrame,
+                _atlasOpen,
+                live.CameraMatrix));
+        _lastMapFrame = visual.MapFrame;
+        _lastMiniMapFrame = visual.MiniMapFrame;
         _lastPlayerGrid = live.PlayerGrid;
         if (live.InGame)
             HandleCursorPickHotkeys();
@@ -636,12 +654,14 @@ public sealed partial class RadarApp : IDisposable
             Active: drawActive,
             WindowWidth: windowWidth,
             WindowHeight: windowHeight,
-            PlayerGrid: live.PlayerGrid,
-            PlayerWorld: live.PlayerWorld,
+            PlayerGrid: visual.PlayerGrid,
+            PlayerWorld: visual.PlayerWorld,
+            RawPlayerGrid: live.PlayerGrid,
+            RawPlayerWorld: live.PlayerWorld,
             Map: largeMap,
             MiniMap: miniMap,
-            MapFrame: mapFrame,
-            MiniMapFrame: miniMapFrame,
+            MapFrame: visual.MapFrame,
+            MiniMapFrame: visual.MiniMapFrame,
             Entities: snap.Entities,
             Landmarks: snap.Landmarks,
             MapEntities: snap.MapEntities,
@@ -679,6 +699,10 @@ public sealed partial class RadarApp : IDisposable
             NavMenuCorner: _settings.NavMenuCorner,
             ShowPerfStats: _settings.ShowPerfStats,
             ShowFpsOverlay: _settings.ShowFpsOverlay,
+            SmoothOverlayMotion: _settings.SmoothOverlayMotion,
+            OverlaySmoothingMs: Math.Clamp(_settings.OverlaySmoothingMs, 0, 150),
+            ChipSmoothingMs: Math.Clamp(_settings.ChipSmoothingMs, 0, 250),
+            PixelSnapLabels: _settings.PixelSnapLabels,
             Perf: _perfSnapshot,
             Styles: _settings.Styles,
             HpBars: _settings.HpBars,

@@ -6,6 +6,7 @@ namespace POE2Radar.Overlay;
 public readonly record struct HpBarSpec(nint Entity, Poe2Live.Rarity Rarity, float Width, uint Fill, float BorderWidth, uint Border);
 
 public readonly record struct MapEntityRenderItem(
+    string Key,
     System.Numerics.Vector2 Grid,
     float TerrainHeight,
     float Size,
@@ -15,6 +16,7 @@ public readonly record struct MapEntityRenderItem(
     string Label);
 
 public readonly record struct MapLandmarkRenderItem(
+    string Key,
     System.Numerics.Vector2 Center,
     float Size,
     uint Color,

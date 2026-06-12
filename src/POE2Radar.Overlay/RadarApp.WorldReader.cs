@@ -244,6 +244,7 @@ public sealed partial class RadarApp
                 : EntityDrawStyleFor(e, _settings.Styles);
             var label = EntityDisplayHelper.FormatEntityLabel(e, rule, entities, areaCode);
             items.Add(new MapEntityRenderItem(
+                "e:" + e.Id,
                 e.Grid,
                 e.TerrainHeight,
                 size,
@@ -288,6 +289,7 @@ public sealed partial class RadarApp
             }
 
             items.Add(new MapLandmarkRenderItem(
+                "t:" + lm.Key,
                 lm.Center,
                 tr?.Size ?? _settings.Styles.Landmark.Size,
                 PackColor(color, opacity),
