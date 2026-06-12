@@ -7,6 +7,7 @@ using POE2Radar.Overlay.Config;
 using POE2Radar.Overlay.Diagnostics;
 using POE2Radar.Overlay.Input;
 using POE2Radar.Overlay.Native;
+using POE2Radar.Overlay.Navigation;
 using POE2Radar.Overlay.Web;
 using NumVec2 = System.Numerics.Vector2;
 using GameVec2 = POE2Radar.Core.Game.Vector2;
@@ -32,6 +33,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private readonly Action _clearPaths;
     private readonly TextureRegistry _textures = new();
     private readonly TerrainTextureCache _terrainTextures = new();
+    private readonly OverlayRenderMetrics _renderMetrics = new();
 
     private bool _navMenuExpanded;
     private bool _settingsOpen;
@@ -84,6 +86,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     public int OverlayHeight => _height;
     public float LastAtlasDrawMs { get; private set; }
 
+    public OverlayRenderMetrics GetRenderMetrics() => _renderMetrics;
+
     public void UpdateContext(RenderContext ctx) => _ctx = ctx;
 
     public void AttachEntityStores(DisplayRules displayRules, ZoneEntityOverrides zoneOverrides,
@@ -122,6 +126,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     protected override void Render()
     {
+        var frameStart = Stopwatch.GetTimestamp();
+        double mapMs = 0, pathsMs = 0, nameplatesMs = 0, navMenuMs = 0, atlasMs = 0;
         try
         {
             if (_closeRequested) { Close(); return; }
@@ -141,27 +147,47 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 IconAtlas.EnsureInitialized(this);
 
                 if (ctx.AtlasOpen)
+                {
+                    var t = Stopwatch.GetTimestamp();
                     DrawAtlas(dl, ctx);
+                    atlasMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
+                    LastAtlasDrawMs = (float)atlasMs;
+                }
                 else
                 {
                     var largeMapOpen = ShouldDrawLargeMapOverlay(ctx.Map);
-                    if (largeMapOpen)
-                        DrawMap(dl, ctx, ctx.MapFrame);
-                    if (ShouldDrawMinimapOverlay(ctx.MiniMap))
-                        DrawMap(dl, ctx, ctx.MiniMapFrame);
-                    if (!largeMapOpen)
+                    if (largeMapOpen || ShouldDrawMinimapOverlay(ctx.MiniMap))
+                    {
+                        var t = Stopwatch.GetTimestamp();
+                        if (largeMapOpen)
+                            DrawMap(dl, ctx, ctx.MapFrame);
+                        if (ShouldDrawMinimapOverlay(ctx.MiniMap))
+                            DrawMap(dl, ctx, ctx.MiniMapFrame);
+                        mapMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
+                    }
+                    if (!largeMapOpen && ctx.ShowPathWorld)
+                    {
+                        var t = Stopwatch.GetTimestamp();
                         DrawPathsWorld(dl, ctx);
+                        pathsMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
+                    }
                 }
 
                 if (!ctx.AtlasOpen)
                 {
+                    var t = Stopwatch.GetTimestamp();
                     DrawNameplates(dl, ctx);
                     DrawPathLabels(dl, ctx);
+                    nameplatesMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                 }
             }
 
             if (inGame)
+            {
+                var t = Stopwatch.GetTimestamp();
                 DrawNavMenu(ctx!);
+                navMenuMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
+            }
 
             if (_settingsOpen)
                 DrawSettingsPanel(ctx);
@@ -172,6 +198,12 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             // loop after a cross-thread "collection modified" in DrawNameplates.
             if (Interlocked.Exchange(ref _renderCrashLogged, 1) == 0)
                 CrashLog.Write("ImGui render error (overlay kept alive)", ex);
+        }
+        finally
+        {
+            _renderMetrics.Record(
+                Stopwatch.GetElapsedTime(frameStart).TotalMilliseconds,
+                mapMs, pathsMs, nameplatesMs, navMenuMs, atlasMs);
         }
     }
 
@@ -211,15 +243,15 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         var flaskColor = ctx.FlaskNote == "armed"
             ? ImGui.ColorConvertFloat4ToU32(new Vector4(0.18f, 0.80f, 0.44f, 1f))
             : ImGui.ColorConvertFloat4ToU32(new Vector4(0.95f, 0.77f, 0.06f, 1f));
-        ImGui.TextColored(new Vector4(0.7f, 0.7f, 0.7f, 1f), "Flask: ");
+        TextColoredUnformatted(new Vector4(0.7f, 0.7f, 0.7f, 1f), "Flask: ");
         ImGui.SameLine(0, 0);
-        ImGui.TextColored(new Vector4(
+        TextColoredUnformatted(new Vector4(
             flaskColor >> 16 != 0 ? ((flaskColor >> 16) & 0xFF) / 255f : 0,
             ((flaskColor >> 8) & 0xFF) / 255f,
             (flaskColor & 0xFF) / 255f, 1f), ctx.FlaskNote);
         ImGui.SameLine(ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(
             $"Lv {ctx.CharLevel}  {ctx.AreaCode}").X);
-        ImGui.TextColored(new Vector4(0.55f, 0.55f, 0.55f, 1f), $"Lv {ctx.CharLevel}  {ctx.AreaCode}");
+        TextColoredUnformatted(new Vector4(0.55f, 0.55f, 0.55f, 1f), $"Lv {ctx.CharLevel}  {ctx.AreaCode}");
     }
 
     private static void DrawColoredBar(ImDrawListPtr dl, float x, float y, float w, float h,
@@ -415,7 +447,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     DrawTerrainEdges(dl, ctx, terrain, frame, center, scale);
             }
 
-            if (ctx.ShowPath)
+            if (frame.IsMinimap ? ctx.ShowPathMinimap : ctx.ShowPathMap)
                 DrawPathsMap(dl, ctx, frame, center, scale);
 
             var mapLabels = new List<MapLabelCandidate>();
@@ -426,48 +458,23 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
             if (ctx.ShowMonsters)
             {
-                foreach (var e in ctx.Entities)
+                foreach (var e in ctx.MapEntities)
                 {
-                    if (e.IconComplete) continue;   // faded/claimed encounter (e.g. looted expedition) — never draw
-                    var rule = ctx.Resolve?.Invoke(e);
-                    if (rule is { Hide: true }) continue;
-                    if (ctx.ImportantOnly && EntityImportanceHelper.IsTrash(
-                            EntityImportanceHelper.Classify(e, ctx.Styles, rule))) continue;
                     var p = Project(e.Grid, ctx.PlayerGrid, center, scale, e.TerrainHeight - frame.PlayerTerrainHeight);
                     if (p.X < -40 || p.Y < -40 || p.X > W + 40 || p.Y > H + 40) continue;
-                    var (sprite, shape, radius, color, opacity) = rule is not null
-                        ? (rule.Sprite, rule.Shape, rule.Size, rule.Color, rule.Opacity)
-                        : ResolveEntityDrawStyle(e, ctx.Styles);
-                    DrawIconOrShape(dl, p, radius, color, opacity, sprite, shape, ctx.GlobalIconScale);
-                    var entityLabel = EntityDisplayHelper.FormatEntityLabel(e, rule, ctx.Entities, ctx.AreaCode);
-                    if (entityLabel.Length > 0)
-                    {
-                        var textColor = ColorU32(color, 0.9f);
-                        mapLabels.Add(new MapLabelCandidate(p, entityLabel, textColor, textColor));
-                    }
+                    DrawIconOrShapePacked(dl, p, e.Size, e.Color, e.Sprite, e.Shape, ctx.GlobalIconScale);
+                    if (e.Label.Length > 0 && !MapLabelAlreadyPresent(mapLabels, e.Label))
+                        mapLabels.Add(new MapLabelCandidate(p, e.Label, e.Color, e.Color));
                 }
             }
 
-            foreach (var lm in ctx.Landmarks)
+            foreach (var lm in ctx.MapLandmarks)
             {
-                var tr = ctx.ResolveTile?.Invoke(lm.Path);
-                if (tr is { Hide: true }) continue;
                 var p = Project(lm.Center, ctx.PlayerGrid, center, scale, -frame.PlayerTerrainHeight);
                 if (p.X < -40 || p.Y < -40 || p.X > W + 40 || p.Y > H + 40) continue;
-                var lmColor = tr?.Color ?? "#F259F2";
-                var lmSize = tr?.Size ?? 4.5f;
-                DrawIconOrShape(dl, p, lmSize, lmColor, tr?.Opacity ?? 0.95f, tr?.Sprite ?? ctx.Styles.Landmark.Sprite, tr?.Shape ?? ctx.Styles.Landmark.Shape, ctx.GlobalIconScale);
-                var lmCurated = tr?.Label is { Length: > 0 } tileLbl ? tileLbl
-                    : (ctx.UseCuratedLandmarks ? lm.CuratedName : null);
-                var label = EntityDisplayHelper.FormatLandmarkLabel(
-                    lm.Path, lmCurated, lm.Name, ctx.Entities, ctx.AreaCode);
-                if (label.Length > 0
-                    && EntityDisplayHelper.ShouldDrawBossLandmarkLabel(
-                        lm.Path, label, lm.Center, ctx.Entities, ctx.Resolve, ctx.AreaCode))
-                {
-                    var textColor = ColorU32(lmColor, 0.9f);
-                    mapLabels.Add(new MapLabelCandidate(p, label, textColor, textColor));
-                }
+                DrawIconOrShapePacked(dl, p, lm.Size, lm.Color, lm.Sprite, lm.Shape, ctx.GlobalIconScale);
+                if (lm.Label.Length > 0 && !MapLabelAlreadyPresent(mapLabels, lm.Label))
+                    mapLabels.Add(new MapLabelCandidate(p, lm.Label, lm.Color, lm.Color));
             }
 
             if (mapLabels.Count > 0)
@@ -531,6 +538,33 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
 
         dl.AddCircleFilled(center, MathF.Max(1f, size), ColorU32(color, opacity), 16);
+    }
+
+
+    private static void DrawIconOrShapePacked(
+        ImDrawListPtr dl,
+        NumVec2 center,
+        float size,
+        uint color,
+        SpriteIconRef? sprite,
+        string? shape,
+        float globalIconScale = 1f)
+    {
+        if (IconAtlas.TryResolve(sprite, shape, out var icon))
+        {
+            var scaleMul = Math.Clamp(sprite?.Scale ?? 1f, 0.2f, 4f) * Math.Clamp(globalIconScale, 0.25f, 4f);
+            var half = MathF.Max(1f, size * scaleMul);
+            dl.AddImage(
+                icon.TextureId,
+                new NumVec2(center.X - half, center.Y - half),
+                new NumVec2(center.X + half, center.Y + half),
+                icon.UV0,
+                icon.UV1,
+                color);
+            return;
+        }
+
+        dl.AddCircleFilled(center, MathF.Max(1f, size), color, 16);
     }
 
     private static void DrawTerrainEdges(ImDrawListPtr dl, RenderContext ctx, Poe2Live.TerrainData terrain, MapFrame frame, NumVec2 center, float scale)
@@ -602,10 +636,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     {
         foreach (var path in ctx.SelectedPaths)
         {
-            if (path.Points.Count < 2) continue;
+            var poly = NavigationPathBuilder.BuildDrawPolyline(ctx.PlayerGrid, path.Points, path.LiveGoal);
+            if (poly.Count < 2) continue;
             var col = PathColor(path.ColorSlot);
             NumVec2? prev = null;
-            foreach (var (x, y) in path.Points)
+            foreach (var (x, y) in poly)
             {
                 var p = Project(new NumVec2(x, y), ctx.PlayerGrid, center, scale, -frame.PlayerTerrainHeight);
                 if (prev is { } a) dl.AddLine(a, p, col, 2.2f);
@@ -624,10 +659,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
         foreach (var path in ctx.SelectedPaths)
         {
-            if (path.Points.Count == 0) continue;
+            var fwd = NavigationPathBuilder.BuildForwardPath(ctx.PlayerGrid, path.Points, path.LiveGoal);
+            if (fwd.Count == 0) continue;
             var col = PathColor(path.ColorSlot);
             NumVec2? prev = null;
-            foreach (var (gx, gy) in path.Points)
+            foreach (var (gx, gy) in fwd)
             {
                 var wx = gx * GridConstants.GridToWorld;
                 var wy = gy * GridConstants.GridToWorld;
@@ -651,7 +687,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private void DrawNameplates(ImDrawListPtr dl, RenderContext ctx)
     {
         if (ctx.CameraMatrix is not { Length: >= 16 } m) return;
-        if (ctx.HpBarTargets is not { Count: > 0 } bars) return;
+        if (ctx.HpBarTargets is not { Length: > 0 } bars) return;
         float W = ctx.WindowWidth, H = ctx.WindowHeight;
         var bh = ctx.HpBars.Height;
         TextureRegistry.TextureHandle fullTex = default;
@@ -668,14 +704,18 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             var cy = w.X * m[1] + w.Y * m[5] + w.Z * m[9] + m[13];
             var sx = (cx / cw / 2f + 0.5f) * W;
             var sy = (0.5f - cy / cw / 2f) * H;
-            if (sx < 0 || sx > W || sy < 0 || sy > H) continue;
+            if (sx < -120 || sx > W + 120 || sy < -120 || sy > H + 120) continue;
 
             var bw = t.Width;
             var bx = sx - bw / 2f + ctx.HpBars.OffsetX;
             var by = sy + ctx.HpBars.OffsetY;
+            var barMax = new NumVec2(bx + bw, by + bh);
 
-            var backdropAlpha = useFullTex ? 0.35f : 0.78f;
-            dl.AddRectFilled(new NumVec2(bx, by), new NumVec2(bx + bw, by + bh), ColorU32(13, 13, 13, backdropAlpha));
+            if (useHollowTex)
+                dl.AddImage(hollowTex.Id, new NumVec2(bx, by), barMax, new NumVec2(0, 0), new NumVec2(1, 1),
+                    ColorU32(255, 255, 255, 0.92f));
+            else
+                dl.AddRectFilled(new NumVec2(bx, by), barMax, ColorU32(13, 13, 13, 0.78f));
 
             uint fillCol;
             if (t.Frac < 0.3f)
@@ -792,6 +832,38 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
     }
 
+    /// <summary>One chip per label text on the map overlay — many boss arena tiles share the same zone boss name.</summary>
+    private static bool MapLabelAlreadyPresent(List<MapLabelCandidate> labels, string text)
+    {
+        if (!IsSingleChipBossLabel(text)) return false;
+        foreach (var c in labels)
+            if (string.Equals(c.Text, text, StringComparison.OrdinalIgnoreCase))
+                return true;
+        return false;
+    }
+
+    private static bool IsSingleChipBossLabel(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return false;
+        if (text.EndsWith(" (Boss)", StringComparison.OrdinalIgnoreCase)) return true;
+        return string.Equals(text, "Boss room", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(text, "Boss", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(text, "Bosses", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static List<MapLabelCandidate> DedupeClusterByText(List<MapLabelCandidate> cluster)
+    {
+        if (cluster.Count <= 1) return cluster;
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var deduped = new List<MapLabelCandidate>(cluster.Count);
+        foreach (var c in cluster)
+        {
+            if (seen.Add(c.Text))
+                deduped.Add(c);
+        }
+        return deduped;
+    }
+
     private static void DrawMapLabelChips(
         ImDrawListPtr dl,
         List<MapLabelCandidate> candidates,
@@ -799,8 +871,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         float labelScale = 1f)
     {
         var rowH = LabelChipRowH * labelScale;
-        foreach (var cluster in BuildMapLabelClusters(candidates, labelScale))
+        foreach (var rawCluster in BuildMapLabelClusters(candidates, labelScale))
         {
+            var cluster = DedupeClusterByText(rawCluster);
             if (cluster.Count == 1)
             {
                 var c = cluster[0];
@@ -937,7 +1010,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private static void DrawPathLabels(ImDrawListPtr dl, RenderContext ctx)
     {
-        if (ctx.SelectedPaths.Count == 0 || ShouldDrawLargeMapOverlay(ctx.Map)) return;
+        if (ctx.SelectedPaths.Length == 0 || ShouldDrawLargeMapOverlay(ctx.Map)) return;
         float W = ctx.WindowWidth, H = ctx.WindowHeight;
         if (ctx.CameraMatrix is not { Length: >= 16 } m) return;
 
@@ -1032,6 +1105,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (corner != "BottomRight") ImGui.SameLine();
         }
 
+        if (ctx.ShowFpsOverlay || ctx.ShowPerfStats)
+            DrawNavPerfStats(ctx);
+
         if (_navMenuExpanded)
         {
             ImGui.Spacing();
@@ -1048,18 +1124,49 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             }
         }
 
+        ImGui.End();
+    }
+
+    private static void DrawNavPerfStats(RenderContext ctx)
+    {
+        var p = ctx.Perf;
+        ImGui.Spacing();
+        ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new System.Numerics.Vector2(4f, 3f));
+        var io = ImGui.GetIO();
+        var prevScale = io.FontGlobalScale;
+        io.FontGlobalScale = prevScale * 1.08f;
+
+        TextColoredUnformatted(new Vector4(0.55f, 0.92f, 1f, 1f),
+            $"tick {p.Fps:F0} fps   render {p.RenderFps:F0} fps   ({p.TickMs:F1} ms)");
+        var gpu = FormatGpuPercent(p.GpuPercent);
+        var vram = p.GpuMemoryMb >= 0 ? $"{p.GpuMemoryMb:F0} MB VRAM" : "VRAM n/a";
+        TextColoredUnformatted(new Vector4(0.75f, 1f, 0.82f, 1f),
+            $"Overlay CPU {p.ProcessCpuPct:F0}%   GPU {gpu}   RAM {p.WorkingSetMb:F0} MB   {vram}");
+
         if (ctx.ShowPerfStats)
         {
-            ImGui.Separator();
-            var p = ctx.Perf;
-            ImGui.TextColored(new Vector4(0.55f, 0.55f, 0.55f, 1f), $"fps {p.Fps:F0}  tick {p.TickMs:F1}  ent {p.EntitiesMs:F1}");
-            ImGui.TextColored(new Vector4(0.55f, 0.55f, 0.55f, 1f), $"map {p.MapMs:F1}  paths {p.PathsMs:F1}  hp {p.HpBarsMs:F1}");
+            TextColoredUnformatted(new Vector4(0.92f, 0.92f, 0.55f, 1f),
+                $"world {p.WorldMs:F1} ms   draw {p.RenderMs:F1} ms   map {p.MapMs:F1}   paths {p.PathsMs:F1}   hp {p.HpBarsMs:F1}");
+            TextColoredUnformatted(new Vector4(0.85f, 0.85f, 0.85f, 1f),
+                $"reads total {p.TotalReadsPerSec / 1000f:F1}k/s   main {p.MainReadsPerSec / 1000f:F1}k/s   world {p.WorldReadsPerSec / 1000f:F1}k/s   {p.TotalMibPerSec:F2} MiB/s");
+            TextColoredUnformatted(new Vector4(0.85f, 0.85f, 0.85f, 1f),
+                $"ent {p.EntityCount}   hp {p.HpBarCount}   paths {p.SelectedPathCount}   metrics opt-in");
             if (ctx.AtlasOpen)
-                ImGui.TextColored(new Vector4(0.55f, 0.55f, 0.55f, 1f), $"atlas draw {p.AtlasMs:F1} ms");
-            ImGui.TextColored(new Vector4(0.55f, 0.55f, 0.55f, 1f), $"reads {p.ReadsPerSec / 1000f:F1}k/s  {p.MibPerSec:F2} MiB/s");
+                TextColoredUnformatted(new Vector4(0.85f, 0.85f, 0.85f, 1f), $"atlas draw {p.AtlasMs:F1} ms");
         }
 
-        ImGui.End();
+        io.FontGlobalScale = prevScale;
+        ImGui.PopStyleVar();
+    }
+
+    private static string FormatGpuPercent(float pct)
+        => pct >= 0 ? $"{pct:F0}%" : "n/a";
+
+    private static void TextColoredUnformatted(Vector4 color, string text)
+    {
+        ImGui.PushStyleColor(ImGuiCol.Text, color);
+        ImGui.TextUnformatted(text);
+        ImGui.PopStyleColor();
     }
 
     // ── Settings panel ──
@@ -1303,7 +1410,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     {
         if (!ImGui.CollapsingHeader("Types in this zone", ImGuiTreeNodeFlags.DefaultOpen)) return;
 
-        if (ctx is not { Entities.Count: > 0 })
+        if (ctx is not { Entities.Length: > 0 })
         {
             ImGui.TextDisabled("No entities in range (enter a zone / move closer).");
             return;
@@ -1319,7 +1426,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         var byTier = new Dictionary<EntityImportance, Dictionary<string, (string label, int count, Poe2Live.EntityDot sample)>>();
         foreach (var e in entities)
         {
-            var tier = EntityImportanceHelper.Classify(e, ctx.Styles, ctx.Resolve?.Invoke(e));
+            var rule = _ruleEngine?.Resolve(e, areaCode, s.ImportantOnly, entities);
+            var tier = EntityImportanceHelper.Classify(e, ctx.Styles, rule);
             if (s.ImportantOnly && EntityImportanceHelper.IsTrash(tier)) continue;
 
             var token = TypeToken(e.Metadata);
@@ -1328,7 +1436,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (!byTier.TryGetValue(tier, out var bucket))
                 byTier[tier] = bucket = new Dictionary<string, (string, int, Poe2Live.EntityDot)>(StringComparer.Ordinal);
 
-            var label = EntityDisplayHelper.FormatEntityLabel(e, ctx.Resolve?.Invoke(e), entities, areaCode);
+            var label = EntityDisplayHelper.FormatEntityLabel(e, rule, entities, areaCode);
             if (label.Length == 0) label = token;
 
             if (bucket.TryGetValue(token, out var g))
@@ -1400,7 +1508,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         ImGui.PushID(token);
         var areaCode = ctx.AreaCode;
         var globalRule = _ruleEngine?.ResolveGlobal(sample);
-        var mergedRule = ctx.Resolve?.Invoke(sample);
+        var mergedRule = _ruleEngine?.Resolve(sample, areaCode, _settings.ImportantOnly, ctx.Entities);
         var hasZoneOverride = _zoneOverrides?.HasOverride(areaCode, token) ?? false;
         var rawHide = mergedRule is { Hide: true };
         var rawNav = mergedRule?.Navigable ?? false;
@@ -1484,7 +1592,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             bool sb = s.ShowPlayerBlip; ImGui.Checkbox("Player Blip", ref sb); s.ShowPlayerBlip = sb;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Show a cyan dot at your position on the map overlay");
 
-            bool sp = s.ShowPath; ImGui.Checkbox("Show Paths", ref sp); s.ShowPath = sp;
+            bool spw = s.ShowPathWorld; ImGui.Checkbox("Paths on world view", ref spw); s.ShowPathWorld = spw;
+            bool spm = s.ShowPathMap; ImGui.Checkbox("Paths on Tab map", ref spm); s.ShowPathMap = spm;
+            bool spmi = s.ShowPathMinimap; ImGui.Checkbox("Paths on minimap", ref spmi); s.ShowPathMinimap = spmi;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Draw guidance route polylines between you and selected targets");
 
             bool hj = s.HideJunk; ImGui.Checkbox("Hide map clutter", ref hj); s.HideJunk = hj;
@@ -1493,13 +1603,24 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             bool cl = s.UseCuratedLandmarks; ImGui.Checkbox("Curated Landmarks", ref cl); s.UseCuratedLandmarks = cl;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Use community-curated friendly names for landmarks instead of raw tile paths");
 
-            bool pf = s.ShowPerfStats; ImGui.Checkbox("Perf Stats", ref pf); s.ShowPerfStats = pf;
-            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Show FPS, timing, and memory read counters in the navigation menu");
-
             bool ao = s.AlwaysShowOverlay; ImGui.Checkbox("Always Show Overlay", ref ao); s.AlwaysShowOverlay = ao;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Keep the overlay visible even when PoE2 is not the foreground window");
 
+            bool lowImpact = s.LowImpactMode; ImGui.Checkbox("Low impact mode", ref lowImpact); s.LowImpactMode = lowImpact;
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Favor lower memory-read cadence when idle or unfocused");
             int fps = s.FpsCap; ImGui.SliderInt("FPS Cap", ref fps, 15, 360); s.FpsCap = fps;
+            int liveHz = s.LiveRefreshHz; ImGui.SliderInt("Live refresh Hz", ref liveHz, 5, 120); s.LiveRefreshHz = liveHz;
+            int worldHz = s.WorldRefreshHz; ImGui.SliderInt("World refresh Hz", ref worldHz, 1, 60); s.WorldRefreshHz = worldHz;
+            int inactiveHz = s.InactiveRefreshHz; ImGui.SliderInt("Inactive refresh Hz", ref inactiveHz, 1, 10); s.InactiveRefreshHz = inactiveHz;
+            int hpHz = s.HpBarRefreshHz; ImGui.SliderInt("HP bar refresh Hz", ref hpHz, 1, 30); s.HpBarRefreshHz = hpHz;
+            int maxHp = s.MaxLiveHpBars; ImGui.SliderInt("Max live HP bars", ref maxHp, 0, 256); s.MaxLiveHpBars = maxHp;
+
+            bool fpsHud = s.ShowFpsOverlay; ImGui.Checkbox("FPS / resource overlay", ref fpsHud); s.ShowFpsOverlay = fpsHud;
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("FPS + App CPU/GPU/RAM under the POE2Radar nav button; sampling is opt-in");
+            bool pf = s.ShowPerfStats; ImGui.Checkbox("Extended perf stats", ref pf); s.ShowPerfStats = pf;
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Extra timing and memory-read lines under the nav menu");
+            int metricsHz = s.MetricsRefreshHz; ImGui.SliderInt("Metrics refresh Hz", ref metricsHz, 1, 10); s.MetricsRefreshHz = metricsHz;
+            int gpuSeconds = s.GpuMetricsRefreshSeconds; ImGui.SliderInt("GPU metrics seconds", ref gpuSeconds, 1, 30); s.GpuMetricsRefreshSeconds = gpuSeconds;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Maximum render rate in Hz — higher is smoother but more GPU load");
 
             int lcg = s.LandmarkClusterGap; ImGui.SliderInt("Cluster Gap", ref lcg, 0, 64); s.LandmarkClusterGap = lcg;

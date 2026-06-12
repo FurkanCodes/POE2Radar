@@ -521,6 +521,9 @@ public sealed class ApiServer : IDisposable
     {
         hideJunk = _settings.HideJunk,
         showPath = _settings.ShowPath,
+        showPathWorld = _settings.ShowPathWorld,
+        showPathMap = _settings.ShowPathMap,
+        showPathMinimap = _settings.ShowPathMinimap,
         autoPathNavigable = _settings.AutoPathNavigable,
         importantOnly = _settings.ImportantOnly,
         entityDrawRadiusGrid = _settings.EntityDrawRadiusGrid,
@@ -532,8 +535,17 @@ public sealed class ApiServer : IDisposable
         showMonsters = _settings.ShowMonsters,
         showTerrain = _settings.ShowTerrain,
         showPlayerBlip = _settings.ShowPlayerBlip,
+        lowImpactMode = _settings.LowImpactMode,
         fpsCap = _settings.FpsCap,
+        liveRefreshHz = _settings.LiveRefreshHz,
+        worldRefreshHz = _settings.WorldRefreshHz,
+        inactiveRefreshHz = _settings.InactiveRefreshHz,
+        hpBarRefreshHz = _settings.HpBarRefreshHz,
+        maxLiveHpBars = _settings.MaxLiveHpBars,
+        metricsRefreshHz = _settings.MetricsRefreshHz,
+        gpuMetricsRefreshSeconds = _settings.GpuMetricsRefreshSeconds,
         showPerfStats = _settings.ShowPerfStats,
+        showFpsOverlay = _settings.ShowFpsOverlay,
         atlasShowOnScreenNodes = _settings.AtlasShowOnScreenNodes,
         atlasShowNames = _settings.AtlasShowNames,
         atlasRevealFog = _settings.AtlasRevealFog,
@@ -594,9 +606,12 @@ public sealed class ApiServer : IDisposable
             {
                 case "hideJunk" when TryBool(p.Value, out var b): _settings.HideJunk = b; applied.Add(p.Name); break;
                 case "showPath" when TryBool(p.Value, out var b): _settings.ShowPath = b; applied.Add(p.Name); break;
+                case "showPathWorld" when TryBool(p.Value, out var b): _settings.ShowPathWorld = b; applied.Add(p.Name); break;
+                case "showPathMap" when TryBool(p.Value, out var b): _settings.ShowPathMap = b; applied.Add(p.Name); break;
+                case "showPathMinimap" when TryBool(p.Value, out var b): _settings.ShowPathMinimap = b; applied.Add(p.Name); break;
                 case "autoPathNavigable" when TryBool(p.Value, out var b):
                     _settings.AutoPathNavigable = b;
-                    if (b) _settings.ShowPath = true;
+                    if (b) { _settings.ShowPath = true; _settings.ShowPathWorld = true; }
                     applied.Add(p.Name);
                     break;
                 case "importantOnly" when TryBool(p.Value, out var b): _settings.ImportantOnly = b; applied.Add(p.Name); break;
@@ -623,8 +638,17 @@ public sealed class ApiServer : IDisposable
                 case "showMonsters" when TryBool(p.Value, out var b): _settings.ShowMonsters = b; applied.Add(p.Name); break;
                 case "showTerrain" when TryBool(p.Value, out var b): _settings.ShowTerrain = b; applied.Add(p.Name); break;
                 case "showPlayerBlip" when TryBool(p.Value, out var b): _settings.ShowPlayerBlip = b; applied.Add(p.Name); break;
+                case "lowImpactMode" when TryBool(p.Value, out var b): _settings.LowImpactMode = b; applied.Add(p.Name); break;
                 case "fpsCap" when TryInt(p.Value, out var n): _settings.FpsCap = Math.Clamp(n, 15, 360); applied.Add(p.Name); break;
+                case "liveRefreshHz" when TryInt(p.Value, out var n): _settings.LiveRefreshHz = Math.Clamp(n, 5, 120); applied.Add(p.Name); break;
+                case "worldRefreshHz" when TryInt(p.Value, out var n): _settings.WorldRefreshHz = Math.Clamp(n, 1, 60); applied.Add(p.Name); break;
+                case "inactiveRefreshHz" when TryInt(p.Value, out var n): _settings.InactiveRefreshHz = Math.Clamp(n, 1, 10); applied.Add(p.Name); break;
+                case "hpBarRefreshHz" when TryInt(p.Value, out var n): _settings.HpBarRefreshHz = Math.Clamp(n, 1, 30); applied.Add(p.Name); break;
+                case "maxLiveHpBars" when TryInt(p.Value, out var n): _settings.MaxLiveHpBars = Math.Clamp(n, 0, 256); applied.Add(p.Name); break;
+                case "metricsRefreshHz" when TryInt(p.Value, out var n): _settings.MetricsRefreshHz = Math.Clamp(n, 1, 10); applied.Add(p.Name); break;
+                case "gpuMetricsRefreshSeconds" when TryInt(p.Value, out var n): _settings.GpuMetricsRefreshSeconds = Math.Clamp(n, 1, 30); applied.Add(p.Name); break;
                 case "showPerfStats" when TryBool(p.Value, out var b): _settings.ShowPerfStats = b; applied.Add(p.Name); break;
+                case "showFpsOverlay" when TryBool(p.Value, out var b): _settings.ShowFpsOverlay = b; applied.Add(p.Name); break;
                 case "atlasShowOnScreenNodes" when TryBool(p.Value, out var b): _settings.AtlasShowOnScreenNodes = b; applied.Add(p.Name); break;
                 case "atlasShowNames" when TryBool(p.Value, out var b): _settings.AtlasShowNames = b; applied.Add(p.Name); break;
                 case "atlasRevealFog" when TryBool(p.Value, out var b): _settings.AtlasRevealFog = b; applied.Add(p.Name); break;

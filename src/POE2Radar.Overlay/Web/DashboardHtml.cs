@@ -680,17 +680,39 @@ internal static class DashboardHtml
               <label class="sw"><input type="checkbox" data-set="useCuratedLandmarks"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl">Landmark cluster gap<small>max tile distance to merge nearby tile markers (0 = no clustering)</small></div>
               <input class="numin" type="number" step="1" min="0" max="64" data-set="landmarkClusterGap"></div>
+            <div class="row"><div class="rl">Low impact mode<small>favor lower memory-read cadence when idle or unfocused</small></div>
+              <label class="sw"><input type="checkbox" data-set="lowImpactMode"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl">Overlay FPS cap<small>15&ndash;360; lower = less GPU load</small></div>
               <input class="numin" type="number" step="1" min="15" max="360" data-set="fpsCap"></div>
-            <div class="row"><div class="rl">Show perf stats<small>FPS and read timings in the nav menu</small></div>
+            <div class="row"><div class="rl">Live refresh Hz<small>player position, map UI, vitals, camera: 5&ndash;120</small></div>
+              <input class="numin" type="number" step="1" min="5" max="120" data-set="liveRefreshHz"></div>
+            <div class="row"><div class="rl">World refresh Hz<small>entities, terrain, landmarks, routes: 1&ndash;60</small></div>
+              <input class="numin" type="number" step="1" min="1" max="60" data-set="worldRefreshHz"></div>
+            <div class="row"><div class="rl">Inactive refresh Hz<small>world reads while PoE2 is unfocused and overlay is hidden: 1&ndash;10</small></div>
+              <input class="numin" type="number" step="1" min="1" max="10" data-set="inactiveRefreshHz"></div>
+            <div class="row"><div class="rl">HP bar refresh Hz<small>live nameplate HP/position reads: 1&ndash;30</small></div>
+              <input class="numin" type="number" step="1" min="1" max="30" data-set="hpBarRefreshHz"></div>
+            <div class="row"><div class="rl">Max live HP bars<small>cap read-heavy nameplates: 0&ndash;256</small></div>
+              <input class="numin" type="number" step="1" min="0" max="256" data-set="maxLiveHpBars"></div>
+            <div class="row"><div class="rl">FPS / resource overlay<small>tick/render FPS + App CPU/GPU/RAM under POE2Radar nav</small></div>
+              <label class="sw"><input type="checkbox" data-set="showFpsOverlay"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Extended perf stats<small>extra timing/read lines under the nav menu</small></div>
               <label class="sw"><input type="checkbox" data-set="showPerfStats"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Metrics refresh Hz<small>CPU/RAM sampling cadence when metrics HUD is enabled: 1&ndash;10</small></div>
+              <input class="numin" type="number" step="1" min="1" max="10" data-set="metricsRefreshHz"></div>
+            <div class="row"><div class="rl">GPU metrics seconds<small>GPU/VRAM sampling interval when metrics HUD is enabled: 1&ndash;30</small></div>
+              <input class="numin" type="number" step="1" min="1" max="30" data-set="gpuMetricsRefreshSeconds"></div>
           </div>
           </div>
           <div class="settings-section panel-grid" id="setNav" hidden>
           <div class="card">
             <h3>Navigation &amp; paths</h3>
-            <div class="row"><div class="rl">Show paths<small>draw route polylines to nav targets</small></div>
-              <label class="sw"><input type="checkbox" data-set="showPath"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Path on ground<small>world-projected route when the large map is closed</small></div>
+              <label class="sw"><input type="checkbox" data-set="showPathWorld"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Path on large map<small>route overlay when Tab map is open</small></div>
+              <label class="sw"><input type="checkbox" data-set="showPathMap"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Path on minimap<small>route inside the corner minimap</small></div>
+              <label class="sw"><input type="checkbox" data-set="showPathMinimap"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl">Auto-path to nearest targets<small>continuously path to nearest entities whose rule has &ldquo;Show path to this&rdquo; (F6 picks manually too)</small></div>
               <label class="sw"><input type="checkbox" data-set="autoPathNavigable"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl">Detection radius<small>max grid distance for entity dots, nav, and API list (0 = unlimited)</small></div>
@@ -1178,13 +1200,13 @@ async function loadSettings(){
 async function saveSetting(key,val){
   try{
     const body={[key]:val};
-    if(key==='autoPathNavigable'&&val) body.showPath=true;
+    if(key==='autoPathNavigable'&&val){ body.showPath=true; body.showPathWorld=true; }
     await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const m=$('#savedMsg'); m.classList.add('show'); clearTimeout(m._t); m._t=setTimeout(()=>m.classList.remove('show'),1100);
     markStamp('stampSettings'); toast('Settings saved','ok');
     if(key==='hideJunk') updateHeaderQuick();
     if(key==='autoPathNavigable'&&val){
-      const sp=$('[data-set="showPath"]'); if(sp) sp.checked=true;
+      const spw=$('[data-set="showPathWorld"]'); if(spw) spw.checked=true;
     }
     if(_settingsCache) _settingsCache[key]=val;
   }catch(e){ toast('Settings save failed'); }

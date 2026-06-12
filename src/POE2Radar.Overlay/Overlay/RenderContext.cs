@@ -27,7 +27,8 @@ public readonly record struct LegendEntry(
 /// Empty <see cref="Points"/> = no path.</summary>
 public readonly record struct SelectedPath(
     int ColorSlot, string TargetId, string Label, bool IsEntity, NavTargetStatus Status, float Distance,
-    float PathDistance, IReadOnlyList<(int x, int y)> Points);
+    float PathDistance, (int x, int y)[] Points,
+    (int x, int y)? LiveGoal = null);
 
 /// <summary>Low-overhead runtime timings used to compare read/update/render costs while tuning the overlay.</summary>
 public readonly record struct PerfSnapshot(
@@ -46,9 +47,21 @@ public readonly record struct PerfSnapshot(
     float ReadsPerSec,
     float MibPerSec,
     float FailedReadsPerSec,
+    float MainReadsPerSec,
+    float WorldReadsPerSec,
+    float TotalReadsPerSec,
+    float MainMibPerSec,
+    float WorldMibPerSec,
+    float TotalMibPerSec,
     int EntityCount,
     int HpBarCount,
-    int SelectedPathCount)
+    int SelectedPathCount,
+    float RenderFps = 0,
+    float RenderMs = 0,
+    float ProcessCpuPct = 0,
+    float WorkingSetMb = 0,
+    float GpuPercent = -1,
+    float GpuMemoryMb = -1)
 {
     public static readonly PerfSnapshot Empty = new();
 }
@@ -108,8 +121,10 @@ public sealed record RenderContext(
     Poe2Live.MapUi MiniMap,
     MapFrame MapFrame,
     MapFrame MiniMapFrame,
-    IReadOnlyList<Poe2Live.EntityDot> Entities,
-    IReadOnlyList<Poe2Live.Landmark> Landmarks,
+    Poe2Live.EntityDot[] Entities,
+    Poe2Live.Landmark[] Landmarks,
+    MapEntityRenderItem[] MapEntities,
+    MapLandmarkRenderItem[] MapLandmarks,
     uint AreaHash,
     Poe2Live.TerrainData? Terrain,
     // Live projection calibration (adjustable at runtime).
@@ -131,7 +146,9 @@ public sealed record RenderContext(
     bool HideJunk,
     bool ImportantOnly,
     float GlobalIconScale,
-    bool ShowPath,
+    bool ShowPathWorld,
+    bool ShowPathMap,
+    bool ShowPathMinimap,
     bool UseCuratedLandmarks,
     // Radar display toggles.
     bool ShowMonsters,
@@ -143,31 +160,29 @@ public sealed record RenderContext(
     bool HpBarRare,
     bool HpBarUnique,
     // Smoothed guidance route per selected target, each carrying its selection-order color slot.
-    IReadOnlyList<SelectedPath> SelectedPaths,
-    // Predicate: is this navigation-target id currently selected? (drives the legend swatch/highlight).
-    Func<string, bool> IsSelected,
+    SelectedPath[] SelectedPaths,
+    string[] SelectedIds,
     // Legend rows (one per unified navigation target) for the HUD panel; never null.
     IReadOnlyList<LegendEntry> Legend,
     // ── Collapsible "POE2Radar" navigation-menu widget (always drawn when Active+InGame). ──
     bool NavMenuExpanded,         // dropdown open?
     string NavMenuCorner,         // pinned corner: TopLeft/TopRight/BottomLeft/BottomRight
-    bool ShowPerfStats,           // opt-in compact timing block in the nav menu
+    bool ShowPerfStats,           // extended timing lines in the perf HUD + nav menu
+    bool ShowFpsOverlay,          // on-screen FPS / CPU / memory HUD (top-left)
     PerfSnapshot Perf,
     // ── User-tweakable icon style table + HP-bar geometry (mirrored from RadarSettings). ──
     RadarStyles Styles,
     HpBarSettings HpBars,
     // Monster HP bars: style decided at world rate, position/HP refreshed live each render frame so bars
     // track moving mobs smoothly. Null/empty → none. Replaces the old per-frame resolve over all entities.
-    IReadOnlyList<HpBarTarget>? HpBarTargets,
+    HpBarTarget[] HpBarTargets,
     // Walkable-terrain bitmap colors/transparency (mirrored from RadarSettings).
     TerrainSettings TerrainStyle,
     // ── Unified display-rule engine (Phase 1). Resolves an entity to the first matching display rule
     // (or null → not drawn); the rule says hide or how to draw (shape/color/size/label). Replaces the
     // watched/mechanic/category dot decision in DrawMap. Null only if not wired (defensive). ──
-    Func<Poe2Live.EntityDot, Web.DisplayRule?>? Resolve = null,
     // Tile-landmark styling resolver (Phase 2b): given a tile path, the matching "Tile"-category rule
     // (styling pass) or null. Lets a rule restyle/hide a surfaced landmark; null → default Landmark style.
-    Func<string, Web.DisplayRule?>? ResolveTile = null,
     // ── Atlas overlay (takes precedence over the minimap/radar when the Atlas screen is open). ──
     bool AtlasOpen = false,                       // the Atlas screen is open → draw atlas highlights + route, suppress radar
     IReadOnlyList<AtlasMark>? AtlasNodes = null,   // atlas nodes to draw (canvas-space coords)

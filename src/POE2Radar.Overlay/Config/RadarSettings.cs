@@ -13,6 +13,10 @@ public sealed class RadarSettings
     // ── Feature flags (reserved for later phases; no behavior wired yet). ──
     public bool HideJunk { get; set; } = false;
     public bool ShowPath { get; set; } = false;
+    public bool PathTogglesMigrated { get; set; }
+    public bool ShowPathWorld { get; set; } = true;
+    public bool ShowPathMap { get; set; } = true;
+    public bool ShowPathMinimap { get; set; } = true;
     public bool UseCuratedLandmarks { get; set; } = true;
     public bool DrawAllLandmarkPaths { get; set; } = false;
 
@@ -85,6 +89,9 @@ public sealed class RadarSettings
     // ── One-time: atlas display settings upgrade (AtlasDrawAll → AtlasShowOnScreenNodes). ──
     public bool AtlasDisplayMigrated { get; set; } = false;
 
+    // One-time: low-impact cadence defaults (lower read rate by default without removing features).
+    public bool PerformanceDefaultsMigrated { get; set; } = false;
+
     // ── Global multiplier on map icon sprite scale (PNG from icons.png). ──
     public float GlobalIconScale { get; set; } = 1.25f;
 
@@ -97,13 +104,23 @@ public sealed class RadarSettings
     // ── Overlay render/present rate (Hz). Lower = less CPU/GPU tax on the game.
     //    60 is plenty smooth for a radar; raise toward your monitor's refresh if you prefer. The
     //    heavier entity/terrain walk stays fixed at ~30 Hz regardless. ──
-    public int FpsCap { get; set; } = 60;
+    public bool LowImpactMode { get; set; } = true;
+    public int FpsCap { get; set; } = 45;
+    public int LiveRefreshHz { get; set; } = 30;
+    public int WorldRefreshHz { get; set; } = 12;
+    public int InactiveRefreshHz { get; set; } = 1;
+    public int HpBarRefreshHz { get; set; } = 8;
+    public int MaxLiveHpBars { get; set; } = 32;
+    public int MetricsRefreshHz { get; set; } = 1;
+    public int GpuMetricsRefreshSeconds { get; set; } = 5;
 
     // ── Navigation-menu widget: which screen corner it is pinned to.
     //    One of "TopLeft", "TopRight", "BottomLeft", "BottomRight". ──
     public string NavMenuCorner { get; set; } = "TopLeft";
-    // Developer/performance tuning aid: show compact timing/read counters in the nav menu.
+    // Developer/performance tuning aid: extended timing/read counters in the on-screen perf HUD.
     public bool ShowPerfStats { get; set; } = false;
+    // FPS + App CPU/GPU/RAM under the POE2Radar nav-menu button.
+    public bool ShowFpsOverlay { get; set; } = false;
 
     // ── Persistent auto-nav: substrings matched (case-insensitive Contains) against a navigation
     //    target's MatchKey (tile path / entity metadata). On every zone change, every target whose
@@ -118,7 +135,7 @@ public sealed class RadarSettings
     // ── Monster HP bars (world-space nameplates) by rarity.
     //    Defaults preserve prior behavior: Magic/Rare/Unique shown, Normal hidden. ──
     public bool HpBarNormal { get; set; } = false;
-    public bool HpBarMagic { get; set; } = true;
+    public bool HpBarMagic { get; set; } = false;
     public bool HpBarRare { get; set; } = true;
     public bool HpBarUnique { get; set; } = true;
 
@@ -322,6 +339,29 @@ public sealed class RadarSettings
         {
             if (AtlasDrawAll) AtlasShowOnScreenNodes = true;
             AtlasDisplayMigrated = true;
+            changed = true;
+        }
+
+        if (!PathTogglesMigrated)
+        {
+            ShowPathWorld = ShowPathMap = ShowPathMinimap = ShowPath;
+            PathTogglesMigrated = true;
+            changed = true;
+        }
+
+        if (!PerformanceDefaultsMigrated)
+        {
+            LowImpactMode = true;
+            FpsCap = Math.Min(FpsCap, 45);
+            LiveRefreshHz = 30;
+            WorldRefreshHz = 12;
+            InactiveRefreshHz = 1;
+            HpBarRefreshHz = 8;
+            MaxLiveHpBars = 32;
+            MetricsRefreshHz = 1;
+            GpuMetricsRefreshSeconds = 5;
+            ShowFpsOverlay = false;
+            PerformanceDefaultsMigrated = true;
             changed = true;
         }
 

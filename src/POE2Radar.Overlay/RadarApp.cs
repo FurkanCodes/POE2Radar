@@ -20,10 +20,8 @@ namespace POE2Radar.Overlay;
 /// live); the heavier entity/terrain walk runs at ~30 Hz. Projection scale/offset are tweakable live
 /// via hotkeys for calibration.
 /// </summary>
-public sealed class RadarApp : IDisposable
+public sealed partial class RadarApp : IDisposable
 {
-    private const int WorldHz = 30;
-
     private readonly ProcessHandle _process;
     private readonly MemoryReader _reader;
     private readonly Poe2Live _live;
@@ -38,10 +36,6 @@ public sealed class RadarApp : IDisposable
     private readonly DisplayRules _displayRules;
     private readonly ZoneEntityOverrides _zoneOverrides;
     private readonly DisplayRuleEngine _ruleEngine;
-    // Cached delegates for the per-frame RenderContext, so we don't allocate a method-group delegate +
-    // closure every render frame. Bound once after _displayRules is constructed.
-    private Func<Poe2Live.EntityDot, DisplayRule?>? _resolveEntity;
-    private Func<string, DisplayRule?>? _resolveTileDraw;
     private readonly LandmarkStore _landmarkStore;
     private readonly CompletedContentSuppressor _completedSuppressor = new();
     private uint _suppressorAreaHash;
@@ -52,8 +46,19 @@ public sealed class RadarApp : IDisposable
     private nint _areaInstanceForApi;   // current AreaInstance, for the /api/tiles tile-path lookup
     private nint _inGameStateForApi;    // current InGameState, for the /api/atlas node read
     private volatile RadarState _state = RadarState.Empty;
+    private volatile WorldSnapshot _snapshot = WorldSnapshot.Empty;
+    private readonly MemoryReader _worldReader;
+    private readonly Poe2Live _worldLive;
+    private readonly Thread _worldThread;
+    private readonly object _trackerGate = new();
     private readonly PerfAccumulator _perf = new();
+    private readonly ProcessMetricsSampler _processMetrics;
     private PerfSnapshot _perfSnapshot = PerfSnapshot.Empty;
+    private volatile float _worldTickMs;
+    private readonly PerformanceCadence _liveCadence = new();
+    private readonly PerformanceCadence _hpBarCadence = new();
+    private LiveFrameState _liveFrame = LiveFrameState.Empty;
+    private volatile bool _mainLandmarksInvalid;
 
     // ── Atlas overlay: live node highlights (takes precedence over the radar when the atlas is open). ──
     private readonly object _atlasLock = new();
@@ -89,19 +94,16 @@ public sealed class RadarApp : IDisposable
     /// <summary>Directory holding the user config files (shared with <see cref="RadarSettings"/>).</summary>
     private static string ConfigDir => Path.Combine(AppContext.BaseDirectory, "config");
 
-    private DateTime _worldAt = DateTime.MinValue;
     private List<Poe2Live.EntityDot> _entities = new();
     // Monster HP-bar pipeline. _hpSpecs (style + which mobs get a bar) is rebuilt at WORLD rate from the
     // resolved rules; _hpFrame (live position + HP) is rebuilt every RENDER frame from cheap per-mob reads
     // so bars track moving monsters smoothly without re-enumerating/re-resolving thousands of entities.
-    private readonly record struct HpBarSpec(nint Entity, float Width, uint Fill, float BorderWidth, uint Border);
-    private readonly List<HpBarSpec> _hpSpecs = new();
     // Published into the RenderContext and enumerated on the ImGui render thread, so it must never be
     // mutated in place — each frame we swap in a FRESH list (volatile publish) to avoid a cross-thread
     // "collection modified" crash in DrawNameplates.
-    private volatile IReadOnlyList<HpBarTarget> _hpFrame = Array.Empty<HpBarTarget>();
+    private volatile HpBarTarget[] _hpFrame = Array.Empty<HpBarTarget>();
     private IReadOnlyList<Poe2Live.Landmark> _landmarks = Array.Empty<Poe2Live.Landmark>();
-    private Poe2Live.TerrainData? _terrain;
+    private Poe2Live.TerrainData? _worldTerrain;
     private uint _areaHash;
     private nint _lastAreaInstance;
     private nint _gameHwnd;
@@ -132,8 +134,6 @@ public sealed class RadarApp : IDisposable
     private float[]? _cameraMatrix;
 
     // Render inputs rebuilt at world rate (30 Hz), not per render frame.
-    private List<string> _selectedSnapshot = new();
-    private IReadOnlyList<LegendEntry> _legend = Array.Empty<LegendEntry>();
 
     // ── Phase 1: exploration fog + draw-only path guidance (all gated by RadarSettings flags). ──
     // Unified navigation targets: a single list built each world tick from BOTH terrain-tile
@@ -163,7 +163,8 @@ public sealed class RadarApp : IDisposable
     private readonly object _navLock = new();
     private readonly List<string> _selectedIds = new();                  // selected target ids (order drives the color slot)
     private readonly HashSet<string> _autoSelectedIds = new();           // ids added by live auto-path (not manual F6/legend)
-    private List<SelectedPath> _selectedPaths = new();                   // one route per selected target (from trackers)
+    private readonly List<SelectedPath> _renderPaths = new();                   // one route per selected target (from trackers)
+    private volatile SelectedPath[] _renderPathSnapshot = Array.Empty<SelectedPath>();
     private bool _selectionCapWarned;                                    // log the "cap reached" notice once
     private nint _navTargetsArea = -1;                                   // AreaInstance the auto-nav was applied for
     // Per-instance nav memory: the nav selection for each AreaInstance hash, so returning to a zone
@@ -179,16 +180,35 @@ public sealed class RadarApp : IDisposable
     private int OverlayWidth => _imguiOverlay?.OverlayWidth ?? 0;
     private int OverlayHeight => _imguiOverlay?.OverlayHeight ?? 0;
 
+    private readonly record struct LiveFrameState(
+        bool InGame,
+        nint InGameState,
+        nint AreaInstance,
+        nint LocalPlayer,
+        NumVec2 PlayerGrid,
+        System.Numerics.Vector3 PlayerWorld,
+        float PlayerTerrainHeight,
+        Poe2Live.MapViews Maps,
+        uint AreaHash,
+        float[]? CameraMatrix)
+    {
+        public static readonly LiveFrameState Empty = new(
+            false, 0, 0, 0, NumVec2.Zero, System.Numerics.Vector3.Zero, 0f, default, 0, null);
+    }
+
     public void RequestShutdown() => _shutdown = true;
 
     public RadarApp(ProcessHandle process, MemoryReader reader, nint gameStateSlot)
     {
         _process = process;
         _reader = reader;
+        _processMetrics = ProcessMetricsSampler.ForOverlay();
         _settings = RadarSettings.Load();
         Console.WriteLine($"Settings: {RadarSettings.FilePath}");
         Console.WriteLine($"Entity names: {EntityNameResolver.Shared.Count} mappings; zones: {ZoneGuide.Shared.Count}; zone bosses: {ZoneBossCatalog.Shared.Count}");
         _live = new Poe2Live(reader, gameStateSlot);
+        _worldReader = new MemoryReader(process);
+        _worldLive = new Poe2Live(_worldReader, gameStateSlot);
         _atlas = new Poe2Atlas(reader);
         CrashLog.Write("Backend selected", "Starting ImGuiDx backend.");
         try
@@ -212,7 +232,8 @@ public sealed class RadarApp : IDisposable
         _hidden = new HiddenEntities(Path.Combine(ConfigDir, "hidden_entities.json"));
         _watched = new WatchedEntities(Path.Combine(ConfigDir, "watched_entities.json"));
         _landmarkPatterns = new LandmarkPatterns(Path.Combine(ConfigDir, "landmark_patterns.json"));
-        _live.CustomLandmarkMatch = TileLandmarkMatch; // surface tiles via landmark patterns + Tile rules
+        _live.CustomLandmarkMatch = TileLandmarkMatch;
+        _worldLive.CustomLandmarkMatch = TileLandmarkMatch; // surface tiles via landmark patterns + Tile rules
         _landmarkGen = _landmarkPatterns.Generation;
         _live.LandmarkClusterGap = _settings.LandmarkClusterGap;
         _appliedClusterGap = _settings.LandmarkClusterGap;
@@ -222,8 +243,6 @@ public sealed class RadarApp : IDisposable
         _displayRules = new DisplayRules(Path.Combine(ConfigDir, "display_rules.json"));
         _zoneOverrides = new ZoneEntityOverrides(Path.Combine(ConfigDir, "zone_entity_overrides.json"));
         _ruleEngine = new DisplayRuleEngine(_displayRules, _zoneOverrides, () => _settings.Styles);
-        _resolveEntity = e => _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly, _entities);
-        _resolveTileDraw = p => _displayRules.ResolveTile(p, requireMatch: false);
         if (_displayRules.Count == 0)
         {
             _displayRules.Replace(DisplayRules.BuildDefault(
@@ -430,9 +449,12 @@ public sealed class RadarApp : IDisposable
         // lookup so the landmark scan honors user edits on top of the shipped community data.
         _landmarkStore = new LandmarkStore(Path.Combine(ConfigDir, "landmarks.json"));
         _live.CuratedLookup = _landmarkStore.Lookup;
+        _worldLive.CuratedLookup = _landmarkStore.Lookup;
         _landmarkStoreGen = _landmarkStore.Generation;
         Console.WriteLine($"Hidden entities: {_hidden.Count} pattern(s); display rules: {_displayRules.Count}");
         _imguiOverlay?.AttachEntityStores(_displayRules, _zoneOverrides, _ruleEngine, _hidden);
+        _worldThread = new Thread(WorldReaderLoop) { IsBackground = true, Name = "POE2Radar.WorldReader" };
+        _worldThread.Start();
         _api = new ApiServer(() => _state, _settings, GetNavSelection, ToggleNavTarget, ClearNavSelection,
                              _hidden, _displayRules, _zoneOverrides, _ruleEngine, _landmarkStore, CurrentTilePaths,
                              AtlasJson, SetAtlasSelection, SetAtlasHighlight, VersionJson, _settings.ApiPort);
@@ -526,8 +548,8 @@ public sealed class RadarApp : IDisposable
             if (_gameHwnd != 0)
                 TrackImGuiGameWindow(_gameHwnd);
             Tick();
-            // Configurable frame budget (read live so dashboard edits apply immediately). The world
-            // walk is independently throttled to WorldHz inside Tick().
+            // Configurable frame budget (read live so dashboard edits apply immediately). World,
+            // live, HP, and metrics reads are independently throttled by their own cadences.
             var hz = Math.Clamp(_settings.FpsCap, 15, 360);
             var budgetMs = 1000.0 / hz;
             var elapsedMs = Stopwatch.GetElapsedTime(frameStart).TotalMilliseconds;
@@ -556,197 +578,76 @@ public sealed class RadarApp : IDisposable
     private void Tick()
     {
         var tickStart = Stopwatch.GetTimestamp();
-        double worldMs = 0, entitiesMs = 0, hpBarsMs = 0;
+        double hpBarsMs = 0;
 
         while (_commandQueue.TryDequeue(out var action)) action();
 
         HandleHotkeys();
 
+        var snap = _snapshot;
         var windowWidth = OverlayWidth;
         var windowHeight = OverlayHeight;
-        var inGame = _live.TryResolve(out var inGameState, out var areaInstance, out var localPlayer);
-        var player = NumVec2.Zero;
-        var playerWorld = System.Numerics.Vector3.Zero;
-        var playerTerrainHeight = 0f;
-        var maps = default(Poe2Live.MapViews);
-        var areaLevel = 0;
+        var realActive = IsGameFocused();
+        var drawActive = realActive || _settings.AlwaysShowOverlay;
 
-        if (inGame)
+        if (_liveCadence.IsDue(PerformanceCadence.ClampHz(_settings.LiveRefreshHz, 5, 120)))
+            _liveFrame = RefreshLiveFrame(snap, windowWidth, windowHeight, drawActive, realActive);
+
+        var live = _liveFrame;
+        if (live.InGame)
         {
-            // AreaInstance is a fresh object per area — use its address to invalidate per-area caches.
-            if (areaInstance != _lastAreaInstance) { _terrain = null; _lastAreaInstance = areaInstance; }
-            _areaInstanceForApi = areaInstance; // for /api/tiles
-            _inGameStateForApi = inGameState;   // for /api/atlas node read
-            _areaHash = _live.AreaHash(areaInstance);
-            areaLevel = _live.AreaLevel(areaInstance);
-
-            player = _live.PlayerGrid(localPlayer) ?? NumVec2.Zero;
-            playerWorld = _live.PlayerWorld(localPlayer) is { } pw
-                ? new System.Numerics.Vector3(pw.X, pw.Y, pw.Z)
-                : new System.Numerics.Vector3(
-                    player.X * POE2Radar.Core.Pathfinding.GridConstants.GridToWorld,
-                    player.Y * POE2Radar.Core.Pathfinding.GridConstants.GridToWorld,
-                    0f);
-            playerTerrainHeight = _live.PlayerTerrainHeight(localPlayer);
-            // Close atlas overlay on the render tick (~60 Hz), not only the 30 Hz world tick.
-            if (_atlasOpen && !_atlas.IsAtlasOpen(inGameState))
-                CloseAtlasSession();
-            if (!_atlasOpen)
-            {
-                maps = _live.ReadMaps(inGameState, areaInstance, windowWidth, windowHeight);
-                _cachedMaps = maps;
-                _mapDiag = _live.MapDiagnostics(inGameState, windowWidth, windowHeight);
-            }
-            else
-                maps = _cachedMaps;
-            _areaCode = _live.AreaCode(areaInstance);
-            MaybeMigratePerTypeRules();
-            // Player name reads a StdWString (allocates a string) — read it only when the local-player
-            // pointer changes (i.e. once per session), not every render frame.
-            if (localPlayer != _charNameFor) { _charNameFor = localPlayer; _charName = _live.PlayerName(localPlayer); }
-            _cameraMatrix = _live.CameraMatrix(inGameState);
-            TickAutoFlask(localPlayer);
-
-            var now = DateTime.UtcNow;
-            if ((now - _worldAt).TotalMilliseconds >= 1000.0 / WorldHz)
-            {
-                var worldStart = Stopwatch.GetTimestamp();
-                _worldAt = now;
-
-                var atlasStart = Stopwatch.GetTimestamp();
-                UpdateAtlas(inGameState);
-                _atlasUpdateMs = (float)ElapsedMs(atlasStart);
-
-                if (!_atlasOpen)
-                {
-                    _charLevel = _live.PlayerLevel(localPlayer);   // changes ~never; 30 Hz is plenty
-                    _terrain ??= _live.Terrain(areaInstance);
-
-                    var entitiesStart = Stopwatch.GetTimestamp();
-                    _entities = _live.Entities(areaInstance);
-                    entitiesMs = ElapsedMs(entitiesStart);
-
-                    if (localPlayer != 0)
-                        _entities = _entities.Where(e => e.Address != localPlayer).ToList();
-                    if (_hidden.Count > 0)
-                        _entities = _entities.Where(e => !_hidden.IsHidden(e.Metadata)).ToList();
-                    if (_settings.EntityDrawRadiusGrid > 0)
-                        _entities = _entities.Where(e => NumVec2.Distance(e.Grid, player) <= _settings.EntityDrawRadiusGrid).ToList();
-                    if (_areaHash != _suppressorAreaHash)
-                    {
-                        _completedSuppressor.OnAreaHashChanged(_areaHash);
-                        _suppressorAreaHash = _areaHash;
-                    }
-                    _completedSuppressor.Observe(_areaHash, _entities, _settings.SuppressCompletedContent,
-                        _settings.CompletedSuppressMinutes);
-                    if (_settings.SuppressCompletedContent)
-                        _entities = _entities.Where(e =>
-                            !_completedSuppressor.IsSuppressed(_areaHash,
-                                EntityDisplayHelper.TypeToken(e.Metadata), true,
-                                _settings.CompletedSuppressMinutes)).ToList();
-                    if (_landmarkPatterns.Generation != _landmarkGen)
-                    {
-                        _landmarkGen = _landmarkPatterns.Generation;
-                        _live.InvalidateLandmarks();
-                    }
-                    if (_ruleEngine.Generation != _displayRulesGen)
-                    {
-                        _displayRulesGen = _ruleEngine.Generation;
-                        _live.InvalidateLandmarks();
-                    }
-                    if (_landmarkStore.Generation != _landmarkStoreGen)
-                    {
-                        _landmarkStoreGen = _landmarkStore.Generation;
-                        _live.InvalidateLandmarks();
-                    }
-                    if (_settings.LandmarkClusterGap != _appliedClusterGap)
-                    {
-                        _appliedClusterGap = _settings.LandmarkClusterGap;
-                        _live.LandmarkClusterGap = _appliedClusterGap;
-                        _live.InvalidateLandmarks();
-                    }
-                    _landmarks = _live.Landmarks(areaInstance);
-
-                    BuildHpSpecs();
-
-                    _navTargets = BuildNavTargets(player);
-                    RefreshTargetSnapshots(_navTargets);
-
-                    if (areaInstance != _navTargetsArea)
-                    {
-                        _navTargetsArea = areaInstance;
-                        OnAreaChanged();
-                    }
-
-                    PruneCompletedTargets();
-                    AutoSelectNavigable(player);
-                    MaintainRoutes(player);
-
-                    _selectedSnapshot = SnapshotSelection();
-                    _legend = BuildLegend(_selectedSnapshot, player);
-                }
-                worldMs = ElapsedMs(worldStart);
-            }
-
-            if (!_atlasOpen)
+            BuildRenderPaths(live.PlayerGrid, snap);
+            if (!_atlasOpen && _hpBarCadence.IsDue(PerformanceCadence.ClampHz(_settings.HpBarRefreshHz, 1, 30)))
             {
                 var hpBarsStart = Stopwatch.GetTimestamp();
-                var hpFrame = new List<HpBarTarget>(_hpSpecs.Count);
-                foreach (var spec in _hpSpecs)
-                {
-                    if (!_live.TryLiveBar(spec.Entity, out var w, out var cur, out var max, out var esCur, out var esMax) || max <= 0 || cur <= 0) continue;
-                    var esFrac = esMax > 0 && esCur > 0 ? Math.Clamp((float)esCur / esMax, 0f, 1f) : 0f;
-                    hpFrame.Add(new HpBarTarget(w, Math.Clamp((float)cur / max, 0f, 1f), esFrac, spec.Width, spec.Fill, spec.BorderWidth, spec.Border));
-                }
-                // Immutable publish — the ImGui thread enumerates this every frame.
-                _hpFrame = hpFrame.Count > 0 ? hpFrame.ToArray() : Array.Empty<HpBarTarget>();
+                RefreshHpBars(snap);
                 hpBarsMs = ElapsedMs(hpBarsStart);
             }
-            else if (_hpFrame.Count > 0)
+            else if (_atlasOpen && _hpFrame.Length > 0)
                 _hpFrame = Array.Empty<HpBarTarget>();
         }
         else
         {
-            _selectedPaths = new List<SelectedPath>();
+            _renderPaths.Clear();
+            _renderPathSnapshot = Array.Empty<SelectedPath>();
             if (_atlasOpen) CloseAtlasSession();
-            if (_hpFrame.Count > 0) _hpFrame = Array.Empty<HpBarTarget>();
-            if (_hpSpecs.Count > 0) _hpSpecs.Clear();
+            if (_hpFrame.Length > 0) _hpFrame = Array.Empty<HpBarTarget>();
         }
 
-        var largeMap = maps.LargeMap;
-        var miniMap = maps.MiniMap;
-        _state = new RadarState(inGame, _areaHash, areaLevel, largeMap.IsVisible, largeMap.Zoom, player, _entities, _landmarks,
-            _hpPct, _manaPct, _esPct, _autoFlask, _flaskNote, _areaCode, _charName, _charLevel, _perfSnapshot,
+        var largeMap = live.Maps.LargeMap;
+        var miniMap = live.Maps.MiniMap;
+        _state = new RadarState(live.InGame, snap.AreaHash, snap.AreaLevel, largeMap.IsVisible, largeMap.Zoom, live.PlayerGrid, snap.Entities, snap.Landmarks,
+            _hpPct, _manaPct, _esPct, _autoFlask, _flaskNote, _areaCode, _charName, snap.CharLevel, _perfSnapshot,
             MapDiag: _mapDiag,
             MiniMapVisible: miniMap.IsVisible, MiniMapRect: miniMap.HasScreenRect,
             MiniMapW: miniMap.Width, MiniMapH: miniMap.Height);
 
-        var realActive = IsGameFocused();
-        // "Always show" draws the overlay even when PoE2 isn't focused (for dashboard calibration).
-        var drawActive = realActive || _settings.AlwaysShowOverlay;
-        var atlasProj = AtlasProjection(); // resolution-correct (auto from window height) or manual calib
-        var mapFrame = BuildLargeMapFrame(largeMap, windowWidth, windowHeight, playerTerrainHeight);
-        var miniMapFrame = BuildMiniMapFrame(miniMap, windowWidth, windowHeight, playerTerrainHeight);
+        var atlasProj = AtlasProjection();
+        var mapFrame = BuildLargeMapFrame(largeMap, windowWidth, windowHeight, live.PlayerTerrainHeight);
+        var miniMapFrame = BuildMiniMapFrame(miniMap, windowWidth, windowHeight, live.PlayerTerrainHeight);
         _lastMapFrame = mapFrame;
         _lastMiniMapFrame = miniMapFrame;
-        _lastPlayerGrid = player;
-        if (inGame)
+        _lastPlayerGrid = live.PlayerGrid;
+        if (live.InGame)
             HandleCursorPickHotkeys();
+
         var ctx = new RenderContext(
-            InGame: inGame,
+            InGame: live.InGame,
             Active: drawActive,
             WindowWidth: windowWidth,
             WindowHeight: windowHeight,
-            PlayerGrid: player,
-            PlayerWorld: playerWorld,
+            PlayerGrid: live.PlayerGrid,
+            PlayerWorld: live.PlayerWorld,
             Map: largeMap,
             MiniMap: miniMap,
             MapFrame: mapFrame,
             MiniMapFrame: miniMapFrame,
-            Entities: _entities.Count > 0 ? _entities.ToArray() : Array.Empty<Poe2Live.EntityDot>(),
-            Landmarks: _landmarks,
-            AreaHash: _areaHash,
-            Terrain: _terrain,
+            Entities: snap.Entities,
+            Landmarks: snap.Landmarks,
+            MapEntities: snap.MapEntities,
+            MapLandmarks: snap.MapLandmarks,
+            AreaHash: snap.AreaHash,
+            Terrain: snap.Terrain,
             ScaleMul: _settings.ScaleMul,
             OffsetX: _settings.OffX,
             OffsetY: _settings.OffY,
@@ -754,13 +655,15 @@ public sealed class RadarApp : IDisposable
             ManaPct: _manaPct,
             EsPct: _esPct,
             FlaskNote: _flaskNote,
-            AreaCode: _areaCode,
-            CharLevel: _charLevel,
-            CameraMatrix: _cameraMatrix,
+            AreaCode: snap.AreaCode,
+            CharLevel: snap.CharLevel,
+            CameraMatrix: live.CameraMatrix,
             HideJunk: _settings.HideJunk,
             ImportantOnly: _settings.ImportantOnly,
             GlobalIconScale: _settings.GlobalIconScale,
-            ShowPath: _settings.ShowPath,
+            ShowPathWorld: _settings.ShowPathWorld,
+            ShowPathMap: _settings.ShowPathMap,
+            ShowPathMinimap: _settings.ShowPathMinimap,
             UseCuratedLandmarks: _settings.UseCuratedLandmarks,
             ShowMonsters: _settings.ShowMonsters,
             ShowTerrain: _settings.ShowTerrain,
@@ -769,19 +672,18 @@ public sealed class RadarApp : IDisposable
             HpBarMagic: _settings.HpBarMagic,
             HpBarRare: _settings.HpBarRare,
             HpBarUnique: _settings.HpBarUnique,
-            SelectedPaths: _selectedPaths,
-            IsSelected: _selectedSnapshot.Contains,
-            Legend: _legend,
+            SelectedPaths: _renderPathSnapshot,
+            SelectedIds: snap.SelectedIds,
+            Legend: snap.Legend,
             NavMenuExpanded: false,
             NavMenuCorner: _settings.NavMenuCorner,
             ShowPerfStats: _settings.ShowPerfStats,
+            ShowFpsOverlay: _settings.ShowFpsOverlay,
             Perf: _perfSnapshot,
             Styles: _settings.Styles,
             HpBars: _settings.HpBars,
             HpBarTargets: _hpFrame,
             TerrainStyle: _settings.Terrain,
-            Resolve: _resolveEntity,
-            ResolveTile: _resolveTileDraw,
             AtlasOpen: _atlasOpen,
             AtlasNodes: _atlasMarksPublish,
             AtlasShowOnScreenNodes: _settings.AtlasShowOnScreenNodes,
@@ -791,10 +693,7 @@ public sealed class RadarApp : IDisposable
             AtlasOffScreenArrows: _settings.AtlasOffScreenArrows,
             AtlasIconScale: _settings.AtlasIconScale,
             AtlasLabelScale: _settings.AtlasLabelScale,
-            AtlasTagCatalog: _atlasOpen ? _atlasTagCatalog : null,
-            // Projection: derived live from the window height (UIscale = winH/1600) × live zoom. relPos is
-            // read live so pan is already handled; the zoom term is folded into the scale. atlasProj is the
-            // 8-coeff homography layout {h0..h7}. This is what makes non-1080p resolutions line up.
+            AtlasTagCatalog: _atlasOpen ? _atlasTagCatalog.ToArray() : null,
             AtlasScale: (float)atlasProj[0],
             AtlasScaleY: (float)atlasProj[4],
             AtlasOffX: (float)atlasProj[2],
@@ -803,32 +702,152 @@ public sealed class RadarApp : IDisposable
             AtlasShearY: (float)atlasProj[3],
             AtlasPersX: (float)atlasProj[6],
             AtlasPersY: (float)atlasProj[7],
-            // F10 route: START/END markers + the graph path between them.
             AtlasStart: (_atlasOpen && _settings.AtlasShowRoute) ? _atlasStartPt : null,
             AtlasEnd: (_atlasOpen && _settings.AtlasShowRoute) ? _atlasEndPt : null,
             AtlasRoute: (_atlasOpen && _settings.AtlasShowRoute && _atlasRoutePublish.Count >= 2) ? _atlasRoutePublish : null);
-        // The overlay is only visible while PoE2 is foreground (Render draws nothing otherwise). Skip
-        // the whole draw + UpdateLayeredWindow blit when unfocused — but render once on the focus-loss
-        // transition so the last visible frame is cleared rather than left frozen on screen.
         _imguiOverlay?.UpdateContext(ctx);
-        var atlasDrawMs = _imguiOverlay?.LastAtlasDrawMs ?? 0f;
-        _perf.RecordRender(0, 0, 0, 0, 0, 0, atlasDrawMs);
+
+        var overlayMetrics = _imguiOverlay?.GetRenderMetrics().Snapshot() ?? default;
+        _perf.RecordRender(
+            overlayMetrics.RenderMs,
+            0,
+            overlayMetrics.NameplatesMs,
+            overlayMetrics.MapMs,
+            overlayMetrics.PathsMs,
+            overlayMetrics.NavMenuMs,
+            overlayMetrics.AtlasMs);
+        _processMetrics.Sample(
+            _settings.ShowFpsOverlay || _settings.ShowPerfStats,
+            PerformanceCadence.ClampHz(_settings.MetricsRefreshHz, 1, 10),
+            Math.Clamp(_settings.GpuMetricsRefreshSeconds, 1, 30));
 
         _perfSnapshot = _perf.RecordFrame(
             tickMs: ElapsedMs(tickStart),
-            worldMs: worldMs,
-            entitiesMs: entitiesMs,
+            worldMs: _worldTickMs,
+            entitiesMs: 0,
             hpBarsMs: hpBarsMs,
-            readCount: _reader.ReadCount,
-            readBytes: _reader.BytesRead,
-            failedReads: _reader.FailedReads,
+            mainReadCount: _reader.ReadCount,
+            mainReadBytes: _reader.BytesRead,
+            worldReadCount: _worldReader.ReadCount,
+            worldReadBytes: _worldReader.BytesRead,
+            failedReads: _reader.FailedReads + _worldReader.FailedReads,
             entityCount: _entities.Count,
-            hpBarCount: _hpFrame.Count,
-            selectedPathCount: _selectedPaths.Count);
+            hpBarCount: _hpFrame.Length,
+            selectedPathCount: _renderPathSnapshot.Length,
+            renderFps: overlayMetrics.RenderFps,
+            renderMs: overlayMetrics.RenderMs,
+            processCpuPct: _processMetrics.CpuPercent,
+            workingSetMb: _processMetrics.WorkingSetMb,
+            gpuPercent: _processMetrics.GpuPercent,
+            gpuMemoryMb: _processMetrics.GpuMemoryMb);
     }
-
     private static double ElapsedMs(long start)
         => Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+
+    private LiveFrameState RefreshLiveFrame(WorldSnapshot snap, int windowWidth, int windowHeight, bool drawActive, bool realActive)
+    {
+        if (_mainLandmarksInvalid)
+        {
+            _mainLandmarksInvalid = false;
+            _live.LandmarkClusterGap = _appliedClusterGap;
+            _live.InvalidateLandmarks();
+        }
+
+        var inGame = _live.TryResolve(out var inGameState, out var areaInstance, out var localPlayer);
+        if (!inGame)
+            return LiveFrameState.Empty;
+
+        _areaInstanceForApi = areaInstance;
+        _inGameStateForApi = inGameState;
+        _areaHash = _live.AreaHash(areaInstance);
+
+        var player = _live.PlayerGrid(localPlayer) ?? NumVec2.Zero;
+        var playerWorld = _live.PlayerWorld(localPlayer) is { } pw
+            ? new System.Numerics.Vector3(pw.X, pw.Y, pw.Z)
+            : new System.Numerics.Vector3(
+                player.X * POE2Radar.Core.Pathfinding.GridConstants.GridToWorld,
+                player.Y * POE2Radar.Core.Pathfinding.GridConstants.GridToWorld,
+                0f);
+        var playerTerrainHeight = _live.PlayerTerrainHeight(localPlayer);
+
+        if (_atlasOpen && !_atlas.IsAtlasOpen(inGameState))
+            CloseAtlasSession();
+
+        var maps = _cachedMaps;
+        if (!_atlasOpen && drawActive)
+        {
+            maps = _live.ReadMaps(inGameState, areaInstance, windowWidth, windowHeight);
+            _cachedMaps = maps;
+            _mapDiag = _live.MapDiagnostics(inGameState, windowWidth, windowHeight);
+        }
+
+        MaybeMigratePerTypeRules();
+        if (localPlayer != _charNameFor)
+        {
+            _charNameFor = localPlayer;
+            _charName = _live.PlayerName(localPlayer);
+        }
+
+        var needsCamera =
+            _settings.ShowPathWorld ||
+            _renderPathSnapshot.Length > 0 ||
+            _hpFrame.Length > 0 ||
+            _settings.HpBarNormal || _settings.HpBarMagic || _settings.HpBarRare || _settings.HpBarUnique;
+        _cameraMatrix = needsCamera ? CopyCameraMatrix(_live.CameraMatrix(inGameState)) : null;
+
+        if (realActive)
+            TickAutoFlask(localPlayer);
+        else
+            _flaskNote = _autoFlask ? "paused (PoE2 not focused)" : "OFF (F8)";
+
+        return new LiveFrameState(
+            true, inGameState, areaInstance, localPlayer, player, playerWorld, playerTerrainHeight,
+            maps, _areaHash, _cameraMatrix);
+    }
+
+    private void RefreshHpBars(WorldSnapshot snap)
+    {
+        if (snap.HpSpecs.Length == 0)
+        {
+            if (_hpFrame.Length > 0) _hpFrame = Array.Empty<HpBarTarget>();
+            return;
+        }
+
+        var cap = Math.Clamp(_settings.MaxLiveHpBars, 0, 256);
+        if (cap == 0)
+        {
+            _hpFrame = Array.Empty<HpBarTarget>();
+            return;
+        }
+
+        var hpFrame = new List<HpBarTarget>(Math.Min(cap, snap.HpSpecs.Length));
+        foreach (var spec in snap.HpSpecs.OrderBy(HpBarPriority).Take(cap))
+        {
+            if (!_live.TryLiveBar(spec.Entity, out var w, out var cur, out var max, out var esCur, out var esMax) || max <= 0 || cur <= 0)
+                continue;
+            var esFrac = esMax > 0 && esCur > 0 ? Math.Clamp((float)esCur / esMax, 0f, 1f) : 0f;
+            hpFrame.Add(new HpBarTarget(w, Math.Clamp((float)cur / max, 0f, 1f), esFrac, spec.Width, spec.Fill, spec.BorderWidth, spec.Border));
+        }
+        _hpFrame = hpFrame.Count > 0 ? hpFrame.ToArray() : Array.Empty<HpBarTarget>();
+    }
+
+    private static int HpBarPriority(HpBarSpec spec)
+        => spec.Rarity switch
+        {
+            Poe2Live.Rarity.Unique => 0,
+            Poe2Live.Rarity.Rare => 1,
+            Poe2Live.Rarity.Magic => 2,
+            Poe2Live.Rarity.Normal => 3,
+            _ => 4,
+        };
+
+    private static float[]? CopyCameraMatrix(float[]? source)
+    {
+        if (source is not { Length: >= 16 }) return null;
+        var copy = new float[16];
+        Array.Copy(source, copy, 16);
+        return copy;
+    }
 
     private MapFrame BuildLargeMapFrame(Poe2Live.MapUi map, int windowWidth, int windowHeight, float playerTerrainHeight)
     {
@@ -889,14 +908,16 @@ public sealed class RadarApp : IDisposable
     /// the renderer (rarity gate + rule resolve + colour parse); doing it once per world tick — only for
     /// mobs with a live HP pool — leaves the render-frame path to just re-read position/HP and draw, which
     /// is what keeps 50–100 bars smooth without re-resolving thousands of entities every frame.</summary>
-    private void BuildHpSpecs()
+    private List<HpBarSpec> BuildHpSpecsFrom(List<Poe2Live.EntityDot> entities)
     {
-        _hpSpecs.Clear();
+        var specs = new List<HpBarSpec>();
         var hb = _settings.HpBars;
-        foreach (var e in _entities)
+        var st = _settings.Styles;
+        foreach (var e in entities)
         {
-            if (!e.IsAlive || e.HpMax <= 0) continue;                 // needs a live HP pool
-            var on = e.Rarity switch                                   // per-rarity master toggle (Settings)
+            if (e.Category != Poe2Live.EntityCategory.Monster) continue;
+            if (!e.IsAlive || e.HpMax <= 0) continue;
+            var on = e.Rarity switch
             {
                 Poe2Live.Rarity.Normal => _settings.HpBarNormal,
                 Poe2Live.Rarity.Magic  => _settings.HpBarMagic,
@@ -905,18 +926,43 @@ public sealed class RadarApp : IDisposable
                 _                      => false,
             };
             if (!on) continue;
-            var rule = _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly, _entities);
-            if (rule is null || rule.Hide) continue;                   // no bars over hidden mobs
-            var (bw, fillHex, borderW, borderHex) = e.Rarity switch    // geometry per rarity; fill = dot colour
-            {
-                Poe2Live.Rarity.Normal => (hb.WidthNormal, rule.Color, hb.BorderNormal, hb.BorderColorNormal),
-                Poe2Live.Rarity.Magic  => (hb.WidthMagic,  rule.Color, hb.BorderMagic,  hb.BorderColorMagic),
-                Poe2Live.Rarity.Rare   => (hb.WidthRare,   rule.Color, hb.BorderRare,   hb.BorderColorRare),
-                Poe2Live.Rarity.Unique => (hb.WidthUnique, rule.Color, hb.BorderUnique, hb.BorderColorUnique),
-                _                      => (0f, "#FFFFFF", 0f, "#FFFFFF"),
-            };
+            // Match map dots: only skip explicit state hides (dead/opened). Do NOT apply ImportantOnly
+            // trash here — magic/rare bars should show even when trash dots are curated off the map.
+            var rule = _ruleEngine.ResolveGlobal(e, _entities);
+            if (rule is { Hide: true }) continue;
+            var (bw, fillHex, borderW, borderHex) = HpBarStyleFor(e, rule, hb, st);
             if (bw <= 0f) continue;
-            _hpSpecs.Add(new HpBarSpec(e.Address, bw, PackColor(fillHex), borderW, PackColor(borderHex)));
+            specs.Add(new HpBarSpec(e.Address, e.Rarity, bw, PackColor(fillHex), borderW, PackColor(borderHex)));
+        }
+        return specs;
+    }
+    private static (float Width, string Fill, float BorderW, string BorderHex) HpBarStyleFor(
+        Poe2Live.EntityDot e, DisplayRule? rule, HpBarSettings hb, RadarStyles st)
+    {
+        var fill = rule?.Color ?? MonsterStyleColor(e, st);
+        switch (e.Rarity)
+        {
+            case Poe2Live.Rarity.Normal:
+                return (hb.WidthNormal, fill, hb.BorderNormal, hb.BorderColorNormal);
+            case Poe2Live.Rarity.Magic:
+                return (hb.WidthMagic, fill, hb.BorderMagic, hb.BorderColorMagic);
+            case Poe2Live.Rarity.Rare:
+                return (hb.WidthRare, fill, hb.BorderRare, hb.BorderColorRare);
+            case Poe2Live.Rarity.Unique:
+                return (hb.WidthUnique, fill, hb.BorderUnique, hb.BorderColorUnique);
+            default:
+                return (0f, fill, 0f, hb.BorderColorNormal);
+        }
+    }
+
+    private static string MonsterStyleColor(Poe2Live.EntityDot e, RadarStyles st)
+    {
+        switch (e.Rarity)
+        {
+            case Poe2Live.Rarity.Unique: return st.MonsterUnique.Color;
+            case Poe2Live.Rarity.Rare: return st.MonsterRare.Color;
+            case Poe2Live.Rarity.Magic: return st.MonsterMagic.Color;
+            default: return st.MonsterNormal.Color;
         }
     }
 
@@ -1089,7 +1135,7 @@ public sealed class RadarApp : IDisposable
                 _settings.ShowMonsters,
                 _settings.ImportantOnly,
                 _settings.Styles,
-                _resolveEntity,
+                e => _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly, _entities),
                 _settings.GlobalIconScale,
                 _cameraMatrix,
                 out entity))
@@ -1301,7 +1347,7 @@ public sealed class RadarApp : IDisposable
     /// RESTORE the selection we previously had for the zone we're entering (so a town round-trip keeps
     /// your pathing) or — on a first visit — seed it from the persistent auto-nav patterns. Trackers are
     /// NOT touched here — the per-tick reconciliation (ReconcileTrackers) syncs them to _selectedIds.</summary>
-    private void OnAreaChanged()
+    private void OnAreaChanged(NumVec2 player)
     {
         int count; bool restored;
         lock (_navLock)
@@ -1331,7 +1377,7 @@ public sealed class RadarApp : IDisposable
                 // First visit to this instance with auto-path on: seed the nearest navigation targets so
                 // routes appear immediately (the per-tick AutoSelectNavigable keeps them reconciled after).
                 foreach (var id in _navTargets
-                             .OrderBy(t => NumVec2.DistanceSquared(t.Grid, _state.Player))
+                             .OrderBy(t => NumVec2.DistanceSquared(t.Grid, player))
                              .Select(t => t.Id))
                 {
                     if (_selectedIds.Count >= MaxSelectedTargets) break;
@@ -1344,7 +1390,7 @@ public sealed class RadarApp : IDisposable
             }
             count = _selectedIds.Count;
         }
-        _selectedPaths = new List<SelectedPath>();
+        _renderPaths.Clear();
 
         if (count > 0)
             Console.WriteLine($"\nNav: {(restored ? "restored" : "auto-selected")} {count} target(s) on zone change.");
@@ -1596,37 +1642,24 @@ public sealed class RadarApp : IDisposable
     /// in-flight results are ignored on drain). This is the ONLY code that adds/removes trackers, so
     /// API-thread selection edits never race the tracker map. Takes a selection snapshot.
     /// </summary>
-    private void ReconcileTrackers(List<string> selected)
-    {
-        // Remove trackers no longer selected.
-        if (_trackers.Count > 0)
-        {
-            var live = new HashSet<string>(selected);
-            var stale = _trackers.Keys.Where(k => !live.Contains(k)).ToList();
-            foreach (var id in stale) _trackers.Remove(id);
-        }
 
-        // Create trackers for newly-selected ids and kick off their first plan.
-        foreach (var id in selected)
-        {
-            if (_trackers.ContainsKey(id)) continue;
-            var tracker = new RouteTracker();
-            _trackers[id] = tracker;
-            if (TryResolveTargetGrid(id, out var grid))
-                EnqueueReplan(id, tracker, grid);
-        }
-    }
 
     /// <summary>
     /// Resolve ANY selected id to display/planning info. Live targets win; cached last-known targets
     /// keep selected entity routes readable/drawable after they leave read range.
     /// </summary>
-    private bool TryResolveTargetInfo(string id, out TargetRenderInfo info)
+    private bool TryResolveTargetInfo(
+        string id,
+        IReadOnlyList<NavTarget> navTargets,
+        IReadOnlyList<Poe2Live.Landmark> landmarks,
+        IReadOnlyList<Poe2Live.EntityDot> entities,
+        uint areaHash,
+        out TargetRenderInfo info)
     {
         info = default;
         if (string.IsNullOrEmpty(id) || id.Length < 2) return false;
 
-        foreach (var t in _navTargets)
+        foreach (var t in navTargets)
         {
             if (t.Id != id) continue;
             info = new TargetRenderInfo(id, t.Name, t.Grid, t.IsEntity, NavTargetStatus.Live);
@@ -1636,7 +1669,7 @@ public sealed class RadarApp : IDisposable
         if (id.StartsWith("t:", StringComparison.Ordinal))
         {
             var key = id[2..];
-            foreach (var lm in _landmarks)
+            foreach (var lm in landmarks)
             {
                 if (lm.Key != key) continue;
                 var label = LandmarkLabel(lm);
@@ -1647,10 +1680,10 @@ public sealed class RadarApp : IDisposable
         }
         else if (id.StartsWith("e:", StringComparison.Ordinal) && uint.TryParse(id[2..], out var entityId))
         {
-            foreach (var e in _entities)
+            foreach (var e in entities)
             {
                 if (e.Id != entityId) continue;
-                var label = EntityLabel(e, _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly, _entities));
+                var label = EntityLabel(e, _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly, entities));
                 RememberTargetSnapshot(id, label, e.Grid, isEntity: true);
                 info = new TargetRenderInfo(id, label, e.Grid, IsEntity: true, NavTargetStatus.Live);
                 return true;
@@ -1666,9 +1699,13 @@ public sealed class RadarApp : IDisposable
         return false;
     }
 
-    private bool TryResolveTargetGrid(string id, out NumVec2 grid)
+    private bool TryResolveTargetGrid(
+        string id,
+        IReadOnlyList<Poe2Live.Landmark> landmarks,
+        IReadOnlyList<Poe2Live.EntityDot> entities,
+        out NumVec2 grid)
     {
-        if (TryResolveTargetInfo(id, out var info))
+        if (TryResolveTargetInfo(id, _navTargets, landmarks, entities, _areaHash, out var info))
         {
             grid = info.Grid;
             return true;
@@ -1678,94 +1715,20 @@ public sealed class RadarApp : IDisposable
         return false;
     }
 
-    /// <summary>
-    /// Per-tick route maintenance — runs on the tick thread, NEVER calls A*. Snapshots the selection
-    /// (once, under the lock), reconciles the tracker map to it, then for each selected target:
-    /// advance its cursor (cheap), and if a trigger fires and no replan is in flight, enqueue a
-    /// BACKGROUND replan toward the target's resolved grid. Then drain finished routes into the
-    /// trackers and rebuild <see cref="_selectedPaths"/> from the trackers' cursors.
-    /// </summary>
-    private void MaintainRoutes(NumVec2 player)
+    /// <summary>Display label for a selected id: live nav target first, cached last-known label second,
+    /// raw id only when the target was never observed.</summary>
+
+    private void EnqueueReplan(string id, RouteTracker tracker, NumVec2 goal, NumVec2 player)
     {
-        // Snapshot the selection ONCE; everything below works off this local list (tick-thread only).
-        var selected = SnapshotSelection();
-
-        // (a) Bring the tick-thread-owned tracker map in line with the selection (create/remove).
-        ReconcileTrackers(selected);
-
-        // (b) Maintain + trigger replans. Resolve each id to its live grid; if it doesn't resolve this
-        //     tick (despawned / not yet present) keep it selected but skip planning.
-        foreach (var id in selected)
-        {
-            if (!_trackers.TryGetValue(id, out var tracker)) continue;
-            tracker.Maintain(player);
-            if (!TryResolveTargetGrid(id, out var goal)) continue;
-            if (!tracker.ReplanInFlight && tracker.ShouldReplan(player, goal))
-                EnqueueReplan(id, tracker, goal);
-        }
-
-        // (c) Drain completed background routes; apply only those still tracked.
-        if (_replanner.TryDrainResults(out var results))
-        {
-            foreach (var r in results)
-            {
-                if (!_trackers.TryGetValue(r.TargetId, out var tracker)) continue; // deselected → ignore
-                tracker.ApplyResult(r.Waypoints, new NumVec2(r.Goal.x, r.Goal.y));
-                if (_settings.ShowPerfStats)
-                    Console.WriteLine($"replan: {TargetLabel(r.TargetId)} = {r.Waypoints.Count} waypoints");
-            }
-        }
-
-        // (d) Cheap rebuild of the draw list from each tracker's current (cursor-advanced) points.
-        RebuildSelectedPaths(selected, player);
-    }
-
-    /// <summary>Snapshot the immutable terrain + player/goal and hand a replan request to the worker
-    /// (marks the tracker in-flight). No A* on this thread.</summary>
-    private void EnqueueReplan(string id, RouteTracker tracker, NumVec2 goal)
-    {
-        if (_terrain is not { } terrain) return; // can't plan without terrain yet
-        var player = _state.Player;
+        if (_worldTerrain is not { } terrain) return;
         tracker.MarkReplanRequested();
         _replanner.Enqueue(new BackgroundReplanner.Request(
             id, terrain, ((int)player.X, (int)player.Y), ((int)goal.X, (int)goal.Y)));
     }
 
-    /// <summary>Rebuild <see cref="_selectedPaths"/> from the trackers' CurrentPoints, each colored by
-    /// its id's selection-order slot (capped at the palette size). CHEAP — no A*. Takes a selection
-    /// snapshot so it never touches _selectedIds directly.</summary>
-    private void RebuildSelectedPaths(List<string> selected, NumVec2 player)
-    {
-        var paths = new List<SelectedPath>(selected.Count);
-        for (var i = 0; i < selected.Count; i++)
-        {
-            var id = selected[i];
-            if (!_trackers.TryGetValue(id, out var tracker)) continue;
-            var pts = tracker.CurrentPoints;
-            if (pts.Count > 0)
-            {
-                var slot = Math.Min(i, MaxSelectedTargets - 1);
-                var pathDist = SumPathGridDistance(pts);
-                if (TryResolveTargetInfo(id, out var info))
-                {
-                    var dist = NumVec2.Distance(info.Grid, player);
-                    paths.Add(new SelectedPath(slot, id, info.Label, info.IsEntity, info.Status, dist, pathDist, pts.ToArray()));
-                }
-                else
-                {
-                    paths.Add(new SelectedPath(slot, id, id, id.StartsWith("e:", StringComparison.Ordinal),
-                        NavTargetStatus.NoPath, -1f, pathDist, pts.ToArray()));
-                }
-            }
-        }
-        _selectedPaths = paths;
-    }
-
-    /// <summary>Display label for a selected id: live nav target first, cached last-known label second,
-    /// raw id only when the target was never observed.</summary>
     private string TargetLabel(string id)
     {
-        return TryResolveTargetInfo(id, out var info) ? info.Label : id;
+        return TryResolveTargetInfo(id, _navTargets, _landmarks, _entities, _areaHash, out var info) ? info.Label : id;
     }
 
     /// <summary>Friendly display label for a tile landmark (curated if enabled + present, else derived).</summary>
@@ -1842,7 +1805,7 @@ public sealed class RadarApp : IDisposable
             if (seen.Contains(id)) continue;
 
             var slot = Math.Min(i, MaxSelectedTargets - 1);
-            if (TryResolveTargetInfo(id, out var info))
+            if (TryResolveTargetInfo(id, _navTargets, _landmarks, _entities, _areaHash, out var info))
             {
                 var target = new NavTarget(id, info.Label, info.Grid, "", info.IsEntity);
                 var status = HasSelectedPath(id) ? info.Status : NavTargetStatus.NoPath;
@@ -1860,14 +1823,14 @@ public sealed class RadarApp : IDisposable
 
     private bool HasSelectedPath(string id)
     {
-        foreach (var p in _selectedPaths)
+        foreach (var p in _renderPaths)
             if (p.TargetId == id) return true;
         return false;
     }
 
     private bool TryGetPathDistance(string id, out float pathDistance)
     {
-        foreach (var p in _selectedPaths)
+        foreach (var p in _renderPaths)
             if (p.TargetId == id)
             {
                 pathDistance = p.PathDistance;
@@ -2133,8 +2096,8 @@ public sealed class RadarApp : IDisposable
                 n.Biome, n.IconType, mapName, matched, color, isArrow, tier));
         }
         BuildAtlasRoute(nodes);
-        _atlasMarksPublish = new List<AtlasMark>(_atlasMarks);
-        _atlasRoutePublish = new List<NumVec2>(_atlasRoute);
+        _atlasMarksPublish = _atlasMarks.Count > 0 ? _atlasMarks.ToArray() : Array.Empty<AtlasMark>();
+        _atlasRoutePublish = _atlasRoute.Count > 0 ? _atlasRoute.ToArray() : Array.Empty<NumVec2>();
     }
 
     /// <summary>Resolve the F10 START/END grid coords to canvas-space (relPos) points for the markers, and —
@@ -2225,8 +2188,10 @@ public sealed class RadarApp : IDisposable
     {
         private const double Alpha = 0.08;
         private long _lastStamp = Stopwatch.GetTimestamp();
-        private long _lastReadCount;
-        private long _lastReadBytes;
+        private long _lastMainReadCount;
+        private long _lastMainReadBytes;
+        private long _lastWorldReadCount;
+        private long _lastWorldReadBytes;
         private long _lastFailedReads;
         private bool _initialized;
         private double _fps;
@@ -2244,6 +2209,10 @@ public sealed class RadarApp : IDisposable
         private double _readsPerSec;
         private double _mibPerSec;
         private double _failedReadsPerSec;
+        private double _mainReadsPerSec;
+        private double _worldReadsPerSec;
+        private double _mainMibPerSec;
+        private double _worldMibPerSec;
 
         public void RecordRender(
             double drawMs,
@@ -2268,20 +2237,30 @@ public sealed class RadarApp : IDisposable
             double worldMs,
             double entitiesMs,
             double hpBarsMs,
-            long readCount,
-            long readBytes,
+            long mainReadCount,
+            long mainReadBytes,
+            long worldReadCount,
+            long worldReadBytes,
             long failedReads,
             int entityCount,
             int hpBarCount,
-            int selectedPathCount)
+            int selectedPathCount,
+            float renderFps,
+            float renderMs,
+            float processCpuPct,
+            float workingSetMb,
+            float gpuPercent,
+            float gpuMemoryMb)
         {
             var now = Stopwatch.GetTimestamp();
             var seconds = Math.Max(0.001, (now - _lastStamp) / (double)Stopwatch.Frequency);
 
             if (!_initialized)
             {
-                _lastReadCount = readCount;
-                _lastReadBytes = readBytes;
+                _lastMainReadCount = mainReadCount;
+                _lastMainReadBytes = mainReadBytes;
+                _lastWorldReadCount = worldReadCount;
+                _lastWorldReadBytes = worldReadBytes;
                 _lastFailedReads = failedReads;
                 _initialized = true;
             }
@@ -2291,13 +2270,23 @@ public sealed class RadarApp : IDisposable
             if (worldMs > 0) _worldMs = Smooth(_worldMs, worldMs);
             if (entitiesMs > 0) _entitiesMs = Smooth(_entitiesMs, entitiesMs);
             _hpBarsMs = Smooth(_hpBarsMs, hpBarsMs);
-            _readsPerSec = Smooth(_readsPerSec, Math.Max(0, readCount - _lastReadCount) / seconds);
-            _mibPerSec = Smooth(_mibPerSec, Math.Max(0, readBytes - _lastReadBytes) / seconds / (1024.0 * 1024.0));
+            var mainReadsPerSec = Math.Max(0, mainReadCount - _lastMainReadCount) / seconds;
+            var worldReadsPerSec = Math.Max(0, worldReadCount - _lastWorldReadCount) / seconds;
+            var mainMibPerSec = Math.Max(0, mainReadBytes - _lastMainReadBytes) / seconds / (1024.0 * 1024.0);
+            var worldMibPerSec = Math.Max(0, worldReadBytes - _lastWorldReadBytes) / seconds / (1024.0 * 1024.0);
+            _mainReadsPerSec = Smooth(_mainReadsPerSec, mainReadsPerSec);
+            _worldReadsPerSec = Smooth(_worldReadsPerSec, worldReadsPerSec);
+            _mainMibPerSec = Smooth(_mainMibPerSec, mainMibPerSec);
+            _worldMibPerSec = Smooth(_worldMibPerSec, worldMibPerSec);
+            _readsPerSec = _mainReadsPerSec + _worldReadsPerSec;
+            _mibPerSec = _mainMibPerSec + _worldMibPerSec;
             _failedReadsPerSec = Smooth(_failedReadsPerSec, Math.Max(0, failedReads - _lastFailedReads) / seconds);
 
             _lastStamp = now;
-            _lastReadCount = readCount;
-            _lastReadBytes = readBytes;
+            _lastMainReadCount = mainReadCount;
+            _lastMainReadBytes = mainReadBytes;
+            _lastWorldReadCount = worldReadCount;
+            _lastWorldReadBytes = worldReadBytes;
             _lastFailedReads = failedReads;
 
             return new PerfSnapshot(
@@ -2316,9 +2305,21 @@ public sealed class RadarApp : IDisposable
                 (float)_readsPerSec,
                 (float)_mibPerSec,
                 (float)_failedReadsPerSec,
+                (float)_mainReadsPerSec,
+                (float)_worldReadsPerSec,
+                (float)_readsPerSec,
+                (float)_mainMibPerSec,
+                (float)_worldMibPerSec,
+                (float)_mibPerSec,
                 entityCount,
                 hpBarCount,
-                selectedPathCount);
+                selectedPathCount,
+                renderFps,
+                renderMs,
+                processCpuPct,
+                workingSetMb,
+                gpuPercent,
+                gpuMemoryMb);
         }
 
         private static double Smooth(double current, double sample)
@@ -2327,9 +2328,13 @@ public sealed class RadarApp : IDisposable
 
     public void Dispose()
     {
+        _shutdown = true;
+        try { _worldThread?.Join(2000); } catch { }
         _replanner.Dispose();
         _api.Dispose();
+        _processMetrics.Dispose();
         _imguiOverlay?.RequestClose();
         try { _imguiThread?.Join(1000); } catch { }
     }
 }
+

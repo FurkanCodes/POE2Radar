@@ -10,7 +10,7 @@ namespace POE2Radar.Core.Game;
 /// <see cref="TryResolve"/> at the start of each tick; everything else takes the resolved
 /// AreaInstance / InGameState.</para>
 /// </summary>
-public sealed class Poe2Live
+public sealed partial class Poe2Live
 {
     private readonly MemoryReader _reader;
     private readonly nint _gameStateSlot;
@@ -669,8 +669,8 @@ public sealed class Poe2Live
     private readonly HashSet<nint> _everHidden = new();  // elements observed with visible-bit clear
     private readonly HashSet<nint> _everVisible = new(); // elements observed with visible-bit set
     private nint _mapCacheKey = -1;
-    private nint _selectedMapEl;
-    private int _selectedMapMisses;
+    private nint _classifiedLargeEl;
+    private nint _classifiedMiniEl;
 
     /// <summary>
     /// Map UI state. The MapUiElements (DefaultShift=(0,-20), Zoom=0.5) are discovered once per area
@@ -686,105 +686,7 @@ public sealed class Poe2Live
         => ReadMaps(inGameState, areaInstance, 0, 0).LargeMap;
 
     public MapViews ReadMaps(nint inGameState, nint areaInstance, int windowWidth, int windowHeight)
-    {
-        if (areaInstance != _mapCacheKey)
-        {
-            _mapCacheKey = areaInstance;
-            _mapEls.Clear();
-            _everHidden.Clear();
-            _everVisible.Clear();
-            _selectedMapEl = 0;
-            _selectedMapMisses = 0;
-            UiRootResolver.Invalidate(inGameState);
-        }
-
-        // GameHelper's stable path reads the LargeMap/MiniMap pointers directly from GameUi -> MapParent.
-        // Prefer it when available; the UI-tree scan below remains a patch-drift fallback.
-        if (TryReadDirectMaps(inGameState, windowWidth, windowHeight, out var direct)
-            && ScoreMapViews(direct) > 0)
-        {
-            _selectedMapEl = direct.LargeMap.Element != 0 ? direct.LargeMap.Element : direct.MiniMap.Element;
-            _selectedMapMisses = 0;
-            ObserveMapVisibility(direct.LargeMap);
-            ObserveMapVisibility(direct.MiniMap);
-            return direct;
-        }
-
-        if (_mapEls.Count == 0)
-            DiscoverMapElements(inGameState);
-
-        if (_selectedMapEl != 0)
-        {
-            if (TryReadMapElement(_selectedMapEl, windowWidth, windowHeight, out var selected))
-            {
-                _selectedMapMisses = 0;
-                ObserveMapVisibility(selected);
-                return new MapViews(selected, default);
-            }
-
-            if (++_selectedMapMisses < 4)
-                return default;
-
-            _selectedMapEl = 0;
-            _selectedMapMisses = 0;
-        }
-
-        var visibleCount = 0;
-        var any = false; MapUi anyUi = default;
-        var largestVisible = false; MapUi largestVisibleUi = default;
-        var smallestVisible = false; MapUi smallestVisibleUi = default;
-        var sawToggler = false; var togglerVisible = false; var haveTogglerUi = false; MapUi togglerUi = default;
-        var valid = new List<MapUi>(_mapEls.Count);
-        foreach (var el in _mapEls)
-        {
-            if (!TryReadMapElement(el, windowWidth, windowHeight, out var ui)) continue;
-            valid.Add(ui);
-            ObserveMapVisibility(ui);
-            if (ui.IsVisible)
-            {
-                visibleCount++;
-                if (!largestVisible || MapArea(ui) > MapArea(largestVisibleUi))
-                {
-                    largestVisible = true;
-                    largestVisibleUi = ui;
-                }
-
-                if (!smallestVisible || MapArea(ui) < MapArea(smallestVisibleUi))
-                {
-                    smallestVisible = true;
-                    smallestVisibleUi = ui;
-                }
-            }
-            if (!any || ui.IsVisible) { any = true; anyUi = ui; }
-
-            if (_everVisible.Contains(el) && _everHidden.Contains(el))
-            {
-                sawToggler = true;
-                if (ui.IsVisible) togglerVisible = true;
-                if (ui.IsVisible || !haveTogglerUi) { togglerUi = ui; haveTogglerUi = true; }
-            }
-        }
-        if (!any) return default;
-
-        if (sawToggler)
-        {
-            _selectedMapEl = togglerUi.Element;
-            _selectedMapMisses = 0;
-            var large = togglerUi with { IsVisible = togglerVisible };
-            var mini = valid
-                .Where(x => x.Element != large.Element)
-                .OrderBy(MapArea)
-                .FirstOrDefault();
-            return new MapViews(large, mini);
-        }
-
-        // Before a toggle has been observed in this area, multiple map-like elements can be visible.
-        // Treat one visible map as the minimap; two visible maps means the largest visible one is the
-        // large map and the smallest visible one is the minimap.
-        var fallbackLarge = visibleCount >= 2 && largestVisible ? largestVisibleUi : default;
-        var fallbackMini = smallestVisible ? smallestVisibleUi : anyUi;
-        return new MapViews(fallbackLarge, fallbackMini);
-    }
+        => ReadMapsViewport(inGameState, areaInstance, windowWidth, windowHeight);
 
     private nint GetUiRoot(nint inGameState) => UiRootResolver.Resolve(_reader, inGameState);
 
@@ -902,8 +804,8 @@ public sealed class Poe2Live
         var miniMap = Ptr(mapParent + Poe2.MapParent.MiniMapPtr);
         if (largeMap == 0 || miniMap == 0 || largeMap == miniMap) return false;
 
-        if (!TryReadMapElement(largeMap, windowWidth, windowHeight, out var large)) return false;
-        if (!TryReadMapElement(miniMap, windowWidth, windowHeight, out var mini)) return false;
+        if (!TryReadMapElementUi(largeMap, windowWidth, windowHeight, out var large)) return false;
+        if (!TryReadMapElementUi(miniMap, windowWidth, windowHeight, out var mini)) return false;
         maps = new MapViews(large, mini);
         return true;
     }
@@ -933,12 +835,12 @@ public sealed class Poe2Live
             var lp = Ptr(mapParent + Poe2.MapParent.LargeMapPtr);
             var mp = Ptr(mapParent + Poe2.MapParent.MiniMapPtr);
             MapUi large = default, mini = default;
-            var lOk = lp != 0 && TryReadMapElement(lp, windowWidth, windowHeight, out large);
-            var mOk = mp != 0 && TryReadMapElement(mp, windowWidth, windowHeight, out mini);
+            var lOk = lp != 0 && TryReadMapElementUi(lp, windowWidth, windowHeight, out large);
+            var mOk = mp != 0 && TryReadMapElementUi(mp, windowWidth, windowHeight, out mini);
             sb.Append($"[{name}: L{(lOk ? $"(vis={large.IsVisible},rect={large.HasScreenRect},{large.Width:F0}x{large.Height:F0})" : "x")} "
                     + $"M{(mOk ? $"(vis={mini.IsVisible},rect={mini.HasScreenRect},{mini.Width:F0}x{mini.Height:F0})" : "x")}] ");
         }
-        sb.Append($"discoveredEls={_mapEls.Count} selectedEl=0x{_selectedMapEl:X}");
+        sb.Append($"discoveredEls={_mapEls.Count} largeEl=0x{_classifiedLargeEl:X} miniEl=0x{_classifiedMiniEl:X}");
         return sb.ToString();
     }
 
@@ -956,36 +858,7 @@ public sealed class Poe2Live
         return width * height;
     }
 
-    private void DiscoverMapElements(nint inGameState)
-    {
-        var uiRoot = GetUiRoot(inGameState);
-        if (uiRoot == 0) return;
-        var queue = new Queue<nint>(); queue.Enqueue(uiRoot);
-        var visited = new HashSet<nint>();
-        var body = new byte[Poe2.MapUiElement.Zoom + 8];
-        while (queue.Count > 0 && visited.Count < 30000)
-        {
-            var el = queue.Dequeue();
-            if (el == 0 || !visited.Add(el)) continue;
-
-            var first = Ptr(el + Poe2.UiElement.Children);
-            if (first != 0 && _reader.TryReadStruct<nint>(el + Poe2.UiElement.Children + 8, out var lastC))
-            {
-                var n = ((long)lastC - (long)first) / 8;
-                if (n is > 0 and <= 8192)
-                    for (long k = 0; k < n; k++) queue.Enqueue(Ptr(first + (nint)(k * 8)));
-            }
-
-            if (_reader.TryReadBytes(el, body) < body.Length) continue;
-            if (BitConverter.ToSingle(body, Poe2.MapUiElement.DefaultShift) != 0f) continue;
-            if (BitConverter.ToSingle(body, Poe2.MapUiElement.DefaultShift + 4) != -20f) continue;
-            var zoom = BitConverter.ToSingle(body, Poe2.MapUiElement.Zoom);
-            if (zoom is <= 0.05f or >= 8f) continue;
-            _mapEls.Add(el);
-        }
-    }
-
-    private bool TryReadMapElement(nint el, int windowWidth, int windowHeight, out MapUi ui)
+    private bool TryReadMapElementUi(nint el, int windowWidth, int windowHeight, out MapUi ui)
     {
         ui = default;
         if (!_reader.TryReadStruct<float>(el + Poe2.MapUiElement.DefaultShift, out var dsx)) return false;
@@ -1196,11 +1069,24 @@ public sealed class Poe2Live
     public bool TryLiveBar(nint entity, out Vector3 world, out int hpCur, out int hpMax, out int esCur, out int esMax)
     {
         world = default; hpCur = 0; hpMax = 0; esCur = 0; esMax = 0;
-        if (!_renderAddr.TryGetValue(entity, out var render) || render == 0) return false;
+        if (!_renderAddr.TryGetValue(entity, out var render))
+        {
+            render = ResolveComponent(entity, "Render");
+            _renderAddr[entity] = render;
+        }
+        if (render == 0) return false;
         if (!_reader.TryReadStruct<Vector3>(render + Poe2.Render.CurrentWorldPosition, out world)) return false;
-        if (_lifeAddr.TryGetValue(entity, out var life) && life != 0
-            && _reader.TryReadStruct<VitalStruct>(life + _healthOff, out var v)) { hpCur = v.Current; hpMax = v.Max; }
-        if (_esOffKnown && _lifeAddr.TryGetValue(entity, out life) && life != 0
+        if (!_lifeAddr.TryGetValue(entity, out var life))
+        {
+            life = ResolveComponent(entity, "Life");
+            _lifeAddr[entity] = life;
+        }
+        if (life != 0 && _reader.TryReadStruct<VitalStruct>(life + _healthOff, out var v))
+        {
+            hpCur = v.Current;
+            hpMax = v.Max;
+        }
+        if (_esOffKnown && life != 0
             && _reader.TryReadStruct<VitalStruct>(life + _esOff, out var es) && es.LooksValid())
         {
             esCur = es.Current;
@@ -1231,6 +1117,16 @@ public sealed class Poe2Live
         if (render == 0) return null;
         if (!_reader.TryReadStruct<float>(render + Poe2.Render.TerrainHeight, out var h)) return null;
         return float.IsFinite(h) && MathF.Abs(h) < 100000f ? h : null;
+    }
+
+
+    public bool TryLiveGrid(nint entity, out System.Numerics.Vector2 grid)
+    {
+        grid = default;
+        var world = EntityWorld(entity);
+        if (world is not { } w) return false;
+        grid = new System.Numerics.Vector2(w.X / Poe2.WorldToGridRatio, w.Y / Poe2.WorldToGridRatio);
+        return true;
     }
 
     private System.Numerics.Vector2? EntityGrid(nint entity)

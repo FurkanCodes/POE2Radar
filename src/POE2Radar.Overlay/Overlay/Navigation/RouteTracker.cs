@@ -36,6 +36,9 @@ public sealed class RouteTracker
     /// <summary>True while a background replan for this target is enqueued/running (set by the owner).</summary>
     public bool ReplanInFlight { get; set; }
 
+    /// <summary>Full smoothed waypoint list (cursor is an index into this list).</summary>
+    public IReadOnlyList<(int x, int y)> AllWaypoints => _waypoints;
+
     /// <summary>Waypoints from the cursor onward — what the renderer draws for this target.</summary>
     public IReadOnlyList<(int x, int y)> CurrentPoints
     {
