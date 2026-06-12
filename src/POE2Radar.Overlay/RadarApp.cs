@@ -597,6 +597,9 @@ public sealed partial class RadarApp : IDisposable
 
         var live = _liveFrame;
         if (live.InGame)
+            live = RefreshMapLock(live, windowWidth, windowHeight);
+
+        if (live.InGame)
         {
             BuildRenderPaths(live.PlayerGrid, snap);
             if (!_atlasOpen && _hpBarCadence.IsDue(PerformanceCadence.ClampHz(_settings.HpBarRefreshHz, 1, 30)))
@@ -647,8 +650,8 @@ public sealed partial class RadarApp : IDisposable
                 miniMapFrame,
                 _atlasOpen,
                 live.CameraMatrix));
-        _lastMapFrame = visual.MapFrame;
-        _lastMiniMapFrame = visual.MiniMapFrame;
+        _lastMapFrame = mapFrame;
+        _lastMiniMapFrame = miniMapFrame;
         _lastPlayerGrid = live.PlayerGrid;
         if (live.InGame)
             HandleCursorPickHotkeys();
@@ -664,8 +667,8 @@ public sealed partial class RadarApp : IDisposable
             RawPlayerWorld: live.PlayerWorld,
             Map: largeMap,
             MiniMap: miniMap,
-            MapFrame: visual.MapFrame,
-            MiniMapFrame: visual.MiniMapFrame,
+            MapFrame: mapFrame,
+            MiniMapFrame: miniMapFrame,
             Entities: snap.Entities,
             Landmarks: snap.Landmarks,
             MapEntities: snap.MapEntities,
@@ -831,6 +834,33 @@ public sealed partial class RadarApp : IDisposable
         return new LiveFrameState(
             true, inGameState, areaInstance, localPlayer, player, playerWorld, playerTerrainHeight,
             maps, _areaHash, _cameraMatrix);
+    }
+
+    /// <summary>Per-tick map lock: player grid + map pan/zoom/clip rect. Kept off the LiveRefreshHz
+    /// throttle so the overlay minimap sticks to the in-game HUD while moving.</summary>
+    private LiveFrameState RefreshMapLock(LiveFrameState live, int windowWidth, int windowHeight)
+    {
+        if (!live.InGame || live.LocalPlayer == 0 || live.InGameState == 0 || live.AreaInstance == 0)
+            return live;
+
+        var player = _live.PlayerGrid(live.LocalPlayer) ?? live.PlayerGrid;
+        var playerTerrainHeight = _live.PlayerTerrainHeight(live.LocalPlayer);
+        var maps = live.Maps;
+        if (!_atlasOpen)
+        {
+            maps = _live.ReadMaps(live.InGameState, live.AreaInstance, windowWidth, windowHeight);
+            _cachedMaps = maps;
+        }
+
+        if (player == live.PlayerGrid && maps.Equals(live.Maps) && playerTerrainHeight.Equals(live.PlayerTerrainHeight))
+            return live;
+
+        return live with
+        {
+            PlayerGrid = player,
+            PlayerTerrainHeight = playerTerrainHeight,
+            Maps = maps,
+        };
     }
 
     private void RefreshHpBars(WorldSnapshot snap)

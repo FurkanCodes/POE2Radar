@@ -489,6 +489,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         var H = ctx.WindowHeight;
         var center = frame.Center;
         var scale = MathF.Max(0.01f, frame.Scale);
+        var player = ctx.RawPlayerGrid;
 
         var clipped = frame.IsMinimap && frame.Width > 1f && frame.Height > 1f;
         if (clipped)
@@ -518,7 +519,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             {
                 foreach (var e in ctx.MapEntities)
                 {
-                    var p = Project(e.Grid, ctx.PlayerGrid, center, scale, e.TerrainHeight - frame.PlayerTerrainHeight);
+                    var p = Project(e.Grid, player, center, scale, e.TerrainHeight - frame.PlayerTerrainHeight);
                     if (p.X < -40 || p.Y < -40 || p.X > W + 40 || p.Y > H + 40) continue;
                     DrawIconOrShapePacked(dl, p, e.Size, e.Color, e.Sprite, e.Shape, ctx.GlobalIconScale);
                     if (e.Label.Length > 0 && !MapLabelAlreadyPresent(mapLabels, e.Label))
@@ -528,7 +529,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
             foreach (var lm in ctx.MapLandmarks)
             {
-                var p = Project(lm.Center, ctx.PlayerGrid, center, scale, -frame.PlayerTerrainHeight);
+                var p = Project(lm.Center, player, center, scale, -frame.PlayerTerrainHeight);
                 if (p.X < -40 || p.Y < -40 || p.X > W + 40 || p.Y > H + 40) continue;
                 DrawIconOrShapePacked(dl, p, lm.Size, lm.Color, lm.Sprite, lm.Shape, ctx.GlobalIconScale);
                 if (lm.Label.Length > 0 && !MapLabelAlreadyPresent(mapLabels, lm.Label))
@@ -543,7 +544,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     clipT,
                     clipR,
                     clipB,
-                    smooth: ctx.SmoothOverlayMotion,
+                    smooth: !frame.IsMinimap && ctx.SmoothOverlayMotion,
                     pixelSnap: ctx.PixelSnapLabels);
 
             if (ctx.ShowPlayerBlip)
@@ -562,10 +563,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             return false;
 
         var terrainDeltaZ = -frame.PlayerTerrainHeight;
-        var p0 = Project(new NumVec2(0, 0), ctx.PlayerGrid, center, scale, terrainDeltaZ);
-        var p1 = Project(new NumVec2(terrain.Width, 0), ctx.PlayerGrid, center, scale, terrainDeltaZ);
-        var p2 = Project(new NumVec2(terrain.Width, terrain.Height), ctx.PlayerGrid, center, scale, terrainDeltaZ);
-        var p3 = Project(new NumVec2(0, terrain.Height), ctx.PlayerGrid, center, scale, terrainDeltaZ);
+        var player = ctx.RawPlayerGrid;
+        var p0 = Project(new NumVec2(0, 0), player, center, scale, terrainDeltaZ);
+        var p1 = Project(new NumVec2(terrain.Width, 0), player, center, scale, terrainDeltaZ);
+        var p2 = Project(new NumVec2(terrain.Width, terrain.Height), player, center, scale, terrainDeltaZ);
+        var p3 = Project(new NumVec2(0, terrain.Height), player, center, scale, terrainDeltaZ);
 
         dl.AddImageQuad(
             tex.Id,
@@ -662,7 +664,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 var isEdge = data[idx - 1] == 0 || data[idx + 1] == 0
                           || data[idx - bytesPerRow] == 0 || data[idx + bytesPerRow] == 0;
 
-                var p = Project(new NumVec2(x, y), ctx.PlayerGrid, center, scale, -frame.PlayerTerrainHeight);
+                var p = Project(new NumVec2(x, y), ctx.RawPlayerGrid, center, scale, -frame.PlayerTerrainHeight);
                 if (p.X < -8 || p.Y < -8 || p.X > W + 8 || p.Y > H + 8) continue;
 
                 if (isEdge)
@@ -672,7 +674,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                         var rightIdx = row + x + edgeStride;
                         if (rightIdx < data.Length && data[rightIdx] != 0)
                         {
-                            var pr = Project(new NumVec2(x + edgeStride, y), ctx.PlayerGrid, center, scale, -frame.PlayerTerrainHeight);
+                            var pr = Project(new NumVec2(x + edgeStride, y), ctx.RawPlayerGrid, center, scale, -frame.PlayerTerrainHeight);
                             if (MathF.Abs(pr.X - p.X) < 80f && MathF.Abs(pr.Y - p.Y) < 80f)
                                 dl.AddLine(p, pr, edgeCol, thickness);
                         }
@@ -683,7 +685,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                         var bottomIdx = (y + edgeStride) * bytesPerRow + x;
                         if (bottomIdx < data.Length && data[bottomIdx] != 0)
                         {
-                            var pb = Project(new NumVec2(x, y + edgeStride), ctx.PlayerGrid, center, scale, -frame.PlayerTerrainHeight);
+                            var pb = Project(new NumVec2(x, y + edgeStride), ctx.RawPlayerGrid, center, scale, -frame.PlayerTerrainHeight);
                             if (MathF.Abs(pb.X - p.X) < 80f && MathF.Abs(pb.Y - p.Y) < 80f)
                                 dl.AddLine(p, pb, edgeCol, thickness);
                         }
@@ -700,17 +702,20 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private void DrawPathsMap(ImDrawListPtr dl, RenderContext ctx, MapFrame frame, NumVec2 center, float scale)
     {
+        var player = ctx.RawPlayerGrid;
+        var smoothPaths = !frame.IsMinimap && ctx.SmoothOverlayMotion;
         foreach (var path in ctx.SelectedPaths)
         {
-            var poly = NavigationPathBuilder.BuildDrawPolyline(ctx.PlayerGrid, path.Points, path.LiveGoal);
+            var poly = NavigationPathBuilder.BuildDrawPolyline(player, path.Points, path.LiveGoal);
             if (poly.Count < 2) continue;
             var col = PathColor(path.ColorSlot);
             NumVec2? prev = null;
             for (var i = 0; i < poly.Count; i++)
             {
                 var (x, y) = poly[i];
-                var p = Project(new NumVec2(x, y), ctx.PlayerGrid, center, scale, -frame.PlayerTerrainHeight);
-                p = SmoothScreenPoint($"path:map:{frame.IsMinimap}:{path.TargetId}:{i}", p, ctx.OverlaySmoothingMs, ctx.SmoothOverlayMotion);
+                var p = Project(new NumVec2(x, y), player, center, scale, -frame.PlayerTerrainHeight);
+                if (smoothPaths)
+                    p = SmoothScreenPoint($"path:map:{path.TargetId}:{i}", p, ctx.OverlaySmoothingMs, true);
                 if (prev is { } a) dl.AddLine(a, p, col, 2.2f);
                 prev = p;
             }

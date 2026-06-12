@@ -8,8 +8,6 @@ public sealed class VisualMotionSmoother
 {
     private const float PlayerGridSnapDistance = 35f;
     private const float PlayerWorldSnapDistance = 35f * POE2Radar.Core.Pathfinding.GridConstants.GridToWorld;
-    private const float MapCenterSnapDistance = 80f;
-    private const float MapScaleSnapRatio = 0.25f;
 
     private bool _hasState;
     private VisualFrameState _state = VisualFrameState.Empty;
@@ -40,8 +38,9 @@ public sealed class VisualMotionSmoother
             Lerp(_state.PlayerGrid, sample.PlayerGrid, alpha),
             Lerp(_state.PlayerWorld, sample.PlayerWorld, alpha),
             Lerp(_state.PlayerTerrainHeight, sample.PlayerTerrainHeight, alpha),
-            SmoothFrame(_state.MapFrame, sample.MapFrame, alpha),
-            SmoothFrame(_state.MiniMapFrame, sample.MiniMapFrame, alpha));
+            // Map/minimap clip + pan must track the game HUD pixel-perfect — smoothing here causes jiggle.
+            sample.MapFrame,
+            sample.MiniMapFrame);
         return _state;
     }
 
@@ -57,30 +56,7 @@ public sealed class VisualMotionSmoother
     {
         if (NumVec2.Distance(state.PlayerGrid, sample.PlayerGrid) > PlayerGridSnapDistance) return true;
         if (NumVec3.Distance(state.PlayerWorld, sample.PlayerWorld) > PlayerWorldSnapDistance) return true;
-        if (FrameDistance(state.MapFrame, sample.MapFrame) > MapCenterSnapDistance) return true;
-        if (FrameDistance(state.MiniMapFrame, sample.MiniMapFrame) > MapCenterSnapDistance) return true;
-        if (ScaleDiffRatio(state.MapFrame.Scale, sample.MapFrame.Scale) > MapScaleSnapRatio) return true;
-        if (ScaleDiffRatio(state.MiniMapFrame.Scale, sample.MiniMapFrame.Scale) > MapScaleSnapRatio) return true;
         return false;
-    }
-
-    private static float FrameDistance(MapFrame a, MapFrame b)
-        => NumVec2.Distance(a.Center, b.Center) + NumVec2.Distance(a.Position, b.Position);
-
-    private static float ScaleDiffRatio(float a, float b)
-        => MathF.Abs(a - b) / MathF.Max(0.001f, MathF.Max(MathF.Abs(a), MathF.Abs(b)));
-
-    private static MapFrame SmoothFrame(MapFrame current, MapFrame target, float alpha)
-    {
-        return new MapFrame(
-            Lerp(current.Center, target.Center, alpha),
-            Lerp(current.Scale, target.Scale, alpha),
-            Lerp(current.Width, target.Width, alpha),
-            Lerp(current.Height, target.Height, alpha),
-            target.MapElement,
-            Lerp(current.PlayerTerrainHeight, target.PlayerTerrainHeight, alpha),
-            Lerp(current.Position, target.Position, alpha),
-            target.IsMinimap);
     }
 
     private static NumVec2 Lerp(NumVec2 a, NumVec2 b, float t)
