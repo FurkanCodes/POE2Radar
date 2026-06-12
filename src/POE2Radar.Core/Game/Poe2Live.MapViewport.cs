@@ -29,7 +29,7 @@ public sealed partial class Poe2Live
             _everHidden.Clear();
             _everVisible.Clear();
             _classifiedLargeEl = _classifiedMiniEl = 0;
-            DiscoverMapElements(inGameState);
+            DiscoverMapElements(inGameState, windowWidth, windowHeight);
         }
 
         ClassifyMapPair();
@@ -281,13 +281,62 @@ public sealed partial class Poe2Live
         return new ScreenRect(left, top, right, bottom);
     }
 
-    private void DiscoverMapElements(nint inGameState)
+    private void DiscoverMapElements(nint inGameState, int windowWidth, int windowHeight)
     {
-        var uiRoot = Ptr(inGameState + Poe2.InGameState.UiRoot);
-        if (uiRoot == 0) return;
-        var trueRoot = Ptr(uiRoot + Poe2.UiElement.Parent);
-        var root = trueRoot != 0 && trueRoot != uiRoot ? trueRoot : uiRoot;
-        var queue = new Queue<nint>(); queue.Enqueue(root);
+        _mapEls.Clear();
+        _classifiedLargeEl = _classifiedMiniEl = 0;
+
+        DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
+        var uiRoot = GetUiRoot(inGameState);
+        Span<nint> anchors = stackalloc nint[] { controllerGameUi, gameUi, uiRoot };
+
+        var uiScale = windowHeight > 0 ? windowHeight / 1600f : 1f;
+        var scratch = new List<nint>();
+        var bestScore = -1;
+
+        for (var i = 0; i < anchors.Length; i++)
+        {
+            var anchor = anchors[i];
+            if (anchor == 0) continue;
+            var duplicate = false;
+            for (var j = 0; j < i; j++)
+            {
+                if (anchors[j] != anchor) continue;
+                duplicate = true;
+                break;
+            }
+            if (duplicate) continue;
+
+            CollectMapElementsFromRoot(anchor, scratch);
+            if (scratch.Count < 2) continue;
+            if (!TryClassifyMapPairFromEls(scratch, out var largeEl, out var miniEl)) continue;
+
+            var score = ScoreDiscoveredPair(largeEl, miniEl, uiScale, windowWidth, windowHeight);
+            if (score <= bestScore) continue;
+
+            bestScore = score;
+            _mapEls.Clear();
+            _mapEls.AddRange(scratch);
+            _classifiedLargeEl = largeEl;
+            _classifiedMiniEl = miniEl;
+        }
+    }
+
+    private nint ResolveBfsRoot(nint anchor)
+    {
+        if (anchor == 0) return 0;
+        var parent = Ptr(anchor + Poe2.UiElement.Parent);
+        return parent != 0 && parent != anchor ? parent : anchor;
+    }
+
+    private void CollectMapElementsFromRoot(nint anchor, List<nint> results)
+    {
+        results.Clear();
+        var root = ResolveBfsRoot(anchor);
+        if (root == 0) return;
+
+        var queue = new Queue<nint>();
+        queue.Enqueue(root);
         var visited = new HashSet<nint>();
         var body = new byte[Poe2.MapUiElement.Zoom + 8];
         while (queue.Count > 0 && visited.Count < 30000)
@@ -308,8 +357,62 @@ public sealed partial class Poe2Live
             if (BitConverter.ToSingle(body, Poe2.MapUiElement.DefaultShift + 4) != -20f) continue;
             var zoom = BitConverter.ToSingle(body, Poe2.MapUiElement.Zoom);
             if (zoom is <= 0.05f or >= 8f) continue;
-            _mapEls.Add(el);
+            results.Add(el);
         }
+    }
+
+    private bool TryClassifyMapPairFromEls(List<nint> els, out nint largeEl, out nint miniEl)
+    {
+        largeEl = miniEl = 0;
+        if (els.Count < 2) return false;
+
+        var bestArea = -1f;
+        foreach (var el in els)
+        {
+            var (w, h) = ReadElementIntrinsicArea(el);
+            var area = w * h;
+            if (area > bestArea) { bestArea = area; largeEl = el; }
+        }
+
+        foreach (var el in els)
+        {
+            if (el == largeEl) continue;
+            miniEl = el;
+            break;
+        }
+
+        return largeEl != 0 && miniEl != 0;
+    }
+
+    /// <summary>Pick the UI tree whose classified large/mini pair is actually visible on-screen.</summary>
+    private int ScoreDiscoveredPair(nint largeEl, nint miniEl, float uiScale, int windowWidth, int windowHeight)
+    {
+        var score = 0;
+        if (TryReadMapElement(miniEl, out var miniLocal, out var miniHier, out _, out _, out var mzoom))
+        {
+            if (miniHier) score += 4;
+            else if (miniLocal) score += 2;
+            if (mzoom > 0.05f) score += 1;
+        }
+
+        if (windowWidth > 0 && windowHeight > 0)
+        {
+            if (TryReadMinimapFrameRect(miniEl, uiScale, windowWidth, windowHeight, out _, out _, out _, out _, out _))
+                score += 3;
+            else
+            {
+                var rect = ReadElementScreenRect(miniEl, uiScale, windowWidth, windowHeight);
+                if (rect.HasArea) score += 1;
+            }
+        }
+
+        if (TryReadMapElement(largeEl, out var largeLocal, out var largeHier, out _, out _, out _))
+        {
+            if (largeHier) score += 2;
+            else if (largeLocal) score += 1;
+        }
+
+        return score;
     }
 
     private bool TryReadMapElement(

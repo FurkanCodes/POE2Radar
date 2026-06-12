@@ -587,6 +587,8 @@ public sealed partial class RadarApp : IDisposable
         var snap = _snapshot;
         var windowWidth = OverlayWidth;
         var windowHeight = OverlayHeight;
+        if (windowWidth <= 0 || windowHeight <= 0)
+            ResolveGameClientSize(out windowWidth, out windowHeight);
         var realActive = IsGameFocused();
         var drawActive = realActive || _settings.AlwaysShowOverlay;
 
@@ -620,7 +622,9 @@ public sealed partial class RadarApp : IDisposable
             _hpPct, _manaPct, _esPct, _autoFlask, _flaskNote, _areaCode, _charName, snap.CharLevel, _perfSnapshot,
             MapDiag: _mapDiag,
             MiniMapVisible: miniMap.IsVisible, MiniMapRect: miniMap.HasScreenRect,
-            MiniMapW: miniMap.Width, MiniMapH: miniMap.Height);
+            MiniMapW: miniMap.Width, MiniMapH: miniMap.Height,
+            GameFocused: realActive, OverlayActive: drawActive,
+            OverlayW: windowWidth, OverlayH: windowHeight, GameHwnd: _gameHwnd);
 
         var atlasProj = AtlasProjection();
         var mapFrame = BuildLargeMapFrame(largeMap, windowWidth, windowHeight, live.PlayerTerrainHeight);
@@ -798,7 +802,7 @@ public sealed partial class RadarApp : IDisposable
             CloseAtlasSession();
 
         var maps = _cachedMaps;
-        if (!_atlasOpen && drawActive)
+        if (!_atlasOpen)
         {
             maps = _live.ReadMaps(inGameState, areaInstance, windowWidth, windowHeight);
             _cachedMaps = maps;
@@ -2204,6 +2208,16 @@ public sealed partial class RadarApp : IDisposable
 
     private bool IsGameFocused()
         => OverlayNative.IsGameFocused(_gameHwnd, _process.ProcessId);
+
+    private void ResolveGameClientSize(out int width, out int height)
+    {
+        width = OverlayWidth;
+        height = OverlayHeight;
+        if (width > 0 && height > 0) return;
+        if (_gameHwnd == 0 || !OverlayNative.GetClientRect(_gameHwnd, out var client)) return;
+        width = client.Right - client.Left;
+        height = client.Bottom - client.Top;
+    }
 
     [StructLayout(LayoutKind.Sequential)] private struct CursorPoint { public int X, Y; }
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out CursorPoint p);

@@ -153,6 +153,8 @@ public sealed class ApiServer : IDisposable
                     miniMapVisible = s.MiniMapVisible, miniMapRect = s.MiniMapRect,
                     miniMapW = s.MiniMapW, miniMapH = s.MiniMapH,
                     mapDiag = s.MapDiag,
+                    gameFocused = s.GameFocused, overlayActive = s.OverlayActive,
+                    overlayW = s.OverlayW, overlayH = s.OverlayH, gameHwnd = s.GameHwnd.ToInt64(),
                     hpPct = s.HpPct, manaPct = s.ManaPct, esPct = s.EsPct, autoFlask = s.AutoFlask, flask = s.FlaskNote,
                     player = new { x = s.Player.X, y = s.Player.Y },
                     entityCount = s.Entities.Count,
@@ -1354,7 +1356,12 @@ public sealed record RadarState(
     bool MiniMapVisible = false,
     bool MiniMapRect = false,
     float MiniMapW = 0f,
-    float MiniMapH = 0f)
+    float MiniMapH = 0f,
+    bool GameFocused = false,
+    bool OverlayActive = false,
+    int OverlayW = 0,
+    int OverlayH = 0,
+    nint GameHwnd = 0)
 {
     public static readonly RadarState Empty =
         new(false, 0, 0, false, 0, System.Numerics.Vector2.Zero,

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Numerics;
+using System.Text.Json;
 using ImGuiNET;
 using POE2Radar.Core.Game;
 using POE2Radar.Core.Pathfinding;
@@ -56,6 +57,10 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private int _spritePickerRuleIndex = -1;
     private string? _hotkeyBindTarget;
     private bool _hotkeyBindArmed;
+    private bool _settingsPanelWasOpen;
+    private string? _settingsAutoSaveSnapshot;
+    private long _settingsAutoSaveDueStamp;
+    private const double SettingsAutoSaveDebounceSec = 0.35;
 
     private static readonly Vector4[] PathPalette =
     [
@@ -238,6 +243,10 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
             if (_settingsOpen)
                 DrawSettingsPanel(ctx);
+            else if (_settingsPanelWasOpen)
+                FlushSettingsAutoSave(force: true);
+
+            _settingsPanelWasOpen = _settingsOpen;
         }
         catch (Exception ex)
         {
@@ -1267,6 +1276,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
         RadarSettings s;
         lock (_settingsLock) s = _settings;
+        if (_settingsAutoSaveSnapshot is null)
+            _settingsAutoSaveSnapshot = JsonSerializer.Serialize(s);
 
         if (ImGui.BeginTabBar("SettingsTabs"))
         {
@@ -1279,6 +1290,10 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
 
         PollHotkeyCapture(s);
+
+        TouchSettingsAutoSave(s);
+        FlushSettingsAutoSave();
+
         ImGui.End();
     }
 
@@ -1756,8 +1771,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
 
         if (ImGui.Button("Save Settings"))
-            _enqueue(() => SaveSettings());
-        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Write all current settings to config/radar_settings.json");
+            SaveSettings();
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Write settings now (also auto-saves when you change a control)");
     }
 
     private void DrawHpBarsTab(RadarSettings s)
@@ -2041,7 +2056,28 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private void SaveSettings()
     {
-        lock (_settingsLock) _settings.Save();
+        lock (_settingsLock)
+        {
+            _settings.Save();
+            _settingsAutoSaveSnapshot = JsonSerializer.Serialize(_settings);
+            _settingsAutoSaveDueStamp = 0;
+        }
+    }
+
+    private void TouchSettingsAutoSave(RadarSettings s)
+    {
+        var snap = JsonSerializer.Serialize(s);
+        if (snap == _settingsAutoSaveSnapshot) return;
+        _settingsAutoSaveSnapshot = snap;
+        _settingsAutoSaveDueStamp = Stopwatch.GetTimestamp();
+    }
+
+    private void FlushSettingsAutoSave(bool force = false)
+    {
+        if (_settingsAutoSaveDueStamp == 0) return;
+        if (!force && Stopwatch.GetElapsedTime(_settingsAutoSaveDueStamp).TotalSeconds < SettingsAutoSaveDebounceSec)
+            return;
+        SaveSettings();
     }
 
     private void DrawHotkeysSection(RadarSettings s)

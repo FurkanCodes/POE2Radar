@@ -202,12 +202,15 @@ internal static partial class OverlayNative
     public static bool IsGameFocused(nint gameHwnd, int processId)
     {
         var fg = GetForegroundWindow();
-        if (fg == 0 || gameHwnd == 0) return false;
-        if (fg == gameHwnd) return true;
+        if (fg == 0) return false;
 
+        // Any foreground HWND owned by the game process counts — controller / raw-input often
+        // focuses a child or sibling HWND, and gameHwnd may still be 0 if EnumWindows missed it.
         GetWindowThreadProcessId(fg, out var fgPid);
         if ((int)fgPid == processId) return true;
 
+        if (gameHwnd == 0) return false;
+        if (fg == gameHwnd) return true;
         if (IsChild(gameHwnd, fg)) return true;
 
         var fgRoot = GetAncestor(fg, GA_ROOT);
@@ -218,16 +221,26 @@ internal static partial class OverlayNative
     /// <summary>Find the main visible window belonging to the given process ID.</summary>
     public static nint FindWindowForProcess(int processId)
     {
-        nint found = 0;
+        nint best = 0;
+        var bestArea = 0L;
         EnumWindows((hwnd, _) =>
         {
             GetWindowThreadProcessId(hwnd, out var pid);
             if ((int)pid != processId) return true;
             if (!IsWindowVisible(hwnd)) return true;
-            found = hwnd;
-            return false; // stop
+            if (!GetClientRect(hwnd, out var client)) return true;
+            var w = client.Right - client.Left;
+            var h = client.Bottom - client.Top;
+            if (w <= 0 || h <= 0) return true;
+            var area = (long)w * h;
+            if (area > bestArea)
+            {
+                bestArea = area;
+                best = hwnd;
+            }
+            return true;
         }, 0);
-        return found;
+        return best;
     }
 
     // ── Per-pixel-alpha overlay support ───────────────────────────────────
