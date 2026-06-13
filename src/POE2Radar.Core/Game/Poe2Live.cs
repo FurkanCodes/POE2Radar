@@ -686,7 +686,14 @@ public sealed partial class Poe2Live
         => ReadMaps(inGameState, areaInstance, 0, 0).LargeMap;
 
     public MapViews ReadMaps(nint inGameState, nint areaInstance, int windowWidth, int windowHeight)
-        => ReadMapsViewport(inGameState, areaInstance, windowWidth, windowHeight);
+    {
+        // Prefer the direct GameUi / GameUiController read: it scores every UI branch and picks the
+        // tree that actually has a visible minimap rect. The BFS viewport classifier can still latch
+        // onto a stale keyboard branch (paths draw in world space, but map wash/icons do not).
+        if (TryReadDirectMaps(inGameState, windowWidth, windowHeight, out var direct))
+            return direct;
+        return ReadMapsViewport(inGameState, areaInstance, windowWidth, windowHeight);
+    }
 
     private nint GetUiRoot(nint inGameState) => UiRootResolver.Resolve(_reader, inGameState);
 
