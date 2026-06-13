@@ -724,12 +724,12 @@ public sealed partial class Poe2Live
 
     public MapViews ReadMaps(nint inGameState, nint areaInstance, int windowWidth, int windowHeight)
     {
-        // Prefer the direct GameUi / GameUiController read: it scores every UI branch and picks the
-        // tree that actually has a visible minimap rect. The BFS viewport classifier can still latch
-        // onto a stale keyboard branch (paths draw in world space, but map wash/icons do not).
+        // Viewport path: Tab-open uses corner toggler Shift/Zoom (v1.3.0 / ReadMapState parity).
+        var viewport = ReadMapsViewport(inGameState, areaInstance, windowWidth, windowHeight);
+        // Direct path: scores GameUi branches for accurate minimap screen rects + element pointers.
         if (TryReadDirectMaps(inGameState, windowWidth, windowHeight, out var direct))
-            return direct;
-        return ReadMapsViewport(inGameState, areaInstance, windowWidth, windowHeight);
+            return MapViewsMerger.Merge(viewport, direct);
+        return viewport;
     }
 
     private nint GetUiRoot(nint inGameState) => UiRootResolver.Resolve(_reader, inGameState);

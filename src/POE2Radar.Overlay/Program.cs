@@ -24,6 +24,7 @@ if (slot == 0)
 
 Console.WriteLine();
 Console.WriteLine("Radar running. Open the in-game map to see terrain + entities.");
+Console.WriteLine("Quit this overlay before rebuilding — a running exe locks bin\\ and stale builds won't apply.");
 Console.WriteLine("F4 over an entity = inspect (console + on-screen HUD). F5 = hide type. F10 on atlas = tile pick.");
 Console.WriteLine("Atlas: open it in-game; rings are auto-positioned.");
 Console.WriteLine("Ctrl+C to exit.");

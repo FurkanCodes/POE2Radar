@@ -936,20 +936,29 @@ public sealed partial class RadarApp : IDisposable
         return copy;
     }
 
+    private const float MapScaleDivisor = 677f;
+
     private MapFrame BuildLargeMapFrame(Poe2Live.MapUi map, int windowWidth, int windowHeight, float playerTerrainHeight)
     {
-        // Upstream (Sikaka/POE2Radar) parity — the projection that actually locks onto the in-game map.
-        // It is NOT GameHelper2's diagonal/240 + cull + LargeMapScaleMultiplier (that drifted the fork off).
-        // The whole thing is a single empirical formula:
-        //   center = window center + Shift + DefaultShift(0,-20) + manual offset
+        // Sikaka/v1.3.0 parity — fullscreen Tab overlay only (draw gated on Map.IsVisible):
+        //   center = window center + Shift + DefaultShiftY(-20) + manual offset
         //   scale  = Zoom × (WindowHeight / 677) × ScaleMul
-        // 677 is the calibrated magic constant; ScaleMul (default 1.0) is the only fine-tune knob.
         var w = MathF.Max(1f, windowWidth);
         var h = MathF.Max(1f, windowHeight);
-        var center = new NumVec2(
-            w * 0.5f + map.ShiftX + map.DefaultShiftX + _settings.OffX,
-            h * 0.5f + map.ShiftY + map.DefaultShiftY + _settings.OffY);
-        var scale = (map.Zoom > 0f ? map.Zoom : 1f) * (h / 677f) * _settings.ScaleMul;
+        var (cx, cy) = MapViewportLogic.MapProjectionCenter(
+            windowWidth,
+            windowHeight,
+            map.ShiftX,
+            map.ShiftY,
+            _settings.OffX,
+            _settings.OffY,
+            minimapClip: false,
+            clipLeft: 0,
+            clipTop: 0,
+            clipRight: 0,
+            clipBottom: 0);
+        var center = new NumVec2(cx, cy);
+        var scale = (map.Zoom > 0f ? map.Zoom : 1f) * (h / MapScaleDivisor) * _settings.ScaleMul;
         return new MapFrame(center, scale, w, h, map.Element, playerTerrainHeight, NumVec2.Zero, IsMinimap: false);
     }
 
@@ -989,14 +998,9 @@ public sealed partial class RadarApp : IDisposable
             clipRight: x + width,
             clipBottom: y + height);
         var center = new NumVec2(cx, cy);
-        // GameHelper2 parity: the minimap projection uses the game's own zoom verbatim
-        // (scale = diagonal × zoom / 240). The ScaleMul/LargeMapScaleMultiplier calibration
-        // knobs are large-map-only — applying them here breaks the exact minimap match.
-        var scale = global::POE2Radar.Core.Pathfinding.MapProjection.MapScale(
-            width,
-            height,
-            map.Zoom > 0f ? map.Zoom : 1f,
-            userScale: 1f);
+        // v1.3.0 parity: minimap scale = Zoom × (clipSide / 677) × ScaleMul — NOT diagonal/240.
+        var referenceSide = MathF.Max(1f, MathF.Min(width, height));
+        var scale = (map.Zoom > 0f ? map.Zoom : 1f) * (referenceSide / MapScaleDivisor) * _settings.ScaleMul;
         return new MapFrame(center, scale, width, height, map.Element, playerTerrainHeight, new NumVec2(x, y), IsMinimap: true);
     }
 
@@ -1261,12 +1265,13 @@ public sealed partial class RadarApp : IDisposable
 
         IReadOnlyList<Poe2Live.EntityDot> entities =
             _snapshot.Entities.Length > 0 ? _snapshot.Entities : _entities;
+        var (largeFrame, miniFrame) = ActiveMapFrames(_liveFrame.Maps);
         if (!EntityUnderCursorPicker.TryPick(
                 cursor,
                 windowWidth,
                 windowHeight,
-                _lastMapFrame,
-                _lastMiniMapFrame,
+                largeFrame,
+                miniFrame,
                 playerGrid,
                 entities,
                 _settings.ImportantOnly,
@@ -1281,6 +1286,13 @@ public sealed partial class RadarApp : IDisposable
         }
 
         return true;
+    }
+
+    private (MapFrame Large, MapFrame Mini) ActiveMapFrames(Poe2Live.MapViews maps)
+    {
+        var large = MapOverlayDrawPolicy.ShouldDrawLargeMap(maps.LargeMap) ? _lastMapFrame : default;
+        var mini = MapOverlayDrawPolicy.ShouldDrawMinimap(maps.LargeMap, maps.MiniMap) ? _lastMiniMapFrame : default;
+        return (large, mini);
     }
 
     private bool TryPickEntityUnderCursor(string failPrefix, out Poe2Live.EntityDot entity)

@@ -208,12 +208,13 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 else
                 {
                     var largeMapOpen = ShouldDrawLargeMapOverlay(ctx.Map);
-                    if (largeMapOpen || ShouldDrawMinimapOverlay(ctx.MiniMap))
+                    var miniMapOpen = ShouldDrawMinimapOverlay(ctx.Map, ctx.MiniMap);
+                    if (largeMapOpen || miniMapOpen)
                     {
                         var t = Stopwatch.GetTimestamp();
                         if (largeMapOpen)
                             DrawMap(dl, ctx, ctx.MapFrame);
-                        if (ShouldDrawMinimapOverlay(ctx.MiniMap))
+                        else if (miniMapOpen)
                             DrawMap(dl, ctx, ctx.MiniMapFrame);
                         mapMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                     }
@@ -466,23 +467,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     // ── Map overlay ──
 
-    /// <summary>Large overlay map tab — visibility bit can lie on the keyboard GameUi branch while the
-    /// controller tree (or a resolved screen rect) still shows the full map panel.</summary>
     private static bool ShouldDrawLargeMapOverlay(Poe2Live.MapUi map)
-    {
-        if (map.Element == 0) return false;
-        if (map.IsVisible) return true;
-        return map.HasScreenRect && map.Width >= 120f && map.Height >= 120f;
-    }
+        => MapOverlayDrawPolicy.ShouldDrawLargeMap(map);
 
-    /// <summary>Corner minimap — controller UI often keeps a valid screen rect even when the parent-chain
-    /// visibility bit reads false on the wrong GameUi anchor.</summary>
-    private static bool ShouldDrawMinimapOverlay(Poe2Live.MapUi map)
-    {
-        if (map.Element == 0) return false;
-        if (map.IsVisible) return true;
-        return map.HasScreenRect && map.Width >= 32f && map.Height >= 32f;
-    }
+    private static bool ShouldDrawMinimapOverlay(Poe2Live.MapUi largeMap, Poe2Live.MapUi miniMap)
+        => MapOverlayDrawPolicy.ShouldDrawMinimap(largeMap, miniMap);
 
     private void DrawMap(ImDrawListPtr dl, RenderContext ctx, MapFrame frame)
     {
@@ -520,8 +509,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             {
                 foreach (var e in ctx.MapEntities)
                 {
-                    var p = Project(e.Grid, player, center, scale, e.TerrainHeight - frame.PlayerTerrainHeight);
-                    if (p.X < -40 || p.Y < -40 || p.X > W + 40 || p.Y > H + 40) continue;
+                    var p = Project(e.Grid, player, center, scale);
+                    if (p.X < clipL - 40 || p.Y < clipT - 40 || p.X > clipR + 40 || p.Y > clipB + 40) continue;
                     DrawIconOrShapePacked(dl, p, e.Size, e.Color, e.Sprite, e.Shape, ctx.GlobalIconScale);
                     if (e.Label.Length > 0 && !MapLabelAlreadyPresent(mapLabels, e.Label))
                         mapLabels.Add(new MapLabelCandidate("map:" + e.Key, p, e.Label, e.Color, e.Color));
@@ -530,8 +519,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
             foreach (var lm in ctx.MapLandmarks)
             {
-                var p = Project(lm.Center, player, center, scale, -frame.PlayerTerrainHeight);
-                if (p.X < -40 || p.Y < -40 || p.X > W + 40 || p.Y > H + 40) continue;
+                var p = Project(lm.Center, player, center, scale);
+                if (p.X < clipL - 40 || p.Y < clipT - 40 || p.X > clipR + 40 || p.Y > clipB + 40) continue;
                 DrawIconOrShapePacked(dl, p, lm.Size, lm.Color, lm.Sprite, lm.Shape, ctx.GlobalIconScale);
                 if (lm.Label.Length > 0 && !MapLabelAlreadyPresent(mapLabels, lm.Label))
                     mapLabels.Add(new MapLabelCandidate("map:" + lm.Key, p, lm.Label, lm.Color, lm.Color));
@@ -563,12 +552,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         if (!_terrainTextures.TryGet(this, _textures, terrain, ctx.AreaHash, ctx.TerrainStyle, out var tex))
             return false;
 
-        var terrainDeltaZ = -frame.PlayerTerrainHeight;
         var player = ctx.RawPlayerGrid;
-        var p0 = Project(new NumVec2(0, 0), player, center, scale, terrainDeltaZ);
-        var p1 = Project(new NumVec2(terrain.Width, 0), player, center, scale, terrainDeltaZ);
-        var p2 = Project(new NumVec2(terrain.Width, terrain.Height), player, center, scale, terrainDeltaZ);
-        var p3 = Project(new NumVec2(0, terrain.Height), player, center, scale, terrainDeltaZ);
+        var p0 = Project(new NumVec2(0, 0), player, center, scale);
+        var p1 = Project(new NumVec2(terrain.Width, 0), player, center, scale);
+        var p2 = Project(new NumVec2(terrain.Width, terrain.Height), player, center, scale);
+        var p3 = Project(new NumVec2(0, terrain.Height), player, center, scale);
 
         dl.AddImageQuad(
             tex.Id,
@@ -665,7 +653,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 var isEdge = data[idx - 1] == 0 || data[idx + 1] == 0
                           || data[idx - bytesPerRow] == 0 || data[idx + bytesPerRow] == 0;
 
-                var p = Project(new NumVec2(x, y), ctx.RawPlayerGrid, center, scale, -frame.PlayerTerrainHeight);
+                var p = Project(new NumVec2(x, y), ctx.RawPlayerGrid, center, scale);
                 if (p.X < -8 || p.Y < -8 || p.X > W + 8 || p.Y > H + 8) continue;
 
                 if (isEdge)
@@ -675,7 +663,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                         var rightIdx = row + x + edgeStride;
                         if (rightIdx < data.Length && data[rightIdx] != 0)
                         {
-                            var pr = Project(new NumVec2(x + edgeStride, y), ctx.RawPlayerGrid, center, scale, -frame.PlayerTerrainHeight);
+                            var pr = Project(new NumVec2(x + edgeStride, y), ctx.RawPlayerGrid, center, scale);
                             if (MathF.Abs(pr.X - p.X) < 80f && MathF.Abs(pr.Y - p.Y) < 80f)
                                 dl.AddLine(p, pr, edgeCol, thickness);
                         }
@@ -686,7 +674,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                         var bottomIdx = (y + edgeStride) * bytesPerRow + x;
                         if (bottomIdx < data.Length && data[bottomIdx] != 0)
                         {
-                            var pb = Project(new NumVec2(x, y + edgeStride), ctx.RawPlayerGrid, center, scale, -frame.PlayerTerrainHeight);
+                            var pb = Project(new NumVec2(x, y + edgeStride), ctx.RawPlayerGrid, center, scale);
                             if (MathF.Abs(pb.X - p.X) < 80f && MathF.Abs(pb.Y - p.Y) < 80f)
                                 dl.AddLine(p, pb, edgeCol, thickness);
                         }
@@ -714,7 +702,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             for (var i = 0; i < poly.Count; i++)
             {
                 var (x, y) = poly[i];
-                var p = Project(new NumVec2(x, y), player, center, scale, -frame.PlayerTerrainHeight);
+                var p = Project(new NumVec2(x, y), player, center, scale);
                 if (smoothPaths)
                     p = SmoothScreenPoint($"path:map:{path.TargetId}:{i}", p, ctx.OverlaySmoothingMs, true);
                 if (prev is { } a) dl.AddLine(a, p, col, 2.2f);
