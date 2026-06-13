@@ -18,7 +18,6 @@ public static class MapEntityPicker
         MapFrame miniMap,
         NumVec2 playerGrid,
         IReadOnlyList<Poe2Live.EntityDot> entities,
-        bool showMonsters,
         bool importantOnly,
         RadarStyles styles,
         Func<Poe2Live.EntityDot, DisplayRule?>? resolve,
@@ -26,7 +25,7 @@ public static class MapEntityPicker
         out Poe2Live.EntityDot picked)
     {
         picked = default;
-        if (!showMonsters || entities.Count == 0) return false;
+        if (entities.Count == 0) return false;
 
         float bestDist = float.MaxValue;
         if (!TryPickDistance(cursorClient, largeMap, miniMap, playerGrid, entities, importantOnly, styles,
@@ -76,8 +75,21 @@ public static class MapEntityPicker
     {
         var center = frame.Center;
         var scale = MathF.Max(0.01f, frame.Scale);
-        var w = frame.Width;
-        var h = frame.Height;
+        float clipL, clipT, clipR, clipB;
+        if (frame.IsMinimap && frame.Width > 1f && frame.Height > 1f)
+        {
+            clipL = frame.Position.X;
+            clipT = frame.Position.Y;
+            clipR = clipL + frame.Width;
+            clipB = clipT + frame.Height;
+        }
+        else
+        {
+            clipL = -40f;
+            clipT = -40f;
+            clipR = frame.Width + 40f;
+            clipB = frame.Height + 40f;
+        }
 
         foreach (var e in entities)
         {
@@ -88,7 +100,7 @@ public static class MapEntityPicker
                     EntityImportanceHelper.Classify(e, styles))) continue;
 
             var p = Project(e.Grid, playerGrid, center, scale, e.TerrainHeight - frame.PlayerTerrainHeight);
-            if (p.X < -40 || p.Y < -40 || p.X > w + 40 || p.Y > h + 40) continue;
+            if (p.X < clipL - 40f || p.Y < clipT - 40f || p.X > clipR + 40f || p.Y > clipB + 40f) continue;
 
             var radius = (rule?.Size ?? DefaultEntityRadius(e)) * globalIconScale;
             var hit = radius + HitMarginPx;

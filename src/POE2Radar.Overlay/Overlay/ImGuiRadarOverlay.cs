@@ -239,6 +239,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 var t = Stopwatch.GetTimestamp();
                 DrawNavMenu(ctx!);
                 navMenuMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
+                DrawCursorInspect(dl, ctx!);
             }
 
             if (_settingsOpen)
@@ -1157,6 +1158,26 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             var (slot, text) = labels[i];
             DrawLabelChip(dl, left, startTop + i * textH, text, PathColor(slot), PathColor(slot));
         }
+    }
+
+    // ── Cursor inspect HUD ──
+
+    private static void DrawCursorInspect(ImDrawListPtr dl, RenderContext ctx)
+    {
+        if (string.IsNullOrEmpty(ctx.CursorInspectTitle)) return;
+
+        var title = ctx.CursorInspectTitle;
+        var meta = ctx.CursorInspectMeta ?? "";
+        var panelW = MathF.Max(title.Length, meta.Length) * 7.3f + 20f;
+        const float panelH = 42f;
+        const float x = 10f;
+        const float y = 72f;
+
+        dl.AddRectFilled(new NumVec2(x, y), new NumVec2(x + panelW, y + panelH), ColorU32(20, 20, 28, 0.88f), 4f);
+        dl.AddRect(new NumVec2(x, y), new NumVec2(x + panelW, y + panelH), ColorU32(120, 180, 255, 0.9f), 4f);
+        dl.AddText(new NumVec2(x + 6f, y + 4f), ColorU32(230, 230, 230, 0.95f), title);
+        if (meta.Length > 0)
+            dl.AddText(new NumVec2(x + 6f, y + 22f), ColorU32(160, 160, 170, 0.9f), meta);
     }
 
     // ── Nav menu ──

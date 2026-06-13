@@ -128,6 +128,8 @@ public sealed partial class RadarApp : IDisposable
     private MapFrame _lastMapFrame;
     private MapFrame _lastMiniMapFrame;
     private NumVec2 _lastPlayerGrid;
+    private string? _cursorInspectTitle;
+    private string? _cursorInspectMeta;
     private float _hpPct = 100f, _manaPct = 100f, _esPct = 100f;
     private string _flaskNote = "";
     private string _areaCode = "", _charName = "";
@@ -672,7 +674,15 @@ public sealed partial class RadarApp : IDisposable
         _lastMiniMapFrame = miniMapFrame;
         _lastPlayerGrid = live.PlayerGrid;
         if (live.InGame)
+        {
+            UpdateCursorInspect(live);
             HandleCursorPickHotkeys();
+        }
+        else
+        {
+            _cursorInspectTitle = null;
+            _cursorInspectMeta = null;
+        }
 
         var ctx = new RenderContext(
             InGame: live.InGame,
@@ -756,7 +766,9 @@ public sealed partial class RadarApp : IDisposable
             AtlasPersY: (float)atlasProj[7],
             AtlasStart: (_atlasOpen && _settings.AtlasShowRoute) ? _atlasStartPt : null,
             AtlasEnd: (_atlasOpen && _settings.AtlasShowRoute) ? _atlasEndPt : null,
-            AtlasRoute: (_atlasOpen && _settings.AtlasShowRoute && _atlasRoutePublish.Count >= 2) ? _atlasRoutePublish : null);
+            AtlasRoute: (_atlasOpen && _settings.AtlasShowRoute && _atlasRoutePublish.Count >= 2) ? _atlasRoutePublish : null,
+            CursorInspectTitle: _cursorInspectTitle,
+            CursorInspectMeta: _cursorInspectMeta);
         _imguiOverlay?.UpdateContext(ctx);
 
         var overlayMetrics = _imguiOverlay?.GetRenderMetrics().Snapshot() ?? default;
@@ -844,7 +856,8 @@ public sealed partial class RadarApp : IDisposable
             _settings.ShowPathWorld ||
             _renderPathSnapshot.Length > 0 ||
             _hpFrame.Length > 0 ||
-            _settings.HpBarNormal || _settings.HpBarMagic || _settings.HpBarRare || _settings.HpBarUnique;
+            _settings.HpBarNormal || _settings.HpBarMagic || _settings.HpBarRare || _settings.HpBarUnique ||
+            _settings.TrackEntityHotkey > 0 || _settings.HideEntityHotkey > 0;
         _cameraMatrix = needsCamera ? CopyCameraMatrix(_live.CameraMatrix(inGameState)) : null;
 
         if (realActive)
@@ -1182,11 +1195,12 @@ public sealed partial class RadarApp : IDisposable
         _trackKeyWasDown = inspectDown;
     }
 
-    private bool TryGetCursorClient(out NumVec2 cursor, string logPrefix)
+    private bool TryGetCursorClient(out NumVec2 cursor, string? logPrefix = null)
     {
         if (!GetCursorPos(out var screenPt))
         {
-            Console.WriteLine($"\n[{logPrefix}] could not read cursor position.");
+            if (logPrefix != null)
+                Console.WriteLine($"\n[{logPrefix}] could not read cursor position.");
             cursor = default;
             return false;
         }
@@ -1194,7 +1208,8 @@ public sealed partial class RadarApp : IDisposable
         var client = new OverlayNative.POINT { X = screenPt.X, Y = screenPt.Y };
         if (_gameHwnd == 0 || !OverlayNative.ScreenToClient(_gameHwnd, ref client))
         {
-            Console.WriteLine($"\n[{logPrefix}] could not map cursor to game client area.");
+            if (logPrefix != null)
+                Console.WriteLine($"\n[{logPrefix}] could not map cursor to game client area.");
             cursor = default;
             return false;
         }
@@ -1203,28 +1218,79 @@ public sealed partial class RadarApp : IDisposable
         return true;
     }
 
+    private float[]? ResolveCameraMatrixForPick()
+    {
+        var live = _liveFrame;
+        if (live.CameraMatrix is { Length: >= 16 }) return live.CameraMatrix;
+        if (_cameraMatrix is { Length: >= 16 }) return _cameraMatrix;
+        if (!live.InGame || live.InGameState == 0) return null;
+        var matrix = CopyCameraMatrix(_live.CameraMatrix(live.InGameState));
+        if (matrix != null) _cameraMatrix = matrix;
+        return matrix;
+    }
+
+    private void UpdateCursorInspect(LiveFrameState live)
+    {
+        _cursorInspectTitle = null;
+        _cursorInspectMeta = null;
+        if (_areaInstanceForApi == 0 || _atlasOpen) return;
+        if (_imguiOverlay?.IsSettingsOpen == true) return;
+        if (!TryGetCursorClient(out var cursor)) return;
+        if (!TryPickEntityAt(cursor, live.PlayerGrid, out var entity, out _)) return;
+
+        var rule = _ruleEngine.Resolve(entity, _areaCode, _settings.ImportantOnly, _entities);
+        _cursorInspectTitle = EntityLabel(entity, rule);
+        _cursorInspectMeta = entity.Metadata;
+    }
+
+    private bool TryPickEntityAt(
+        NumVec2 cursor,
+        NumVec2 playerGrid,
+        out Poe2Live.EntityDot entity,
+        out string? failReason)
+    {
+        entity = default;
+        failReason = null;
+
+        ResolveGameClientSize(out var windowWidth, out var windowHeight);
+        if (windowWidth <= 0 || windowHeight <= 0)
+        {
+            failReason = "game client size unavailable";
+            return false;
+        }
+
+        IReadOnlyList<Poe2Live.EntityDot> entities =
+            _snapshot.Entities.Length > 0 ? _snapshot.Entities : _entities;
+        if (!EntityUnderCursorPicker.TryPick(
+                cursor,
+                windowWidth,
+                windowHeight,
+                _lastMapFrame,
+                _lastMiniMapFrame,
+                playerGrid,
+                entities,
+                _settings.ImportantOnly,
+                _settings.Styles,
+                e => _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly, _entities),
+                _settings.GlobalIconScale,
+                ResolveCameraMatrixForPick(),
+                out entity))
+        {
+            failReason = "no entity under cursor";
+            return false;
+        }
+
+        return true;
+    }
+
     private bool TryPickEntityUnderCursor(string failPrefix, out Poe2Live.EntityDot entity)
     {
         entity = default;
         if (!TryGetCursorClient(out var cursor, failPrefix)) return false;
 
-        if (!EntityUnderCursorPicker.TryPick(
-                cursor,
-                OverlayWidth,
-                OverlayHeight,
-                _lastMapFrame,
-                _lastMiniMapFrame,
-                _lastPlayerGrid,
-                _entities,
-                _settings.ShowMonsters,
-                _settings.ImportantOnly,
-                _settings.Styles,
-                e => _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly, _entities),
-                _settings.GlobalIconScale,
-                _cameraMatrix,
-                out entity))
+        if (!TryPickEntityAt(cursor, _lastPlayerGrid, out entity, out var failReason))
         {
-            Console.WriteLine($"\n[{failPrefix}] no entity under cursor.");
+            Console.WriteLine($"\n[{failPrefix}] {failReason}.");
             return false;
         }
 

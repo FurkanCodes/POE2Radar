@@ -248,4 +248,7 @@ public sealed record RenderContext(
     // exists; AtlasRoute (≥2 pts) is the graph polyline, else the renderer draws a straight START→END line.
     NumVec2? AtlasStart = null,
     NumVec2? AtlasEnd = null,
-    IReadOnlyList<NumVec2>? AtlasRoute = null);
+    IReadOnlyList<NumVec2>? AtlasRoute = null,
+    // Entity under cursor (hover inspect) — title + metadata for the on-screen HUD.
+    string? CursorInspectTitle = null,
+    string? CursorInspectMeta = null);

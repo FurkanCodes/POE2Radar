@@ -19,7 +19,6 @@ public static class EntityUnderCursorPicker
         MapFrame miniMap,
         NumVec2 playerGrid,
         IReadOnlyList<Poe2Live.EntityDot> entities,
-        bool showMonsters,
         bool importantOnly,
         RadarStyles styles,
         Func<Poe2Live.EntityDot, DisplayRule?>? resolve,
@@ -28,7 +27,7 @@ public static class EntityUnderCursorPicker
         out Poe2Live.EntityDot picked)
     {
         picked = default;
-        if (!showMonsters || entities.Count == 0) return false;
+        if (entities.Count == 0) return false;
 
         float bestDist = float.MaxValue;
         Poe2Live.EntityDot? best = null;
