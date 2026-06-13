@@ -217,7 +217,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                             DrawMap(dl, ctx, ctx.MiniMapFrame);
                         mapMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                     }
-                    if (!largeMapOpen && ctx.ShowPathWorld)
+                    if (!largeMapOpen && ctx.ShowPathWorld && ctx.ShowGroundWaypoints)
                     {
                         var t = Stopwatch.GetTimestamp();
                         DrawPathsWorld(dl, ctx);
@@ -728,33 +728,54 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     {
         if (ctx.CameraMatrix is not { Length: >= 16 } m) return;
         float W = ctx.WindowWidth, H = ctx.WindowHeight;
-        var z = ctx.PlayerWorld.Z;
+        var wz = ctx.WorldPathProjectionZ == WorldPathProjectionZ.Zero ? 0f : ctx.PlayerWorld.Z;
+        const float margin = 50f;
 
         foreach (var path in ctx.SelectedPaths)
         {
-            var fwd = NavigationPathBuilder.BuildForwardPath(ctx.PlayerGrid, path.Points, path.LiveGoal);
-            if (fwd.Count == 0) continue;
+            if (path.FullPoints.Length < 2) continue;
+            var goal = path.ResolvedGoal ?? path.LiveGoal;
+            var gridLine = NavigationPathBuilder.DecimateForWorldDisplay(
+                NavigationPathBuilder.AppendResolvedGoal(path.FullPoints, goal));
+            if (gridLine.Count < 2) continue;
+
             var col = PathColor(path.ColorSlot);
             NumVec2? prev = null;
-            for (var i = 0; i < fwd.Count; i++)
+            for (var i = 0; i < gridLine.Count; i++)
             {
-                var (gx, gy) = fwd[i];
-                var wx = gx * GridConstants.GridToWorld;
-                var wy = gy * GridConstants.GridToWorld;
-                var cw = wx * m[3] + wy * m[7] + z * m[11] + m[15];
-                if (cw <= 0.0001f) { prev = null; continue; }
-                var cx = wx * m[0] + wy * m[4] + z * m[8] + m[12];
-                var cy = wx * m[1] + wy * m[5] + z * m[9] + m[13];
-                var sx = (cx / cw / 2f + 0.5f) * W;
-                var sy = (0.5f - cy / cw / 2f) * H;
-                if (!float.IsFinite(sx) || !float.IsFinite(sy)) continue;
-                var p = new NumVec2(sx, sy);
-                p = SmoothScreenPoint($"path:world:{path.TargetId}:{i}", p, ctx.OverlaySmoothingMs, ctx.SmoothOverlayMotion);
-                if (prev is { } pr) dl.AddLine(pr, p, col, 2.4f);
-                dl.AddCircleFilled(p, 3.5f, col, 8);
+                var (gx, gy) = gridLine[i];
+                if (!TryProjectGridToScreen(gx, gy, wz, m, W, H, out var sx, out var sy)) { prev = null; continue; }
+                if (sx < -margin || sx > W + margin || sy < -margin || sy > H + margin) { prev = null; continue; }
+
+                var p = SmoothScreenPoint($"path:world:{path.TargetId}:{i}", new NumVec2(sx, sy),
+                    ctx.OverlaySmoothingMs, ctx.SmoothOverlayMotion);
+                if (prev is { } pr) dl.AddLine(pr, p, col, 2f);
+                var dotR = i >= gridLine.Count - 1 ? 6f : 3f;
+                dl.AddCircleFilled(p, dotR, col, 12);
                 prev = p;
             }
+
+            if (goal is not { } g) continue;
+            if (!TryProjectGridToScreen(g.x, g.y, wz, m, W, H, out var gsx, out var gsy)) continue;
+            if (gsx < 0 || gsx > W || gsy < 0 || gsy > H) continue;
+            var gp = new NumVec2(gsx, gsy);
+            dl.AddCircle(gp, 10f, col, 24, 2f);
+            dl.AddCircleFilled(gp, 5f, col, 16);
         }
+    }
+
+    private static bool TryProjectGridToScreen(int gx, int gy, float wz, float[] m, float w, float h,
+        out float sx, out float sy)
+    {
+        var wx = gx * GridConstants.GridToWorld;
+        var wy = gy * GridConstants.GridToWorld;
+        var cw = wx * m[3] + wy * m[7] + wz * m[11] + m[15];
+        if (cw <= 0.0001f) { sx = sy = 0; return false; }
+        var cx = wx * m[0] + wy * m[4] + wz * m[8] + m[12];
+        var cy = wx * m[1] + wy * m[5] + wz * m[9] + m[13];
+        sx = (cx / cw / 2f + 0.5f) * w;
+        sy = (0.5f - cy / cw / 2f) * h;
+        return float.IsFinite(sx) && float.IsFinite(sy);
     }
 
     // ── HP bars (world-space nameplates) ──
@@ -1109,8 +1130,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             var status = path.Status switch
             {
                 NavTargetStatus.Cached when path.IsEntity => " (last seen)",
-                NavTargetStatus.NoPath => " (no path)",
-                _ => "",
+                NavTargetStatus.NoPath => NoPathStatusSuffix(path.RouteStatus),
+                _ => RouteStatusSuffix(path.RouteStatus),
             };
             var distSuffix = path.PathDistance >= 0 ? $" ~{path.PathDistance:F0}t" : "";
             labels.Add((path.ColorSlot, $"{path.ColorSlot + 1}. {label}{distSuffix}{status}"));
@@ -1686,6 +1707,14 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Show a cyan dot at your position on the map overlay");
 
             bool spw = s.ShowPathWorld; ImGui.Checkbox("Paths on world view", ref spw); s.ShowPathWorld = spw;
+            bool sgw = s.ShowGroundWaypoints; ImGui.Checkbox("Ground waypoints", ref sgw); s.ShowGroundWaypoints = sgw;
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("World-screen breadcrumbs when the Tab map is closed (requires Paths on world view)");
+            bool spr = s.SimplePathReplan; ImGui.Checkbox("Simple path replan", ref spr); s.SimplePathReplan = spr;
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("v1.3.0-style: replan only on goal move, failure, or ~30 grid cells traveled");
+            var zMode = (int)s.WorldPathProjectionZ;
+            ImGui.Combo("World path Z", ref zMode, "Player height\0Flat Z=0\0");
+            s.WorldPathProjectionZ = (WorldPathProjectionZ)Math.Clamp(zMode, 0, 1);
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Camera elevation for ground-projected paths");
             bool spm = s.ShowPathMap; ImGui.Checkbox("Paths on Tab map", ref spm); s.ShowPathMap = spm;
             bool spmi = s.ShowPathMinimap; ImGui.Checkbox("Paths on minimap", ref spmi); s.ShowPathMinimap = spmi;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Draw guidance route polylines between you and selected targets");
@@ -2249,11 +2278,32 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         var status = row.Status switch
         {
             NavTargetStatus.Cached when row.Target.IsEntity => " (last seen)",
-            NavTargetStatus.NoPath => " (no path)",
-            _ => "",
+            NavTargetStatus.NoPath => NoPathStatusSuffix(row.RouteStatus),
+            _ => RouteStatusSuffix(row.RouteStatus),
         };
         return $"{prefix}[{type}] {row.Target.Name}{dist}{status}";
     }
+
+    private static string NoPathStatusSuffix(RoutePlanStatus status)
+    {
+        var suffix = RouteStatusSuffix(status);
+        return suffix.Length > 0 ? suffix : " (no path)";
+    }
+
+    private static string RouteStatusSuffix(RoutePlanStatus status)
+        => status switch
+        {
+            RoutePlanStatus.Unplanned => "",
+            RoutePlanStatus.Planned => "",
+            RoutePlanStatus.Planning => " (planning)",
+            RoutePlanStatus.WaitingForTerrain => " (no terrain)",
+            RoutePlanStatus.TargetUnavailable => " (target gone)",
+            RoutePlanStatus.NoWalkableStart => " (bad start)",
+            RoutePlanStatus.NoReachableGoal => " (no anchor)",
+            RoutePlanStatus.NoPath => " (no path)",
+            RoutePlanStatus.Error => " (route error)",
+            _ => "",
+        };
 
     private static NumVec2 Project(NumVec2 cell, NumVec2 player, NumVec2 center, float scale, float deltaWorldZ = 0f)
     {

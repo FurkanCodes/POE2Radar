@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using NumVec2 = System.Numerics.Vector2;
 using POE2Radar.Core.Game;
+using POE2Radar.Core.Pathfinding;
 using POE2Radar.Overlay.Navigation;
 using POE2Radar.Overlay.Web;
 using POE2Radar.Overlay.Config;
@@ -59,6 +60,7 @@ public sealed partial class RadarApp
         {
             _worldTerrain ??= _worldLive.Terrain(areaInstance);
             entities = _worldLive.Entities(areaInstance);
+            _worldDoorOverrides = BuildDoorOverrides(entities);
             if (localPlayer != 0)
                 entities = entities.Where(e => e.Address != localPlayer).ToList();
             if (_hidden.Count > 0)
@@ -164,24 +166,35 @@ public sealed partial class RadarApp
             foreach (var id in selected)
             {
                 if (!_trackers.TryGetValue(id, out var tracker)) continue;
-                if (!TryResolveTargetGrid(id, landmarks, entities, out var goal)) continue;
-                if (!tracker.ReplanInFlight && tracker.ShouldReplan(player, goal))
-                    EnqueueReplan(id, tracker, goal, player);
+                if (TryResolveTargetInfo(id, _navTargets, landmarks, entities, _areaHash, out var info))
+                {
+                    if (!tracker.ReplanInFlight && tracker.ShouldReplan(player, info.Grid, _settings.SimplePathReplan))
+                        EnqueueReplan(id, tracker, info, player);
+                }
+                else
+                {
+                    tracker.MarkTargetUnavailable();
+                }
             }
 
-            DrainReplannerResults();
+            DrainReplannerResults(player);
         }
     }
 
-    private void DrainReplannerResults()
+    private void DrainReplannerResults(NumVec2 player)
     {
         if (!_replanner.TryDrainResults(out var results)) return;
         foreach (var r in results)
         {
             if (!_trackers.TryGetValue(r.TargetId, out var tracker)) continue;
-            tracker.ApplyResult(r.Waypoints, new NumVec2(r.Goal.x, r.Goal.y));
+            tracker.ApplyResult(r, player);
             if (_settings.ShowPerfStats)
-                Console.WriteLine($"replan: {TargetLabel(r.TargetId)} = {r.Waypoints.Count} waypoints");
+            {
+                var status = r.Status == RoutePlanStatus.Planned
+                    ? $"{r.Waypoints.Count} waypoints"
+                    : $"{r.Status} ({r.FailureReason})";
+                Console.WriteLine($"replan: {TargetLabel(r.TargetId)} = {status}, {r.PlanMilliseconds:F1} ms");
+            }
         }
     }
 
@@ -191,35 +204,52 @@ public sealed partial class RadarApp
         var selected = SnapshotSelection();
         lock (_trackerGate)
         {
-            DrainReplannerResults();
+            DrainReplannerResults(player);
 
             for (var i = 0; i < selected.Count; i++)
             {
                 var id = selected[i];
                 if (!_trackers.TryGetValue(id, out var tracker)) continue;
                 tracker.Maintain(player);
-                var pts = tracker.AllWaypoints;
+                var pts = tracker.CurrentPoints;
+                var fullPts = tracker.Status == RoutePlanStatus.Planned
+                    ? tracker.AllWaypoints.ToArray()
+                    : Array.Empty<(int, int)>();
                 (int x, int y)? liveGoal = null;
-                if (TryResolveTargetGrid(id, snap.Landmarks, snap.Entities, out var goal))
+                if (tracker.Status == RoutePlanStatus.Planned && tracker.ResolvedGoal is { } resolved)
                 {
-                    liveGoal = ((int)goal.X, (int)goal.Y);
+                    liveGoal = resolved;
                 }
 
-                if (!NavigationPathBuilder.HasDrawablePath(pts, liveGoal)) continue;
-
                 var slot = Math.Min(i, MaxSelectedTargets - 1);
-                var drawPts = NavigationPathBuilder.BuildForwardPath(player, pts, liveGoal);
-                var pathDist = SumPathGridDistance(drawPts.Count > 0 ? drawPts : pts);
+                var drawable = NavigationPathBuilder.HasDrawablePath(pts, liveGoal, tracker.Status);
+                var drawPts = drawable
+                    ? NavigationPathBuilder.BuildForwardPath(player, pts, liveGoal)
+                    : new List<(int x, int y)>();
+                var pathDist = drawable ? SumPathGridDistance(drawPts.Count > 0 ? drawPts : pts) : -1f;
                 if (TryResolveTargetInfo(id, snap.NavTargets, snap.Landmarks, snap.Entities, snap.AreaHash, out var info))
                 {
                     var dist = NumVec2.Distance(info.Grid, player);
                     _renderPaths.Add(new SelectedPath(slot, id, info.Label, info.IsEntity, info.Status, dist, pathDist,
-                        pts.ToArray(), liveGoal));
+                        drawable ? pts.ToArray() : Array.Empty<(int, int)>(),
+                        drawable ? fullPts : Array.Empty<(int, int)>(),
+                        drawable ? liveGoal : null,
+                        tracker.Status,
+                        tracker.ResolvedGoal,
+                        tracker.FailureReason,
+                        tracker.LastPlanMilliseconds));
                 }
                 else
                 {
                     _renderPaths.Add(new SelectedPath(slot, id, id, id.StartsWith("e:", StringComparison.Ordinal),
-                        NavTargetStatus.NoPath, -1f, pathDist, pts.ToArray(), liveGoal));
+                        NavTargetStatus.NoPath, -1f, pathDist,
+                        Array.Empty<(int, int)>(),
+                        Array.Empty<(int, int)>(),
+                        null,
+                        RoutePlanStatus.TargetUnavailable,
+                        null,
+                        "target unavailable",
+                        tracker.LastPlanMilliseconds));
                 }
             }
         }
@@ -357,8 +387,36 @@ public sealed partial class RadarApp
             if (_trackers.ContainsKey(id)) continue;
             var tracker = new RouteTracker();
             _trackers[id] = tracker;
-            if (TryResolveTargetGrid(id, landmarks, entities, out var grid))
-                EnqueueReplan(id, tracker, grid, player);
+            if (TryResolveTargetInfo(id, _navTargets, landmarks, entities, _areaHash, out var info))
+                EnqueueReplan(id, tracker, info, player);
+            else
+                tracker.MarkTargetUnavailable();
         }
+    }
+
+    private static PathCell[] BuildDoorOverrides(IReadOnlyList<Poe2Live.EntityDot> entities)
+    {
+        if (entities.Count == 0) return Array.Empty<PathCell>();
+
+        var cells = new HashSet<PathCell>();
+        foreach (var e in entities)
+        {
+            if (!LooksLikeDoorOverride(e.Metadata)) continue;
+            var cx = (int)MathF.Round(e.Grid.X);
+            var cy = (int)MathF.Round(e.Grid.Y);
+            for (var dy = -2; dy <= 2; dy++)
+                for (var dx = -2; dx <= 2; dx++)
+                    cells.Add(new PathCell(cx + dx, cy + dy));
+        }
+
+        return cells.Count > 0 ? cells.ToArray() : Array.Empty<PathCell>();
+    }
+
+    private static bool LooksLikeDoorOverride(string metadata)
+    {
+        if (string.IsNullOrEmpty(metadata)) return false;
+        return metadata.Contains("Door", StringComparison.OrdinalIgnoreCase)
+            || metadata.Contains("Blockage", StringComparison.OrdinalIgnoreCase)
+            || metadata.Contains("Barricade", StringComparison.OrdinalIgnoreCase);
     }
 }

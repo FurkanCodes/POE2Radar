@@ -1,4 +1,5 @@
 using NumVec2 = System.Numerics.Vector2;
+using POE2Radar.Core.Pathfinding;
 
 namespace POE2Radar.Overlay.Navigation;
 
@@ -23,18 +24,25 @@ public sealed class RouteTracker
     private const double HeadingWindowSec    = 0.3;   // sliding window for the player's heading estimate
     private const float  HeadingMinCells     = 2f;    // ignore heading below this magnitude (standing still)
     private const float  NegativeProgressDot = -0.3f; // heading·toGoal below this = walking the wrong way
+    private const float  SimpleReplanPlayerCells = 30f; // v1.3.0: replan after this much player travel
 
     /// <summary>Current smoothed waypoints (full path; <see cref="_cursor"/> marks how far we've walked).</summary>
     private List<(int x, int y)> _waypoints = new();
     private int _cursor;
     private DateTime _lastReplanUtc = DateTime.MinValue;
     private NumVec2 _lastGoal = new(float.MinValue, float.MinValue);
+    private NumVec2 _lastReplanPlayerGrid = new(float.MinValue, float.MinValue);
 
     // Short heading history (recent player positions + capture times, ~HeadingWindowSec window).
     private readonly List<(NumVec2 pos, DateTime at)> _history = new();
 
     /// <summary>True while a background replan for this target is enqueued/running (set by the owner).</summary>
     public bool ReplanInFlight { get; set; }
+
+    public RoutePlanStatus Status { get; private set; } = RoutePlanStatus.Unplanned;
+    public string FailureReason { get; private set; } = "";
+    public (int x, int y)? ResolvedGoal { get; private set; }
+    public double LastPlanMilliseconds { get; private set; }
 
     /// <summary>Full smoothed waypoint list (cursor is an index into this list).</summary>
     public IReadOnlyList<(int x, int y)> AllWaypoints => _waypoints;
@@ -82,27 +90,68 @@ public sealed class RouteTracker
     /// <summary>
     /// Should we kick off a full background replan? True when the cooldown has elapsed AND any
     /// trigger fires: off-path, negative progress (walking away), the goal moved, or staleness.
+    /// When <paramref name="simpleMode"/> is true, uses v1.3.0-style triggers only.
     /// </summary>
-    public bool ShouldReplan(NumVec2 playerGrid, NumVec2 currentGoalGrid)
+    public bool ShouldReplan(NumVec2 playerGrid, NumVec2 currentGoalGrid, bool simpleMode = false)
     {
         var now = DateTime.UtcNow;
         if ((now - _lastReplanUtc).TotalSeconds < ReplanCooldownSec) return false;
 
-        if ((now - _lastReplanUtc).TotalSeconds > StaleSec) return true;       // stale
-        if (GoalMoved(currentGoalGrid)) return true;                            // entity target drifted
-        if (_waypoints.Count == 0) return true;                                 // never planned / empty
-        if (OffPath(playerGrid)) return true;                                   // wandered off the line
-        if (NegativeProgress(playerGrid)) return true;                          // walking the wrong way
+        if (_waypoints.Count == 0) return true;
+        if (Status != RoutePlanStatus.Planned) return true;
+        if (GoalMoved(currentGoalGrid)) return true;
+
+        if (simpleMode)
+            return PlayerMovedSinceReplan(playerGrid);
+
+        if ((now - _lastReplanUtc).TotalSeconds > StaleSec) return true;
+        if (OffPath(playerGrid)) return true;
+        if (NegativeProgress(playerGrid)) return true;
         return false;
     }
 
     /// <summary>Swap in a freshly-planned path: reset the cursor, stamp the replan time + goal, clear in-flight.</summary>
-    public void ApplyResult(IReadOnlyList<(int x, int y)> waypoints, NumVec2 goal)
+    public void ApplyResult(IReadOnlyList<(int x, int y)> waypoints, NumVec2 goal, NumVec2? replanPlayerGrid = null)
+        => ApplyResult(
+            waypoints.Count > 0 ? RoutePlanStatus.Planned : RoutePlanStatus.NoPath,
+            waypoints,
+            goal,
+            waypoints.Count > 0 ? ((int)MathF.Round(goal.X), (int)MathF.Round(goal.Y)) : null,
+            waypoints.Count > 0 ? "" : "no path",
+            0,
+            replanPlayerGrid);
+
+    public void ApplyResult(BackgroundReplanner.Result result, NumVec2 playerGrid)
+        => ApplyResult(
+            result.Status,
+            result.Waypoints,
+            new NumVec2(result.Goal.x, result.Goal.y),
+            result.ResolvedGoal,
+            result.FailureReason,
+            result.PlanMilliseconds,
+            playerGrid);
+
+    private void ApplyResult(
+        RoutePlanStatus status,
+        IReadOnlyList<(int x, int y)> waypoints,
+        NumVec2 goal,
+        (int x, int y)? resolvedGoal,
+        string failureReason,
+        double planMilliseconds,
+        NumVec2? replanPlayerGrid = null)
     {
-        _waypoints = new List<(int x, int y)>(waypoints);
+        _waypoints = status == RoutePlanStatus.Planned
+            ? new List<(int x, int y)>(waypoints)
+            : new List<(int x, int y)>();
         _cursor = 0;
         _lastReplanUtc = DateTime.UtcNow;
         _lastGoal = goal;
+        if (status == RoutePlanStatus.Planned && replanPlayerGrid is { } pg)
+            _lastReplanPlayerGrid = pg;
+        Status = status;
+        FailureReason = failureReason ?? "";
+        ResolvedGoal = resolvedGoal;
+        LastPlanMilliseconds = planMilliseconds;
         ReplanInFlight = false;
     }
 
@@ -110,13 +159,42 @@ public sealed class RouteTracker
     public void MarkReplanRequested()
     {
         ReplanInFlight = true;
+        Status = RoutePlanStatus.Planning;
+        FailureReason = "";
         _lastReplanUtc = DateTime.UtcNow;
+    }
+
+    public void MarkWaitingForTerrain()
+    {
+        ClearRoute(RoutePlanStatus.WaitingForTerrain, "waiting for terrain");
+    }
+
+    public void MarkTargetUnavailable()
+    {
+        ClearRoute(RoutePlanStatus.TargetUnavailable, "target unavailable");
+    }
+
+    private void ClearRoute(RoutePlanStatus status, string reason)
+    {
+        _waypoints.Clear();
+        _cursor = 0;
+        Status = status;
+        FailureReason = reason;
+        ResolvedGoal = null;
+        LastPlanMilliseconds = 0;
+        ReplanInFlight = false;
     }
 
     // ── Triggers ──────────────────────────────────────────────────────────────────────────────
 
     private bool GoalMoved(NumVec2 goal)
         => _lastGoal.X > float.MinValue && NumVec2.Distance(goal, _lastGoal) > GoalMovedCells;
+
+    private bool PlayerMovedSinceReplan(NumVec2 playerGrid)
+    {
+        if (_lastReplanPlayerGrid.X <= float.MinValue) return true;
+        return NumVec2.Distance(playerGrid, _lastReplanPlayerGrid) > SimpleReplanPlayerCells;
+    }
 
     private bool OffPath(NumVec2 playerGrid)
     {

@@ -719,6 +719,15 @@ internal static class DashboardHtml
             <h3>Navigation &amp; paths</h3>
             <div class="row"><div class="rl">Path on ground<small>world-projected route when the large map is closed</small></div>
               <label class="sw"><input type="checkbox" data-set="showPathWorld"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Ground waypoints<small>world-screen breadcrumbs (requires path on ground)</small></div>
+              <label class="sw"><input type="checkbox" data-set="showGroundWaypoints"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Simple path replan<small>v1.3.0-style: replan on goal move or ~30 grid cells, not off-path</small></div>
+              <label class="sw"><input type="checkbox" data-set="simplePathReplan"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">World path elevation<small>camera Z for ground-projected paths</small></div>
+              <select class="numin selin" data-set="worldPathProjectionZ">
+                <option value="Player">Player height</option>
+                <option value="Zero">Flat Z=0</option>
+              </select></div>
             <div class="row"><div class="rl">Path on large map<small>route overlay when Tab map is open</small></div>
               <label class="sw"><input type="checkbox" data-set="showPathMap"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl">Path on minimap<small>route inside the corner minimap</small></div>

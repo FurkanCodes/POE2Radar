@@ -95,4 +95,14 @@ public sealed class RadarSettingsMigrationTests
         Assert.False(s.HpBarRare);
         Assert.False(s.HpBarUnique);
     }
+
+    [Fact]
+    public void NewWorldPathSettings_DefaultToCurrentBehavior()
+    {
+        var s = new RadarSettings();
+
+        Assert.True(s.ShowGroundWaypoints);
+        Assert.False(s.SimplePathReplan);
+        Assert.Equal(WorldPathProjectionZ.Player, s.WorldPathProjectionZ);
+    }
 }

@@ -22,12 +22,24 @@ public sealed class BackgroundReplanner : IDisposable
     /// <summary>A replan request: plan a route for <paramref name="TargetId"/> from start to goal on a
     /// snapshotted (immutable) terrain grid.</summary>
     public readonly record struct Request(
-        string TargetId, Poe2Live.TerrainData Terrain, (int x, int y) Start, (int x, int y) Goal);
+        string TargetId,
+        Poe2Live.TerrainData Terrain,
+        (int x, int y) Start,
+        (int x, int y) Goal,
+        int GoalSearchRadius,
+        PathCell[] TargetAnchors,
+        PathCell[] DoorOverrides);
 
     /// <summary>A finished route: the smoothed waypoints for <paramref name="TargetId"/> toward
     /// <paramref name="Goal"/>.</summary>
     public readonly record struct Result(
-        string TargetId, (float x, float y) Goal, IReadOnlyList<(int x, int y)> Waypoints);
+        string TargetId,
+        (float x, float y) Goal,
+        RoutePlanStatus Status,
+        (int x, int y)? ResolvedGoal,
+        IReadOnlyList<(int x, int y)> Waypoints,
+        string FailureReason,
+        double PlanMilliseconds);
 
     // Only the worker thread ever touches this planner → its A* buffers are never used concurrently.
     private readonly PathPlanner _planner = new();
@@ -98,16 +110,35 @@ public sealed class BackgroundReplanner : IDisposable
 
                 try
                 {
-                    var waypoints = _planner.Plan(req.Terrain, req.Start, req.Goal);
-                    _results.Enqueue(new Result(req.TargetId, (req.Goal.x, req.Goal.y), waypoints));
+                    var plan = _planner.PlanToReachableTarget(
+                        req.Terrain,
+                        req.Start,
+                        req.Goal,
+                        req.GoalSearchRadius,
+                        req.TargetAnchors,
+                        req.DoorOverrides);
+                    _results.Enqueue(new Result(
+                        req.TargetId,
+                        (req.Goal.x, req.Goal.y),
+                        plan.Status,
+                        plan.ResolvedGoal,
+                        plan.Waypoints,
+                        plan.FailureReason,
+                        plan.PlanMilliseconds));
                 }
                 catch (Exception ex)
                 {
                     // Never let a planning failure kill the worker; surface an empty route so the
                     // tracker clears its in-flight flag.
                     Console.Error.WriteLine($"Replan failed for {req.TargetId}: {ex.Message}");
-                    _results.Enqueue(new Result(req.TargetId, (req.Goal.x, req.Goal.y),
-                        Array.Empty<(int, int)>()));
+                    _results.Enqueue(new Result(
+                        req.TargetId,
+                        (req.Goal.x, req.Goal.y),
+                        RoutePlanStatus.Error,
+                        null,
+                        Array.Empty<(int, int)>(),
+                        ex.Message,
+                        0));
                 }
             }
         }

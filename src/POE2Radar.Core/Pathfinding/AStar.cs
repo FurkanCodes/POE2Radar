@@ -10,6 +10,19 @@ public readonly record struct Path(bool Found, float Cost, IReadOnlyList<PathCel
     public static readonly Path NoPath = new(false, 0f, Array.Empty<PathCell>());
 }
 
+public enum RoutePlanStatus
+{
+    Unplanned,
+    WaitingForTerrain,
+    Planning,
+    Planned,
+    TargetUnavailable,
+    NoWalkableStart,
+    NoReachableGoal,
+    NoPath,
+    Error,
+}
+
 /// <summary>
 /// Walk-only A* pathfinder over a grid exposed via <see cref="ICellReader"/>. Per-instance
 /// buffers are kept and reused via a generation stamp — no per-call buffer alloc.
@@ -103,6 +116,7 @@ public sealed class AStar
 
                 var cellValue = pf.Read(nx, ny);
                 if (cellValue == 0) continue;
+                if (dx != 0 && dy != 0 && !CanMoveDiagonal(pf, cx, cy, dx, dy)) continue;
 
                 var stepCost  = flatCost ? baseCost : baseCost * (6 - cellValue);
                 var tentative = currentG + stepCost;
@@ -115,6 +129,85 @@ public sealed class AStar
                 _cameFrom  [nIdx] = currentIdx;
                 _generation[nIdx] = _currentGen;
                 open.Enqueue(nIdx, tentative + Heuristic(nx, ny, gx, gy));
+            }
+        }
+
+        return Path.NoPath;
+    }
+
+    /// <summary>
+    /// Pathfind from <paramref name="start"/> to the first reachable cell in <paramref name="goals"/>.
+    /// The original goal center is used only as an A* hint; any candidate goal may terminate the search.
+    /// </summary>
+    public Path FindPathToAny(
+        ICellReader pf,
+        PathCell start,
+        IReadOnlyCollection<PathCell> goals,
+        PathCell heuristicGoal,
+        int maxNodes = 200_000,
+        bool flatCost = false)
+    {
+        if (pf.Width != _width || pf.Height != _height)
+            throw new ArgumentException($"Reader dims {pf.Width}x{pf.Height} != A* dims {_width}x{_height}");
+        if (goals.Count == 0) return Path.NoPath;
+
+        var (sx, sy) = (Math.Clamp(start.X, 0, _width - 1), Math.Clamp(start.Y, 0, _height - 1));
+        if (pf.Read(sx, sy) == 0) (sx, sy) = SnapToWalkable(pf, sx, sy, maxRadius: 8);
+        if (pf.Read(sx, sy) == 0) return Path.NoPath;
+
+        var goalSet = new HashSet<int>();
+        foreach (var g in goals)
+        {
+            if ((uint)g.X >= (uint)_width || (uint)g.Y >= (uint)_height) continue;
+            if (pf.Read(g.X, g.Y) == 0) continue;
+            goalSet.Add(g.Y * _width + g.X);
+        }
+        if (goalSet.Count == 0) return Path.NoPath;
+
+        unchecked { _currentGen++; }
+        if (_currentGen == 0) { Array.Clear(_generation); _currentGen = 1; }
+
+        var open = new PriorityQueue<int, float>();
+        var startIdx = sy * _width + sx;
+        var hx = Math.Clamp(heuristicGoal.X, 0, _width - 1);
+        var hy = Math.Clamp(heuristicGoal.Y, 0, _height - 1);
+
+        _gScore[startIdx] = 0f;
+        _cameFrom[startIdx] = -1;
+        _generation[startIdx] = _currentGen;
+        open.Enqueue(startIdx, Heuristic(sx, sy, hx, hy));
+
+        var dequeued = 0;
+        while (open.TryDequeue(out var currentIdx, out _) && dequeued++ < maxNodes)
+        {
+            if (goalSet.Contains(currentIdx))
+                return ReconstructPath(currentIdx, _gScore[currentIdx]);
+
+            var cx = currentIdx % _width;
+            var cy = currentIdx / _width;
+            var currentG = _gScore[currentIdx];
+
+            foreach (var (dx, dy, baseCost) in Neighbors)
+            {
+                var nx = cx + dx;
+                var ny = cy + dy;
+                if ((uint)nx >= (uint)_width || (uint)ny >= (uint)_height) continue;
+
+                var cellValue = pf.Read(nx, ny);
+                if (cellValue == 0) continue;
+                if (dx != 0 && dy != 0 && !CanMoveDiagonal(pf, cx, cy, dx, dy)) continue;
+
+                var stepCost = flatCost ? baseCost : baseCost * (6 - cellValue);
+                var tentative = currentG + stepCost;
+                var nIdx = ny * _width + nx;
+
+                var seen = _generation[nIdx] == _currentGen;
+                if (seen && tentative >= _gScore[nIdx]) continue;
+
+                _gScore[nIdx] = tentative;
+                _cameFrom[nIdx] = currentIdx;
+                _generation[nIdx] = _currentGen;
+                open.Enqueue(nIdx, tentative + Heuristic(nx, ny, hx, hy));
             }
         }
 
@@ -135,6 +228,9 @@ public sealed class AStar
         var octile = (dx + dy) + (1.4142136f - 2f) * Math.Min(dx, dy);
         return octile * 1.001f;
     }
+
+    private static bool CanMoveDiagonal(ICellReader pf, int x, int y, int dx, int dy)
+        => pf.Read(x + dx, y) > 0 && pf.Read(x, y + dy) > 0;
 
     private Path ReconstructPath(int goalIdx, float cost)
     {

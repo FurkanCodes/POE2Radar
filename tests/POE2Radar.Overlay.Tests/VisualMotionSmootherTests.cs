@@ -22,8 +22,8 @@ public sealed class VisualMotionSmootherTests
         Assert.Equal(first.PlayerGrid, initial.PlayerGrid);
         Assert.True(smoothed.PlayerGrid.X > 0f);
         Assert.True(smoothed.PlayerGrid.X < next.PlayerGrid.X);
-        Assert.True(smoothed.MapFrame.Center.X > first.MapFrame.Center.X);
-        Assert.True(smoothed.MapFrame.Center.X < next.MapFrame.Center.X);
+        Assert.Equal(next.MapFrame.Center, smoothed.MapFrame.Center);
+        Assert.Equal(next.MiniMapFrame.Center, smoothed.MiniMapFrame.Center);
     }
 
     [Fact]

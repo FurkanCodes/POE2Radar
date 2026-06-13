@@ -11,6 +11,8 @@ using POE2Radar.Overlay.Input;
 using POE2Radar.Overlay.Native;
 using POE2Radar.Overlay.Navigation;
 using POE2Radar.Overlay.Web;
+using PathCell = POE2Radar.Core.Pathfinding.PathCell;
+using RoutePlanStatus = POE2Radar.Core.Pathfinding.RoutePlanStatus;
 
 namespace POE2Radar.Overlay;
 
@@ -152,9 +154,25 @@ public sealed partial class RadarApp : IDisposable
     private readonly BackgroundReplanner _replanner = new();
     private readonly Dictionary<string, RouteTracker> _trackers = new(); // one per selected id; OWNED by the tick thread
     private List<NavTarget> _navTargets = new();                         // unified targets, rebuilt each world tick
-    private readonly record struct TargetSnapshot(string Label, NumVec2 Grid, bool IsEntity, DateTime LastSeenUtc);
+    private PathCell[] _worldDoorOverrides = Array.Empty<PathCell>();
+    private readonly record struct TargetSnapshot(
+        string Label,
+        NumVec2 Grid,
+        bool IsEntity,
+        DateTime LastSeenUtc,
+        int TileCount,
+        int GoalSearchRadius,
+        PathCell[] RouteAnchors);
     private readonly record struct TargetSnapshotKey(uint AreaHash, string TargetId);
-    private readonly record struct TargetRenderInfo(string Id, string Label, NumVec2 Grid, bool IsEntity, NavTargetStatus Status);
+    private readonly record struct TargetRenderInfo(
+        string Id,
+        string Label,
+        NumVec2 Grid,
+        bool IsEntity,
+        NavTargetStatus Status,
+        int TileCount,
+        int GoalSearchRadius,
+        PathCell[] RouteAnchors);
     private readonly object _targetSnapshotLock = new();
     private readonly Dictionary<TargetSnapshotKey, TargetSnapshot> _targetSnapshots = new();
     // The ONLY state shared with the HTTP/API thread. Every read/iterate/mutate of _selectedIds is
@@ -689,8 +707,11 @@ public sealed partial class RadarApp : IDisposable
             ImportantOnly: _settings.ImportantOnly,
             GlobalIconScale: _settings.GlobalIconScale,
             ShowPathWorld: _settings.ShowPathWorld,
+            ShowGroundWaypoints: _settings.ShowGroundWaypoints,
             ShowPathMap: _settings.ShowPathMap,
             ShowPathMinimap: _settings.ShowPathMinimap,
+            SimplePathReplan: _settings.SimplePathReplan,
+            WorldPathProjectionZ: _settings.WorldPathProjectionZ,
             UseCuratedLandmarks: _settings.UseCuratedLandmarks,
             ShowMonsters: _settings.ShowMonsters,
             ShowTerrain: _settings.ShowTerrain,
@@ -805,7 +826,7 @@ public sealed partial class RadarApp : IDisposable
             CloseAtlasSession();
 
         var maps = _cachedMaps;
-        if (!_atlasOpen)
+        if (!_atlasOpen && drawActive)
         {
             maps = _live.ReadMaps(inGameState, areaInstance, windowWidth, windowHeight);
             _cachedMaps = maps;
@@ -836,8 +857,8 @@ public sealed partial class RadarApp : IDisposable
             maps, _areaHash, _cameraMatrix);
     }
 
-    /// <summary>Per-tick map lock: player grid + map pan/zoom/clip rect. Kept off the LiveRefreshHz
-    /// throttle so the overlay minimap sticks to the in-game HUD while moving.</summary>
+    /// <summary>Fast player lock between live refreshes. Map UI/controller branch reads stay on
+    /// LiveRefreshHz via <see cref="RefreshLiveFrame"/> so render FPS does not multiply map reads.</summary>
     private LiveFrameState RefreshMapLock(LiveFrameState live, int windowWidth, int windowHeight)
     {
         if (!live.InGame || live.LocalPlayer == 0 || live.InGameState == 0 || live.AreaInstance == 0)
@@ -846,11 +867,6 @@ public sealed partial class RadarApp : IDisposable
         var player = _live.PlayerGrid(live.LocalPlayer) ?? live.PlayerGrid;
         var playerTerrainHeight = _live.PlayerTerrainHeight(live.LocalPlayer);
         var maps = live.Maps;
-        if (!_atlasOpen)
-        {
-            maps = _live.ReadMaps(live.InGameState, live.AreaInstance, windowWidth, windowHeight);
-            _cachedMaps = maps;
-        }
 
         if (player == live.PlayerGrid && maps.Equals(live.Maps) && playerTerrainHeight.Equals(live.PlayerTerrainHeight))
             return live;
@@ -947,9 +963,19 @@ public sealed partial class RadarApp : IDisposable
             y = 18f;
         }
 
-        var center = new NumVec2(
-            x + width * 0.5f + map.ShiftX + map.DefaultShiftX,
-            y + height * 0.5f + map.ShiftY + map.DefaultShiftY);
+        var (cx, cy) = MapViewportLogic.MapProjectionCenter(
+            windowWidth,
+            windowHeight,
+            map.ShiftX,
+            map.ShiftY,
+            offsetX: 0f,
+            offsetY: 0f,
+            minimapClip: true,
+            clipLeft: x,
+            clipTop: y,
+            clipRight: x + width,
+            clipBottom: y + height);
+        var center = new NumVec2(cx, cy);
         // GameHelper2 parity: the minimap projection uses the game's own zoom verbatim
         // (scale = diagonal × zoom / 240). The ScaleMul/LargeMapScaleMultiplier calibration
         // knobs are large-map-only — applying them here breaks the exact minimap match.
@@ -1329,7 +1355,17 @@ public sealed partial class RadarApp : IDisposable
             var id = "t:" + lm.Key;
             if (!seen.Add(id)) continue;
             var autoPath = _displayRules.ResolveTile(lm.Path, requireMatch: false)?.Navigable ?? false;
-            targets.Add(new NavTarget(id, LandmarkLabel(lm), lm.Center, lm.Path, IsEntity: false, AutoPath: autoPath));
+            var radius = LandmarkGoalSearchRadius(lm.TileCount);
+            targets.Add(new NavTarget(
+                id,
+                LandmarkLabel(lm),
+                lm.Center,
+                lm.Path,
+                IsEntity: false,
+                AutoPath: autoPath,
+                TileCount: lm.TileCount,
+                GoalSearchRadius: radius,
+                RouteAnchors: lm.RouteAnchors ?? Array.Empty<PathCell>()));
         }
 
         // (b) Entity targets — id "e:<entityId>", nearest-first. An entity qualifies only when its
@@ -1344,11 +1380,23 @@ public sealed partial class RadarApp : IDisposable
         {
             var id = "e:" + e.Id;
             if (!seen.Add(id)) continue;
-            targets.Add(new NavTarget(id, EntityLabel(e, rule), e.Grid, e.Metadata, IsEntity: true, AutoPath: true));
+            targets.Add(new NavTarget(
+                id,
+                EntityLabel(e, rule),
+                e.Grid,
+                e.Metadata,
+                IsEntity: true,
+                AutoPath: true,
+                TileCount: 1,
+                GoalSearchRadius: 24,
+                RouteAnchors: Array.Empty<PathCell>()));
         }
 
         return targets;
     }
+
+    private static int LandmarkGoalSearchRadius(int tileCount)
+        => Math.Clamp((int)MathF.Round(23f + MathF.Sqrt(Math.Max(1, tileCount)) * 23f), 32, 96);
 
     /// <summary>Remember the friendly label + last known grid for currently visible nav targets, so a
     /// selected entity keeps a readable label and route after it leaves the live entity set.</summary>
@@ -1365,16 +1413,16 @@ public sealed partial class RadarApp : IDisposable
         lock (_targetSnapshotLock)
         {
             foreach (var t in targets)
-                _targetSnapshots[TargetSnapshotKeyFor(t.Id)] = new TargetSnapshot(t.Name, t.Grid, t.IsEntity, now);
+                _targetSnapshots[TargetSnapshotKeyFor(t.Id)] = new TargetSnapshot(
+                    t.Name,
+                    t.Grid,
+                    t.IsEntity,
+                    now,
+                    t.TileCount,
+                    t.GoalSearchRadius,
+                    t.RouteAnchors ?? Array.Empty<PathCell>());
             PruneTargetSnapshotsLocked(selectedSet);
         }
-    }
-
-    private void RememberTargetSnapshot(string id, string label, NumVec2 grid, bool isEntity)
-    {
-        if (string.IsNullOrEmpty(id)) return;
-        lock (_targetSnapshotLock)
-            _targetSnapshots[TargetSnapshotKeyFor(id)] = new TargetSnapshot(label, grid, isEntity, DateTime.UtcNow);
     }
 
     private bool TryGetTargetSnapshot(string id, out TargetSnapshot snapshot)
@@ -1720,7 +1768,15 @@ public sealed partial class RadarApp : IDisposable
         foreach (var t in navTargets)
         {
             if (t.Id != id) continue;
-            info = new TargetRenderInfo(id, t.Name, t.Grid, t.IsEntity, NavTargetStatus.Live);
+            info = new TargetRenderInfo(
+                id,
+                t.Name,
+                t.Grid,
+                t.IsEntity,
+                NavTargetStatus.Live,
+                t.TileCount,
+                t.GoalSearchRadius,
+                t.RouteAnchors ?? Array.Empty<PathCell>());
             return true;
         }
 
@@ -1731,8 +1787,18 @@ public sealed partial class RadarApp : IDisposable
             {
                 if (lm.Key != key) continue;
                 var label = LandmarkLabel(lm);
-                RememberTargetSnapshot(id, label, lm.Center, isEntity: false);
-                info = new TargetRenderInfo(id, label, lm.Center, IsEntity: false, NavTargetStatus.Live);
+                var radius = LandmarkGoalSearchRadius(lm.TileCount);
+                var anchors = lm.RouteAnchors ?? Array.Empty<PathCell>();
+                RememberTargetSnapshot(id, label, lm.Center, isEntity: false, lm.TileCount, radius, anchors);
+                info = new TargetRenderInfo(
+                    id,
+                    label,
+                    lm.Center,
+                    IsEntity: false,
+                    NavTargetStatus.Live,
+                    lm.TileCount,
+                    radius,
+                    anchors);
                 return true;
             }
         }
@@ -1742,15 +1808,31 @@ public sealed partial class RadarApp : IDisposable
             {
                 if (e.Id != entityId) continue;
                 var label = EntityLabel(e, _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly, entities));
-                RememberTargetSnapshot(id, label, e.Grid, isEntity: true);
-                info = new TargetRenderInfo(id, label, e.Grid, IsEntity: true, NavTargetStatus.Live);
+                RememberTargetSnapshot(id, label, e.Grid, isEntity: true, 1, 24, Array.Empty<PathCell>());
+                info = new TargetRenderInfo(
+                    id,
+                    label,
+                    e.Grid,
+                    IsEntity: true,
+                    NavTargetStatus.Live,
+                    1,
+                    24,
+                    Array.Empty<PathCell>());
                 return true;
             }
         }
 
         if (TryGetTargetSnapshot(id, out var cached))
         {
-            info = new TargetRenderInfo(id, cached.Label, cached.Grid, cached.IsEntity, NavTargetStatus.Cached);
+            info = new TargetRenderInfo(
+                id,
+                cached.Label,
+                cached.Grid,
+                cached.IsEntity,
+                NavTargetStatus.Cached,
+                cached.TileCount,
+                cached.GoalSearchRadius,
+                cached.RouteAnchors);
             return true;
         }
 
@@ -1776,12 +1858,43 @@ public sealed partial class RadarApp : IDisposable
     /// <summary>Display label for a selected id: live nav target first, cached last-known label second,
     /// raw id only when the target was never observed.</summary>
 
-    private void EnqueueReplan(string id, RouteTracker tracker, NumVec2 goal, NumVec2 player)
+    private void RememberTargetSnapshot(
+        string id,
+        string label,
+        NumVec2 grid,
+        bool isEntity,
+        int tileCount,
+        int goalSearchRadius,
+        PathCell[] routeAnchors)
     {
-        if (_worldTerrain is not { } terrain) return;
+        if (string.IsNullOrEmpty(id)) return;
+        lock (_targetSnapshotLock)
+            _targetSnapshots[TargetSnapshotKeyFor(id)] = new TargetSnapshot(
+                label,
+                grid,
+                isEntity,
+                DateTime.UtcNow,
+                tileCount,
+                goalSearchRadius,
+                routeAnchors);
+    }
+
+    private void EnqueueReplan(string id, RouteTracker tracker, TargetRenderInfo info, NumVec2 player)
+    {
+        if (_worldTerrain is not { } terrain)
+        {
+            tracker.MarkWaitingForTerrain();
+            return;
+        }
         tracker.MarkReplanRequested();
         _replanner.Enqueue(new BackgroundReplanner.Request(
-            id, terrain, ((int)player.X, (int)player.Y), ((int)goal.X, (int)goal.Y)));
+            id,
+            terrain,
+            ((int)MathF.Round(player.X), (int)MathF.Round(player.Y)),
+            ((int)MathF.Round(info.Grid.X), (int)MathF.Round(info.Grid.Y)),
+            info.GoalSearchRadius,
+            info.RouteAnchors,
+            _worldDoorOverrides));
     }
 
     private string TargetLabel(string id)
@@ -1852,8 +1965,9 @@ public sealed partial class RadarApp : IDisposable
             var slot = selected.IndexOf(t.Id);
             var dist = NumVec2.Distance(t.Grid, player);
             var pathDist = TryGetPathDistance(t.Id, out var pd) ? pd : -1f;
+            var routeStatus = slot >= 0 ? GetRouteStatus(t.Id) : RoutePlanStatus.Unplanned;
             var status = slot >= 0 && !HasSelectedPath(t.Id) ? NavTargetStatus.NoPath : NavTargetStatus.Live;
-            legend.Add(new LegendEntry(t, slot, slot >= 0, status, dist, pathDist));
+            legend.Add(new LegendEntry(t, slot, slot >= 0, status, dist, pathDist, routeStatus, GetRouteFailure(t.Id)));
             seen.Add(t.Id);
         }
 
@@ -1865,15 +1979,38 @@ public sealed partial class RadarApp : IDisposable
             var slot = Math.Min(i, MaxSelectedTargets - 1);
             if (TryResolveTargetInfo(id, _navTargets, _landmarks, _entities, _areaHash, out var info))
             {
-                var target = new NavTarget(id, info.Label, info.Grid, "", info.IsEntity);
+                var target = new NavTarget(
+                    id,
+                    info.Label,
+                    info.Grid,
+                    "",
+                    info.IsEntity,
+                    TileCount: info.TileCount,
+                    GoalSearchRadius: info.GoalSearchRadius,
+                    RouteAnchors: info.RouteAnchors);
                 var status = HasSelectedPath(id) ? info.Status : NavTargetStatus.NoPath;
                 var pathDist = TryGetPathDistance(id, out var pd) ? pd : -1f;
-                legend.Add(new LegendEntry(target, slot, true, status, NumVec2.Distance(info.Grid, player), pathDist));
+                legend.Add(new LegendEntry(
+                    target,
+                    slot,
+                    true,
+                    status,
+                    NumVec2.Distance(info.Grid, player),
+                    pathDist,
+                    GetRouteStatus(id),
+                    GetRouteFailure(id)));
             }
             else
             {
                 var target = new NavTarget(id, id, player, "", id.StartsWith("e:", StringComparison.Ordinal));
-                legend.Add(new LegendEntry(target, slot, true, NavTargetStatus.NoPath, -1f));
+                legend.Add(new LegendEntry(
+                    target,
+                    slot,
+                    true,
+                    NavTargetStatus.NoPath,
+                    -1f,
+                    RouteStatus: RoutePlanStatus.TargetUnavailable,
+                    RouteFailureReason: "target unavailable"));
             }
         }
         return legend;
@@ -1882,8 +2019,20 @@ public sealed partial class RadarApp : IDisposable
     private bool HasSelectedPath(string id)
     {
         foreach (var p in _renderPaths)
-            if (p.TargetId == id) return true;
+            if (p.TargetId == id && p.RouteStatus == RoutePlanStatus.Planned && p.Points.Length > 0) return true;
         return false;
+    }
+
+    private RoutePlanStatus GetRouteStatus(string id)
+    {
+        lock (_trackerGate)
+            return _trackers.TryGetValue(id, out var tracker) ? tracker.Status : RoutePlanStatus.Unplanned;
+    }
+
+    private string GetRouteFailure(string id)
+    {
+        lock (_trackerGate)
+            return _trackers.TryGetValue(id, out var tracker) ? tracker.FailureReason : "";
     }
 
     private bool TryGetPathDistance(string id, out float pathDistance)
@@ -1915,12 +2064,43 @@ public sealed partial class RadarApp : IDisposable
 
     /// <summary>API: a snapshot of the selected ids with their slot (index in selection order).
     /// Safe to call concurrently with the tick loop.</summary>
-    public IReadOnlyList<(string Id, int Slot)> GetNavSelection()
+    public IReadOnlyList<NavSelectionInfo> GetNavSelection()
     {
+        List<string> selected;
         lock (_navLock)
         {
-            var list = new List<(string, int)>(_selectedIds.Count);
-            for (var i = 0; i < _selectedIds.Count; i++) list.Add((_selectedIds[i], i));
+            selected = new List<string>(_selectedIds);
+        }
+
+        lock (_trackerGate)
+        {
+            var list = new List<NavSelectionInfo>(selected.Count);
+            for (var i = 0; i < selected.Count; i++)
+            {
+                var id = selected[i];
+                if (_trackers.TryGetValue(id, out var tracker))
+                {
+                    list.Add(new NavSelectionInfo(
+                        id,
+                        i,
+                        tracker.Status,
+                        tracker.CurrentPoints.Count,
+                        tracker.ResolvedGoal,
+                        tracker.FailureReason,
+                        tracker.LastPlanMilliseconds));
+                }
+                else
+                {
+                    list.Add(new NavSelectionInfo(
+                        id,
+                        i,
+                        RoutePlanStatus.Unplanned,
+                        0,
+                        null,
+                        "",
+                        0));
+                }
+            }
             return list;
         }
     }

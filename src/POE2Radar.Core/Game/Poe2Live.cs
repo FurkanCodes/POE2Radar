@@ -1,3 +1,5 @@
+using POE2Radar.Core.Pathfinding;
+
 namespace POE2Radar.Core.Game;
 
 /// <summary>
@@ -86,7 +88,13 @@ public sealed partial class Poe2Live
     /// <summary>A static tile-based landmark: a notable terrain feature and its grid centroid.
     /// <paramref name="CuratedName"/> is an optional curated friendly label (null when none matches);
     /// <paramref name="Name"/> is the derived-from-path fallback.</summary>
-    public readonly record struct Landmark(string Name, string Path, System.Numerics.Vector2 Center, int TileCount, string? CuratedName = null)
+    public readonly record struct Landmark(
+        string Name,
+        string Path,
+        System.Numerics.Vector2 Center,
+        int TileCount,
+        string? CuratedName = null,
+        PathCell[]? RouteAnchors = null)
     {
         /// <summary>Stable per-CLUSTER identity for nav selection. A tile path can now yield several
         /// landmarks (one per spatial cluster — e.g. each stair-up section of a multi-level dungeon),
@@ -583,10 +591,39 @@ public sealed partial class Poe2Live
                 foreach (var (tx, ty) in cluster) { sx += tx; sy += ty; }
                 var center = new System.Numerics.Vector2(
                     (float)(sx / cluster.Count * cell), (float)(sy / cluster.Count * cell));
-                result.Add(new Landmark(name, path, center, cluster.Count, curated));
+                result.Add(new Landmark(name, path, center, cluster.Count, curated, BuildLandmarkAnchors(cluster, cell)));
             }
         }
         return result;
+    }
+
+    private static PathCell[] BuildLandmarkAnchors(List<(int tx, int ty)> cluster, int tileGridCells)
+    {
+        if (cluster.Count == 0) return Array.Empty<PathCell>();
+
+        var set = new HashSet<(int tx, int ty)>(cluster);
+        var boundary = new List<(int tx, int ty)>();
+        foreach (var c in cluster)
+        {
+            if (!set.Contains((c.tx + 1, c.ty))
+                || !set.Contains((c.tx - 1, c.ty))
+                || !set.Contains((c.tx, c.ty + 1))
+                || !set.Contains((c.tx, c.ty - 1)))
+            {
+                boundary.Add(c);
+            }
+        }
+
+        var source = boundary.Count > 0 ? boundary : cluster;
+        const int maxAnchors = 256;
+        var stride = Math.Max(1, (int)Math.Ceiling(source.Count / (double)maxAnchors));
+        var anchors = new List<PathCell>(Math.Min(maxAnchors, source.Count));
+        for (var i = 0; i < source.Count && anchors.Count < maxAnchors; i += stride)
+        {
+            var (tx, ty) = source[i];
+            anchors.Add(new PathCell(tx * tileGridCells, ty * tileGridCells));
+        }
+        return anchors.ToArray();
     }
 
     /// <summary>

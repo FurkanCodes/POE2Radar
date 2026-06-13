@@ -25,7 +25,7 @@ public sealed class LowImpactSnapshotTests
     {
         var source = new List<SelectedPath>
         {
-            new(0, "t:boss", "Boss", false, NavTargetStatus.Live, 10f, 20f, [(1, 2), (3, 4)], (5, 6)),
+            new(0, "t:boss", "Boss", false, NavTargetStatus.Live, 10f, 20f, [(1, 2), (3, 4)], [(0, 0), (1, 2), (3, 4)], (5, 6)),
         };
         var snapshot = source.ToArray();
 

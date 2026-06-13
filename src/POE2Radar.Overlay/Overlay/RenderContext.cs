@@ -1,4 +1,5 @@
 using POE2Radar.Core.Game;
+using POE2Radar.Core.Pathfinding;
 using POE2Radar.Overlay.Config;
 using NumVec2 = System.Numerics.Vector2;
 
@@ -11,7 +12,16 @@ namespace POE2Radar.Overlay;
 /// <see cref="MatchKey"/> (landmark path or entity metadata) is what auto-nav patterns match against;
 /// <see cref="Grid"/> is the A* goal cell.
 /// </summary>
-public readonly record struct NavTarget(string Id, string Name, NumVec2 Grid, string MatchKey, bool IsEntity, bool AutoPath = false);
+public readonly record struct NavTarget(
+    string Id,
+    string Name,
+    NumVec2 Grid,
+    string MatchKey,
+    bool IsEntity,
+    bool AutoPath = false,
+    int TileCount = 1,
+    int GoalSearchRadius = 24,
+    PathCell[]? RouteAnchors = null);
 
 /// <summary>How fresh a selected navigation target is for display purposes.</summary>
 public enum NavTargetStatus { Live, Cached, NoPath }
@@ -20,7 +30,14 @@ public enum NavTargetStatus { Live, Cached, NoPath }
 /// -1 when unselected), whether it is currently selected, its route freshness, and current grid
 /// distance from the player (-1 when unknown).</summary>
 public readonly record struct LegendEntry(
-    NavTarget Target, int ColorSlot, bool IsSelected, NavTargetStatus Status, float Distance, float PathDistance = -1f);
+    NavTarget Target,
+    int ColorSlot,
+    bool IsSelected,
+    NavTargetStatus Status,
+    float Distance,
+    float PathDistance = -1f,
+    RoutePlanStatus RouteStatus = RoutePlanStatus.Unplanned,
+    string RouteFailureReason = "");
 
 /// <summary>One selected target's smoothed A* route: the selection-order color slot (0..7) used to pick
 /// its draw/legend color, target identity/status metadata, and the smoothed grid-cell waypoints.
@@ -28,7 +45,21 @@ public readonly record struct LegendEntry(
 public readonly record struct SelectedPath(
     int ColorSlot, string TargetId, string Label, bool IsEntity, NavTargetStatus Status, float Distance,
     float PathDistance, (int x, int y)[] Points,
-    (int x, int y)? LiveGoal = null);
+    (int x, int y)[] FullPoints,
+    (int x, int y)? LiveGoal = null,
+    RoutePlanStatus RouteStatus = RoutePlanStatus.Unplanned,
+    (int x, int y)? ResolvedGoal = null,
+    string RouteFailureReason = "",
+    double LastPlanMilliseconds = 0);
+
+public readonly record struct NavSelectionInfo(
+    string Id,
+    int Slot,
+    RoutePlanStatus RouteStatus,
+    int WaypointCount,
+    (int x, int y)? ResolvedGoal,
+    string FailureReason,
+    double LastPlanMilliseconds);
 
 /// <summary>Low-overhead runtime timings used to compare read/update/render costs while tuning the overlay.</summary>
 public readonly record struct PerfSnapshot(
@@ -149,8 +180,11 @@ public sealed record RenderContext(
     bool ImportantOnly,
     float GlobalIconScale,
     bool ShowPathWorld,
+    bool ShowGroundWaypoints,
     bool ShowPathMap,
     bool ShowPathMinimap,
+    bool SimplePathReplan,
+    WorldPathProjectionZ WorldPathProjectionZ,
     bool UseCuratedLandmarks,
     // Radar display toggles.
     bool ShowMonsters,

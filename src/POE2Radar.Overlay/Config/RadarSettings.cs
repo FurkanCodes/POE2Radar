@@ -3,6 +3,15 @@ using System.Text.Json.Serialization;
 
 namespace POE2Radar.Overlay.Config;
 
+/// <summary>World-screen path W2S elevation source (ground breadcrumbs only).</summary>
+public enum WorldPathProjectionZ
+{
+    /// <summary>Use the local player's current world Z (default).</summary>
+    Player,
+    /// <summary>Flat Z=0 plane (v1.3.0 release behavior).</summary>
+    Zero,
+}
+
 /// <summary>
 /// User-tweakable overlay settings, persisted as JSON next to the executable
 /// (<c>config/radar_settings.json</c>). Defaults reproduce the original hardcoded behavior exactly,
@@ -17,6 +26,12 @@ public sealed class RadarSettings
     public bool ShowPathWorld { get; set; } = true;
     public bool ShowPathMap { get; set; } = true;
     public bool ShowPathMinimap { get; set; } = true;
+    /// <summary>Ground-screen breadcrumbs when the Tab map is closed (sub-toggle of <see cref="ShowPathWorld"/>).</summary>
+    public bool ShowGroundWaypoints { get; set; } = true;
+    /// <summary>v1.3.0-style replan: only on goal drift, failure retry, or player moved ~30 grid cells.</summary>
+    public bool SimplePathReplan { get; set; } = false;
+    /// <summary>Camera W2S Z for world-projected path dots (see <see cref="WorldPathProjectionZ"/>).</summary>
+    public WorldPathProjectionZ WorldPathProjectionZ { get; set; } = WorldPathProjectionZ.Player;
     public bool UseCuratedLandmarks { get; set; } = true;
     public bool DrawAllLandmarkPaths { get; set; } = false;
 

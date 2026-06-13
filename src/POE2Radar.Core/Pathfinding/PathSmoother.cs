@@ -60,8 +60,13 @@ public static class PathSmoother
             if (pf.Read(x, y) < minWalkable) return false;
             if (x == b.X && y == b.Y) return true;
             int e2 = 2 * err;
+            var oldX = x;
+            var oldY = y;
             if (e2 >= dy) { err += dy; x += sx; }
             if (e2 <= dx) { err += dx; y += sy; }
+            if (x != oldX && y != oldY
+                && (pf.Read(x, oldY) < minWalkable || pf.Read(oldX, y) < minWalkable))
+                return false;
         }
     }
 }

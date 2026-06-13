@@ -1,4 +1,5 @@
 using POE2Radar.Core.Game;
+using System.Reflection;
 using Xunit;
 
 namespace POE2Radar.Core.Tests;
@@ -139,6 +140,25 @@ public sealed class MapViewportLogicTests
     }
 
     [Fact]
+    public void ScoreMapViews_VisibleControllerBranchBeatsStaleKeyboardBranch()
+    {
+        var score = typeof(Poe2Live).GetMethod("ScoreMapViews", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(score);
+
+        var visibleController = new Poe2Live.MapViews(
+            Map(visible: true, rect: true, element: 1),
+            Map(visible: true, rect: true, element: 2));
+        var staleKeyboard = new Poe2Live.MapViews(
+            Map(visible: false, rect: true, element: 3),
+            Map(visible: false, rect: true, element: 4));
+
+        var controllerScore = Assert.IsType<int>(score!.Invoke(null, [visibleController]));
+        var keyboardScore = Assert.IsType<int>(score.Invoke(null, [staleKeyboard]));
+
+        Assert.True(controllerScore > keyboardScore);
+    }
+
+    [Fact]
     public void ClampScreenRect_ScalesAndClampsToWindow()
     {
         var (l, t, r, b) = MapViewportLogic.ClampScreenRect(100, 200, 250, 250, 0.675f, W, H);
@@ -147,4 +167,23 @@ public sealed class MapViewportLogicTests
         Assert.Equal(100 * 0.675f, l, 3);
         Assert.Equal(200 * 0.675f, t, 3);
     }
+
+    private static Poe2Live.MapUi Map(bool visible, bool rect, nint element)
+        => new(
+            visible,
+            0,
+            0,
+            0,
+            MapViewportLogic.MapDefaultShiftY,
+            1,
+            element,
+            0,
+            0,
+            rect ? 220 : 0,
+            rect ? 220 : 0,
+            0,
+            0,
+            1,
+            0,
+            rect);
 }

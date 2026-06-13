@@ -43,7 +43,7 @@ public sealed class ApiServer : IDisposable
     private readonly RadarSettings _settings;
     // Navigation selection controller, supplied by RadarApp. These only mutate the draw-only path
     // selection — they NEVER send input to the game.
-    private readonly Func<IReadOnlyList<(string Id, int Slot)>> _navGet;
+    private readonly Func<IReadOnlyList<NavSelectionInfo>> _navGet;
     private readonly Action<string> _navToggle;
     private readonly Action _navClear;
     private readonly HiddenEntities _hidden;
@@ -68,7 +68,7 @@ public sealed class ApiServer : IDisposable
     public ApiServer(
         Func<RadarState> state,
         RadarSettings settings,
-        Func<IReadOnlyList<(string Id, int Slot)>> navGet,
+        Func<IReadOnlyList<NavSelectionInfo>> navGet,
         Action<string> navToggle,
         Action navClear,
         HiddenEntities hidden,
@@ -524,8 +524,11 @@ public sealed class ApiServer : IDisposable
         hideJunk = _settings.HideJunk,
         showPath = _settings.ShowPath,
         showPathWorld = _settings.ShowPathWorld,
+        showGroundWaypoints = _settings.ShowGroundWaypoints,
         showPathMap = _settings.ShowPathMap,
         showPathMinimap = _settings.ShowPathMinimap,
+        simplePathReplan = _settings.SimplePathReplan,
+        worldPathProjectionZ = _settings.WorldPathProjectionZ.ToString(),
         autoPathNavigable = _settings.AutoPathNavigable,
         importantOnly = _settings.ImportantOnly,
         entityDrawRadiusGrid = _settings.EntityDrawRadiusGrid,
@@ -614,8 +617,15 @@ public sealed class ApiServer : IDisposable
                 case "hideJunk" when TryBool(p.Value, out var b): _settings.HideJunk = b; applied.Add(p.Name); break;
                 case "showPath" when TryBool(p.Value, out var b): _settings.ShowPath = b; applied.Add(p.Name); break;
                 case "showPathWorld" when TryBool(p.Value, out var b): _settings.ShowPathWorld = b; applied.Add(p.Name); break;
+                case "showGroundWaypoints" when TryBool(p.Value, out var b): _settings.ShowGroundWaypoints = b; applied.Add(p.Name); break;
                 case "showPathMap" when TryBool(p.Value, out var b): _settings.ShowPathMap = b; applied.Add(p.Name); break;
                 case "showPathMinimap" when TryBool(p.Value, out var b): _settings.ShowPathMinimap = b; applied.Add(p.Name); break;
+                case "simplePathReplan" when TryBool(p.Value, out var b): _settings.SimplePathReplan = b; applied.Add(p.Name); break;
+                case "worldPathProjectionZ" when p.Value.ValueKind == JsonValueKind.String && p.Value.GetString() is { } wpz
+                    && Enum.TryParse<WorldPathProjectionZ>(wpz, ignoreCase: true, out var zMode):
+                    _settings.WorldPathProjectionZ = zMode;
+                    applied.Add(p.Name);
+                    break;
                 case "autoPathNavigable" when TryBool(p.Value, out var b):
                     _settings.AutoPathNavigable = b;
                     if (b) { _settings.ShowPath = true; _settings.ShowPathWorld = true; }
@@ -881,7 +891,16 @@ public sealed class ApiServer : IDisposable
 
     /// <summary>The navigation selection as a list of {id, slot} objects (for the GET/POST payloads).</summary>
     private object[] NavSelection()
-        => _navGet().Select(s => (object)new { id = s.Id, slot = s.Slot }).ToArray();
+        => _navGet().Select(s => (object)new
+        {
+            id = s.Id,
+            slot = s.Slot,
+            routeStatus = s.RouteStatus.ToString(),
+            waypointCount = s.WaypointCount,
+            resolvedGoal = s.ResolvedGoal is { } g ? new { x = g.x, y = g.y } : null,
+            failureReason = s.FailureReason,
+            lastPlanMs = s.LastPlanMilliseconds,
+        }).ToArray();
 
     /// <summary>Apply a posted nav command: {"toggle":"&lt;id&gt;"} toggles that target; {"clear":true}
     /// clears the whole selection. Anything else is ignored. Draw-only — sends nothing to the game.</summary>
