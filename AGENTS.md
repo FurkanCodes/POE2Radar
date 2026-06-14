@@ -39,8 +39,9 @@ clearly gated — a personal QoL tool, not a headless bot.
 - `Game/Poe2Live.cs` — the live reader: resolves GameState → InGameState → AreaInstance →
   LocalPlayer each tick; reads player vitals, walks the entity std::maps into categorized dots
   (rarity, reaction/hostility, POI via MinimapIcon, HP), reads the walkable terrain grid, the map
-  UI element (visibility/shift/zoom), tile landmarks, and area/character info. Caches per-entity
-  component addresses; cache key is the AreaInstance address (invalidates on zone change).
+  UI element (visibility/shift/zoom), tile landmarks, server-authoritative minimap icons, and
+  area/character info. Caches per-entity component addresses; cache key is the AreaInstance address
+  (invalidates on zone change).
 - `Game/GameStructs.cs` — blittable structs (`StdVector`, `Vector2/3`, `VitalStruct`).
 - `Game/AobScanner.cs` + `AobPatterns.cs` — pattern scan for the GameState global slot.
 - `Game/LifeValidator.cs` — value-scan to find the Life component by HP (Research `--hp`).
@@ -69,7 +70,9 @@ valid VitalStruct in the component; the per-patch re-validation for the auto-fla
 `--info`, `--watch` (area-change logger), `--dump`, `--presence` (walk-stable before/after diff to
 find a buffed scalar), `--devtree` (browser-based live memory/UI/entity explorer at
 `localhost:7778` — `DevTree/DevTreeServer.cs` + `DevTreeHtml.cs`; the PoE2 stand-in for ExileApi's
-DevTree), and `--atlas-probe` (one-shot ATLAS PROJECTION recovery/validation — run with the Atlas map
+DevTree), `--server-icons` (scan ServerData for server-authoritative minimap icon arrays; use after
+a patch to re-validate the icon vector offset and name catalog), and `--atlas-probe` (one-shot ATLAS
+PROJECTION recovery/validation — run with the Atlas map
 open after a patch: re-locates the node class + canvas, validates every offset (PASS/⚠DRIFT), and prints
 the derived projection + paste-ready offsets; the `--atlas-{xform,canvas,nodes2,readnodes,corr}` probes
 remain for deep re-discovery), and `--atlas-graph` (validates the node GRAPH — per-node grid coords
@@ -94,6 +97,10 @@ is rescaled by liveZoom/calibZoom each frame. See `resources/atlas-research-note
   `+0x230`; Player name `+0x1B0`, level `+0x204`.
 - Map UI: UiRoot `InGameState +0x2F0`; UiElement Self `+0x08`, Children `+0x10`, Flags `+0x180`
   (visible = bit `0x0B`); MapUiElement Shift `+0x368`, DefaultShift `+0x370` (= (0,-20)), Zoom `+0x3A8`.
+- Server minimap icons: `AreaInstance +0x580` → PlayerInfo `+0x00` → ServerData; icon vector found by
+  scanning ServerData for inline arrays of `0xC0` structs (`ID +0x10`, `GridX +0x14`, `GridY +0x18`,
+  name/row ptr `+0x00` → `*(row+0x00)` → UTF-16). Names seen live: `Entrance`, `CheckpointNotActive`,
+  `Waypoint`, `PartyMember`.
 - **Still TBD:** camera world→screen matrix (for world-space nameplates); friendly area Name string.
 
 ## Dependencies

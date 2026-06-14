@@ -46,7 +46,7 @@ public sealed partial class Poe2Live
         _gameStateSlot = gameStateSlot;
     }
 
-    public enum EntityCategory { Player, Monster, Npc, Chest, Transition, Object, Other }
+    public enum EntityCategory { Player, Monster, Npc, Chest, Transition, Object, Other, ServerIcon }
 
     /// <summary>Monster rarity from ObjectMagicProperties.Rarity. NonMonster = not applicable.</summary>
     public enum Rarity { Normal = 0, Magic = 1, Rare = 2, Unique = 3, NonMonster = -1 }
@@ -105,6 +105,18 @@ public sealed partial class Poe2Live
     }
 
     public sealed record TerrainData(byte[] Walkable, int Width, int Height);
+
+    /// <summary>A server-authoritative minimap icon (waypoints, entrances, party members, league mechanics).
+    /// These are available immediately on zone entry, before the client spawns local entities.</summary>
+    public readonly record struct ServerMinimapIcon(
+        uint Id,
+        System.Numerics.Vector2 Grid,
+        Vector3 World,
+        string Name)
+    {
+        /// <summary>Stable identity for de-duplication and nav selection.</summary>
+        public string Key => $"s:{(int)Grid.X},{(int)Grid.Y}";
+    }
 
     /// <summary>Resolve the in-game chain. Returns false during loading / character select.</summary>
     public bool TryResolve(out nint inGameState, out nint areaInstance, out nint localPlayer)
@@ -486,6 +498,10 @@ public sealed partial class Poe2Live
     private List<Landmark>? _landmarks;
     private nint _landmarksKey = -1;
 
+    private IReadOnlyList<ServerMinimapIcon>? _serverIcons;
+    private nint _serverIconsKey = -1;
+    private readonly List<int> _serverIconVecOffs = new(); // cached ServerData offsets for icon vectors
+
     /// <summary>Optional Overlay-supplied matcher: given a tile path, returns a friendly label (possibly
     /// empty) when the user wants that tile surfaced as a landmark, or null to ignore it. Lets users add
     /// their own landmark/tile patterns at runtime on top of the built-in keyword filter + curated list.
@@ -627,6 +643,110 @@ public sealed partial class Poe2Live
             }
         }
         return result;
+    }
+
+    /// <summary>
+    /// Server-authoritative minimap icons for the area (waypoints, entrances, party members,
+    /// league mechanics). These are sent by the server and available immediately on zone entry,
+    /// before the client spawns local entities. Scans ServerData for the icon vector dynamically
+    /// so the offset can drift between patches.
+    /// </summary>
+    public IReadOnlyList<ServerMinimapIcon> ServerMinimapIcons(nint areaInstance)
+    {
+        if (areaInstance == _serverIconsKey && _serverIcons is not null) return _serverIcons;
+        _serverIconsKey = areaInstance;
+        _serverIconVecOffs.Clear(); // reset cached vector offsets on area change
+        _serverIcons = ReadServerMinimapIcons(areaInstance);
+        return _serverIcons;
+    }
+
+    private IReadOnlyList<ServerMinimapIcon> ReadServerMinimapIcons(nint areaInstance)
+    {
+        var result = new List<ServerMinimapIcon>();
+        var serverData = Ptr(areaInstance + Poe2.AreaInstance.ServerDataPtr);
+        if (serverData == 0) return result;
+
+        var seenKeys = new HashSet<string>();
+
+        // Fast path: we already found one or more vector offsets for this area.
+        if (_serverIconVecOffs.Count > 0)
+        {
+            foreach (var off in _serverIconVecOffs)
+            {
+                var batch = new List<ServerMinimapIcon>();
+                if (TryReadServerIconsAt(serverData, off, batch))
+                {
+                    foreach (var icon in batch)
+                        if (seenKeys.Add(icon.Key))
+                            result.Add(icon);
+                }
+            }
+            if (result.Count > 0) return result;
+            _serverIconVecOffs.Clear(); // cached offsets stale, rescan
+        }
+
+        // Discover all valid icon vectors inside ServerData and merge them.
+        for (var off = 0; off <= Poe2.ServerIcon.ScanSpan; off += 8)
+        {
+            var batch = new List<ServerMinimapIcon>();
+            if (!TryReadServerIconsAt(serverData, off, batch)) continue;
+            _serverIconVecOffs.Add(off);
+            foreach (var icon in batch)
+                if (seenKeys.Add(icon.Key))
+                    result.Add(icon);
+        }
+
+        return result;
+    }
+
+    private bool TryReadServerIconsAt(nint serverData, int off, List<ServerMinimapIcon> result)
+    {
+        result.Clear();
+        var first = Ptr(serverData + off);
+        var last = Ptr(serverData + off + 8);
+        if (first == 0 || last <= first) return false;
+
+        var span = (long)last - (long)first;
+        if (span <= 0 || span > 0x80000 || span % Poe2.ServerIcon.Stride != 0) return false;
+        var count = (int)(span / Poe2.ServerIcon.Stride);
+        if (count is < 1 or > 4000) return false;
+
+        var buf = new byte[span];
+        if (_reader.TryReadBytes(first, buf) != span) return false;
+
+        int? firstX = null;
+        var varied = false;
+        for (var i = 0; i < count; i++)
+        {
+            var b = buf.AsSpan(i * Poe2.ServerIcon.Stride, Poe2.ServerIcon.Stride);
+            var gx = BitConverter.ToInt32(b.Slice(Poe2.ServerIcon.GridX, 4));
+            var gy = BitConverter.ToInt32(b.Slice(Poe2.ServerIcon.GridY, 4));
+            if (gx <= 0 || gx > Poe2.ServerIcon.GridLimit || gy <= 0 || gy > Poe2.ServerIcon.GridLimit)
+                return false;
+
+            if (firstX is null) firstX = gx;
+            else if (gx != firstX) varied = true;
+
+            var id = BitConverter.ToUInt32(b.Slice(Poe2.ServerIcon.ID, 4));
+            var name = ReadServerIconName(BitConverter.ToUInt64(b.Slice(Poe2.ServerIcon.RowPtr, 8)));
+            var world = new Vector3 { X = gx * Poe2.WorldToGridRatio, Y = gy * Poe2.WorldToGridRatio, Z = 0f };
+
+            result.Add(new ServerMinimapIcon(id, new System.Numerics.Vector2(gx, gy), world, name));
+        }
+
+        // Require at least two icons with differing X coordinates to avoid false positives.
+        return result.Count >= 2 && varied;
+    }
+
+    private string ReadServerIconName(ulong row)
+    {
+        if (row < 0x100000000 || row > 0x7FFFFFFFFFFF) return string.Empty;
+        var strPtr = Ptr((nint)row);
+        if (strPtr == 0) return string.Empty;
+        var s = _reader.ReadStringUtf16(strPtr, 64);
+        if (string.IsNullOrWhiteSpace(s) || s.Any(c => c < ' ' || c >= (char)0x7f))
+            s = ReadStdWString(strPtr);
+        return s;
     }
 
     private static PathCell[] BuildLandmarkAnchors(List<(int tx, int ty)> cluster, int tileGridCells)

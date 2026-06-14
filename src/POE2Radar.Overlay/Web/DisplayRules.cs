@@ -280,6 +280,79 @@ public sealed class DisplayRules
         Cat("Chest · Rare", "Chest", "Rare", st.ChestRare);
         CatNav("Transition", "Transition", null, st.Transition, "Transition", navigable: true);
 
+        // Server-authoritative minimap icons (sent by the server; visible before local entities spawn).
+        rules.Add(new DisplayRule
+        {
+            Name = "ServerIcon · Waypoint", Label = "Waypoint", Enabled = st.ServerIcon.Enabled, Navigable = true,
+            Categories = new() { "ServerIcon" }, Match = new() { "Waypoint" },
+            Shape = st.ServerIcon.Shape, Color = "#00CCFF", Opacity = st.ServerIcon.Opacity, Size = 11f,
+            Sprite = SpriteCatalog.Waypoint().Clone(),
+        });
+        rules.Add(new DisplayRule
+        {
+            Name = "ServerIcon · Entrance", Label = "Entrance", Enabled = st.ServerIcon.Enabled, Navigable = true,
+            Categories = new() { "ServerIcon" }, Match = new() { "Entrance" },
+            Shape = st.ServerIcon.Shape, Color = "#66FF99", Opacity = st.ServerIcon.Opacity, Size = 10f,
+        });
+        rules.Add(new DisplayRule
+        {
+            Name = "ServerIcon · Checkpoint", Label = "Checkpoint", Enabled = st.ServerIcon.Enabled, Navigable = true,
+            Categories = new() { "ServerIcon" }, Match = new() { "Checkpoint" },
+            Shape = st.ServerIcon.Shape, Color = "#FFD966", Opacity = st.ServerIcon.Opacity, Size = 10f,
+            Sprite = SpriteCatalog.Checkpoint().Clone(),
+        });
+        rules.Add(new DisplayRule
+        {
+            Name = "ServerIcon · Portal", Label = "Portal", Enabled = st.ServerIcon.Enabled, Navigable = true,
+            Categories = new() { "ServerIcon" }, Match = new() { "Portal" },
+            Shape = "Diamond", Color = "#B38CFF", Opacity = st.ServerIcon.Opacity, Size = 10f,
+            Sprite = SpriteCatalog.Portal().Clone(),
+        });
+        rules.Add(new DisplayRule
+        {
+            Name = "ServerIcon · PartyMember", Label = "Party", Enabled = false, Navigable = false,
+            Categories = new() { "ServerIcon" }, Match = new() { "PartyMember" },
+            Shape = "Circle", Color = "#4DF2FF", Opacity = 0.8f, Size = 7f,
+        });
+        // Endgame mechanics that may appear as server-authoritative minimap icons in some zones.
+        rules.Add(new DisplayRule
+        {
+            Name = "ServerIcon · Abyss", Label = "Abyss", Enabled = true, Navigable = true,
+            Categories = new() { "ServerIcon" }, Match = new() { "Abyss" },
+            Shape = "Diamond", Color = "#33CCCC", Opacity = 1f, Size = 12f, Sprite = SpriteCatalog.Abyss().Clone(),
+        });
+        rules.Add(new DisplayRule
+        {
+            Name = "ServerIcon · Strongbox", Label = "Strongbox", Enabled = true, Navigable = true,
+            Categories = new() { "ServerIcon" }, Match = new() { "Strongbox" },
+            Shape = "Square", Color = "#FFB300", Opacity = 1f, Size = 11f, Sprite = SpriteCatalog.Strongbox().Clone(),
+        });
+        rules.Add(new DisplayRule
+        {
+            Name = "ServerIcon · Breach", Label = "Breach", Enabled = true, Navigable = true,
+            Categories = new() { "ServerIcon" }, Match = new() { "Breach" },
+            Shape = "Diamond", Color = "#A64DFF", Opacity = 1f, Size = 12f, Sprite = SpriteCatalog.Breach().Clone(),
+        });
+        rules.Add(new DisplayRule
+        {
+            Name = "ServerIcon · Ritual", Label = "Ritual", Enabled = true, Navigable = true,
+            Categories = new() { "ServerIcon" }, Match = new() { "Ritual" },
+            Shape = "Star", Color = "#FF3355", Opacity = 1f, Size = 12f, Sprite = SpriteCatalog.Ritual().Clone(),
+        });
+        rules.Add(new DisplayRule
+        {
+            Name = "ServerIcon · Chest", Label = "Chest", Enabled = true, Navigable = true,
+            Categories = new() { "ServerIcon" }, Match = new() { "Chest" },
+            Shape = "Square", Color = "#FFD926", Opacity = 0.95f, Size = 10f, Sprite = SpriteCatalog.ChestRare().Clone(),
+        });
+        // Catch-all for any other server icon names (e.g. new league mechanics) so they surface automatically.
+        rules.Add(new DisplayRule
+        {
+            Name = "ServerIcon · Other", Label = "Server icon", Enabled = true, Navigable = false,
+            Categories = new() { "ServerIcon" },
+            Shape = st.ServerIcon.Shape, Color = st.ServerIcon.Color, Opacity = st.ServerIcon.Opacity, Size = st.ServerIcon.Size,
+        });
+
         // Quest & world objects (specific matchers before the broad map-marker catch-all).
         // Endgame mechanics are inserted earlier via EndgameMechanicCatalog in BuildDefault / migration.
         rules.Add(new DisplayRule
@@ -444,7 +517,7 @@ public sealed class DisplayRules
         // per call, which allocated a string for every entity × rule × frame (the dominant GC pressure during
         // combat). _anyCat = no category filter; otherwise _catMask is indexed by (int)EntityCategory.
         private readonly bool _anyCat;
-        private readonly bool[] _catMask = new bool[7];    // EntityCategory has 7 members (Player..Other)
+        private readonly bool[] _catMask = new bool[8];    // EntityCategory has 8 members (Player..ServerIcon)
         private readonly (string sub, Regex? glob)[]? _match; // null = any
         private readonly bool _anyRarity;                  // true = no rarity filter
         private readonly Poe2Live.Rarity _rarity;          // matched rarity enum (sentinel if unparseable → never matches)

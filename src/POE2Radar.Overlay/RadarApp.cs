@@ -107,6 +107,7 @@ public sealed partial class RadarApp : IDisposable
     // "collection modified" crash in DrawNameplates.
     private volatile HpBarTarget[] _hpFrame = Array.Empty<HpBarTarget>();
     private IReadOnlyList<Poe2Live.Landmark> _landmarks = Array.Empty<Poe2Live.Landmark>();
+    private IReadOnlyList<Poe2Live.ServerMinimapIcon> _serverIcons = Array.Empty<Poe2Live.ServerMinimapIcon>();
     private Poe2Live.TerrainData? _worldTerrain;
     private uint _areaHash;
     private nint _lastAreaInstance;
@@ -465,6 +466,42 @@ public sealed partial class RadarApp : IDisposable
             _settings.Save();
             Console.WriteLine("Endgame mechanics v9: strongbox family complete, Ultimatum/Corruption, opened Unique/Landmark exempt.");
         }
+        if (!_settings.ServerIconsMigrated)
+        {
+            var rules = _displayRules.All.ToList();
+            DisplayRules.AppendMissingSemanticRules(rules, _settings.Styles, _settings.ShowMonsters);
+            _displayRules.Replace(rules);
+            _settings.ServerIconsMigrated = true;
+            _settings.Save();
+            Console.WriteLine("Added server-authoritative minimap icon rules (Waypoint/Entrance/Checkpoint default on).");
+        }
+        if (!_settings.ServerIconMechanicsMigrated)
+        {
+            var rules = _displayRules.All.ToList();
+            DisplayRules.AppendMissingSemanticRules(rules, _settings.Styles, _settings.ShowMonsters);
+            _displayRules.Replace(rules);
+            _settings.ServerIconMechanicsMigrated = true;
+            _settings.Save();
+            Console.WriteLine("Added server-icon mechanic rules (Abyss/Strongbox/Breach/Ritual default on).");
+        }
+        if (!_settings.ServerIconChestMigrated)
+        {
+            var rules = _displayRules.All.ToList();
+            DisplayRules.AppendMissingSemanticRules(rules, _settings.Styles, _settings.ShowMonsters);
+            _displayRules.Replace(rules);
+            _settings.ServerIconChestMigrated = true;
+            _settings.Save();
+            Console.WriteLine("Added server-icon chest rule.");
+        }
+        if (!_settings.ServerIconPortalMigrated)
+        {
+            var rules = _displayRules.All.ToList();
+            DisplayRules.AppendMissingSemanticRules(rules, _settings.Styles, _settings.ShowMonsters);
+            _displayRules.Replace(rules);
+            _settings.ServerIconPortalMigrated = true;
+            _settings.Save();
+            Console.WriteLine("Added server-icon portal rule.");
+        }
         LogMissingHpBarTextures();
         _displayRulesGen = _ruleEngine.Generation;
         // User-editable overlay on the baked curated landmark table (the "Landmarks" tab). Inject its
@@ -701,8 +738,10 @@ public sealed partial class RadarApp : IDisposable
             MiniMapFrame: miniMapFrame,
             Entities: snap.Entities,
             Landmarks: snap.Landmarks,
+            ServerIcons: snap.ServerIcons,
             MapEntities: snap.MapEntities,
             MapLandmarks: snap.MapLandmarks,
+            MapServerIcons: snap.MapServerIcons,
             AreaHash: snap.AreaHash,
             Terrain: snap.Terrain,
             ScaleMul: _settings.ScaleMul,
@@ -1470,11 +1509,60 @@ public sealed partial class RadarApp : IDisposable
                 RouteAnchors: Array.Empty<PathCell>()));
         }
 
+        // (c) Server-authoritative minimap icons — id "s:<gridKey>". Qualify when their rule is
+        // navigable; skip if a live entity/landmark already covers the same spot.
+        foreach (var icon in _serverIcons)
+        {
+            var id = "s:" + icon.Key;
+            if (!seen.Add(id)) continue;
+            if (IsNearExistingNavTarget(icon.Grid, targets)) continue;
+            var e = ToEntityDot(icon);
+            var rule = _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly, _entities);
+            if (rule is not { Hide: false, Navigable: true }) continue;
+            targets.Add(new NavTarget(
+                id,
+                icon.Name,
+                icon.Grid,
+                icon.Name,
+                IsEntity: false,
+                AutoPath: true,
+                TileCount: 1,
+                GoalSearchRadius: 24,
+                RouteAnchors: Array.Empty<PathCell>()));
+        }
+
         return targets;
+
+        static bool IsNearExistingNavTarget(NumVec2 grid, List<NavTarget> targets, float radius = 5f)
+        {
+            var r2 = radius * radius;
+            foreach (var t in targets)
+                if (NumVec2.DistanceSquared(t.Grid, grid) <= r2)
+                    return true;
+            return false;
+        }
     }
 
     private static int LandmarkGoalSearchRadius(int tileCount)
         => Math.Clamp((int)MathF.Round(23f + MathF.Sqrt(Math.Max(1, tileCount)) * 23f), 32, 96);
+
+    private static Poe2Live.EntityDot ToEntityDot(Poe2Live.ServerMinimapIcon icon)
+        => new(
+            Id: icon.Id,
+            Address: 0,
+            Grid: icon.Grid,
+            World: icon.World,
+            TerrainHeight: 0f,
+            Category: Poe2Live.EntityCategory.ServerIcon,
+            Metadata: icon.Name,
+            HpCur: 0,
+            HpMax: 0,
+            Poi: false,
+            Reaction: 0,
+            Rarity: Poe2Live.Rarity.NonMonster,
+            Opened: false,
+            IconComplete: false,
+            IsSleeping: false);
 
     /// <summary>Remember the friendly label + last known grid for currently visible nav targets, so a
     /// selected entity keeps a readable label and route after it leaves the live entity set.</summary>

@@ -114,8 +114,10 @@ public sealed partial class RadarApp
             }
 
             landmarks = _worldLive.Landmarks(areaInstance);
+            var serverIcons = _worldLive.ServerMinimapIcons(areaInstance);
             _entities = entities;
             _landmarks = landmarks;
+            _serverIcons = serverIcons;
             hpSpecs = BuildHpSpecsFrom(entities);
 
             _navTargets = BuildNavTargets(player);
@@ -147,11 +149,13 @@ public sealed partial class RadarApp
         var selectedIds = selected.ToArray();
         var mapEntities = BuildMapEntityRenderItems(entityArray, _areaCode);
         var mapLandmarks = BuildMapLandmarkRenderItems(landmarkArray, entityArray, _areaCode);
+        var serverIconArray = _serverIcons as Poe2Live.ServerMinimapIcon[] ?? _serverIcons.ToArray();
+        var mapServerIcons = BuildMapServerIconRenderItems(serverIconArray, entityArray, landmarkArray, _areaCode);
 
         _snapshot = new WorldSnapshot(
             true, areaHash, areaLevel, _areaCode, charLevel,
             entityArray, landmarkArray, _worldTerrain, navTargetArray, hpSpecArray, legendArray,
-            selectedIds, _renderPathSnapshot, mapEntities, mapLandmarks);
+            selectedIds, _renderPathSnapshot, mapEntities, mapLandmarks, serverIconArray, mapServerIcons);
 
         _state = new RadarState(inGame, areaHash, areaLevel, false, 0, player, entityArray, landmarkArray,
             _hpPct, _manaPct, _esPct, _autoFlask, _flaskNote, _areaCode, _charName, charLevel, _perfSnapshot,
@@ -317,6 +321,54 @@ public sealed partial class RadarApp
         }
 
         return items.Count > 0 ? items.ToArray() : Array.Empty<MapEntityRenderItem>();
+    }
+
+    private MapEntityRenderItem[] BuildMapServerIconRenderItems(
+        Poe2Live.ServerMinimapIcon[] icons,
+        Poe2Live.EntityDot[] entities,
+        Poe2Live.Landmark[] landmarks,
+        string areaCode)
+    {
+        if (icons.Length == 0) return Array.Empty<MapEntityRenderItem>();
+
+        var items = new List<MapEntityRenderItem>(icons.Length);
+        foreach (var icon in icons)
+        {
+            var e = ToEntityDot(icon);
+            var rule = _ruleEngine.Resolve(e, areaCode, _settings.ImportantOnly, entities);
+            // Server icons are opt-in: hide unless an enabled display rule explicitly matches.
+            if (rule is null or { Hide: true }) continue;
+
+            // De-duplicate against nearby live entities/landmarks that already mark the same spot.
+            if (IsNearExistingTarget(icon.Grid, entities, landmarks)) continue;
+
+            var (sprite, shape, size, color, opacity) = (rule.Sprite, rule.Shape, rule.Size, rule.Color, rule.Opacity);
+
+            var label = rule?.Label is { Length: > 0 } ruleLabel ? ruleLabel : icon.Name;
+            items.Add(new MapEntityRenderItem(
+                "s:" + icon.Key,
+                icon.Grid,
+                0f,
+                size,
+                PackColor(color, opacity),
+                sprite?.Clone(),
+                shape,
+                label));
+        }
+
+        return items.Count > 0 ? items.ToArray() : Array.Empty<MapEntityRenderItem>();
+    }
+
+    private static bool IsNearExistingTarget(NumVec2 grid, Poe2Live.EntityDot[] entities, Poe2Live.Landmark[] landmarks, float radius = 5f)
+    {
+        var r2 = radius * radius;
+        foreach (var e in entities)
+            if (NumVec2.DistanceSquared(e.Grid, grid) <= r2)
+                return true;
+        foreach (var lm in landmarks)
+            if (NumVec2.DistanceSquared(lm.Center, grid) <= r2)
+                return true;
+        return false;
     }
 
     private MapLandmarkRenderItem[] BuildMapLandmarkRenderItems(

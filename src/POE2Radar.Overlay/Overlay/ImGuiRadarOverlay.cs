@@ -526,6 +526,15 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     mapLabels.Add(new MapLabelCandidate("map:" + lm.Key, p, lm.Label, lm.Color, lm.Color));
             }
 
+            foreach (var s in ctx.MapServerIcons)
+            {
+                var p = Project(s.Grid, player, center, scale);
+                if (p.X < clipL - 40 || p.Y < clipT - 40 || p.X > clipR + 40 || p.Y > clipB + 40) continue;
+                DrawIconOrShapePacked(dl, p, s.Size, s.Color, s.Sprite, s.Shape, ctx.GlobalIconScale);
+                if (s.Label.Length > 0 && !MapLabelAlreadyPresent(mapLabels, s.Label))
+                    mapLabels.Add(new MapLabelCandidate("map:" + s.Key, p, s.Label, s.Color, s.Color));
+            }
+
             if (mapLabels.Count > 0)
                 DrawMapLabelChips(
                     dl,

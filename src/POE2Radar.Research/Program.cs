@@ -118,6 +118,9 @@ if (HasFlag(args, "--serverdata-diff"))
 if (HasFlag(args, "--serverdata"))
     return RunServerData(process, reader);
 
+if (HasFlag(args, "--server-icons"))
+    return RunServerIcons(process, reader);
+
 if (HasFlag(args, "--pagesnap"))
     return RunPageSnap(reader, TryGetStrArg(args, "--tag") ?? "atlas",
         TryGetHexArg(args, "--lo") ?? unchecked((nint)0x040100000000L), TryGetHexArg(args, "--hi") ?? unchecked((nint)0x040400000000L));
@@ -310,6 +313,7 @@ Console.WriteLine("  --dump <hexAddr> [--dump-len <N>]   hex-dump a region for i
 Console.WriteLine("  --presence [--diff]        baseline (then --diff) player components to find the presence-radius float");
 Console.WriteLine("  --devtree [--port N]       browser-based live memory/UI/entity explorer (default port 7778)");
 Console.WriteLine("  --serverdata               dump ServerData (AreaInstance+0x580): strings + StdVector quest-list candidates");
+Console.WriteLine("  --server-icons             scan ServerData / PlayerInfo for server-side minimap icon arrays");
 Console.WriteLine("  --aob                      scan for IngameState via AOB patterns");
 Console.WriteLine("  --mechanic-survey          group awake entities by endgame mechanic catalog matchers");
 return 0;
@@ -470,6 +474,125 @@ static int RunServerDataDiff(ProcessHandle process, MemoryReader reader)
     Console.WriteLine($"{changes} candidate changed dwords ({filtered} pointer/relocation changes filtered).");
     Console.WriteLine("For a clean read: flip ONE quest with minimal zoning between baseline and diff.");
     return 0;
+}
+
+// ── Server minimap icons probe ─────────────────────────────────────────────
+// AreaInstance+0x580 -> PlayerInfo; +0x00 -> ServerData. Scans ServerData for
+// inline arrays of 0xC0-byte structs whose layout matches server-side minimap
+// icons: row ptr @ +0x00, ID @ +0x10, grid X/Y @ +0x14/+0x18. The name is read
+// as *(row+0x00) -> UTF-16 string. Dumps candidates so we can validate the
+// exact vector offset and name catalog before wiring it into the overlay.
+static int RunServerIcons(ProcessHandle process, MemoryReader reader)
+{
+    var (_, _, ai, _) = ResolveChain(process, reader);
+    if (ai == 0) { Console.Error.WriteLine("Could not resolve chain (in game?)."); return 1; }
+
+    var playerInfo = ai + 0x580;
+    var serverData = SafePtr(reader, playerInfo);
+    var localPlayer = SafePtr(reader, playerInfo + 0x20);
+    var validatedPlayer = SafePtr(reader, ai + 0x5A0);
+    Console.WriteLine($"AreaInstance 0x{ai:X}  PlayerInfo(+0x580) 0x{playerInfo:X}");
+    Console.WriteLine($"  ServerDataPtr (+0x00) -> 0x{serverData:X}");
+    Console.WriteLine($"  LocalPlayerPtr(+0x20) -> 0x{localPlayer:X}   (AreaInstance+0x5A0 = 0x{validatedPlayer:X}, {(localPlayer == validatedPlayer && localPlayer != 0 ? "MATCH" : "mismatch")})");
+    if (serverData == 0) { Console.Error.WriteLine("ServerData null — wrong offset or not in game."); return 1; }
+    if (localPlayer != validatedPlayer) Console.WriteLine("⚠ LocalPlayer validation mismatch; results may be stale.");
+
+    const int iconStride = 0xC0;
+    const int scanLen = 0x28000;
+    var candidates = new List<(int off, int count)>();
+
+    // Scan ServerData object for inline 0xC0 arrays.
+    var sdBuf = new byte[scanLen];
+    var sdGot = reader.TryReadBytes(serverData, sdBuf);
+    if (sdGot < 0x1000) { Console.Error.WriteLine($"Could not read ServerData ({sdGot} bytes)."); return 1; }
+    Console.WriteLine($"  read 0x{sdGot:X} bytes of ServerData");
+
+    for (var off = 0; off + 16 <= sdGot; off += 8)
+    {
+        var first = BitConverter.ToInt64(sdBuf, off);
+        var last = BitConverter.ToInt64(sdBuf, off + 8);
+        if (first <= 0x100000000 || last < first || (ulong)first > 0x7FFFFFFFFFFF || (ulong)last > 0x7FFFFFFFFFFF) continue;
+        var span = last - first;
+        if (span <= 0 || span > 0x80000 || span % iconStride != 0) continue;
+        var n = (int)(span / iconStride);
+        if (n is >= 1 and <= 4000)
+            candidates.Add((off, n));
+    }
+
+    Console.WriteLine($"\n--- ServerData icon-vector candidates ({candidates.Count}) ---");
+    if (candidates.Count == 0)
+    {
+        Console.WriteLine("No plausible icon vectors found.");
+        return 0;
+    }
+
+    foreach (var (off, count) in candidates)
+    {
+        var first = reader.ReadPointer(serverData + off);
+        var last = reader.ReadPointer(serverData + off + 8);
+        Console.WriteLine($"\nServerData +0x{off:X3}: inline array, count={count}, First=0x{first:X}, Last=0x{last:X}");
+
+        var buf = new byte[count * iconStride];
+        if (reader.TryReadBytes(first, buf) != buf.Length)
+        {
+            Console.WriteLine("  (failed to read array)");
+            continue;
+        }
+
+        var validIcons = 0;
+        var names = new Dictionary<string, int>();
+        int? firstX = null;
+        var varied = false;
+
+        for (var i = 0; i < count; i++)
+        {
+            var b = buf.AsSpan(i * iconStride, iconStride);
+            var id = BitConverter.ToUInt32(b.Slice(0x10, 4));
+            var gx = BitConverter.ToInt32(b.Slice(0x14, 4));
+            var gy = BitConverter.ToInt32(b.Slice(0x18, 4));
+
+            if (gx <= 0 || gx > 5000 || gy <= 0 || gy > 5000) continue;
+
+            if (firstX is null) firstX = gx;
+            else if (gx != firstX) varied = true;
+
+            var name = ReadServerIconName(reader, BitConverter.ToUInt64(b.Slice(0x00, 8)));
+
+            validIcons++;
+            if (!string.IsNullOrWhiteSpace(name))
+                names[name] = names.GetValueOrDefault(name) + 1;
+
+            if (i < 30)
+                Console.WriteLine($"  [{i,3}] id=0x{id:X8} ({id}) grid=({gx,5},{gy,5}) name='{name}'");
+        }
+
+        Console.WriteLine($"  valid icons: {validIcons}/{count}, grid varied: {varied}");
+        if (names.Count > 0)
+        {
+            Console.WriteLine("  name histogram:");
+            foreach (var kv in names.OrderByDescending(kv => kv.Value).Take(12))
+                Console.WriteLine($"    '{kv.Key}' x{kv.Value}");
+        }
+        if (validIcons >= 2 && varied)
+            Console.WriteLine("  ★ strong candidate");
+    }
+
+    Console.WriteLine("\n--- summary ---");
+    Console.WriteLine("Look for a vector where entries have varied grid coords and recognizable names.");
+    Console.WriteLine("Once identified, update Poe2Offsets with the exact vector offset and icon field offsets.");
+    return 0;
+
+    static string ReadServerIconName(MemoryReader reader, ulong row)
+    {
+        if (row < 0x100000000 || row > 0x7FFFFFFFFFFF) return "";
+        var strPtr = SafePtr(reader, (nint)row);
+        if (strPtr == 0) return "";
+        var s = reader.ReadStringUtf16(strPtr, 64);
+        // PoE stores the string pointer at row+0x00, but sometimes it is itself a std::wstring object.
+        if (string.IsNullOrWhiteSpace(s) || s.Any(c => c < ' ' || c >= (char)0x7f))
+            s = ReadStdWString(reader, strPtr);
+        return s;
+    }
 }
 
 // ── PoE2 entity / component-map probe ──────────────────────────────────────

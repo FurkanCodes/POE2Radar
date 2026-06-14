@@ -94,6 +94,18 @@ public sealed class RadarSettings
     // One-time: low-impact cadence defaults (lower read rate by default without removing features).
     public bool PerformanceDefaultsMigrated { get; set; } = false;
 
+    // One-time: add server-authoritative minimap icon display rules (waypoint/entrance/checkpoint default on).
+    public bool ServerIconsMigrated { get; set; } = false;
+
+    // One-time: add server-icon mechanic rules (Abyss/Strongbox/Breach/Ritual) + catch-all.
+    public bool ServerIconMechanicsMigrated { get; set; } = false;
+
+    // One-time: add server-icon chest rule.
+    public bool ServerIconChestMigrated { get; set; } = false;
+
+    // One-time: add server-icon portal rule.
+    public bool ServerIconPortalMigrated { get; set; } = false;
+
     // ── Global multiplier on map icon sprite scale (PNG from icons.png). ──
     public float GlobalIconScale { get; set; } = 1.25f;
 
@@ -533,6 +545,9 @@ public sealed class RadarStyles
 
     // Tile landmarks (shape marker + text label at the group centroid).
     public IconStyle Landmark      { get; set; } = new("Diamond", "#F259F2", 1.00f, 10.0f, SpriteIconRef.Cell(1, 37, 1.25f));
+
+    // Server-authoritative minimap icons (waypoints, entrances, party members, league mechanics).
+    public IconStyle ServerIcon    { get; set; } = new("Star",    "#FFD700", 0.95f, 10.0f, SpriteIconRef.Cell(6, 57, 1.25f));
 
     // Metadata-matched overrides — seeded from <see cref="EndgameMechanicCatalog"/>.
     public List<MechanicStyle> Mechanics { get; set; } = EndgameMechanicCatalog.DefaultMechanicStyles();

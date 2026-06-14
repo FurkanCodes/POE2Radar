@@ -13,6 +13,8 @@ public sealed class LowImpactSnapshotTests
 
         Assert.Equal(typeof(Poe2Live.EntityDot[]), Property(properties, nameof(WorldSnapshot.Entities)).PropertyType);
         Assert.Equal(typeof(Poe2Live.Landmark[]), Property(properties, nameof(WorldSnapshot.Landmarks)).PropertyType);
+        Assert.Equal(typeof(Poe2Live.ServerMinimapIcon[]), Property(properties, nameof(WorldSnapshot.ServerIcons)).PropertyType);
+        Assert.Equal(typeof(MapEntityRenderItem[]), Property(properties, nameof(WorldSnapshot.MapServerIcons)).PropertyType);
         Assert.Equal(typeof(NavTarget[]), Property(properties, nameof(WorldSnapshot.NavTargets)).PropertyType);
         Assert.Equal(typeof(HpBarSpec[]), Property(properties, nameof(WorldSnapshot.HpSpecs)).PropertyType);
         Assert.Equal(typeof(LegendEntry[]), Property(properties, nameof(WorldSnapshot.Legend)).PropertyType);

@@ -421,6 +421,10 @@ public static class EntityDisplayHelper
         "Strongbox · Researcher", "Strongbox · Abyss",
         "Essence", "Shrine",
         "Summoning Circle", "Wisp", "Rogue Exile",
+        "ServerIcon · Waypoint", "ServerIcon · Entrance", "ServerIcon · Checkpoint",
+        "ServerIcon · PartyMember", "ServerIcon · Other",
+        "ServerIcon · Abyss", "ServerIcon · Strongbox", "ServerIcon · Breach", "ServerIcon · Ritual",
+        "ServerIcon · Chest", "ServerIcon · Portal",
     };
 
     public static bool IsMechanicRuleName(string name)

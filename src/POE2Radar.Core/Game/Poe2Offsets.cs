@@ -65,12 +65,24 @@ public static class Poe2
     {
         public const int AreaInfoPtr      = 0x0A0;  // ✓ → AreaInfo; +0x00 → UTF-16 "Code\0Name\0" (Code validated 'G1_town')
         public const int LocalPlayer      = 0x5A0;  // ✓ → player Entity (value-scanned player matched here)
-        public const int ServerDataPtr    = 0x580;  // candidate (heap ptr just before the player slot)
+        public const int ServerDataPtr    = 0x580;  // ✓ PlayerInfo base; +0x00 -> ServerData object, +0x20 -> LocalPlayer
         public const int AwakeEntities    = 0x6C0;  // ✓ StdMap of live entities (id→EntityPtr); validated size=378
         public const int SleepingEntities = 0x6D0;  // ✓ StdMap (validated size=58)
         public const int TerrainMetadata  = 0x8A0;  // ✓ TerrainStruct base (GH2's 0xD20 drifted)
         public const int CurrentAreaLevel = 0x0C4;  // ✓ int — per-area, validated 27/32 (GH2's 0xBC drifted)
         public const int CurrentAreaHash  = 0x11C;  // ✓ uint — per-area random hash (GH2's 0xFC drifted; +0x120 paired seed)
+    }
+
+    /// <summary>Server-side minimap icons stored inside ServerData (scanned dynamically).</summary>
+    public static class ServerIcon
+    {
+        public const int Stride    = 0xC0;    // ✓ inline array element size
+        public const int RowPtr    = 0x00;    // ✓ -> row; *(row+0x00) -> UTF-16 name
+        public const int ID        = 0x10;    // ✓
+        public const int GridX     = 0x14;    // ✓
+        public const int GridY     = 0x18;    // ✓
+        public const int ScanSpan  = 0x28000; // ✓ scan range within ServerData for the vector
+        public const int GridLimit = 5000;    // ✓ plausible grid upper bound
     }
 
     /// <summary>Entity StdMap conventions. Maps live at AreaInstance+0x6C0 (Awake) / +0x6D0 (Sleeping).</summary>

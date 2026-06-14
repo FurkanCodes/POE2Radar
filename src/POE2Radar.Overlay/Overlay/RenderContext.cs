@@ -156,8 +156,10 @@ public sealed record RenderContext(
     MapFrame MiniMapFrame,
     Poe2Live.EntityDot[] Entities,
     Poe2Live.Landmark[] Landmarks,
+    Poe2Live.ServerMinimapIcon[] ServerIcons,
     MapEntityRenderItem[] MapEntities,
     MapLandmarkRenderItem[] MapLandmarks,
+    MapEntityRenderItem[] MapServerIcons,
     uint AreaHash,
     Poe2Live.TerrainData? Terrain,
     // Live projection calibration (adjustable at runtime).

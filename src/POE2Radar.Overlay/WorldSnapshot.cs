@@ -39,7 +39,9 @@ public sealed record WorldSnapshot(
     string[] SelectedIds,
     SelectedPath[] SelectedPaths,
     MapEntityRenderItem[] MapEntities,
-    MapLandmarkRenderItem[] MapLandmarks)
+    MapLandmarkRenderItem[] MapLandmarks,
+    Poe2Live.ServerMinimapIcon[] ServerIcons,
+    MapEntityRenderItem[] MapServerIcons)
 {
     public static readonly WorldSnapshot Empty = new(
         false, 0, 0, "", 0,
@@ -52,5 +54,7 @@ public sealed record WorldSnapshot(
         Array.Empty<string>(),
         Array.Empty<SelectedPath>(),
         Array.Empty<MapEntityRenderItem>(),
-        Array.Empty<MapLandmarkRenderItem>());
+        Array.Empty<MapLandmarkRenderItem>(),
+        Array.Empty<Poe2Live.ServerMinimapIcon>(),
+        Array.Empty<MapEntityRenderItem>());
 }
