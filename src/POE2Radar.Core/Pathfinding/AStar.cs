@@ -5,7 +5,7 @@ namespace POE2Radar.Core.Pathfinding;
 /// closers, so there is no per-step action.</summary>
 public readonly record struct PathCell(int X, int Y);
 
-public readonly record struct Path(bool Found, float Cost, IReadOnlyList<PathCell> Cells)
+public readonly record struct Path(bool Found, float Cost, IReadOnlyList<PathCell> Cells, bool IsPartial = false)
 {
     public static readonly Path NoPath = new(false, 0f, Array.Empty<PathCell>());
 }
@@ -138,6 +138,8 @@ public sealed class AStar
     /// <summary>
     /// Pathfind from <paramref name="start"/> to the first reachable cell in <paramref name="goals"/>.
     /// The original goal center is used only as an A* hint; any candidate goal may terminate the search.
+    /// When <paramref name="allowPartialPath"/> is true and no goal is reachable, returns a path to the
+    /// visited cell that got closest to the goal instead of <see cref="Path.NoPath"/>.
     /// </summary>
     public Path FindPathToAny(
         ICellReader pf,
@@ -145,7 +147,8 @@ public sealed class AStar
         IReadOnlyCollection<PathCell> goals,
         PathCell heuristicGoal,
         int maxNodes = 200_000,
-        bool flatCost = false)
+        bool flatCost = false,
+        bool allowPartialPath = false)
     {
         if (pf.Width != _width || pf.Height != _height)
             throw new ArgumentException($"Reader dims {pf.Width}x{pf.Height} != A* dims {_width}x{_height}");
@@ -177,14 +180,25 @@ public sealed class AStar
         _generation[startIdx] = _currentGen;
         open.Enqueue(startIdx, Heuristic(sx, sy, hx, hy));
 
+        // If the search cannot reach the goal, fall back to the visited cell that got closest to it.
+        var bestPartialIdx = -1;
+        var bestPartialHeuristic = float.MaxValue;
+
         var dequeued = 0;
         while (open.TryDequeue(out var currentIdx, out _) && dequeued++ < maxNodes)
         {
+            var cx = currentIdx % _width;
+            var cy = currentIdx / _width;
+            var h = Heuristic(cx, cy, hx, hy);
+            if (h < bestPartialHeuristic)
+            {
+                bestPartialHeuristic = h;
+                bestPartialIdx = currentIdx;
+            }
+
             if (goalSet.Contains(currentIdx))
                 return ReconstructPath(currentIdx, _gScore[currentIdx]);
 
-            var cx = currentIdx % _width;
-            var cy = currentIdx / _width;
             var currentG = _gScore[currentIdx];
 
             foreach (var (dx, dy, baseCost) in Neighbors)
@@ -211,6 +225,9 @@ public sealed class AStar
             }
         }
 
+        if (allowPartialPath && bestPartialIdx != -1 && bestPartialIdx != startIdx)
+            return ReconstructPath(bestPartialIdx, _gScore[bestPartialIdx], isPartial: true);
+
         return Path.NoPath;
     }
 
@@ -232,7 +249,7 @@ public sealed class AStar
     private static bool CanMoveDiagonal(ICellReader pf, int x, int y, int dx, int dy)
         => pf.Read(x + dx, y) > 0 && pf.Read(x, y + dy) > 0;
 
-    private Path ReconstructPath(int goalIdx, float cost)
+    private Path ReconstructPath(int goalIdx, float cost, bool isPartial = false)
     {
         var cells = new List<PathCell>();
         var idx = goalIdx;
@@ -242,7 +259,7 @@ public sealed class AStar
             idx = _cameFrom[idx];
         }
         cells.Reverse();
-        return new Path(true, cost, cells);
+        return new Path(true, cost, cells, isPartial);
     }
 
     private (int x, int y) SnapToWalkable(ICellReader pf, int x, int y, int maxRadius = 32)

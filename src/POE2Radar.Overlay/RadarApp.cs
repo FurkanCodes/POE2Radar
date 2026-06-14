@@ -97,6 +97,8 @@ public sealed partial class RadarApp : IDisposable
     private static string ConfigDir => Path.Combine(AppContext.BaseDirectory, "config");
 
     private List<Poe2Live.EntityDot> _entities = new();
+    private int _lastLoggedAwakeCount = -1;
+    private int _lastLoggedSleepingCount = -1;
     // Monster HP-bar pipeline. _hpSpecs (style + which mobs get a bar) is rebuilt at WORLD rate from the
     // resolved rules; _hpFrame (live position + HP) is rebuilt every RENDER frame from cheap per-mob reads
     // so bars track moving monsters smoothly without re-enumerating/re-resolving thousands of entities.
@@ -1970,7 +1972,8 @@ public sealed partial class RadarApp : IDisposable
             ((int)MathF.Round(info.Grid.X), (int)MathF.Round(info.Grid.Y)),
             info.GoalSearchRadius,
             info.RouteAnchors,
-            _worldDoorOverrides));
+            _worldDoorOverrides,
+            AllowPartialPath: true));
     }
 
     private string TargetLabel(string id)

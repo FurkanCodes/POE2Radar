@@ -27,7 +27,8 @@ public sealed class PathPlanner
         bool GoalSnapped = false,
         int CandidateCount = 0,
         int TerrainWidth = 0,
-        int TerrainHeight = 0)
+        int TerrainHeight = 0,
+        bool IsPartial = false)
     {
         public static RoutePlanResult Failure(
             RoutePlanStatus status,
@@ -41,7 +42,7 @@ public sealed class PathPlanner
             int terrainWidth = 0,
             int terrainHeight = 0)
             => new(status, null, Array.Empty<(int, int)>(), reason, ms,
-                startCell, goalCell, startSnapped, goalSnapped, candidateCount, terrainWidth, terrainHeight);
+                startCell, goalCell, startSnapped, goalSnapped, candidateCount, terrainWidth, terrainHeight, false);
     }
 
     /// <summary>
@@ -67,7 +68,8 @@ public sealed class PathPlanner
         int goalSearchRadius = 24,
         IReadOnlyList<PathCell>? targetAnchors = null,
         IReadOnlyList<PathCell>? forcedWalkable = null,
-        int maxNodes = 1_000_000)
+        int maxNodes = 1_000_000,
+        bool allowPartialPath = false)
     {
         var sw = Stopwatch.StartNew();
 
@@ -107,13 +109,20 @@ public sealed class PathPlanner
                 sw.Elapsed.TotalMilliseconds,
                 (startCell.X, startCell.Y), goal, startSnapped, false, 0, terrain.Width, terrain.Height);
 
+        // Long cross-map routes need a larger node budget; short local routes stay cheap.
+        var straightDist = MathF.Sqrt(
+            (goal.x - startCell.X) * (goal.x - startCell.X) +
+            (goal.y - startCell.Y) * (goal.y - startCell.Y));
+        var adaptiveMaxNodes = straightDist > 500f ? 2_000_000 : maxNodes;
+
         var path = _astar.FindPathToAny(
             reader,
             startCell,
             candidates,
             goalCell,
-            maxNodes,
-            flatCost: true);
+            adaptiveMaxNodes,
+            flatCost: true,
+            allowPartialPath);
 
         if (!path.Found || path.Cells.Count == 0)
             return PathPlanner.RoutePlanResult.Failure(
@@ -132,7 +141,7 @@ public sealed class PathPlanner
             RoutePlanStatus.Planned,
             (resolved.X, resolved.Y),
             result,
-            "",
+            path.IsPartial ? "partial path" : "",
             sw.Elapsed.TotalMilliseconds,
             (startCell.X, startCell.Y),
             goal,
@@ -140,8 +149,11 @@ public sealed class PathPlanner
             false,
             candidates.Count,
             terrain.Width,
-            terrain.Height);
+            terrain.Height,
+            path.IsPartial);
     }
+
+    private const int MaxGoalCandidates = 64;
 
     private static List<PathCell> BuildGoalCandidates(
         ICellReader reader,
@@ -166,6 +178,9 @@ public sealed class PathPlanner
             var db = DistanceSquared(b, goal);
             return da.CompareTo(db);
         });
+
+        if (candidates.Count > MaxGoalCandidates)
+            candidates.RemoveRange(MaxGoalCandidates, candidates.Count - MaxGoalCandidates);
         return candidates;
     }
 

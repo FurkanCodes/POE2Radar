@@ -62,8 +62,12 @@ public sealed partial class RadarApp
             var (entityDots, awakeCount, sleepingCount) = _worldLive.Entities(areaInstance);
             entities = entityDots;
             _worldDoorOverrides = BuildDoorOverrides(entities);
-            if (_settings.ShowPerfStats && (awakeCount > 0 || sleepingCount > 0))
+            if (_settings.ShowPerfStats && (awakeCount != _lastLoggedAwakeCount || sleepingCount != _lastLoggedSleepingCount))
+            {
                 Console.WriteLine($"[entities] awake={awakeCount} sleeping={sleepingCount} total={entities.Count}");
+                _lastLoggedAwakeCount = awakeCount;
+                _lastLoggedSleepingCount = sleepingCount;
+            }
             if (localPlayer != 0)
                 entities = entities.Where(e => e.Address != localPlayer).ToList();
             if (_hidden.Count > 0)
@@ -194,7 +198,7 @@ public sealed partial class RadarApp
             if (_settings.ShowPerfStats)
             {
                 var status = r.Status == RoutePlanStatus.Planned
-                    ? $"{r.Waypoints.Count} waypoints"
+                    ? $"{r.Waypoints.Count} waypoints{(r.IsPartial ? " (partial)" : "")}"
                     : $"{r.Status} ({r.FailureReason})";
                 Console.WriteLine($"replan: {TargetLabel(r.TargetId)} = {status}, {r.PlanMilliseconds:F1} ms");
                 if (r.Status != RoutePlanStatus.Planned)
@@ -211,9 +215,18 @@ public sealed partial class RadarApp
     {
         if (!id.StartsWith("e:", StringComparison.Ordinal) || !uint.TryParse(id.AsSpan(2), out var entityId))
             return false;
-        foreach (var e in _entities)
-            if (e.Id == entityId)
-                return e.IsSleeping;
+        try
+        {
+            // Take a snapshot reference to avoid races if the world thread swaps _entities mid-loop.
+            var snapshot = _entities;
+            foreach (var e in snapshot)
+                if (e.Id == entityId)
+                    return e.IsSleeping;
+        }
+        catch (InvalidOperationException)
+        {
+            // Collection was modified mid-enumeration; ignore this diagnostic tick.
+        }
         return false;
     }
 

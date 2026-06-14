@@ -28,7 +28,8 @@ public sealed class BackgroundReplanner : IDisposable
         (int x, int y) Goal,
         int GoalSearchRadius,
         PathCell[] TargetAnchors,
-        PathCell[] DoorOverrides);
+        PathCell[] DoorOverrides,
+        bool AllowPartialPath = false);
 
     /// <summary>A finished route: the smoothed waypoints for <paramref name="TargetId"/> toward
     /// <paramref name="Goal"/>.</summary>
@@ -46,7 +47,8 @@ public sealed class BackgroundReplanner : IDisposable
         bool StartSnapped = false,
         int CandidateCount = 0,
         int TerrainWidth = 0,
-        int TerrainHeight = 0);
+        int TerrainHeight = 0,
+        bool IsPartial = false);
 
     // Only the worker thread ever touches this planner → its A* buffers are never used concurrently.
     private readonly PathPlanner _planner = new();
@@ -123,7 +125,8 @@ public sealed class BackgroundReplanner : IDisposable
                         req.Goal,
                         req.GoalSearchRadius,
                         req.TargetAnchors,
-                        req.DoorOverrides);
+                        req.DoorOverrides,
+                        allowPartialPath: req.AllowPartialPath);
                     _results.Enqueue(new Result(
                         req.TargetId,
                         (req.Goal.x, req.Goal.y),
@@ -137,7 +140,8 @@ public sealed class BackgroundReplanner : IDisposable
                         plan.StartSnapped,
                         plan.CandidateCount,
                         plan.TerrainWidth,
-                        plan.TerrainHeight));
+                        plan.TerrainHeight,
+                        plan.IsPartial));
                 }
                 catch (Exception ex)
                 {
@@ -157,7 +161,8 @@ public sealed class BackgroundReplanner : IDisposable
                         false,
                         0,
                         req.Terrain.Width,
-                        req.Terrain.Height));
+                        req.Terrain.Height,
+                        false));
                 }
             }
         }
