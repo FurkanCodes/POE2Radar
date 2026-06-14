@@ -197,8 +197,24 @@ public sealed partial class RadarApp
                     ? $"{r.Waypoints.Count} waypoints"
                     : $"{r.Status} ({r.FailureReason})";
                 Console.WriteLine($"replan: {TargetLabel(r.TargetId)} = {status}, {r.PlanMilliseconds:F1} ms");
+                if (r.Status != RoutePlanStatus.Planned)
+                {
+                    var targetSleeping = IsTargetSleeping(r.TargetId);
+                    var dist = NumVec2.Distance(new NumVec2(r.Goal.x, r.Goal.y), player);
+                    Console.WriteLine($"  diag: targetSleeping={targetSleeping} playerGrid=({player.X:F1},{player.Y:F1}) start=({r.StartCell.x},{r.StartCell.y}) goal=({r.GoalCell.x},{r.GoalCell.y}) dist={dist:F1} candidates={r.CandidateCount} terrain={r.TerrainWidth}x{r.TerrainHeight} startSnapped={r.StartSnapped}");
+                }
             }
         }
+    }
+
+    private bool IsTargetSleeping(string id)
+    {
+        if (!id.StartsWith("e:", StringComparison.Ordinal) || !uint.TryParse(id.AsSpan(2), out var entityId))
+            return false;
+        foreach (var e in _entities)
+            if (e.Id == entityId)
+                return e.IsSleeping;
+        return false;
     }
 
     private void BuildRenderPaths(NumVec2 player, WorldSnapshot snap)

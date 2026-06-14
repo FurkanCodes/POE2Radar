@@ -19,10 +19,29 @@ public sealed class PathPlanner
         (int x, int y)? ResolvedGoal,
         IReadOnlyList<(int x, int y)> Waypoints,
         string FailureReason,
-        double PlanMilliseconds)
+        double PlanMilliseconds,
+        // Diagnostic fields populated for failure analysis.
+        (int x, int y) StartCell = default,
+        (int x, int y) GoalCell = default,
+        bool StartSnapped = false,
+        bool GoalSnapped = false,
+        int CandidateCount = 0,
+        int TerrainWidth = 0,
+        int TerrainHeight = 0)
     {
-        public static RoutePlanResult Failure(RoutePlanStatus status, string reason, double ms = 0)
-            => new(status, null, Array.Empty<(int, int)>(), reason, ms);
+        public static RoutePlanResult Failure(
+            RoutePlanStatus status,
+            string reason,
+            double ms = 0,
+            (int x, int y) startCell = default,
+            (int x, int y) goalCell = default,
+            bool startSnapped = false,
+            bool goalSnapped = false,
+            int candidateCount = 0,
+            int terrainWidth = 0,
+            int terrainHeight = 0)
+            => new(status, null, Array.Empty<(int, int)>(), reason, ms,
+                startCell, goalCell, startSnapped, goalSnapped, candidateCount, terrainWidth, terrainHeight);
     }
 
     /// <summary>
@@ -53,7 +72,8 @@ public sealed class PathPlanner
         var sw = Stopwatch.StartNew();
 
         if (terrain.Width <= 0 || terrain.Height <= 0 || terrain.Walkable.Length == 0)
-            return PathPlanner.RoutePlanResult.Failure(RoutePlanStatus.WaitingForTerrain, "terrain unavailable");
+            return PathPlanner.RoutePlanResult.Failure(RoutePlanStatus.WaitingForTerrain, "terrain unavailable", sw.Elapsed.TotalMilliseconds,
+                start, goal, false, false, 0, terrain.Width, terrain.Height);
 
         if (_astar is null || _gridWidth != terrain.Width || _gridHeight != terrain.Height)
         {
@@ -64,6 +84,7 @@ public sealed class PathPlanner
 
         var reader = new TerrainCellReader(terrain, forcedWalkable);
         var startCell = Clamp(new PathCell(start.x, start.y), terrain.Width, terrain.Height);
+        var startSnapped = false;
         if (reader.Read(startCell.X, startCell.Y) == 0)
         {
             var snapped = FindNearestWalkable(reader, startCell, maxRadius: 8);
@@ -71,8 +92,10 @@ public sealed class PathPlanner
                 return PathPlanner.RoutePlanResult.Failure(
                     RoutePlanStatus.NoWalkableStart,
                     "player is not on reachable walkable terrain",
-                    sw.Elapsed.TotalMilliseconds);
+                    sw.Elapsed.TotalMilliseconds,
+                    (startCell.X, startCell.Y), goal, startSnapped, false, 0, terrain.Width, terrain.Height);
             startCell = snapped.Value;
+            startSnapped = true;
         }
 
         var goalCell = Clamp(new PathCell(goal.x, goal.y), terrain.Width, terrain.Height);
@@ -81,7 +104,8 @@ public sealed class PathPlanner
             return PathPlanner.RoutePlanResult.Failure(
                 RoutePlanStatus.NoReachableGoal,
                 "no walkable cell near target",
-                sw.Elapsed.TotalMilliseconds);
+                sw.Elapsed.TotalMilliseconds,
+                (startCell.X, startCell.Y), goal, startSnapped, false, 0, terrain.Width, terrain.Height);
 
         var path = _astar.FindPathToAny(
             reader,
@@ -95,7 +119,8 @@ public sealed class PathPlanner
             return PathPlanner.RoutePlanResult.Failure(
                 RoutePlanStatus.NoPath,
                 "target area is not reachable from player",
-                sw.Elapsed.TotalMilliseconds);
+                sw.Elapsed.TotalMilliseconds,
+                (startCell.X, startCell.Y), goal, startSnapped, false, candidates.Count, terrain.Width, terrain.Height);
 
         var smoothed = PathSmoother.Smooth(reader, path.Cells, minWalkable: 1);
         var result = new (int x, int y)[smoothed.Count];
@@ -108,7 +133,14 @@ public sealed class PathPlanner
             (resolved.X, resolved.Y),
             result,
             "",
-            sw.Elapsed.TotalMilliseconds);
+            sw.Elapsed.TotalMilliseconds,
+            (startCell.X, startCell.Y),
+            goal,
+            startSnapped,
+            false,
+            candidates.Count,
+            terrain.Width,
+            terrain.Height);
     }
 
     private static List<PathCell> BuildGoalCandidates(

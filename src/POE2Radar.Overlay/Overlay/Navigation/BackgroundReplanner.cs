@@ -39,7 +39,14 @@ public sealed class BackgroundReplanner : IDisposable
         (int x, int y)? ResolvedGoal,
         IReadOnlyList<(int x, int y)> Waypoints,
         string FailureReason,
-        double PlanMilliseconds);
+        double PlanMilliseconds,
+        // Diagnostic fields populated for failure analysis.
+        (int x, int y) StartCell = default,
+        (int x, int y) GoalCell = default,
+        bool StartSnapped = false,
+        int CandidateCount = 0,
+        int TerrainWidth = 0,
+        int TerrainHeight = 0);
 
     // Only the worker thread ever touches this planner → its A* buffers are never used concurrently.
     private readonly PathPlanner _planner = new();
@@ -124,7 +131,13 @@ public sealed class BackgroundReplanner : IDisposable
                         plan.ResolvedGoal,
                         plan.Waypoints,
                         plan.FailureReason,
-                        plan.PlanMilliseconds));
+                        plan.PlanMilliseconds,
+                        plan.StartCell,
+                        plan.GoalCell,
+                        plan.StartSnapped,
+                        plan.CandidateCount,
+                        plan.TerrainWidth,
+                        plan.TerrainHeight));
                 }
                 catch (Exception ex)
                 {
@@ -138,7 +151,13 @@ public sealed class BackgroundReplanner : IDisposable
                         null,
                         Array.Empty<(int, int)>(),
                         ex.Message,
-                        0));
+                        0,
+                        req.Start,
+                        req.Goal,
+                        false,
+                        0,
+                        req.Terrain.Width,
+                        req.Terrain.Height));
                 }
             }
         }
