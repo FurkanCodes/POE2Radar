@@ -59,8 +59,11 @@ public sealed partial class RadarApp
         if (!_atlasOpen)
         {
             _worldTerrain ??= _worldLive.Terrain(areaInstance);
-            entities = _worldLive.Entities(areaInstance);
+            var (entityDots, awakeCount, sleepingCount) = _worldLive.Entities(areaInstance);
+            entities = entityDots;
             _worldDoorOverrides = BuildDoorOverrides(entities);
+            if (_settings.ShowPerfStats && (awakeCount > 0 || sleepingCount > 0))
+                Console.WriteLine($"[entities] awake={awakeCount} sleeping={sleepingCount} total={entities.Count}");
             if (localPlayer != 0)
                 entities = entities.Where(e => e.Address != localPlayer).ToList();
             if (_hidden.Count > 0)

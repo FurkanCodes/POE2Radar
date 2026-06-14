@@ -28,6 +28,7 @@ public sealed partial class Poe2Live
     private readonly Dictionary<nint, nint> _iconAddr = new();     // entity → MinimapIcon component (0 = none); game POI
     private readonly Dictionary<nint, Rarity> _rarity = new();     // entity → rarity (static per spawn; cached)
     private readonly Dictionary<nint, uint> _idAt = new();         // entity address → last-seen std::map key id (recycle guard)
+    private readonly HashSet<nint> _lastSleeping = new();          // entities seen in SleepingEntities last tick; evict render cache when they wake
     private nint _entCacheKey;   // AreaInstance address the entity caches were built for
 
     // Reused across Entities() calls (tick thread only) to avoid per-tick allocations. The std::map
@@ -52,7 +53,7 @@ public sealed partial class Poe2Live
 
     public readonly record struct EntityDot(
         uint Id, nint Address, System.Numerics.Vector2 Grid, Vector3 World, float TerrainHeight, EntityCategory Category, string Metadata,
-        int HpCur, int HpMax, bool Poi, byte Reaction, Rarity Rarity, bool Opened, bool IconComplete = false)
+        int HpCur, int HpMax, bool Poi, byte Reaction, Rarity Rarity, bool Opened, bool IconComplete = false, bool IsSleeping = false)
     {
         /// <summary>Monsters are "alive" only with positive HP; non-life entities are always shown.</summary>
         public bool IsAlive => HpMax <= 0 || HpCur > 0;
@@ -310,24 +311,35 @@ public sealed partial class Poe2Live
     }
 
     /// <summary>
-    /// Walk the awake-entity std::map and project each to a grid dot with a category. Visuals /
-    /// decorations (id ≥ 0x40000000) are skipped. Render addresses + categories are cached per
-    /// entity for the area's lifetime; the per-tick cost is then ~1 pointer read per entity.
+    /// Walk both the awake and sleeping entity std::maps and project each to a grid dot with a
+    /// category. Visuals / decorations (id ≥ 0x40000000) are skipped. Render addresses + categories
+    /// are cached per entity for the area's lifetime; the per-tick cost is then ~1 pointer read per
+    /// entity. Sleeping entities are merged so far targets (bosses, gates, objectives) are visible
+    /// before the player gets close enough to wake them.
     /// </summary>
-    public List<EntityDot> Entities(nint areaInstance)
+    public (List<EntityDot> Dots, int AwakeCount, int SleepingCount) Entities(nint areaInstance)
     {
         if (areaInstance != _entCacheKey)
         {
             _renderAddr.Clear(); _lifeAddr.Clear(); _posAddr.Clear(); _ompAddr.Clear(); _chestAddr.Clear();
             _category.Clear(); _meta.Clear(); _iconAddr.Clear(); _rarity.Clear(); _idAt.Clear();
+            _lastSleeping.Clear();
             _entCacheKey = areaInstance;
         }
 
-        var dots = new List<EntityDot>(256);
-        var head = Ptr(areaInstance + Poe2.AreaInstance.AwakeEntities);
-        _reader.TryReadStruct<int>(areaInstance + Poe2.AreaInstance.AwakeEntities + 8, out var size);
-        if (head == 0 || size <= 0 || size > 100000) return dots;
+        var byId = new Dictionary<uint, EntityDot>(512);
+        int awakeCount = WalkEntityMap(areaInstance + Poe2.AreaInstance.AwakeEntities, byId, isSleeping: false);
+        int sleepingCount = WalkEntityMap(areaInstance + Poe2.AreaInstance.SleepingEntities, byId, isSleeping: true);
+        return (byId.Values.ToList(), awakeCount, sleepingCount);
+    }
 
+    private int WalkEntityMap(nint mapBase, Dictionary<uint, EntityDot> byId, bool isSleeping)
+    {
+        var head = Ptr(mapBase);
+        _reader.TryReadStruct<int>(mapBase + 8, out var size);
+        if (head == 0 || size <= 0 || size > 100000) return 0;
+
+        int count = 0;
         var root = Ptr(head + Poe2.StdMapNode.Parent);
         _entQueue.Clear(); _entQueue.Enqueue(root);
         _entVisited.Clear();
@@ -337,7 +349,7 @@ public sealed partial class Poe2Live
             if (node == 0 || node == head || !_entVisited.Add(node)) continue;
 
             // One read for the whole node — Left/Right/IsNil/KeyId/ValueEntityPtr are contiguous in
-            // 48 bytes, so this replaces 5 separate ReadProcessMemory syscalls per node with one.
+            // 48 bytes, so this replaces 5 separate ReadProcessMemory syscalls with one.
             if (_reader.TryReadBytes(node, _nodeBuf) < _nodeBuf.Length) continue;
             if (_nodeBuf[Poe2.StdMapNode.IsNil] != 0) continue; // sentinel/nil — don't traverse its children
 
@@ -348,6 +360,9 @@ public sealed partial class Poe2Live
 
             if (entity == 0 || id >= Poe2.EntityList.VisualIdThreshold) continue;
 
+            // Awake map wins if the same id appears in both maps.
+            if (byId.ContainsKey(id)) continue;
+
             // Recycle guard: entity object addresses are reused within an area as things die/spawn.
             // The std::map key id is the stable per-entity identity (monotonic, never reused in an
             // area), so if THIS address now carries a different id than we cached it under, the prior
@@ -357,8 +372,24 @@ public sealed partial class Poe2Live
             if (_idAt.TryGetValue(entity, out var prevId) && prevId != id) EvictEntity(entity);
             _idAt[entity] = id;
 
+            if (isSleeping)
+            {
+                _lastSleeping.Add(entity);
+            }
+            else if (_lastSleeping.Remove(entity))
+            {
+                // This entity was sleeping last tick and is now awake. Its Render/Life/etc. components
+                // may have become valid, so evict the frozen component addresses to force re-resolution.
+                EvictEntity(entity);
+            }
+
             var world = EntityWorld(entity);
-            if (world is not { } wv) continue;
+            if (world is not { } wv)
+            {
+                // Sleeping entities may not have an active Render component. Scan the component list
+                // for a plausible world-coordinate pair so we can still show/navigate to far targets.
+                if (!isSleeping || !TryFindWorldCoordInComponents(entity, out wv)) continue;
+            }
             var g = new System.Numerics.Vector2(wv.X / Poe2.WorldToGridRatio, wv.Y / Poe2.WorldToGridRatio);
             var terrainHeight = EntityTerrainHeight(entity) ?? 0f;
 
@@ -373,10 +404,11 @@ public sealed partial class Poe2Live
                 opened = ReadChestOpened(entity);
 
             var (poi, iconComplete) = ReadIcon(entity);
-            dots.Add(new EntityDot(id, entity, g, wv, terrainHeight, cat, _meta.GetValueOrDefault(entity, ""), hpCur, hpMax,
-                poi, ReadReaction(entity), rarity, opened, iconComplete));
+            byId[id] = new EntityDot(id, entity, g, wv, terrainHeight, cat, _meta.GetValueOrDefault(entity, ""), hpCur, hpMax,
+                poi, ReadReaction(entity), rarity, opened, iconComplete, isSleeping);
+            count++;
         }
-        return dots;
+        return count;
     }
 
     /// <summary>Drop every frozen per-entity cache entry for an address whose occupant has changed
@@ -1175,6 +1207,45 @@ public sealed partial class Poe2Live
 
     private System.Numerics.Vector2? EntityGrid(nint entity)
         => EntityWorld(entity) is { } w ? new System.Numerics.Vector2(w.X / Poe2.WorldToGridRatio, w.Y / Poe2.WorldToGridRatio) : null;
+
+    /// <summary>
+    /// Fallback world-position discovery for entities whose Render component is missing or invalid
+    /// (common for sleeping/far entities). Scans each component pointer in the entity's component
+    /// list for a pair of floats that look like plausible world X/Y coordinates. This mirrors the
+    /// recovery strategy used by other PoE2 readers and lets us show/navigate to targets before the
+    /// client wakes them up.
+    /// </summary>
+    private bool TryFindWorldCoordInComponents(nint entity, out Vector3 world)
+    {
+        world = default;
+        if (!_reader.TryReadStruct<StdVector>(entity + Poe2.Entity.ComponentList, out var compList)) return false;
+        var compCount = ((long)compList.Last - (long)compList.First) / 8;
+        if (compCount is <= 0 or > 256) return false;
+
+        const int scanBytes = 0x600;
+        Span<byte> buf = stackalloc byte[scanBytes];
+        for (long i = 0; i < compCount; i++)
+        {
+            var comp = Ptr(compList.First + (nint)(i * 8));
+            if (comp == 0) continue;
+            if (_reader.TryReadBytes(comp, buf) < scanBytes) continue;
+
+            for (var off = 0; off + 12 <= scanBytes; off += 4)
+            {
+                var x = BitConverter.ToSingle(buf.Slice(off, 4));
+                var y = BitConverter.ToSingle(buf.Slice(off + 4, 4));
+                var z = BitConverter.ToSingle(buf.Slice(off + 8, 4));
+                if (!IsPlausibleWorldCoord(x) || !IsPlausibleWorldCoord(y)) continue;
+                if (!float.IsFinite(z) || MathF.Abs(z) > 500f) continue;
+                world = new Vector3 { X = x, Y = y, Z = z };
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool IsPlausibleWorldCoord(float f)
+        => float.IsFinite(f) && MathF.Abs(f) is >= 50f and <= 100000f;
 
     /// <summary>Chest opened state. The 2026-06-06 patch INVERTED this flag: Chest +0x168 is now 0
     /// while closed/openable and non-zero once opened/used (was the reverse). Validated live by diffing

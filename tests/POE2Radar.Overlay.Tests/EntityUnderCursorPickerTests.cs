@@ -9,7 +9,7 @@ namespace POE2Radar.Overlay.Tests;
 
 public sealed class EntityUnderCursorPickerTests
 {
-    private static Poe2Live.EntityDot Dot(float gridX, float gridY, float worldX, float worldY, string metadata = "Metadata/Monsters/Foo")
+    private static Poe2Live.EntityDot Dot(float gridX, float gridY, float worldX, float worldY, string metadata = "Metadata/Monsters/Foo", bool isSleeping = false)
         => new(
             Id: 1,
             Address: 0x1000,
@@ -24,7 +24,8 @@ public sealed class EntityUnderCursorPickerTests
             Reaction: 0,
             Rarity: Poe2Live.Rarity.Normal,
             Opened: false,
-            IconComplete: false);
+            IconComplete: false,
+            IsSleeping: isSleeping);
 
     [Fact]
     public void TryPick_WorldView_FindsEntityNearProjectedScreenPoint()

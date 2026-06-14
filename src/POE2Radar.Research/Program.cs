@@ -1484,7 +1484,7 @@ static int RunMechanicSurvey(ProcessHandle process, MemoryReader reader)
         return 1;
     }
 
-    var entities = live.Entities(ai);
+    var (entities, _, _) = live.Entities(ai);
     var byMech = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
     var unmatchedPoi = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
