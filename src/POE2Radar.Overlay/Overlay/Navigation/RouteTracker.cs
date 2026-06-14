@@ -24,14 +24,12 @@ public sealed class RouteTracker
     private const double HeadingWindowSec    = 0.3;   // sliding window for the player's heading estimate
     private const float  HeadingMinCells     = 2f;    // ignore heading below this magnitude (standing still)
     private const float  NegativeProgressDot = -0.3f; // heading·toGoal below this = walking the wrong way
-    private const float  SimpleReplanPlayerCells = 30f; // v1.3.0: replan after this much player travel
 
     /// <summary>Current smoothed waypoints (full path; <see cref="_cursor"/> marks how far we've walked).</summary>
     private List<(int x, int y)> _waypoints = new();
     private int _cursor;
     private DateTime _lastReplanUtc = DateTime.MinValue;
     private NumVec2 _lastGoal = new(float.MinValue, float.MinValue);
-    private NumVec2 _lastReplanPlayerGrid = new(float.MinValue, float.MinValue);
 
     // Short heading history (recent player positions + capture times, ~HeadingWindowSec window).
     private readonly List<(NumVec2 pos, DateTime at)> _history = new();
@@ -90,9 +88,8 @@ public sealed class RouteTracker
     /// <summary>
     /// Should we kick off a full background replan? True when the cooldown has elapsed AND any
     /// trigger fires: off-path, negative progress (walking away), the goal moved, or staleness.
-    /// When <paramref name="simpleMode"/> is true, uses v1.3.0-style triggers only.
     /// </summary>
-    public bool ShouldReplan(NumVec2 playerGrid, NumVec2 currentGoalGrid, bool simpleMode = false)
+    public bool ShouldReplan(NumVec2 playerGrid, NumVec2 currentGoalGrid)
     {
         var now = DateTime.UtcNow;
         if ((now - _lastReplanUtc).TotalSeconds < ReplanCooldownSec) return false;
@@ -100,10 +97,6 @@ public sealed class RouteTracker
         if (_waypoints.Count == 0) return true;
         if (Status != RoutePlanStatus.Planned) return true;
         if (GoalMoved(currentGoalGrid)) return true;
-
-        if (simpleMode)
-            return PlayerMovedSinceReplan(playerGrid);
-
         if ((now - _lastReplanUtc).TotalSeconds > StaleSec) return true;
         if (OffPath(playerGrid)) return true;
         if (NegativeProgress(playerGrid)) return true;
@@ -111,15 +104,14 @@ public sealed class RouteTracker
     }
 
     /// <summary>Swap in a freshly-planned path: reset the cursor, stamp the replan time + goal, clear in-flight.</summary>
-    public void ApplyResult(IReadOnlyList<(int x, int y)> waypoints, NumVec2 goal, NumVec2? replanPlayerGrid = null)
+    public void ApplyResult(IReadOnlyList<(int x, int y)> waypoints, NumVec2 goal)
         => ApplyResult(
             waypoints.Count > 0 ? RoutePlanStatus.Planned : RoutePlanStatus.NoPath,
             waypoints,
             goal,
             waypoints.Count > 0 ? ((int)MathF.Round(goal.X), (int)MathF.Round(goal.Y)) : null,
             waypoints.Count > 0 ? "" : "no path",
-            0,
-            replanPlayerGrid);
+            0);
 
     public void ApplyResult(BackgroundReplanner.Result result, NumVec2 playerGrid)
         => ApplyResult(
@@ -128,8 +120,7 @@ public sealed class RouteTracker
             new NumVec2(result.Goal.x, result.Goal.y),
             result.ResolvedGoal,
             result.FailureReason,
-            result.PlanMilliseconds,
-            playerGrid);
+            result.PlanMilliseconds);
 
     private void ApplyResult(
         RoutePlanStatus status,
@@ -137,8 +128,7 @@ public sealed class RouteTracker
         NumVec2 goal,
         (int x, int y)? resolvedGoal,
         string failureReason,
-        double planMilliseconds,
-        NumVec2? replanPlayerGrid = null)
+        double planMilliseconds)
     {
         _waypoints = status == RoutePlanStatus.Planned
             ? new List<(int x, int y)>(waypoints)
@@ -146,8 +136,6 @@ public sealed class RouteTracker
         _cursor = 0;
         _lastReplanUtc = DateTime.UtcNow;
         _lastGoal = goal;
-        if (status == RoutePlanStatus.Planned && replanPlayerGrid is { } pg)
-            _lastReplanPlayerGrid = pg;
         Status = status;
         FailureReason = failureReason ?? "";
         ResolvedGoal = resolvedGoal;
@@ -189,12 +177,6 @@ public sealed class RouteTracker
 
     private bool GoalMoved(NumVec2 goal)
         => _lastGoal.X > float.MinValue && NumVec2.Distance(goal, _lastGoal) > GoalMovedCells;
-
-    private bool PlayerMovedSinceReplan(NumVec2 playerGrid)
-    {
-        if (_lastReplanPlayerGrid.X <= float.MinValue) return true;
-        return NumVec2.Distance(playerGrid, _lastReplanPlayerGrid) > SimpleReplanPlayerCells;
-    }
 
     private bool OffPath(NumVec2 playerGrid)
     {

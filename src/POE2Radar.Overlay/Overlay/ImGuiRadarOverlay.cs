@@ -717,7 +717,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     {
         if (ctx.CameraMatrix is not { Length: >= 16 } m) return;
         float W = ctx.WindowWidth, H = ctx.WindowHeight;
-        var wz = ctx.WorldPathProjectionZ == WorldPathProjectionZ.Zero ? 0f : ctx.PlayerWorld.Z;
+        var wz = ctx.PlayerWorld.Z;
         const float margin = 50f;
 
         foreach (var path in ctx.SelectedPaths)
@@ -1718,12 +1718,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             bool spw = s.ShowPathWorld; ImGui.Checkbox("Paths on world view", ref spw); s.ShowPathWorld = spw;
             bool sgw = s.ShowGroundWaypoints; ImGui.Checkbox("Ground waypoints", ref sgw); s.ShowGroundWaypoints = sgw;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("World-screen breadcrumbs when the Tab map is closed (requires Paths on world view)");
-            bool spr = s.SimplePathReplan; ImGui.Checkbox("Simple path replan", ref spr); s.SimplePathReplan = spr;
-            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("v1.3.0-style: replan only on goal move, failure, or ~30 grid cells traveled");
-            var zMode = (int)s.WorldPathProjectionZ;
-            ImGui.Combo("World path Z", ref zMode, "Player height\0Flat Z=0\0");
-            s.WorldPathProjectionZ = (WorldPathProjectionZ)Math.Clamp(zMode, 0, 1);
-            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Camera elevation for ground-projected paths");
             bool spm = s.ShowPathMap; ImGui.Checkbox("Paths on Tab map", ref spm); s.ShowPathMap = spm;
             bool spmi = s.ShowPathMinimap; ImGui.Checkbox("Paths on minimap", ref spmi); s.ShowPathMinimap = spmi;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Draw guidance route polylines between you and selected targets");

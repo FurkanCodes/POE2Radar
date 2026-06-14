@@ -168,8 +168,8 @@ public sealed partial class RadarApp
                 if (!_trackers.TryGetValue(id, out var tracker)) continue;
                 if (TryResolveTargetInfo(id, _navTargets, landmarks, entities, _areaHash, out var info))
                 {
-                    if (!tracker.ReplanInFlight && tracker.ShouldReplan(player, info.Grid, _settings.SimplePathReplan))
-                        EnqueueReplan(id, tracker, info, player);
+                if (!tracker.ReplanInFlight && tracker.ShouldReplan(player, info.Grid))
+                    EnqueueReplan(id, tracker, info, player);
                 }
                 else
                 {

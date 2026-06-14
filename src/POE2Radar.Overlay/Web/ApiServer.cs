@@ -527,8 +527,6 @@ public sealed class ApiServer : IDisposable
         showGroundWaypoints = _settings.ShowGroundWaypoints,
         showPathMap = _settings.ShowPathMap,
         showPathMinimap = _settings.ShowPathMinimap,
-        simplePathReplan = _settings.SimplePathReplan,
-        worldPathProjectionZ = _settings.WorldPathProjectionZ.ToString(),
         autoPathNavigable = _settings.AutoPathNavigable,
         importantOnly = _settings.ImportantOnly,
         entityDrawRadiusGrid = _settings.EntityDrawRadiusGrid,
@@ -619,14 +617,8 @@ public sealed class ApiServer : IDisposable
                 case "showPathWorld" when TryBool(p.Value, out var b): _settings.ShowPathWorld = b; applied.Add(p.Name); break;
                 case "showGroundWaypoints" when TryBool(p.Value, out var b): _settings.ShowGroundWaypoints = b; applied.Add(p.Name); break;
                 case "showPathMap" when TryBool(p.Value, out var b): _settings.ShowPathMap = b; applied.Add(p.Name); break;
-                case "showPathMinimap" when TryBool(p.Value, out var b): _settings.ShowPathMinimap = b; applied.Add(p.Name); break;
-                case "simplePathReplan" when TryBool(p.Value, out var b): _settings.SimplePathReplan = b; applied.Add(p.Name); break;
-                case "worldPathProjectionZ" when p.Value.ValueKind == JsonValueKind.String && p.Value.GetString() is { } wpz
-                    && Enum.TryParse<WorldPathProjectionZ>(wpz, ignoreCase: true, out var zMode):
-                    _settings.WorldPathProjectionZ = zMode;
-                    applied.Add(p.Name);
-                    break;
-                case "autoPathNavigable" when TryBool(p.Value, out var b):
+            case "showPathMinimap" when TryBool(p.Value, out var b): _settings.ShowPathMinimap = b; applied.Add(p.Name); break;
+            case "autoPathNavigable" when TryBool(p.Value, out var b):
                     _settings.AutoPathNavigable = b;
                     if (b) { _settings.ShowPath = true; _settings.ShowPathWorld = true; }
                     applied.Add(p.Name);

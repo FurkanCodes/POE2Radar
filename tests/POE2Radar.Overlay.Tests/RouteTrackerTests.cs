@@ -36,30 +36,14 @@ public sealed class RouteTrackerTests
     }
 
     [Fact]
-    public void ShouldReplan_SimpleMode_IgnoresOffPathUntilPlayerMovedFar()
+    public void ShouldReplan_FiresWhenOffPath()
     {
         var tracker = new RouteTracker();
         tracker.ApplyResult(
             [(0, 0), (10, 0), (20, 0), (30, 0), (40, 0)],
-            new NumVec2(40, 0),
-            new NumVec2(0, 0));
+            new NumVec2(40, 0));
         ClearReplanCooldown(tracker);
 
-        Assert.False(tracker.ShouldReplan(new NumVec2(20, 0), new NumVec2(40, 0), simpleMode: true));
-
-        Assert.True(tracker.ShouldReplan(new NumVec2(35, 0), new NumVec2(40, 0), simpleMode: true));
-    }
-
-    [Fact]
-    public void ShouldReplan_AggressiveMode_FiresWhenOffPath()
-    {
-        var tracker = new RouteTracker();
-        tracker.ApplyResult(
-            [(0, 0), (10, 0), (20, 0), (30, 0), (40, 0)],
-            new NumVec2(40, 0),
-            new NumVec2(0, 0));
-        ClearReplanCooldown(tracker);
-
-        Assert.True(tracker.ShouldReplan(new NumVec2(25, 20), new NumVec2(40, 0), simpleMode: false));
+        Assert.True(tracker.ShouldReplan(new NumVec2(25, 20), new NumVec2(40, 0)));
     }
 }

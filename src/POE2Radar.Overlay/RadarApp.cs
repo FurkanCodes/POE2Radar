@@ -720,8 +720,6 @@ public sealed partial class RadarApp : IDisposable
             ShowGroundWaypoints: _settings.ShowGroundWaypoints,
             ShowPathMap: _settings.ShowPathMap,
             ShowPathMinimap: _settings.ShowPathMinimap,
-            SimplePathReplan: _settings.SimplePathReplan,
-            WorldPathProjectionZ: _settings.WorldPathProjectionZ,
             UseCuratedLandmarks: _settings.UseCuratedLandmarks,
             ShowMonsters: _settings.ShowMonsters,
             ShowTerrain: _settings.ShowTerrain,

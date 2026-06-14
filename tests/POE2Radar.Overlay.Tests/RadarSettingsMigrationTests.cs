@@ -102,7 +102,5 @@ public sealed class RadarSettingsMigrationTests
         var s = new RadarSettings();
 
         Assert.True(s.ShowGroundWaypoints);
-        Assert.False(s.SimplePathReplan);
-        Assert.Equal(WorldPathProjectionZ.Player, s.WorldPathProjectionZ);
     }
 }

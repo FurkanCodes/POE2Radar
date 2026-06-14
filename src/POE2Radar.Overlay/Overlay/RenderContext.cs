@@ -183,8 +183,6 @@ public sealed record RenderContext(
     bool ShowGroundWaypoints,
     bool ShowPathMap,
     bool ShowPathMinimap,
-    bool SimplePathReplan,
-    WorldPathProjectionZ WorldPathProjectionZ,
     bool UseCuratedLandmarks,
     // Radar display toggles.
     bool ShowMonsters,
