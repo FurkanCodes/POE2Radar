@@ -1,0 +1,34 @@
+{
+  "P1_3": {
+    "AbyssJumpInteractable": {
+      "hide": false,
+      "navigable": false
+    },
+    "TransmutationBench": {
+      "hide": false,
+      "navigable": false
+    },
+    "ReforgingBench": {
+      "hide": false,
+      "navigable": false
+    },
+    "QuestChests": {
+      "hide": false,
+      "navigable": false
+    },
+    "MiscellaneousObjects/AreaTransition": {
+      "hide": false,
+      "navigable": false
+    }
+  },
+  "MapSump": {
+    "AbyssFinalNodeBase": {
+      "hide": false,
+      "navigable": true
+    },
+    "CarverTribeCow": {
+      "hide": true,
+      "navigable": false
+    }
+  }
+}

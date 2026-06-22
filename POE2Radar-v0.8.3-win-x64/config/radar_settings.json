@@ -1,0 +1,1003 @@
+{
+  "hideJunk": true,
+  "showPath": true,
+  "pathTogglesMigrated": true,
+  "showPathWorld": true,
+  "showPathMap": false,
+  "showPathMinimap": false,
+  "showGroundWaypoints": true,
+  "useCuratedLandmarks": true,
+  "drawAllLandmarkPaths": false,
+  "landmarkClusterGap": 18,
+  "entityDrawRadiusGrid": 0,
+  "autoPathNavigable": false,
+  "autoPathToggleHotkey": 114,
+  "suppressCompletedContent": true,
+  "completedSuppressMinutes": 15,
+  "navRuleModelMigrated": true,
+  "importantOnly": true,
+  "endgameNavMigrated": true,
+  "globalRulesExpandedMigrated": true,
+  "perTypeRulesMigrated": true,
+  "semanticNamesMigrated": true,
+  "iconDefaultsMigrated": true,
+  "endgameMechanicsMigrated": true,
+  "endgameMechanicsV2Migrated": true,
+  "endgameMechanicsV3Migrated": true,
+  "endgameMechanicsV7Migrated": true,
+  "endgameMechanicsV8Migrated": true,
+  "endgameMechanicsV9Migrated": true,
+  "atlasDisplayMigrated": true,
+  "performanceDefaultsMigrated": true,
+  "serverIconsMigrated": true,
+  "serverIconMechanicsMigrated": true,
+  "serverIconChestMigrated": true,
+  "serverIconPortalMigrated": true,
+  "groundItemCategoriesMigrated": true,
+  "groundItems": {
+    "enabled": true,
+    "highlightMinEx": 10,
+    "uniqueMinEx": 5,
+    "currencyMinEx": 1,
+    "otherMinEx": 1,
+    "minQuantity": 2,
+    "league": "",
+    "anchorValuesToTags": true,
+    "categories": [
+      "Uniques",
+      "Currency",
+      "Runes",
+      "SoulCores",
+      "Essences",
+      "Fragments",
+      "UncutGems",
+      "Delirium",
+      "Tablets",
+      "Idols",
+      "Abyss",
+      "Ritual"
+    ]
+  },
+  "monoliths": {
+    "enabled": true,
+    "highlightMinEx": 30,
+    "minRewardEx": 1,
+    "minValueEx": 0,
+    "hideCollected": true,
+    "showPanel": true,
+    "showMapLabel": true,
+    "panelMaxDistance": 0
+  },
+  "globalIconScale": 1.25,
+  "showMonsters": true,
+  "showTerrain": true,
+  "showPlayerBlip": true,
+  "lowImpactMode": true,
+  "fpsCap": 15,
+  "liveRefreshHz": 5,
+  "worldRefreshHz": 1,
+  "inactiveRefreshHz": 1,
+  "hpBarRefreshHz": 1,
+  "maxLiveHpBars": 0,
+  "metricsRefreshHz": 3,
+  "gpuMetricsRefreshSeconds": 8,
+  "smoothOverlayMotion": true,
+  "overlaySmoothingMs": 0,
+  "chipSmoothingMs": 0,
+  "pixelSnapLabels": true,
+  "overlayVSync": false,
+  "navMenuCorner": "BottomRight",
+  "showPerfStats": false,
+  "showFpsOverlay": true,
+  "autoNavPatterns": [],
+  "hpBarNormal": false,
+  "hpBarMagic": true,
+  "hpBarRare": true,
+  "hpBarUnique": true,
+  "largeMapScaleMultiplier": 0.1738,
+  "scaleMul": 1,
+  "offX": 0,
+  "offY": 0,
+  "alwaysShowOverlay": false,
+  "atlasHighlightTags": [],
+  "atlasArrowTags": [],
+  "atlasHighlightColors": {},
+  "atlasRulesInitialized": true,
+  "atlasDrawAll": false,
+  "atlasShowOnScreenNodes": true,
+  "atlasShowNames": true,
+  "atlasRevealFog": true,
+  "atlasOffScreenArrows": true,
+  "atlasIconScale": 0.82,
+  "atlasLabelScale": 1.09,
+  "atlasShowRoute": true,
+  "atlasUseCurrentStart": true,
+  "atlasLanguage": "english",
+  "atlasSearchQuery": "",
+  "atlasHideCompletedMaps": true,
+  "atlasHideNotAccessibleMaps": false,
+  "atlasHideAvailableMaps": true,
+  "atlasShowBiomeBorders": true,
+  "atlasShowContentBadges": true,
+  "atlasShowContentCount": true,
+  "atlasShowContentTokens": false,
+  "atlasShowRouteChevrons": true,
+  "atlasRouteLineThickness": 1.7,
+  "atlasRouteChevronSpacing": 54,
+  "atlasSearchRange": 1,
+  "atlasLabelOffsetX": 0,
+  "atlasLabelOffsetY": 0,
+  "atlasMapGroups": [
+    {
+      "name": "Expedition unique",
+      "color": "#8b2f2f",
+      "fontColor": "#ffffff",
+      "enabled": true,
+      "maps": [
+        "Moor of Fallen Skies"
+      ]
+    },
+    {
+      "name": "Expedition bosses",
+      "color": "#a15d2a",
+      "fontColor": "#ffffff",
+      "enabled": true,
+      "maps": [
+        "Sprawling Jungle",
+        "Secluded Temple",
+        "Obscure Island",
+        "Mournful Cliffside"
+      ]
+    },
+    {
+      "name": "Unique maps low tier",
+      "color": "#5943a8",
+      "fontColor": "#ffffff",
+      "enabled": true,
+      "maps": [
+        "Fractured Lake",
+        "Ezomyte Megaliths",
+        "Moment of Zen",
+        "Silent Cave",
+        "Vaults of Kamasa",
+        "Viridian Wildwood"
+      ]
+    },
+    {
+      "name": "Unique maps top tier",
+      "color": "#d98a2b",
+      "fontColor": "#ffffff",
+      "enabled": true,
+      "maps": [
+        "Castaway",
+        "Untainted Paradise"
+      ]
+    },
+    {
+      "name": "Citadels",
+      "color": "#e0b341",
+      "fontColor": "#1b1400",
+      "enabled": true,
+      "maps": [
+        "Copper Citadel",
+        "Iron Citadel",
+        "Stone Citadel",
+        "Jade Citadel"
+      ]
+    },
+    {
+      "name": "Halls",
+      "color": "#d946ef",
+      "fontColor": "#ffffff",
+      "enabled": true,
+      "maps": [
+        "Matriarch Halls",
+        "Patriarch Halls"
+      ]
+    },
+    {
+      "name": "Anomaly maps",
+      "color": "#2fb6a8",
+      "fontColor": "#031615",
+      "enabled": true,
+      "maps": [
+        "Jade Isles",
+        "Sealed Vault",
+        "Sacred Reservoir",
+        "Derelict Mansion"
+      ]
+    }
+  ],
+  "atlasRouteGroups": [
+    {
+      "name": "Map Targets",
+      "drawPaths": true,
+      "locked": true,
+      "lineThickness": 2.7,
+      "entries": [
+        {
+          "name": "Stone Citadel",
+          "match": "map:Stone Citadel",
+          "color": "#e0b341",
+          "drawPath": false,
+          "maxHops": 25
+        },
+        {
+          "name": "Iron Citadel",
+          "match": "map:Iron Citadel",
+          "color": "#e0b341",
+          "drawPath": false,
+          "maxHops": 25
+        },
+        {
+          "name": "Copper Citadel",
+          "match": "map:Copper Citadel",
+          "color": "#e0b341",
+          "drawPath": false,
+          "maxHops": 25
+        },
+        {
+          "name": "Patriarch Halls",
+          "match": "map:Patriarch Halls",
+          "color": "#e0b341",
+          "drawPath": true,
+          "maxHops": 25
+        },
+        {
+          "name": "Matriarch Halls",
+          "match": "map:Matriarch Halls",
+          "color": "#e0b341",
+          "drawPath": true,
+          "maxHops": 25
+        },
+        {
+          "name": "Jade Citadel",
+          "match": "map:Jade Citadel",
+          "color": "#6ee787",
+          "drawPath": false,
+          "maxHops": 25
+        },
+        {
+          "name": "Derelict Mansion",
+          "match": "map:Derelict Mansion",
+          "color": "#6ee787",
+          "drawPath": false,
+          "maxHops": 25
+        },
+        {
+          "name": "Cavern City",
+          "match": "map:Cavern City",
+          "color": "#6ee787",
+          "drawPath": false,
+          "maxHops": 25
+        },
+        {
+          "name": "Vaal Vault",
+          "match": "map:Vaal Vault",
+          "color": "#6ee787",
+          "drawPath": false,
+          "maxHops": 25
+        },
+        {
+          "name": "Untainted Paradise",
+          "match": "map:Untainted Paradise",
+          "color": "#ff9e42",
+          "drawPath": false,
+          "maxHops": 25
+        },
+        {
+          "name": "Castaway",
+          "match": "map:Castaway",
+          "color": "#ff9e42",
+          "drawPath": false,
+          "maxHops": 25
+        },
+        {
+          "name": "Moor of Fallen Skies",
+          "match": "map:Moor of Fallen Skies",
+          "color": "#e0533a",
+          "drawPath": false,
+          "maxHops": 25
+        },
+        {
+          "name": "All unique maps",
+          "match": "type:unique",
+          "color": "#d946ef",
+          "drawPath": false,
+          "maxHops": 0
+        },
+        {
+          "name": "Lineage maps",
+          "match": "tag:lineage",
+          "color": "#6ee787",
+          "drawPath": false,
+          "maxHops": 0
+        },
+        {
+          "name": "Arbiter maps",
+          "match": "tag:arbiter",
+          "color": "#e0b341",
+          "drawPath": false,
+          "maxHops": 0
+        }
+      ]
+    }
+  ],
+  "lifeFlaskMode": "Health",
+  "lifeThresholdPct": 65,
+  "esThresholdPct": 50,
+  "manaThresholdPct": 30,
+  "lifeCooldownMs": 2500,
+  "manaCooldownMs": 2000,
+  "lifeKey": 49,
+  "manaKey": 50,
+  "hideEntityHotkey": 116,
+  "trackEntityHotkey": 115,
+  "addNearestPathHotkey": 117,
+  "clearPathsHotkey": 118,
+  "autoFlaskToggleHotkey": 119,
+  "quitHotkey": 120,
+  "atlasPickHotkey": 121,
+  "toggleSettingsHotkey": 122,
+  "openDashboardHotkey": 123,
+  "gamepadHotkeysEnabled": false,
+  "gamepadUserIndex": 0,
+  "apiPort": 7777,
+  "styles": {
+    "monsterNormal": {
+      "enabled": true,
+      "shape": "Circle",
+      "color": "#FF3333",
+      "opacity": 0.95,
+      "size": 2.6,
+      "sprite": null
+    },
+    "monsterMagic": {
+      "enabled": true,
+      "shape": "Diamond",
+      "color": "#73A6FF",
+      "opacity": 0.97,
+      "size": 3.4,
+      "sprite": null
+    },
+    "monsterRare": {
+      "enabled": true,
+      "shape": "Triangle",
+      "color": "#FFD926",
+      "opacity": 1,
+      "size": 5.5,
+      "sprite": null
+    },
+    "monsterUnique": {
+      "enabled": true,
+      "shape": "Star",
+      "color": "#FF7300",
+      "opacity": 1,
+      "size": 6.5,
+      "sprite": null
+    },
+    "player": {
+      "enabled": true,
+      "shape": "Circle",
+      "color": "#4DF2FF",
+      "opacity": 1,
+      "size": 3,
+      "sprite": null
+    },
+    "npc": {
+      "enabled": true,
+      "shape": "Plus",
+      "color": "#FFD933",
+      "opacity": 0.95,
+      "size": 4,
+      "sprite": null
+    },
+    "chestRare": {
+      "enabled": true,
+      "shape": "Square",
+      "color": "#FFD926",
+      "opacity": 0.95,
+      "size": 5,
+      "sprite": null
+    },
+    "chestUnique": {
+      "enabled": true,
+      "shape": "Square",
+      "color": "#FF7300",
+      "opacity": 0.95,
+      "size": 5,
+      "sprite": null
+    },
+    "transition": {
+      "enabled": true,
+      "shape": "Diamond",
+      "color": "#66FF99",
+      "opacity": 0.95,
+      "size": 4.5,
+      "sprite": null
+    },
+    "poi": {
+      "enabled": true,
+      "shape": "Circle",
+      "color": "#8CBFFF",
+      "opacity": 0.7,
+      "size": 3,
+      "sprite": null
+    },
+    "landmark": {
+      "enabled": true,
+      "shape": "Diamond",
+      "color": "#F259F2",
+      "opacity": 1,
+      "size": 5,
+      "sprite": null
+    },
+    "serverIcon": {
+      "enabled": true,
+      "shape": "Star",
+      "color": "#FFD700",
+      "opacity": 0.95,
+      "size": 10,
+      "sprite": {
+        "sheet": "icons.png",
+        "col": 6,
+        "row": 57,
+        "cellSize": 64,
+        "scale": 1.25
+      }
+    },
+    "mechanics": [
+      {
+        "enabled": true,
+        "name": "Expedition",
+        "match": [
+          "Expedition2/Expedition2Encounter"
+        ],
+        "categories": [
+          "Other"
+        ],
+        "shape": "Plus",
+        "color": "#26E6D9",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 5,
+          "row": 38,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Ritual",
+        "match": [
+          "LeagueRitual",
+          "RitualAltar",
+          "Leagues/Ritual",
+          "/Ritual/"
+        ],
+        "categories": [
+          "Object",
+          "Other"
+        ],
+        "shape": "Star",
+        "color": "#FF3355",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 10,
+          "row": 44,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Breach",
+        "match": [
+          "Leagues/Breach",
+          "LeagueBreach",
+          "BreachHand",
+          "/Breach/"
+        ],
+        "categories": [],
+        "shape": "Diamond",
+        "color": "#A64DFF",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 11,
+          "row": 44,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Abyss",
+        "match": [
+          "Leagues/Abyss",
+          "/Abyss/",
+          "AbyssJumpInteractable",
+          "AbyssPit",
+          "AbyssHole",
+          "AbyssTrove",
+          "AbyssalTrove",
+          "AbyssGate",
+          "AbyssFissure",
+          "AbyssStart"
+        ],
+        "categories": [
+          "Object",
+          "Other"
+        ],
+        "shape": "Diamond",
+        "color": "#33CCCC",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 0,
+          "row": 0,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Delirium",
+        "match": [
+          "Delirium",
+          "Simulacrum",
+          "LeagueDelirium",
+          "Leagues/Delirium"
+        ],
+        "categories": [],
+        "shape": "Triangle",
+        "color": "#9B59B6",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 6,
+          "row": 0,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Ultimatum",
+        "match": [
+          "LeagueUltimatum",
+          "/Ultimatum/",
+          "UltimatumAltar"
+        ],
+        "categories": [
+          "Object",
+          "Other"
+        ],
+        "shape": "Hexagon",
+        "color": "#FF5533",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 10,
+          "row": 44,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Corruption",
+        "match": [
+          "precursorcorruption",
+          "VaalCorruption",
+          "CorruptionAltar",
+          "TrailOfCorruption"
+        ],
+        "categories": [
+          "Object",
+          "Other"
+        ],
+        "shape": "Triangle",
+        "color": "#66CC33",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 6,
+          "row": 0,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Unique",
+        "match": [
+          "uniquevaalstrongbox",
+          "uniqueezomytegrave",
+          "uniqueetchedbeetle",
+          "ventorstrongbox",
+          "beaststrongbox",
+          "uniqueventorsmysterybox"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Star",
+        "color": "#FFD700",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 8,
+          "row": 38,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Landmark",
+        "match": [
+          "landmarkstrongbox"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Triangle",
+        "color": "#FF7043",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 1,
+          "row": 37,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Cartographer",
+        "match": [
+          "cartographer"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Exclamation",
+        "color": "#5C9EFF",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 12,
+          "row": 44,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Arcane",
+        "match": [
+          "arcanist"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Diamond",
+        "color": "#A64DFF",
+        "opacity": 1,
+        "size": 11,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 4,
+          "row": 48,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Armourer",
+        "match": [
+          "armory"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Shield",
+        "color": "#8899AA",
+        "opacity": 1,
+        "size": 11,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 8,
+          "row": 38,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Jeweller",
+        "match": [
+          "gemcutter",
+          "gemstrongbox"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Gem",
+        "color": "#FF66CC",
+        "opacity": 1,
+        "size": 11,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 4,
+          "row": 48,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Divination",
+        "match": [
+          "strongboxdivination",
+          "strongboxdivinationshaper"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Exclamation",
+        "color": "#CC9966",
+        "opacity": 1,
+        "size": 11,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 12,
+          "row": 44,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Expedition",
+        "match": [
+          "strongboxexpedition"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Square",
+        "color": "#1FA89A",
+        "opacity": 1,
+        "size": 11,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 5,
+          "row": 38,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Researcher",
+        "match": [
+          "strongboxes/strongbox"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Gem",
+        "color": "#7DFF7D",
+        "opacity": 1,
+        "size": 11,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 4,
+          "row": 48,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Abyss",
+        "match": [
+          "abyssstrongbox"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Diamond",
+        "color": "#33CCCC",
+        "opacity": 1,
+        "size": 11,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 8,
+          "row": 38,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox",
+        "match": [
+          "StrongBoxes"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Square",
+        "color": "#FFB300",
+        "opacity": 1,
+        "size": 10,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 8,
+          "row": 38,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Essence",
+        "match": [
+          "fireessencemod",
+          "coldessencemod",
+          "lifeessencemod",
+          "chaosessencemod",
+          "physicalessencemod",
+          "manaessencemod",
+          "speedessencemod",
+          "casteressencemod",
+          "attackessencemod",
+          "attributeessencemod",
+          "greaterchaosessencemod",
+          "greatercoldessencemod",
+          "greaterlifeessencemod",
+          "greaterphysicalessencemod",
+          "essencehorror",
+          "essencehysteria",
+          "essenceinsanity",
+          "essencestartcalm",
+          "/essencemoddaemons/essencemod"
+        ],
+        "categories": [],
+        "shape": "Triangle",
+        "color": "#33E0FF",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 7,
+          "row": 45,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Shrine",
+        "match": [
+          "Shrine"
+        ],
+        "categories": [],
+        "shape": "Star",
+        "color": "#7DFF7D",
+        "opacity": 1,
+        "size": 10,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 7,
+          "row": 0,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Summoning Circle",
+        "match": [
+          "SummoningCircle"
+        ],
+        "categories": [],
+        "shape": "Diamond",
+        "color": "#E0B341",
+        "opacity": 1,
+        "size": 10,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 1,
+          "row": 37,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Wisp",
+        "match": [
+          "AzmeriSpirit",
+          "AzmeriWisp"
+        ],
+        "categories": [],
+        "shape": "Star",
+        "color": "#A06CFF",
+        "opacity": 1,
+        "size": 10,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 12,
+          "row": 44,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Rogue Exile",
+        "match": [
+          "RogueExile"
+        ],
+        "categories": [
+          "Monster"
+        ],
+        "shape": "Diamond",
+        "color": "#FF8866",
+        "opacity": 1,
+        "size": 10,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 4,
+          "row": 57,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      }
+    ]
+  },
+  "hpBars": {
+    "useTextures": true,
+    "height": 5,
+    "offsetX": 0,
+    "offsetY": -30,
+    "widthNormal": 30,
+    "widthMagic": 38,
+    "widthRare": 50,
+    "widthUnique": 64,
+    "borderNormal": 0,
+    "borderMagic": 1,
+    "borderRare": 2,
+    "borderUnique": 2,
+    "borderColorNormal": "#FF3333",
+    "borderColorMagic": "#73A6FF",
+    "borderColorRare": "#FFD926",
+    "borderColorUnique": "#FF7300",
+    "energyShieldColor": "#73E6FF"
+  },
+  "terrain": {
+    "interiorColor": "#FFFFFF",
+    "interiorOpacity": 0.13812155,
+    "edgeColor": "#13707B",
+    "edgeOpacity": 0.706,
+    "imGuiEdgeDetail": 8,
+    "imGuiEdgeThickness": 1.8
+  }
+}

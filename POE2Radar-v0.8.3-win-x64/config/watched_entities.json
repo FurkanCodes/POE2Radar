@@ -1,0 +1,138 @@
+[
+  {
+    "pattern": "MiscellaneousObjects/Waypoint",
+    "label": "Waypoint",
+    "color": "#00ffff",
+    "enabled": true,
+    "size": 7,
+    "shape": "Diamond"
+  },
+  {
+    "pattern": "MiscellaneousObjects/Checkpoint",
+    "label": "Checkpoint",
+    "color": "#00ccff",
+    "enabled": true,
+    "size": 7,
+    "shape": "Diamond"
+  },
+  {
+    "pattern": "MiscellaneousObjects/AreaTransition",
+    "label": "Entrance",
+    "color": "#66ff99",
+    "enabled": true,
+    "size": 7,
+    "shape": "Diamond"
+  },
+  {
+    "pattern": "MiscellaneousObjects/Stash",
+    "label": "Stash",
+    "color": "#ffcc00",
+    "enabled": true,
+    "size": 7,
+    "shape": "Diamond"
+  },
+  {
+    "pattern": "MiscellaneousObjects/TownPortal",
+    "label": "Portal",
+    "color": "#cc99ff",
+    "enabled": true,
+    "size": 7,
+    "shape": "Diamond"
+  },
+  {
+    "pattern": "MiscellaneousObjects/ReturnToLastTownPortal",
+    "label": "Town Portal",
+    "color": "#cc99ff",
+    "enabled": true,
+    "size": 7,
+    "shape": "Diamond"
+  },
+  {
+    "pattern": "QuestChests",
+    "label": "Quest Chest",
+    "color": "#ff9900",
+    "enabled": true,
+    "size": 7,
+    "shape": "Diamond"
+  },
+  {
+    "pattern": "QuestObjects",
+    "label": "Quest Object",
+    "color": "#ffff00",
+    "enabled": true,
+    "size": 7,
+    "shape": "Diamond"
+  },
+  {
+    "pattern": "Monsters/NPC/",
+    "label": "NPC",
+    "color": "#ffdd33",
+    "enabled": true,
+    "size": 7,
+    "shape": "Diamond"
+  },
+  {
+    "pattern": "ReforgingBench",
+    "label": "Reforging Bench",
+    "color": "#ff66cc",
+    "enabled": true,
+    "size": 7,
+    "shape": "Diamond"
+  },
+  {
+    "pattern": "TransmutationBench",
+    "label": "Crafting Bench",
+    "color": "#ff66cc",
+    "enabled": true,
+    "size": 7,
+    "shape": "Diamond"
+  },
+  {
+    "pattern": "StrongBoxes",
+    "label": "Strongbox",
+    "color": "#ff9933",
+    "enabled": true,
+    "size": 7,
+    "shape": "Diamond"
+  },
+  {
+    "pattern": "Shrine",
+    "label": "Shrine",
+    "color": "#99ff99",
+    "enabled": true,
+    "size": 7,
+    "shape": "Diamond"
+  },
+  {
+    "pattern": "LeagueRitual",
+    "label": "Ritual",
+    "color": "#ff3333",
+    "enabled": true,
+    "size": 7,
+    "shape": "Diamond"
+  },
+  {
+    "pattern": "EinharQuestMarker",
+    "label": "Quest Marker",
+    "color": "#ffff33",
+    "enabled": true,
+    "size": 7,
+    "shape": "Diamond"
+  },
+  {
+    "pattern": "Expedition2/Expedition2Encounter",
+    "label": "Expedition",
+    "color": "#cc8833",
+    "enabled": true,
+    "size": 7,
+    "shape": "Diamond"
+  },
+  {
+    "pattern": "AbyssJumpInteractable",
+    "label": "Abyss Crack",
+    "color": "#33cccc",
+    "enabled": true,
+    "size": 7,
+    "shape": "Diamond"
+  }
+]
