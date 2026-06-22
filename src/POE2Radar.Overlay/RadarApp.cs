@@ -2349,7 +2349,7 @@ public sealed partial class RadarApp : IDisposable
             // group, so towers/temples/specific maps are highlightable independently of rolled content.
             allMaps = nodes.Where(n => !string.IsNullOrEmpty(n.MapName)).GroupBy(n => n.MapName)
                 .OrderBy(g => g.Key).Select(g => new { tag = g.Key, count = g.Count() }),
-            // The currently active rules (persisted): tracked tags (rings) + arrow tags (off-screen
+            // The currently active rules (persisted): tracked tags (rings + route targets) + arrow tags (off-screen
             // direction). Match against BOTH content tags and map names.
             highlightTags = _settings.AtlasHighlightTags,
             arrowTags = _settings.AtlasArrowTags,
@@ -2381,8 +2381,21 @@ public sealed partial class RadarApp : IDisposable
         {
             long h = nodeCount;
             h = (h * 31) ^ (_atlas.AllTagsResolved ? 1 : 0);
-            h = (h * 31) ^ (_settings.AtlasHighlightTags?.Count ?? 0);
-            h = (h * 31) ^ (_settings.AtlasArrowTags?.Count ?? 0);
+            if (_settings.AtlasHighlightTags is { Count: > 0 } highlightTags)
+            {
+                foreach (var tag in highlightTags.OrderBy(t => t, StringComparer.OrdinalIgnoreCase))
+                {
+                    var key = tag ?? "";
+                    h = (h * 31) ^ StringComparer.OrdinalIgnoreCase.GetHashCode(key);
+                    if (_settings.AtlasHighlightColors.TryGetValue(key, out var color))
+                        h = (h * 31) ^ StringComparer.OrdinalIgnoreCase.GetHashCode(color ?? "");
+                }
+            }
+            if (_settings.AtlasArrowTags is { Count: > 0 } arrowTags)
+            {
+                foreach (var tag in arrowTags.OrderBy(t => t, StringComparer.OrdinalIgnoreCase))
+                    h = (h * 31) ^ StringComparer.OrdinalIgnoreCase.GetHashCode("arrow:" + (tag ?? ""));
+            }
             h = (h * 31) ^ selCnt;
             h = (h * 31) ^ (_settings.AtlasShowOnScreenNodes ? 1 : 0);
             h = (h * 31) ^ (_settings.AtlasShowNames ? 1 : 0);
@@ -2522,7 +2535,7 @@ public sealed partial class RadarApp : IDisposable
         }
 
         // A node matches a rule set if its map name or one of its content tags is in the set; returns the
-        // matched tag (drives label + colour). Track set ⇒ draw a ring; Arrow set ⇒ off-screen edge arrow.
+        // matched tag (drives label + colour). Track set ⇒ route + ring; Arrow set ⇒ off-screen edge arrow.
         var hlTrack = new HashSet<string>(_settings.AtlasHighlightTags ?? new(), StringComparer.OrdinalIgnoreCase);
         var hlArrow = new HashSet<string>(_settings.AtlasArrowTags ?? new(), StringComparer.OrdinalIgnoreCase);
         var searchTerms = SplitAtlasSearch(_settings.AtlasSearchQuery);
@@ -2535,7 +2548,7 @@ public sealed partial class RadarApp : IDisposable
         }
 
         var trackedOnly = !_settings.AtlasShowOnScreenNodes && hlTrack.Count > 0;
-        var routeTargets = BuildAtlasRouteTargets(nodes, searchTerms);
+        var routeTargets = BuildAtlasRouteTargets(nodes, searchTerms, hlTrack);
         var routeTargetElements = routeTargets.Select(t => t.Node.Element).ToHashSet();
 
         if (_atlasMarks.Capacity < nodes.Count) _atlasMarks.Capacity = nodes.Count;
@@ -2638,9 +2651,25 @@ public sealed partial class RadarApp : IDisposable
         return string.Join("\n", parts);
     }
 
-    private List<AtlasRouteTarget> BuildAtlasRouteTargets(IReadOnlyList<Poe2Atlas.AtlasNodeLive> nodes, IReadOnlyList<string> searchTerms)
+    private List<AtlasRouteTarget> BuildAtlasRouteTargets(
+        IReadOnlyList<Poe2Atlas.AtlasNodeLive> nodes,
+        IReadOnlyList<string> searchTerms,
+        IReadOnlySet<string> trackedRules)
     {
         var targets = new List<AtlasRouteTarget>();
+        if (trackedRules.Count > 0)
+        {
+            foreach (var n in nodes)
+            {
+                if (!AtlasTrackedRuleMatches(n, trackedRules, out var matched)) continue;
+                var color = _settings.AtlasHighlightColors.TryGetValue(matched, out var c) && !string.IsNullOrWhiteSpace(c)
+                    ? c
+                    : "#3BDBFF";
+                var label = !string.IsNullOrWhiteSpace(n.MapName) ? n.MapName : matched;
+                targets.Add(new AtlasRouteTarget(n, label, color, 0));
+            }
+        }
+
         if (searchTerms.Count > 0)
         {
             foreach (var n in nodes.Where(n => AtlasNodeMatchesTerms(n, searchTerms)).Take(80))
@@ -2659,8 +2688,73 @@ public sealed partial class RadarApp : IDisposable
         return targets
             .GroupBy(t => (t.Node.Element, t.Label), t => t)
             .Select(g => g.First())
-            .Take(128)
+            .Take(512)
             .ToList();
+    }
+
+    private static bool AtlasTrackedRuleMatches(
+        in Poe2Atlas.AtlasNodeLive node,
+        IReadOnlySet<string> trackedRules,
+        out string matched)
+    {
+        matched = "";
+        if (trackedRules.Count == 0) return false;
+
+        if (!string.IsNullOrEmpty(node.MapName) && trackedRules.Contains(node.MapName))
+        {
+            matched = node.MapName;
+            return true;
+        }
+
+        if (!string.IsNullOrEmpty(node.MapCode) && trackedRules.Contains(node.MapCode))
+        {
+            matched = node.MapCode;
+            return true;
+        }
+
+        if (node.Tags is { Count: > 0 })
+        {
+            foreach (var tag in node.Tags)
+            {
+                if (!trackedRules.Contains(tag)) continue;
+                matched = tag;
+                return true;
+            }
+        }
+
+        if (node.Badges is { Count: > 0 })
+        {
+            foreach (var badge in node.Badges)
+            {
+                if (!trackedRules.Contains(badge)) continue;
+                matched = badge;
+                return true;
+            }
+        }
+
+        var map = !string.IsNullOrEmpty(node.MapCode) ? AtlasCatalog.Shared.Map(node.MapCode) : null;
+        if (map.HasValue)
+        {
+            var info = map.Value;
+            if (!string.IsNullOrEmpty(info.Type) && trackedRules.Contains(info.Type))
+            {
+                matched = info.Type;
+                return true;
+            }
+            if (!string.IsNullOrEmpty(info.Group) && trackedRules.Contains(info.Group))
+            {
+                matched = info.Group;
+                return true;
+            }
+            foreach (var tag in info.Tags)
+            {
+                if (!trackedRules.Contains(tag)) continue;
+                matched = tag;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool AtlasRouteEntryMatches(in Poe2Atlas.AtlasNodeLive node, string match)
@@ -2703,7 +2797,7 @@ public sealed partial class RadarApp : IDisposable
             if (t.MaxHops > 0 && hops > t.MaxHops) continue;
             lines.AddRange(AtlasRoutePolylineBuilder.BuildSegments(path, gridToScreen, t.Label, t.Color, hops));
         }
-        return lines.Take(48).ToArray();
+        return lines.Take(256).ToArray();
     }
 
     /// <summary>Resolve the F10 START/END grid coords to canvas-space (relPos) points for the markers, and —

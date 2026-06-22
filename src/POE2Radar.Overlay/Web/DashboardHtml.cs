@@ -625,10 +625,10 @@ internal static class DashboardHtml
       <section class="view" data-view="atlas" hidden>
         <div class="panel-grid">
           <div class="card" style="grid-column:1/-1">
-            <h3>Atlas highlights <span class="tag">&middot; ring matching maps in-game</span></h3>
+            <h3>Atlas highlights <span class="tag">&middot; route and ring matching maps in-game</span></h3>
             <p class="hint-oneline">Open Atlas in-game — filters auto-refresh while this tab is active.</p>
             <button type="button" class="hint-toggle" data-hint="hintAtlas">Atlas tips ▾</button>
-            <div class="hint-body" id="hintAtlas" hidden>Toggle Track to ring maps; Arrow points from screen edge when off-screen. F10 in-game inspects a hovered tile.</div>
+            <div class="hint-body" id="hintAtlas" hidden>Toggle Track to draw node-to-node routes and rings for matching maps; Arrow points from the screen edge when off-screen. F10 in-game inspects a hovered tile.</div>
             <div class="controls" style="margin:6px 0 12px">
               <button class="addbtn" id="atlasRefresh" style="width:auto;margin:0;padding:9px 16px">&#8635; Refresh</button>
               <span style="flex:1"></span>
@@ -636,7 +636,7 @@ internal static class DashboardHtml
             </div>
             <div class="row" style="margin:0 0 10px;flex-direction:column;align-items:stretch;gap:6px">
               <div class="controls" style="gap:8px;align-items:center">
-                <span class="hint-row" style="flex:1"><b id="atlasHlCount">0 active</b> &mdash; click a row to <b>Track</b> (ring it in-game); click the <b style="color:#e0b341">&#10148;</b> to <b>Arrow</b> (point to it from the screen edge when off-screen). Track without Arrow = highlight only, no arrow.</span>
+                <span class="hint-row" style="flex:1"><b id="atlasHlCount">0 active</b> &mdash; click a row to <b>Track</b> (route + ring in-game); click the <b style="color:#e0b341">&#10148;</b> to <b>Arrow</b> (point to it from the screen edge when off-screen). Track without Arrow = route/ring only, no edge arrow.</span>
                 <button class="chip on" id="atlasViewRegion" data-view="region">Region</button>
                 <button class="chip" id="atlasViewCatalog" data-view="catalog">Catalog</button>
                 <button class="chip" id="atlasViewNodes" data-view="nodes">Nodes</button>
@@ -2202,7 +2202,7 @@ function renderAtlasHighlight(d){
   const sa=key=> atlasHlSort.key===key ? (atlasHlSort.dir<0?' ▼':' ▲') : '';
   const cell='display:grid;grid-template-columns:30px 34px 1fr 50px 90px;gap:8px;align-items:center;padding:5px 9px';
   let html='<div style="'+cell+';position:sticky;top:0;background:var(--panel,#1a1a1a);border-bottom:1px solid var(--line);font-weight:600;font-size:11px;text-transform:uppercase;opacity:.75">'
-    +'<span title="Track: ring the map in-game">&#9745;</span>'
+    +'<span title="Track: route and ring the map in-game">&#9745;</span>'
     +'<span title="Arrow: edge arrow toward it when off-screen">&#10148;</span>'
     +'<span data-sort="title" style="cursor:pointer">Title'+sa('title')+'</span>'
     +'<span data-sort="count" style="cursor:pointer;text-align:right">Count'+sa('count')+'</span>'
