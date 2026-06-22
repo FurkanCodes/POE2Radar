@@ -98,6 +98,9 @@ public sealed partial class RadarApp : IDisposable
 
     private List<Poe2Live.EntityDot> _entities = new();
     private int _lastLoggedAwakeCount = -1;
+    private string? _lastAtlasDiagLog;
+    private string? _lastAtlasFilterLog;
+    private DateTime _atlasPanelOpenSince = DateTime.MinValue;
     private int _lastLoggedSleepingCount = -1;
     // Monster HP-bar pipeline. _hpSpecs (style + which mobs get a bar) is rebuilt at WORLD rate from the
     // resolved rules; _hpFrame (live position + HP) is rebuilt every RENDER frame from cheap per-mob reads
@@ -512,11 +515,13 @@ public sealed partial class RadarApp : IDisposable
         _landmarkStoreGen = _landmarkStore.Generation;
         Console.WriteLine($"Hidden entities: {_hidden.Count} pattern(s); display rules: {_displayRules.Count}");
         _imguiOverlay?.AttachEntityStores(_displayRules, _zoneOverrides, _ruleEngine, _hidden);
+        InitLootValues();
         _worldThread = new Thread(WorldReaderLoop) { IsBackground = true, Name = "POE2Radar.WorldReader" };
         _worldThread.Start();
         _api = new ApiServer(() => _state, _settings, GetNavSelection, ToggleNavTarget, ClearNavSelection,
                              _hidden, _displayRules, _zoneOverrides, _ruleEngine, _landmarkStore, CurrentTilePaths,
-                             AtlasJson, SetAtlasSelection, SetAtlasHighlight, VersionJson, _settings.ApiPort);
+                             AtlasJson, SetAtlasSelection, SetAtlasHighlight, VersionJson, _settings.ApiPort,
+                             PriceBookStatus, RefreshPriceBook, SetPriceLeague);
         try { _api.Start(); Console.WriteLine($"API on http://localhost:{_settings.ApiPort} (dashboard at /)"); }
         catch (Exception ex) { Console.Error.WriteLine($"API server disabled: {ex.Message}"); }
         Console.WriteLine("Hotkeys: configurable in dashboard (Settings → Hotkeys) or overlay settings. "
@@ -676,7 +681,11 @@ public sealed partial class RadarApp : IDisposable
             _renderPathSnapshot = Array.Empty<SelectedPath>();
             if (_atlasOpen) CloseAtlasSession();
             if (_hpFrame.Length > 0) _hpFrame = Array.Empty<HpBarTarget>();
+            ResetLootSession();
         }
+
+        RefreshLootRenderFrames(snap, windowWidth, windowHeight, live.InGame);
+        var lootPayload = BuildLootRenderPayload(snap.AreaHash, live.InGame);
 
         var largeMap = live.Maps.LargeMap;
         var miniMap = live.Maps.MiniMap;
@@ -807,7 +816,14 @@ public sealed partial class RadarApp : IDisposable
             AtlasEnd: (_atlasOpen && _settings.AtlasShowRoute) ? _atlasEndPt : null,
             AtlasRoute: (_atlasOpen && _settings.AtlasShowRoute && _atlasRoutePublish.Count >= 2) ? _atlasRoutePublish : null,
             CursorInspectTitle: _cursorInspectTitle,
-            CursorInspectMeta: _cursorInspectMeta);
+            CursorInspectMeta: _cursorInspectMeta,
+            ItemLabels: lootPayload.items.Count > 0 ? lootPayload.items : null,
+            RuneforgePanel: lootPayload.runeforge,
+            RitualRewards: lootPayload.ritual,
+            LootTags: lootPayload.lootTags,
+            Monoliths: lootPayload.monoliths,
+            ShowMonolithPanel: _settings.Monoliths.ShowPanel,
+            ShowMonolithMapLabel: _settings.Monoliths.ShowMapLabel);
         _imguiOverlay?.UpdateContext(ctx);
 
         var overlayMetrics = _imguiOverlay?.GetRenderMetrics().Snapshot() ?? default;
@@ -2383,15 +2399,29 @@ public sealed partial class RadarApp : IDisposable
         _atlasStartGrid = null;
         _atlasGoalGrid = null;
         _loggedRoute = null;
+        _lastAtlasDiagLog = null;
+        _atlasPanelOpenSince = DateTime.MinValue;
     }
 
     private void UpdateAtlas(nint inGameState)
     {
         if (!_atlas.IsAtlasOpen(inGameState))
         {
+            _atlasPanelOpenSince = DateTime.MinValue;
+            if (_settings.ShowPerfStats)
+            {
+                var d = _atlas.GetAtlasPanelDiag(inGameState);
+                if (d.HardcodedOpen && !d.ResolvedOpen)
+                    LogAtlasDiagOnce($"panel gate mismatch: hardcoded child {d.HardcodedIndex} open but resolved index {d.Index} closed — index drift was blocking atlas overlay");
+                else if (!d.ResolvedOpen && d.Index >= 0 && d.Index != d.HardcodedIndex)
+                    LogAtlasDiagOnce($"atlas closed (resolved panel index {d.Index}, hardcoded {d.HardcodedIndex})");
+            }
             if (_atlasOpen || _atlasMarksPublish.Count > 0) CloseAtlasSession();
             return;
         }
+
+        if (_atlasPanelOpenSince == DateTime.MinValue)
+            _atlasPanelOpenSince = DateTime.UtcNow;
 
         var readMode = _builtAtlasOnce && _atlas.AllTagsResolved
             ? AtlasNodeReadMode.Positions
@@ -2400,8 +2430,16 @@ public sealed partial class RadarApp : IDisposable
         if (nodes.Count == 0)
         {
             var panelOpen = _atlas.IsAtlasOpen(inGameState);
+            var detecting = panelOpen && (DateTime.UtcNow - _atlasPanelOpenSince).TotalSeconds < 20;
             var transient = panelOpen && (DateTime.UtcNow - _atlasGoodAt).TotalSeconds < 0.4;
-            if (_atlasOpen && transient) return;
+            if (_settings.ShowPerfStats && panelOpen && !detecting && !transient)
+            {
+                var d = _atlas.GetAtlasPanelDiag(inGameState);
+                var why = _atlas.LastDetectFailure ?? "unknown";
+                LogAtlasDiagOnce(
+                    $"ReadNodes returned 0 while panel open (resolvedIndex={d.Index} detectAttempts={_atlas.AtlasNodeDetectRetry}) — {why}");
+            }
+            if (detecting || (_atlasOpen && transient)) return;
             if (_atlasOpen || _atlasMarksPublish.Count > 0) CloseAtlasSession();
             return;
         }
@@ -2503,6 +2541,23 @@ public sealed partial class RadarApp : IDisposable
         BuildAtlasRoute(nodes);
         _atlasMarksPublish = _atlasMarks.Count > 0 ? _atlasMarks.ToArray() : Array.Empty<AtlasMark>();
         _atlasRoutePublish = _atlasRoute.Count > 0 ? _atlasRoute.ToArray() : Array.Empty<NumVec2>();
+
+        if (_atlasOpen && _atlasMarksPublish.Count == 0 && (_settings.AtlasHighlightTags?.Count ?? 0) > 0)
+            LogAtlasFilterOnce("Highlight tags active but no nodes matched — enable 'Show all nodes' or clear tags in Settings → Atlas");
+    }
+
+    private void LogAtlasDiagOnce(string message)
+    {
+        if (!_settings.ShowPerfStats || _lastAtlasDiagLog == message) return;
+        _lastAtlasDiagLog = message;
+        Console.WriteLine($"\n[atlas] {message}");
+    }
+
+    private void LogAtlasFilterOnce(string message)
+    {
+        if (_lastAtlasFilterLog == message) return;
+        _lastAtlasFilterLog = message;
+        Console.WriteLine($"\n[atlas] {message}");
     }
 
     /// <summary>Resolve the F10 START/END grid coords to canvas-space (relPos) points for the markers, and —

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Linq;
 using System.Numerics;
 using System.Text.Json;
 using ImGuiNET;
@@ -230,8 +231,13 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 {
                     var t = Stopwatch.GetTimestamp();
                     DrawNameplates(dl, ctx);
+                    DrawLootValueOverlays(dl, ctx);
                     DrawPathLabels(dl, ctx);
                     nameplatesMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
+                }
+                else
+                {
+                    DrawLootValueOverlays(dl, ctx);
                 }
             }
 
@@ -535,6 +541,22 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     mapLabels.Add(new MapLabelCandidate("map:" + s.Key, p, s.Label, s.Color, s.Color));
             }
 
+            if (ctx.ShowMonolithMapLabel && ctx.Monoliths is { Count: > 0 } monoliths)
+            {
+                foreach (var m in monoliths)
+                {
+                    var p = Project(m.Grid, player, center, scale);
+                    if (p.X < clipL - 40 || p.Y < clipT - 40 || p.X > clipR + 40 || p.Y > clipB + 40) continue;
+                    var item = !string.IsNullOrEmpty(m.BestName)
+                        ? m.BestName
+                        : $"{m.AnchorName} {m.Holes}h";
+                    if (item.Length == 0) continue;
+                    var text = m.BestEx > 0 ? $"{item}  {m.BestEx:F0}ex" : item;
+                    var key = $"mono:{m.Grid.X:F0}:{m.Grid.Y:F0}";
+                    mapLabels.Add(new MapLabelCandidate(key, p, text, m.Color, m.Color, 1));
+                }
+            }
+
             if (mapLabels.Count > 0)
                 DrawMapLabelChips(
                     dl,
@@ -545,6 +567,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     clipB,
                     smooth: !frame.IsMinimap && ctx.SmoothOverlayMotion,
                     pixelSnap: ctx.PixelSnapLabels);
+
+            DrawMonolithMapMarkers(dl, ctx, player, center, scale, clipL, clipT, clipR, clipB);
 
             if (ctx.ShowPlayerBlip)
                 DrawIconOrShape(dl, center, ctx.Styles.Player.Size, ctx.Styles.Player.Color, ctx.Styles.Player.Opacity, ctx.Styles.Player.Sprite, ctx.Styles.Player.Shape, ctx.GlobalIconScale);
@@ -841,6 +865,176 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
     }
 
+    private static uint ColorFromU(uint u)
+        => ColorU32((byte)((u >> 16) & 0xFF), (byte)((u >> 8) & 0xFF), (byte)(u & 0xFF), ((u >> 24) & 0xFF) / 255f);
+
+    private static readonly uint ColItemHi = ColorU32(255, 204, 51, 1f);
+    private static readonly uint ColItemText = ColorU32(235, 235, 235, 1f);
+    private static readonly uint ColPanelBg = ColorU32(13, 13, 13, 0.82f);
+
+    private void DrawLootValueOverlays(ImDrawListPtr dl, RenderContext ctx)
+    {
+        DrawItemLabels(dl, ctx);
+        DrawRuneforgePanel(dl, ctx);
+        DrawRitualLabels(dl, ctx);
+        DrawLootTagLabels(dl, ctx);
+        DrawMonolithPanel(dl, ctx);
+    }
+
+    private void DrawItemLabels(ImDrawListPtr dl, RenderContext ctx)
+    {
+        if (ctx.CameraMatrix is not { Length: >= 16 } m || ctx.ItemLabels is not { Count: > 0 } labels) return;
+        float W = ctx.WindowWidth, H = ctx.WindowHeight;
+        foreach (var it in labels)
+        {
+            var w = it.World;
+            var cw = w.X * m[3] + w.Y * m[7] + w.Z * m[11] + m[15];
+            if (cw <= 0.0001f) continue;
+            var cx = w.X * m[0] + w.Y * m[4] + w.Z * m[8] + m[12];
+            var cy = w.X * m[1] + w.Y * m[5] + w.Z * m[9] + m[13];
+            var sx = (cx / cw / 2f + 0.5f) * W;
+            var sy = (0.5f - cy / cw / 2f) * H;
+            if (sx < 0 || sx > W || sy < 0 || sy > H) continue;
+
+            if (it.ShowName)
+            {
+                var text = $"{it.Name}\n{it.Value}";
+                var halfW = MathF.Max(48f, 4.5f * MathF.Max(it.Name.Length, it.Value.Length + 3));
+                const float halfH = 19f;
+                dl.AddRectFilled(new NumVec2(sx - halfW, sy - halfH), new NumVec2(sx + halfW, sy + halfH), ColPanelBg);
+                if (it.Highlight) dl.AddRect(new NumVec2(sx - halfW, sy - halfH), new NumVec2(sx + halfW, sy + halfH), ColItemHi, 0, 0, 2.5f);
+                dl.AddText(ImGui.GetFont(), ImGui.GetFontSize(), new NumVec2(sx - halfW + 4f, sy - halfH + 2f),
+                    it.Highlight ? ColItemHi : ColItemText, text);
+            }
+            else
+            {
+                var halfW = MathF.Max(26f, 4.5f * (it.Value.Length + 1));
+                const float halfH = 11f;
+                dl.AddRectFilled(new NumVec2(sx - halfW, sy - halfH), new NumVec2(sx + halfW, sy + halfH), ColPanelBg);
+                if (it.Highlight) dl.AddRect(new NumVec2(sx - halfW, sy - halfH), new NumVec2(sx + halfW, sy + halfH), ColItemHi, 0, 0, 2f);
+                dl.AddText(ImGui.GetFont(), ImGui.GetFontSize(), new NumVec2(sx - halfW + 3f, sy - halfH + 1f),
+                    it.Highlight ? ColItemHi : ColItemText, it.Value);
+            }
+        }
+    }
+
+    private static void DrawRuneforgePanel(ImDrawListPtr dl, RenderContext ctx)
+    {
+        if (ctx.RuneforgePanel is not { Rows.Count: > 0 } panel) return;
+        const float w = 268f, pad = 6f, lineH = 15f, headH = 17f, titleH = 18f;
+        var rows = panel.Rows;
+        float h = pad * 2f + titleH + headH + lineH * rows.Count;
+        float x = ctx.WindowWidth - w - 10f;
+        float y = 90f + EstimateMonolithPanelHeight(ctx);
+        dl.AddRectFilled(new NumVec2(x, y), new NumVec2(x + w, y + h), ColPanelBg);
+        var font = ImGui.GetFont();
+        var fs = font.FontSize;
+        float cy = y + pad;
+        dl.AddText(font, fs, new NumVec2(x + pad, cy), ColItemText, $"Combinations ({rows.Count})");
+        cy += titleH;
+        var hdr = panel.BestEx > 0 ? $"{panel.BestEx:F0}ex · {panel.BestLabel}" : panel.BestLabel;
+        dl.AddText(font, fs, new NumVec2(x + pad, cy), ColorFromU(panel.HeaderColor), hdr);
+        cy += headH;
+        foreach (var r in rows)
+        {
+            dl.AddText(font, fs, new NumVec2(x + pad, cy), ColorFromU(r.Color), $"  {r.Ex,4:F0}  {r.Label}");
+            cy += lineH;
+        }
+    }
+
+    private static float EstimateMonolithPanelHeight(RenderContext ctx)
+    {
+        if (!ctx.ShowMonolithPanel || ctx.Monoliths is not { Count: > 0 } monos) return 0f;
+        const float pad = 6f, lineH = 15f, headH = 17f, titleH = 18f;
+        var list = monos.OrderByDescending(m => m.BestEx).Take(6).ToList();
+        float h = pad * 2f + titleH;
+        foreach (var m in list)
+        {
+            var rowCount = 0;
+            foreach (var r in m.Rewards) if (r.Ex > 0 && rowCount < 3) rowCount++;
+            h += headH + lineH * rowCount;
+        }
+        return h + 8f;
+    }
+
+    private static void DrawRitualLabels(ImDrawListPtr dl, RenderContext ctx)
+    {
+        if (ctx.RitualRewards is not { Count: > 0 } labels) return;
+        const float boxH = 20f;
+        foreach (var r in labels)
+        {
+            var boxW = MathF.Max(44f, 7.5f * (r.Text.Length + 1));
+            var cx = r.X + r.W * 0.5f;
+            var top = r.Y + r.H - boxH;
+            dl.AddRectFilled(new NumVec2(cx - boxW * 0.5f, top), new NumVec2(cx + boxW * 0.5f, top + boxH), ColPanelBg);
+            if (r.Highlight) dl.AddRect(new NumVec2(cx - boxW * 0.5f, top), new NumVec2(cx + boxW * 0.5f, top + boxH), ColItemHi, 0, 0, 2f);
+            dl.AddText(ImGui.GetFont(), ImGui.GetFontSize(), new NumVec2(cx - boxW * 0.5f + 3f, top + 1f), ColorFromU(r.Color), r.Text);
+        }
+    }
+
+    private static void DrawLootTagLabels(ImDrawListPtr dl, RenderContext ctx)
+    {
+        if (ctx.LootTags is not { Count: > 0 } labels) return;
+        const float gap = 6f, boxH = 18f;
+        foreach (var t in labels)
+        {
+            var lx = t.X + t.W + gap;
+            var cy = t.Y + t.H * 0.5f;
+            var boxW = MathF.Max(40f, 7.5f * (t.Value.Length + 1));
+            dl.AddRectFilled(new NumVec2(lx, cy - boxH * 0.5f), new NumVec2(lx + boxW, cy + boxH * 0.5f), ColPanelBg);
+            if (t.Highlight) dl.AddRect(new NumVec2(lx, cy - boxH * 0.5f), new NumVec2(lx + boxW, cy + boxH * 0.5f), ColItemHi, 0, 0, 2f);
+            dl.AddText(ImGui.GetFont(), ImGui.GetFontSize(), new NumVec2(lx + 4f, cy - boxH * 0.5f + 1f),
+                t.Highlight ? ColItemHi : ColItemText, t.Value);
+        }
+    }
+
+    private static void DrawMonolithPanel(ImDrawListPtr dl, RenderContext ctx)
+    {
+        if (!ctx.ShowMonolithPanel || ctx.Monoliths is not { Count: > 0 } monos) return;
+        var list = monos.OrderByDescending(m => m.BestEx).Take(6).ToList();
+        const float w = 248f, pad = 6f, lineH = 15f, headH = 17f, titleH = 18f;
+        float h = pad * 2f + titleH;
+        foreach (var m in list)
+        {
+            var rows = 0;
+            foreach (var r in m.Rewards) if (r.Ex > 0 && rows < 3) rows++;
+            h += headH + lineH * rows;
+        }
+        float x = ctx.WindowWidth - w - 10f, y = 90f;
+        dl.AddRectFilled(new NumVec2(x, y), new NumVec2(x + w, y + h), ColPanelBg);
+        var font = ImGui.GetFont();
+        var fs = font.FontSize;
+        float cy = y + pad;
+        dl.AddText(font, fs, new NumVec2(x + pad, cy), ColItemText, $"Monoliths ({monos.Count})");
+        cy += titleH;
+        foreach (var m in list)
+        {
+            var hdr = m.BestEx > 0 ? $"{m.BestEx:F0}ex · {m.AnchorName} {m.Holes}h" : $"{m.AnchorName} {m.Holes}h";
+            dl.AddText(font, fs, new NumVec2(x + pad, cy), ColorFromU(m.Color), hdr);
+            cy += headH;
+            var shown = 0;
+            foreach (var r in m.Rewards)
+            {
+                if (r.Ex <= 0 || shown >= 3) continue;
+                dl.AddText(font, fs, new NumVec2(x + pad, cy), ColItemText, $"  {r.Ex,4:F0}  {r.Name}");
+                cy += lineH; shown++;
+            }
+        }
+    }
+
+    private static void DrawMonolithMapMarkers(ImDrawListPtr dl, RenderContext ctx, NumVec2 player, NumVec2 center, float scale,
+        float clipL, float clipT, float clipR, float clipB)
+    {
+        if (ctx.Monoliths is not { Count: > 0 } monos) return;
+        foreach (var m in monos)
+        {
+            var p = Project(m.Grid, player, center, scale);
+            if (p.X < clipL - 40 || p.Y < clipT - 40 || p.X > clipR + 40 || p.Y > clipB + 40) continue;
+            dl.AddCircle(p, 9f, ColorFromU(m.Color), 24, 2.4f);
+            dl.AddText(ImGui.GetFont(), ImGui.GetFontSize(), new NumVec2(p.X - 4f, p.Y - 8f), ColItemText, m.Holes.ToString());
+        }
+    }
+
     private static void DrawPartialImage(
         ImDrawListPtr dl,
         TextureRegistry.TextureHandle texture,
@@ -864,7 +1058,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     // ── Map overlay label chips (corner minimap + full-screen overlay map) ──
 
-    private readonly record struct MapLabelCandidate(string Key, NumVec2 Pos, string Text, uint TextColor, uint SwatchColor);
+    private readonly record struct MapLabelCandidate(string Key, NumVec2 Pos, string Text, uint TextColor, uint SwatchColor, int StackOrder = 0);
 
     private const float LabelChipRowH = 18f;
     private const float LabelChipBodyH = LabelChipRowH - 2f;
@@ -983,7 +1177,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 continue;
             }
 
-            cluster.Sort((a, b) => string.Compare(a.Text, b.Text, StringComparison.Ordinal));
+            cluster.Sort((a, b) => a.StackOrder != b.StackOrder
+                ? a.StackOrder.CompareTo(b.StackOrder)
+                : string.Compare(a.Text, b.Text, StringComparison.Ordinal));
             var anchor = GetClusterAnchor(cluster);
             var stackH = cluster.Count * rowH;
             var startTop = Math.Clamp(

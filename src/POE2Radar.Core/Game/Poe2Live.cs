@@ -27,6 +27,9 @@ public sealed partial class Poe2Live
     private readonly Dictionary<nint, string> _meta = new();
     private readonly Dictionary<nint, nint> _iconAddr = new();     // entity → MinimapIcon component (0 = none); game POI
     private readonly Dictionary<nint, Rarity> _rarity = new();     // entity → rarity (static per spawn; cached)
+    private readonly Dictionary<nint, (Rarity rarity, string? art, bool identified, string? name)> _itemIdent = new();
+    private int _itemReadBudget;
+    private const int ItemReadBudgetPerPass = 12;
     private readonly Dictionary<nint, uint> _idAt = new();         // entity address → last-seen std::map key id (recycle guard)
     private readonly HashSet<nint> _lastSleeping = new();          // entities seen in SleepingEntities last tick; evict render cache when they wake
     private nint _entCacheKey;   // AreaInstance address the entity caches were built for
@@ -53,7 +56,8 @@ public sealed partial class Poe2Live
 
     public readonly record struct EntityDot(
         uint Id, nint Address, System.Numerics.Vector2 Grid, Vector3 World, float TerrainHeight, EntityCategory Category, string Metadata,
-        int HpCur, int HpMax, bool Poi, byte Reaction, Rarity Rarity, bool Opened, bool IconComplete = false, bool IsSleeping = false)
+        int HpCur, int HpMax, bool Poi, byte Reaction, Rarity Rarity, bool Opened, bool IconComplete = false, bool IsSleeping = false,
+        string? ItemArt = null, bool ItemIdentified = true, string? ItemName = null)
     {
         /// <summary>Monsters are "alive" only with positive HP; non-life entities are always shown.</summary>
         public bool IsAlive => HpMax <= 0 || HpCur > 0;
@@ -334,7 +338,8 @@ public sealed partial class Poe2Live
         if (areaInstance != _entCacheKey)
         {
             _renderAddr.Clear(); _lifeAddr.Clear(); _posAddr.Clear(); _ompAddr.Clear(); _chestAddr.Clear();
-            _category.Clear(); _meta.Clear(); _iconAddr.Clear(); _rarity.Clear(); _idAt.Clear();
+            _category.Clear(); _meta.Clear(); _iconAddr.Clear(); _rarity.Clear(); _itemIdent.Clear();
+            _idAt.Clear();
             _lastSleeping.Clear();
             _entCacheKey = areaInstance;
         }
@@ -355,6 +360,7 @@ public sealed partial class Poe2Live
         var root = Ptr(head + Poe2.StdMapNode.Parent);
         _entQueue.Clear(); _entQueue.Enqueue(root);
         _entVisited.Clear();
+        _itemReadBudget = ItemReadBudgetPerPass;
         while (_entQueue.Count > 0 && _entVisited.Count < 200000)
         {
             var node = _entQueue.Dequeue();
@@ -416,8 +422,14 @@ public sealed partial class Poe2Live
                 opened = ReadChestOpened(entity);
 
             var (poi, iconComplete) = ReadIcon(entity);
+            string? itemArt = null, itemName = null;
+            var itemIdentified = true;
+            if (cat == EntityCategory.Other && _meta.GetValueOrDefault(entity, "").Contains("WorldItem", StringComparison.Ordinal))
+            {
+                (rarity, itemArt, itemIdentified, itemName) = ReadItemIdentity(entity);
+            }
             byId[id] = new EntityDot(id, entity, g, wv, terrainHeight, cat, _meta.GetValueOrDefault(entity, ""), hpCur, hpMax,
-                poi, ReadReaction(entity), rarity, opened, iconComplete, isSleeping);
+                poi, ReadReaction(entity), rarity, opened, iconComplete, isSleeping, itemArt, itemIdentified, itemName);
             count++;
         }
         return count;
@@ -429,7 +441,7 @@ public sealed partial class Poe2Live
     {
         _renderAddr.Remove(entity); _lifeAddr.Remove(entity); _posAddr.Remove(entity);
         _ompAddr.Remove(entity); _chestAddr.Remove(entity); _category.Remove(entity);
-        _meta.Remove(entity); _iconAddr.Remove(entity); _rarity.Remove(entity);
+        _meta.Remove(entity); _iconAddr.Remove(entity); _rarity.Remove(entity); _itemIdent.Remove(entity);
     }
 
     /// <summary>
@@ -885,6 +897,16 @@ public sealed partial class Poe2Live
     }
 
     private nint GetUiRoot(nint inGameState) => UiRootResolver.Resolve(_reader, inGameState);
+
+    /// <summary>Live UiRoot for dev tools; auto-scans InGameState when the hardcoded offset reads 0.</summary>
+    public nint ResolveUiRoot()
+    {
+        if (!TryResolve(out var igs, out _, out _)) return 0;
+        return UiRootResolver.Resolve(_reader, igs);
+    }
+
+    /// <summary>InGameState offset used for the last successful <see cref="ResolveUiRoot"/> (fixed or discovered).</summary>
+    public int UiRootFieldOffset => UiRootResolver.CachedOffset;
 
     private bool HasMapParentChain(nint importantUi)
     {

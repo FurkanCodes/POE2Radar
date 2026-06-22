@@ -298,8 +298,10 @@ public sealed class Poe2Atlas
     private readonly object _nodeLock = new(); // ReadNodes is called from both the tick + API threads
     private nint _nodeVtable;    // cached atlas-node element class vtable
     private nint _nodeCanvas;    // cached parent container holding the node elements
-    private int _nodeRetry;      // throttle re-detection when not located
+    private int _nodeRetry;      // throttle counter (legacy; detect runs every tick while uncached)
     private int _hiddenTicks;    // counts ticks the cached canvas read as hidden (self-heal a stale cache)
+    /// <summary>Last DetectNodeClass failure reason (for overlay diagnostics).</summary>
+    public string? LastDetectFailure { get; private set; }
     // Per-element resolved content tags (display names). Content is read via the +0x310 EndgameMapAtlas
     // row (validated live 2026-06-07): the headline content @ row+0x38 → contentRow+0x30 name, plus the
     // league mechanics from the stats list @ row+0x50 (stat ids "map_atlas_node_has_<mechanic>"). Cached
@@ -327,8 +329,23 @@ public sealed class Poe2Atlas
     public bool IsAtlasOpen(nint inGameState)
     {
         var uiRoot = UiRootResolver.Resolve(_reader, inGameState);
-        return uiRoot != 0 && AtlasPanelOpen(uiRoot);
+        if (uiRoot == 0) return false;
+        AtlasPanelResolver.RecordSample(_reader, uiRoot);
+        return AtlasPanelResolver.IsPanelOpen(_reader, uiRoot);
     }
+
+    /// <summary>Atlas panel discovery diagnostics (hardcoded child index vs resolved index).</summary>
+    public AtlasPanelResolver.PanelDiag GetAtlasPanelDiag(nint inGameState)
+    {
+        var uiRoot = UiRootResolver.Resolve(_reader, inGameState);
+        if (uiRoot == 0)
+            return new AtlasPanelResolver.PanelDiag(false, -1, Poe2.AtlasPanel.UiRootChildIndex, false, false, 0, 0);
+        AtlasPanelResolver.RecordSample(_reader, uiRoot);
+        return AtlasPanelResolver.GetDiag(_reader, uiRoot);
+    }
+
+    /// <summary>Throttled node-class re-detect counter (0..29) — exposed for atlas failure logging.</summary>
+    public int AtlasNodeDetectRetry => _nodeRetry % 30;
 
     /// <summary>Read the live atlas node list. Atlas nodes are all children of one canvas container; we
     /// detect the node element-class + canvas once (BFS, vtable-grouped) and cache them, then each call
@@ -414,9 +431,11 @@ public sealed class Poe2Atlas
             // feature-off, never back to a per-tick BFS.
             if (!AtlasPanelOpen(uiRoot)) return nodes;
 
-            // (Re)detect — throttled so even with the gate open we don't BFS 50k elements every tick.
-            if (_nodeRetry++ % 30 != 0) return nodes;
-            if (!DetectNodeClass(uiRoot)) return nodes;
+            // Panel is open but we have no canvas cache — run detection every tick. BFS is scoped to the
+            // resolved atlas panel subtree (not the full 50k UI tree), so this stays cheap enough.
+            _nodeRetry++;
+            if (!DetectNodeClass(uiRoot))
+                return nodes;
             if (HierarchicallyVisible(_nodeCanvas) && ReadCanvasNodes(_nodeCanvas, nodes))
                 _nodeSnapshot = new List<AtlasNodeLive>(nodes);
             return nodes;
@@ -531,6 +550,7 @@ public sealed class Poe2Atlas
         _elementIndex.Clear();
         _graph.Clear(); _graphCanvas = 0; _currentMarker = 0;
         AllTagsResolved = false;
+        AtlasPanelResolver.Invalidate();
     }
 
     /// <summary>Drop the cached atlas node snapshot and tag/graph caches when the Atlas UI closes.</summary>
@@ -728,21 +748,9 @@ public sealed class Poe2Atlas
         return string.Join(' ', parts);
     }
 
-    /// <summary>Cheap "is the Atlas screen open?" gate used to avoid the whole-tree node-class BFS while
-    /// the atlas is closed. The atlas panel is a persistent UiRoot child at a fixed index
-    /// (<see cref="Poe2.AtlasPanel.UiRootChildIndex"/>) whose visible bit toggles with the panel — so this
-    /// is ~4 reads. Validates the indexed element is a real UiElement (Self==self) first; returns false on
-    /// any read failure (fail-safe: a drifted index degrades to feature-off, not a per-tick BFS).</summary>
+    /// <summary>Cheap "is the Atlas screen open?" gate — delegates to <see cref="AtlasPanelResolver"/>.</summary>
     private bool AtlasPanelOpen(nint uiRoot)
-    {
-        if (uiRoot == 0) return false;
-        var first = Ptr(uiRoot + Poe2.UiElement.Children);
-        if (first == 0) return false;
-        var panel = Ptr(first + (nint)(Poe2.AtlasPanel.UiRootChildIndex * 8));
-        if (panel == 0 || Ptr(panel + Poe2.UiElement.Self) != panel) return false;   // not a UiElement
-        if (!_reader.TryReadStruct<uint>(panel + Poe2.UiElement.Flags, out var fl)) return false;
-        return ((fl >> Poe2.UiElement.FlagVisibleBit) & 1) != 0;
-    }
+        => AtlasPanelResolver.IsPanelOpen(_reader, uiRoot);
 
     /// <summary>True iff the element and all ancestors (via Parent +0xB8) have the local visible bit set
     /// — i.e. actually shown. Cheap (~6 reads); used to detect "the Atlas screen is open".</summary>
@@ -760,12 +768,20 @@ public sealed class Poe2Atlas
         return true;
     }
 
-    /// <summary>BFS the UI tree; the atlas-node class is the vtable whose instances spread across many
-    /// distinct biome values (0..12) — generic elements are all biome 0. Cache that vtable + the nodes'
-    /// common parent (the canvas container).</summary>
+    /// <summary>BFS the atlas panel subtree; the atlas-node class is the vtable whose instances spread
+    /// across many distinct biome values (0..12) — generic elements are all biome 0. Cache that vtable +
+    /// the nodes' common parent (the canvas container).</summary>
     private bool DetectNodeClass(nint uiRoot)
     {
-        var root = Ptr(uiRoot + Poe2.UiElement.Parent) is var tr && tr != 0 ? tr : uiRoot;
+        LastDetectFailure = null;
+        // Scope BFS to the resolved atlas panel — avoids walking 50k UI elements and ignores stray
+        // biome-ish classes elsewhere in the tree.
+        nint root;
+        if (AtlasPanelResolver.TryResolvePanel(_reader, uiRoot, out var panel, out _))
+            root = panel;
+        else
+            root = Ptr(uiRoot + Poe2.UiElement.Parent) is var tr && tr != 0 ? tr : uiRoot;
+
         var queue = new Queue<nint>(); queue.Enqueue(root);
         var visited = new HashSet<nint>();
         var byVtable = new Dictionary<nint, List<nint>>();
@@ -782,44 +798,66 @@ public sealed class Poe2Atlas
                 if (n is > 0 and <= 16384) for (long k = 0; k < n; k++) queue.Enqueue(Ptr(first + (nint)(k * 8)));
             }
         }
-        // Score each candidate vtable on THREE signals so a stray biome-ish UI class can't win (a
-        // biome-spread-only pick mis-detected a 18×18 list element → the overlay read 0 nodes): the real
-        // atlas-node class is ~40×40, has biome spread ≥3, AND the most instances.
-        nint bestVt = 0; var bestCount = 0; var bestBiomes = 0;
-        nint fbVt = 0; var fbBiomes = 0;   // fallback: max biome-spread, in case sizes drift
+
+        var ranked = new List<(nint vt, int count, int biomes, int modalW)>();
         foreach (var (vt, list) in byVtable)
         {
-            if (list.Count < 50) continue;
+            if (list.Count < 30) continue;
             var biomes = new HashSet<int>(); var widths = new Dictionary<int, int>();
             foreach (var el in list.Take(400))
             {
                 if (_reader.TryReadStruct<byte>(el + Poe2.AtlasNode.Biome, out var b) && b is >= 1 and <= 12) biomes.Add(b);
                 if (_reader.TryReadStruct<float>(el + Poe2.UiElement.SizeW, out var w)) { var iw = (int)w; widths[iw] = widths.GetValueOrDefault(iw) + 1; }
             }
-            if (biomes.Count > fbBiomes) { fbBiomes = biomes.Count; fbVt = vt; }
             var modalW = widths.Count == 0 ? 0 : widths.OrderByDescending(k => k.Value).First().Key;
-            if (modalW is >= 28 and <= 56 && biomes.Count >= 3 && list.Count > bestCount) { bestCount = list.Count; bestVt = vt; bestBiomes = biomes.Count; }
+            ranked.Add((vt, list.Count, biomes.Count, modalW));
         }
-        if (bestVt == 0) { bestVt = fbVt; bestBiomes = fbBiomes; }   // no ~40×40 class — fall back
-        if (bestVt == 0 || bestBiomes < 3) return false;
-        _nodeVtable = bestVt;
-        // The node-class elements also appear OUTSIDE the atlas (terrain props / minimap), so the
-        // first one's parent isn't necessarily the node canvas. The real atlas canvas is the parent
-        // that holds the MOST node-class children — pick that (443 nodes vs a few terrain props).
+
+        if (ranked.Count == 0)
+        {
+            LastDetectFailure = $"no vtable with ≥30 instances under atlas panel (visited {visited.Count} elements)";
+            return false;
+        }
+
+        // Prefer ~40×40 + biome spread ≥3 + highest count (validated live).
+        var pick = ranked.Where(r => r.modalW is >= 28 and <= 56 && r.biomes >= 3)
+            .OrderByDescending(r => r.count).FirstOrDefault();
+        if (pick.vt == 0)
+            pick = ranked.Where(r => r.modalW is >= 20 and <= 80 && r.count >= 80)
+                .OrderByDescending(r => r.count).FirstOrDefault();
+        if (pick.vt == 0)
+            pick = ranked.OrderByDescending(r => r.biomes).ThenByDescending(r => r.count).First();
+        if (pick.vt == 0 || pick.count < 30)
+        {
+            LastDetectFailure = $"no qualifying node class (best {pick.count} instances, {pick.biomes} biomes)";
+            return false;
+        }
+
+        _nodeVtable = pick.vt;
+        var nodeList = byVtable[pick.vt];
         var parentCount = new Dictionary<nint, int>();
-        foreach (var el in byVtable[bestVt])
+        foreach (var el in nodeList)
         {
             var p = Ptr(el + Poe2.UiElement.Parent);
             if (p != 0) parentCount[p] = parentCount.GetValueOrDefault(p) + 1;
         }
-        if (parentCount.Count == 0) return false;
+        if (parentCount.Count == 0)
+        {
+            LastDetectFailure = "node class found but no parent canvas";
+            return false;
+        }
         _nodeCanvas = parentCount.OrderByDescending(k => k.Value).First().Key;
+        var childCount = parentCount[_nodeCanvas];
+        if (childCount < 8)
+        {
+            LastDetectFailure = $"canvas has only {childCount} node children (expected hundreds)";
+            _nodeCanvas = 0;
+            _nodeVtable = 0;
+            return false;
+        }
 
-        // Current-location marker: the lone NON-node element whose +0x300 points at a node-class element
-        // (*(marker+0x300) = the node the player is currently in). Structural, so no vtable to drift. The BFS
-        // above already visited every element (grouped in byVtable); scan them once.
         _currentMarker = 0;
-        var nodeSet = new HashSet<nint>(byVtable[bestVt]);
+        var nodeSet = new HashSet<nint>(nodeList);
         foreach (var el in byVtable.Values.SelectMany(v => v))
         {
             if (nodeSet.Contains(el)) continue;
@@ -827,6 +865,6 @@ public sealed class Poe2Atlas
             if (p != 0 && nodeSet.Contains(p)) { _currentMarker = el; break; }
         }
 
-        return _nodeCanvas != 0;
+        return true;
     }
 }

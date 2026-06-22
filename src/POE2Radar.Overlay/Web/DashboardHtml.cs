@@ -653,6 +653,7 @@ internal static class DashboardHtml
         <div class="settings-layout">
           <nav class="settings-nav" id="settingsNav">
             <button type="button" class="on" data-setsec="setDisplay">Display</button>
+            <button type="button" data-setsec="setLoot">Loot values</button>
             <button type="button" data-setsec="setNav">Navigation</button>
             <button type="button" data-setsec="setIcons">Icons</button>
             <button type="button" data-setsec="setHp">HP bars</button>
@@ -712,6 +713,47 @@ internal static class DashboardHtml
               <input class="numin" type="number" step="1" min="1" max="10" data-set="metricsRefreshHz"></div>
             <div class="row"><div class="rl">GPU metrics seconds<small>GPU/VRAM sampling interval when metrics HUD is enabled: 1&ndash;30</small></div>
               <input class="numin" type="number" step="1" min="1" max="30" data-set="gpuMetricsRefreshSeconds"></div>
+          </div>
+          </div>
+          <div class="settings-section panel-grid" id="setLoot" hidden>
+          <div class="card">
+            <h3>Ground loot values (poe.ninja)</h3>
+            <div class="row"><div class="rl">Enabled</div>
+              <label class="sw"><input type="checkbox" data-set="groundItemsEnabled"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">League override<small>blank = auto-detect from game</small></div>
+              <input class="numin" type="text" data-set="groundItemsLeague" style="width:220px"></div>
+            <div class="row"><div class="rl">Highlight min (ex)</div>
+              <input class="numin" type="number" step="0.1" min="0" data-set="groundItemsHighlightMinEx"></div>
+            <div class="row"><div class="rl">Unique floor (ex)</div>
+              <input class="numin" type="number" step="0.1" min="0" data-set="groundItemsUniqueMinEx"></div>
+            <div class="row"><div class="rl">Currency floor (ex)</div>
+              <input class="numin" type="number" step="0.1" min="0" data-set="groundItemsCurrencyMinEx"></div>
+            <div class="row"><div class="rl">Other floor (ex)</div>
+              <input class="numin" type="number" step="0.1" min="0" data-set="groundItemsOtherMinEx"></div>
+            <div class="row"><div class="rl">Min listing qty<small>skip low-confidence rows</small></div>
+              <input class="numin" type="number" step="1" min="0" data-set="groundItemsMinQuantity"></div>
+            <div class="row"><div class="rl">Anchor to loot tags</div>
+              <label class="sw"><input type="checkbox" data-set="groundItemsAnchorValuesToTags"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Price cache</div>
+              <span id="priceStatus" class="muted">loading…</span>
+              <button type="button" id="priceRefreshBtn" class="btn sm">Refresh</button></div>
+          </div>
+          <div class="card">
+            <h3>Runeshape monoliths</h3>
+            <div class="row"><div class="rl">Enabled</div>
+              <label class="sw"><input type="checkbox" data-set="monolithsEnabled"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Highlight min (ex)</div>
+              <input class="numin" type="number" step="0.1" min="0" data-set="monolithsHighlightMinEx"></div>
+            <div class="row"><div class="rl">Min reward (ex)</div>
+              <input class="numin" type="number" step="0.1" min="0" data-set="monolithsMinRewardEx"></div>
+            <div class="row"><div class="rl">Min monolith value (ex)</div>
+              <input class="numin" type="number" step="0.1" min="0" data-set="monolithsMinValueEx"></div>
+            <div class="row"><div class="rl">Hide collected</div>
+              <label class="sw"><input type="checkbox" data-set="monolithsHideCollected"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Show map label</div>
+              <label class="sw"><input type="checkbox" data-set="monolithsShowMapLabel"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Show reward panel</div>
+              <label class="sw"><input type="checkbox" data-set="monolithsShowPanel"><span class="track"></span><span class="knob"></span></label></div>
           </div>
           </div>
           <div class="settings-section panel-grid" id="setNav" hidden>
@@ -1207,8 +1249,23 @@ async function loadSettings(){
     terrain = s.terrain || null;
     styles = s.styles || null;
     renderHpBars(); renderTerrain(); renderIcons(); renderMechanics();
+    refreshPriceStatus();
   }catch(e){}
 }
+async function refreshPriceStatus(){
+  try{
+    const p=await getJSON('/api/prices');
+    const el=$('#priceStatus');
+    if(el) el.textContent=p.loaded?`${p.count} items · ${p.league||'?'} · ${p.status}`:(p.status||'not loaded');
+  }catch(e){}
+}
+$('#priceRefreshBtn')?.addEventListener('click',async()=>{
+  try{
+    await fetch('/api/prices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refresh:true})});
+    toast('Price refresh started','ok');
+    setTimeout(refreshPriceStatus,1500);
+  }catch(e){ toast('Price refresh failed'); }
+});
 async function saveSetting(key,val){
   try{
     const body={[key]:val};
@@ -1229,6 +1286,7 @@ function wireSettings(){
     if(el.type==='checkbox') el.onchange=()=>saveSetting(k,el.checked);
     else if(el.classList.contains('keyin')) el.onchange=()=>{ const vk=charToVk(el.value); if(vk) saveSetting(k,vk); el.value=vkToChar(vk); };
     else if(el.tagName==='SELECT') el.onchange=()=>saveSetting(k,el.value);
+    else if(el.type==='text') el.onchange=()=>saveSetting(k,el.value);
     else el.onchange=()=>{ const v=parseFloat(el.value); if(!isNaN(v)) saveSetting(k,v); };
   });
   $$('[data-set-inv]').forEach(el=>{

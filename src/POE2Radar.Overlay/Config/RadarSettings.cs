@@ -106,6 +106,13 @@ public sealed class RadarSettings
     // One-time: add server-icon portal rule.
     public bool ServerIconPortalMigrated { get; set; } = false;
 
+    // One-time: expand ground-item category defaults (poe.ninja group keys).
+    public bool GroundItemCategoriesMigrated { get; set; } = false;
+
+    // ── Ground loot + league reward pricing (poe.ninja). ──
+    public GroundItemSettings GroundItems { get; set; } = new();
+    public MonolithSettings Monoliths { get; set; } = new();
+
     // ── Global multiplier on map icon sprite scale (PNG from icons.png). ──
     public float GlobalIconScale { get; set; } = 1.25f;
 
@@ -521,6 +528,37 @@ public sealed class TerrainSettings
     public int ImGuiEdgeDetail { get; set; } = 8;
     // ImGuiDx backend only: radius of each anti-aliased terrain edge point.
     public float ImGuiEdgeThickness { get; set; } = 1.8f;
+}
+
+/// <summary>Ground loot value overlay settings (poe.ninja-backed).</summary>
+public sealed class GroundItemSettings
+{
+    public bool Enabled { get; set; } = true;
+    public double HighlightMinEx { get; set; } = 10.0;
+    public double UniqueMinEx { get; set; } = 5.0;
+    public double CurrencyMinEx { get; set; } = 1.0;
+    public double OtherMinEx { get; set; } = 1.0;
+    public int MinQuantity { get; set; } = 2;
+    public string League { get; set; } = "";
+    public bool AnchorValuesToTags { get; set; } = true;
+    public List<string> Categories { get; set; } = new()
+    {
+        "Uniques", "Currency", "Runes", "SoulCores", "Essences", "Fragments",
+        "UncutGems", "Delirium", "Tablets", "Idols", "Abyss", "Ritual",
+    };
+}
+
+/// <summary>Runeshape monolith reward preview settings.</summary>
+public sealed class MonolithSettings
+{
+    public bool Enabled { get; set; } = true;
+    public double HighlightMinEx { get; set; } = 30.0;
+    public double MinRewardEx { get; set; } = 1.0;
+    public double MinValueEx { get; set; } = 0.0;
+    public bool HideCollected { get; set; } = true;
+    public bool ShowPanel { get; set; } = true;
+    public bool ShowMapLabel { get; set; } = true;
+    public float PanelMaxDistance { get; set; } = 0f;
 }
 
 /// <summary>

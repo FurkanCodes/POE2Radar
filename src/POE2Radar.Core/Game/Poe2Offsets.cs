@@ -312,6 +312,74 @@ public static class Poe2
         public const int Zoom         = 0x3A8; // ✓ float (0.5 live)
     }
 
+    /// <summary>StateMachine component — drives stateful devices (runeshape monoliths).</summary>
+    public static class StateMachine
+    {
+        public const int ListenerVec = 0x20; // ✓ StdVector of listener-node ptrs
+    }
+
+    /// <summary>RuneStation heap object behind a runeshape monolith device. ✓ validated 2026-06-20.</summary>
+    public static class RuneStation
+    {
+        public const int Owner = 0x10;
+        public const int AnchorRef = 0x28;
+        public const int AnchorHolder = 0x30;
+        public const int HoleCount = 0x38;
+        public const int AnchorPos = 0x3C;
+        public const int ListenerSub = 0x98;
+        public const int RuneStride = 0x6C;
+        public const int RuneCount = 34;
+    }
+
+    /// <summary>WorldItem component on dropped item containers.</summary>
+    public static class WorldItemComponent
+    {
+        public const int ItemEntity = 0x28; // ⚠ → inner item entity
+    }
+
+    /// <summary>RenderItem component — 2D art path on the inner item entity.</summary>
+    public static class RenderItemComponent
+    {
+        public const int ResourcePath = 0x28; // ⚠ → UTF-16 .dds art path
+    }
+
+    /// <summary>Base component — rendered display name for non-unique price lookup.</summary>
+    public static class BaseComponent
+    {
+        public const int NameRow = 0x10;
+        public const int RowDisplayName = 0x30;
+    }
+
+    /// <summary>Mods component on items — rarity/identified at different offsets than OMP.</summary>
+    public static class ModsComponent
+    {
+        public const int Identified = 0x90;
+        public const int Rarity = 0x94;
+    }
+
+    /// <summary>Runeshape Combinations panel (rune-crafting UI). Validated 2026-06-14.</summary>
+    public static class Runeforge
+    {
+        public static readonly uint[] PanelFlagFingerprints =
+            { 0x00462EF1, 0x00502EF3, 0x00502EF7, 0x00542EF1, 0x00502EF1 };
+        public const int GateStep = 0;
+        public const int ViewportStep = 2;
+        public const int ScrollOffset = 0x120;
+        public const int NameWString = 0x390;
+    }
+
+    /// <summary>Ritual tribute-shop reward tiles (item-slot UiElements).</summary>
+    public static class Ritual
+    {
+        public const int TileSlotItem = 0x4F8;
+    }
+
+    /// <summary>ServerData league name for price auto-detect. ✓ validated 2026-06-22.</summary>
+    public static class ServerData
+    {
+        public const int League = 0x21E0;
+    }
+
     /// <summary>UiElement base — ✓ validated live (GH2's offsets drifted: Self 0x30→0x8, Flags 0x1B8→0x180).
     /// Parent/Position/Size from the 2026-06-07 community offset dump (resources/additional offsets.txt);
     /// Position + Size confirmed live on the atlas-node class (size = 40×40 icons, positions vary per node).</summary>
@@ -321,15 +389,22 @@ public static class Poe2
         public const int Children       = 0x10;  // ✓ StdVector begin (child UiElement ptrs); End @ +0x18
         public const int ChildrenEnd    = 0x18;  // ✓ StdVector end
         public const int Parent         = 0xB8;  // (community) parent UiElement; true UI root = *(UiRoot+0xB8)
-        public const int PositionModifier = 0x0E0; // (GH2) parent position modifier, used when flags bit 0x0A is set
+        public const int PositionModifier = 0x0E0; // (GH2) parent position modifier, used when flags bit 0x0A is set (map path)
+        public const int UiPositionModifier = 0xF0; // screen-rect path (GameHelper UiElementBase)
         public const int RelativePos    = 0x118; // ✓ StdTuple2D<float> position relative to parent (varies per atlas node)
-        public const int LocalScaleMultiplier = 0x12C; // (GH2) UI element scale multiplier
-        public const int ScaleIndex      = 0x130; // (GH2) byte selecting UI scale row
+        public const int LocalScaleMultiplier = 0x12C; // (GH2) UI element scale multiplier (map/minimap path)
+        public const int LocalScaleMul = 0x130; // screen-rect path scale multiplier
+        public const int ScaleIndex      = 0x130; // atlas zoom on node elements (map path)
+        public const int UiScaleIndex = 0x18A; // byte selecting UI scale row (screen-rect path)
+        public const int Text = 0x390; // std::wstring displayed text (loot tags, runeforge rows, ritual UI)
         public const int Flags          = 0x180; // ✓ uint; IsVisibleLocal = bit 0x0B (toggle-diff: 0x2EF1↔0x26F1)
         public const int FlagModifyPositionBit = 0x0A; // (GH2) add parent PositionModifier while resolving position
+        public const int FlagModifyPosBit = 0x0A;
         public const int FlagVisibleBit = 0x0B;  // ✓ visible bit (set when shown)
         public const int SizeW          = 0x288; // ✓ float unscaled width  (atlas node = 40)
         public const int SizeH          = 0x28C; // ✓ float unscaled height (atlas node = 40)
+        public const double BaseResW = 2560.0;
+        public const double BaseResH = 1600.0;
         // Full visibility is hierarchical: an element is shown iff its own bit 0x0B AND every
         // ancestor's bit are set. Walk Parent (+0xB8) up to the root.
     }
@@ -404,12 +479,14 @@ public static class Poe2
     /// reading this one element's visible bit is ~4 reads, versus BFS-walking the ~50k-element UI tree to
     /// (re)detect the node class — which while the atlas is closed can never succeed and so would burn that
     /// BFS every retry. <b>If a patch shifts UiRoot's children this index drifts</b> — re-discover by
-    /// diffing the DevTree <c>/api/ui-flat</c> tree closed-vs-open (the element whose visible bit flips at
-    /// the shallowest stable path). <see cref="ExpectedChildCount"/> is a secondary signature (18 children).</summary>
+    /// diffing the DevTree <c>/api/ui-flat</c> tree closed-vs-open (the direct child whose visible bit
+    /// flips SHOWN when the Endgame Atlas MAP opens — DevTree 2026-06-13: <c>root/17</c>, ~8 children;
+    /// do not confuse with <c>root/12</c> which is the Endgame shell visible when closed and hidden when
+    /// the map opens). <see cref="ExpectedChildCount"/> is a secondary signature (~8 direct children).</summary>
     public static class AtlasPanel
     {
-        public const int UiRootChildIndex  = 22; // ✓ live 2026-06-08 — stable across a cold restart
-        public const int ExpectedChildCount = 18; // ✓ signature (panel had 18 children closed + open)
+        public const int UiRootChildIndex  = 17; // ✓ DevTree diff 2026-06-13 (was 22 pre-patch)
+        public const int ExpectedChildCount = 8;  // ✓ map panel direct-child count (was 18 @ index 22)
     }
 
     /// <summary>World hover tracker (community, 2026-06-07): <c>*(UiRoot+0x7D8)+0x630</c>; hovered entity

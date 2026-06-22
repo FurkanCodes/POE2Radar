@@ -55,6 +55,19 @@ if (HasFlag(args, "--aob"))
 if (HasFlag(args, "--chain"))
     return RunChainProbe(process, reader);
 
+if (HasFlag(args, "--item") || HasFlag(args, "--groundlabels") || HasFlag(args, "--runeforge")
+    || HasFlag(args, "--ritual-shop") || HasFlag(args, "--monolith") || HasFlag(args, "--league"))
+{
+    var slot = LootResearchProbes.ResolveGameStateSlot(process, reader);
+    if (slot == 0) { Console.Error.WriteLine("Could not lock GameState slot (in game?)."); return 1; }
+    if (HasFlag(args, "--item")) return LootResearchProbes.RunItem(process, reader, slot);
+    if (HasFlag(args, "--groundlabels")) return LootResearchProbes.RunGroundLabels(process, reader, slot);
+    if (HasFlag(args, "--runeforge")) return LootResearchProbes.RunRuneforge(process, reader, slot);
+    if (HasFlag(args, "--ritual-shop")) return LootResearchProbes.RunRitualShop(process, reader, slot);
+    if (HasFlag(args, "--monolith")) return LootResearchProbes.RunMonolith(process, reader, slot);
+    return LootResearchProbes.RunLeague(process, reader, slot);
+}
+
 if (HasFlag(args, "--vitals"))
     return RunVitals(process, reader);
 
@@ -2499,9 +2512,23 @@ static int RunAtlasProbe(ProcessHandle process, MemoryReader reader)
 {
     var (_, igs, _, _) = ResolveChain(process, reader);
     if (igs == 0) { Console.Error.WriteLine("no chain (in game?)."); return 1; }
-    var uiRoot = SafePtr(reader, igs + 0x2F0);
-    var root = SafePtr(reader, uiRoot + 0xB8) is var tr && tr != 0 ? tr : uiRoot;
+    var uiRoot = SafePtr(reader, igs + Poe2.InGameState.UiRoot);
+    if (uiRoot == 0) uiRoot = SafePtr(reader, igs + 0x2F0);
+    var root = SafePtr(reader, uiRoot + Poe2.UiElement.Parent) is var tr && tr != 0 ? tr : uiRoot;
     Console.WriteLine("ATLAS PROJECTION PROBE — recovery + validation\n==============================================");
+
+    // [0] Atlas panel open-gate: hardcoded UiRoot child index vs auto-discovered resolver.
+    AtlasPanelResolver.RecordSample(reader, uiRoot);
+    var panelDiag = AtlasPanelResolver.GetDiag(reader, uiRoot);
+    Console.WriteLine("[0] ATLAS PANEL GATE (UiRoot direct child):");
+    Console.WriteLine($"    hardcoded index +0x{Poe2.AtlasPanel.UiRootChildIndex:X} ({Poe2.AtlasPanel.UiRootChildIndex})  open={panelDiag.HardcodedOpen}  children={panelDiag.ChildCount}");
+    Console.WriteLine($"    resolved  index {panelDiag.Index}  open={panelDiag.ResolvedOpen}  toggleScore={panelDiag.ToggleScore}");
+    if (panelDiag.Index >= 0 && panelDiag.Index != panelDiag.HardcodedIndex)
+        Console.WriteLine($"    ⚠ INDEX DRIFT: hardcoded {panelDiag.HardcodedIndex} ≠ resolved {panelDiag.Index} — overlay uses resolver; update Poe2Offsets if stable.");
+    if (panelDiag.HardcodedOpen != panelDiag.ResolvedOpen)
+        Console.WriteLine($"    ⚠ GATE MISMATCH: hardcodedOpen={panelDiag.HardcodedOpen} resolvedOpen={panelDiag.ResolvedOpen} — this is why overlay showed nothing when index drifted.");
+    if (!panelDiag.ResolvedOpen)
+        Console.WriteLine("    NOTE: resolved gate is CLOSED — open the Endgame Atlas MAP view, then re-run.");
 
     // 1) BFS the UI tree, group by vtable, pick the atlas-node class = the vtable whose instances spread
     //    across the most distinct biome values (generic elements are all biome 0).

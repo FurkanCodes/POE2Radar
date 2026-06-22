@@ -91,8 +91,8 @@ public sealed class DevTreeServer : IDisposable
             {
                 nint el;
                 if (TryAddr(q["addr"], out var a)) el = a;
-                else el = _live.TryResolve(out var igs, out _, out _) ? SafePtr(igs + Poe2.InGameState.UiRoot) : 0;
-                if (el == 0) Write(ctx, 404, JsonSerializer.Serialize(new { error = "no UiRoot (in game?)" }, Json));
+                else el = _live.ResolveUiRoot();
+                if (el == 0) Write(ctx, 404, JsonSerializer.Serialize(new { error = UiRootError() }, Json));
                 else Write(ctx, 200, JsonSerializer.Serialize(UiNode(el), Json));
                 break;
             }
@@ -135,13 +135,15 @@ public sealed class DevTreeServer : IDisposable
             list.Add(new RootDto("(not in game)", "0x0", "chain unresolved — load into an area"));
             return list;
         }
-        var uiRoot = SafePtr(igs + Poe2.InGameState.UiRoot);
+        var uiRoot = _live.ResolveUiRoot();
         var awake = SafePtr(ai + Poe2.AreaInstance.AwakeEntities);
         var cam = SafePtr(igs + Poe2.InGameState.Camera);
         list.Add(new RootDto("InGameState", Hex(igs), "active game state"));
         list.Add(new RootDto("AreaInstance", Hex(ai), "current area container"));
         list.Add(new RootDto("LocalPlayer", Hex(lp), MetaOf(lp)));
-        list.Add(new RootDto("UiRoot", Hex(uiRoot), "root UiElement (use UI tab)"));
+        list.Add(new RootDto("UiRoot", Hex(uiRoot), uiRoot != 0
+            ? $"root UiElement @ IGS+0x{_live.UiRootFieldOffset:X} (use UI tab)"
+            : "unresolved — hardcoded +0x2F0 null and auto-scan found nothing"));
         list.Add(new RootDto("AwakeEntities", Hex(awake), "std::map head"));
         list.Add(new RootDto("Camera", Hex(cam), "Zoom @ +0x528"));
         return list;
@@ -230,9 +232,8 @@ public sealed class DevTreeServer : IDisposable
     private object UiFlat(int max)
     {
         var list = new List<UiFlatDto>();
-        if (!_live.TryResolve(out var igs, out _, out _)) return new { error = "not in game", nodes = list };
-        var root = SafePtr(igs + Poe2.InGameState.UiRoot);
-        if (root == 0) return new { error = "no UiRoot", nodes = list };
+        var root = _live.ResolveUiRoot();
+        if (root == 0) return new { error = UiRootError(), nodes = list };
         var queue = new Queue<(nint el, nint parent, int depth, string path)>();
         queue.Enqueue((root, 0, 0, "root"));
         var seen = new HashSet<nint>();
@@ -446,6 +447,11 @@ public sealed class DevTreeServer : IDisposable
     {
         try { Write(ctx, status, body); } catch { }
     }
+
+    private string UiRootError()
+        => _live.TryResolve(out _, out _, out _)
+            ? "no UiRoot (IGS+0x2F0 null and auto-scan found nothing — in a loaded area?)"
+            : "not in game (load into an area — character select / login have no chain)";
 
     public void Dispose()
     {
