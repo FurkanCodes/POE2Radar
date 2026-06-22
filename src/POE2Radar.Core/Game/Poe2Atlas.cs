@@ -286,7 +286,8 @@ public sealed class Poe2Atlas
         nint Element, uint Id, uint Content, byte State, byte Biome, byte Flags, byte Completion,
         float X, float Y, float W, float H, float Scale, bool Visible, int IconType,
         float ScreenX, float ScreenY, float ScreenW, float ScreenH,
-        int GridX, int GridY, string MapName, IReadOnlyList<string> Tags)
+        int GridX, int GridY, string MapName, IReadOnlyList<string> Tags,
+        string MapCode = "", IReadOnlyList<string>? Badges = null, int ContentCount = 0)
     {
         /// <summary>The node's atlas grid coordinate (<see cref="Poe2Offsets.AtlasNode.GridPos"/>) — the
         /// key into the connection graph for routing (unique per node; stable while the atlas is open).</summary>
@@ -314,7 +315,7 @@ public sealed class Poe2Atlas
         }
     }
 
-    private readonly record struct AtlasNodeData(bool Resolved, string MapName, byte Biome, byte Status);
+    private readonly record struct AtlasNodeData(bool Resolved, string MapCode, byte Biome, byte Status);
 
     private readonly object _nodeLock = new(); // ReadNodes is called from both the tick + API threads
     private nint _nodeVtable;    // cached atlas-node element class vtable
@@ -327,7 +328,7 @@ public sealed class Poe2Atlas
     // row (validated live 2026-06-07): the headline content @ row+0x38 → contentRow+0x30 name, plus the
     // league mechanics from the stats list @ row+0x50 (stat ids "map_atlas_node_has_<mechanic>"). Cached
     // (content is stable while the atlas is open) and resolved at a bounded rate to avoid a tick hitch.
-    private readonly Dictionary<nint, (string map, string[] content)> _tagCache = new();
+    private readonly Dictionary<nint, (string mapCode, string map, string[] content, string[] badges, int contentCount)> _tagCache = new();
     private readonly Dictionary<nint, int> _iconTypeCache = new();
     private List<AtlasNodeLive> _nodeSnapshot = new();
     private readonly Dictionary<nint, int> _elementIndex = new();
@@ -342,6 +343,16 @@ public sealed class Poe2Atlas
     // during DetectNodeClass (vtable-independent — see Poe2.AtlasGraph.CurrentMarkerNodePtr). *(marker+0x300)
     // is the node the player is currently in (the route's true start).
     private nint _currentMarker;
+    private readonly List<nint> _currentMarkerCandidates = new();
+
+    private const uint GhAtlasPanelFlags = 0x00562EF5;
+    private const uint GhAtlasGateFlags = 0x00502EF1;
+    private const uint GhAtlasNodeListFlags = 0x00502EF3;
+    private const uint GhAtlasMapNodeFlags = 0x00542EF3;
+    private const uint GhVisibleMask = 0x800u;
+    private static readonly uint[] GhKbMouseNodeListChain = [GhAtlasPanelFlags, GhAtlasGateFlags, GhAtlasNodeListFlags];
+    private static readonly uint[] GhControllerNodeListChain =
+        [GhAtlasGateFlags, GhAtlasMapNodeFlags, GhAtlasGateFlags, GhAtlasPanelFlags, GhAtlasGateFlags, GhAtlasNodeListFlags];
 
     /// <summary>Cheap "is the Atlas screen open?" check (the persistent panel's visible bit, ~4 reads) —
     /// the same gate <see cref="ReadNodes"/> uses internally, exposed so callers can tell a TRANSIENT empty
@@ -472,6 +483,8 @@ public sealed class Poe2Atlas
         var count = ((long)last - (long)first) / 8;
         if (count is <= 0 or > 20000) { Invalidate(); return false; }
 
+        var projectionElements = new Dictionary<nint, UiElementProjection.Element>(256);
+        var projectionParents = new Dictionary<nint, UiElementProjection.Point>(64);
         var matched = 0;
         var resolveBudget = 80;  // cap new content resolves per call → spread the first-read cost
         var allCached = true;    // false if any node was left unresolved this pass (budget spent)
@@ -479,7 +492,6 @@ public sealed class Poe2Atlas
         {
             var el = Ptr(first + (nint)(i * 8));
             if (el == 0 || Ptr(el) != _nodeVtable) continue;     // vtable == node class
-            matched++;
             _reader.TryReadStruct<uint>(el + Poe2.AtlasNode.MapNodeId, out var id);
             _reader.TryReadStruct<uint>(el + Poe2.AtlasNode.Content, out var content);
             _reader.TryReadStruct<byte>(el + Poe2.AtlasNode.State, out var state);
@@ -488,18 +500,16 @@ public sealed class Poe2Atlas
             _reader.TryReadStruct<byte>(el + Poe2.AtlasNode.Completion, out var compl);
             _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos, out var x);
             _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos + 4, out var y);
-            _reader.TryReadStruct<float>(el + Poe2.UiElement.SizeW, out var w);
-            _reader.TryReadStruct<float>(el + Poe2.UiElement.SizeH, out var h);
             _reader.TryReadStruct<float>(el + 0x130, out var scale);
-            _reader.TryReadStruct<int>(el + Poe2.AtlasNode.GridPos, out var gridX);     // StdTuple2D<int> atlas grid coord
-            _reader.TryReadStruct<int>(el + Poe2.AtlasNode.GridPos + 4, out var gridY); // → the routing graph key
+            if (!TryReadAtlasNodeIdentity(el, out var gridX, out var gridY, out var w, out var h, out var data))
+                continue;
+            matched++;
             _reader.TryReadStruct<uint>(el + Poe2.UiElement.Flags, out var uiFlags);
             var visible = ((uiFlags >> Poe2.UiElement.FlagVisibleBit) & 1) != 0;
-            var data = ReadNodeData(el);
             var biome = data.Resolved && data.Biome <= 12 ? data.Biome : directBiome;
             var flags = data.Resolved ? AtlasNodeState.FlagsFromStatus(data.Status) : directFlags;
             if (data.Resolved) state = data.Status;
-            var (sx, sy, sw, sh) = TryScreenRect(el, winW, winH, out var screen)
+            var (sx, sy, sw, sh) = TryScreenRect(el, winW, winH, projectionElements, projectionParents, out var screen)
                 ? screen
                 : (x, y, w, h);
             // The node's content/icon TYPE lives on a nested sigil-icon child (content int 1..~50);
@@ -520,10 +530,12 @@ public sealed class Poe2Atlas
             if (!_tagCache.TryGetValue(el, out var resolved))
             {
                 if (resolveBudget > 0) { resolved = ResolveTags(el); _tagCache[el] = resolved; resolveBudget--; }
-                else { resolved = ("", NoTags); allCached = false; } // budget spent — retried next call (not cached)
+                else { resolved = ("", "", NoTags, NoTags, 0); allCached = false; } // budget spent — retried next call (not cached)
             }
-            var mapName = data.Resolved && !string.IsNullOrEmpty(data.MapName) ? Prettify(data.MapName) : resolved.map;
-            outNodes.Add(new AtlasNodeLive(el, id, content, state, biome, flags, compl, x, y, w, h, scale, visible, iconType, sx, sy, sw, sh, gridX, gridY, mapName, resolved.content));
+            var mapCode = data.Resolved && !string.IsNullOrEmpty(data.MapCode) ? data.MapCode : resolved.mapCode;
+            var mapName = !string.IsNullOrEmpty(mapCode) ? AtlasCatalog.Shared.MapName(mapCode) : resolved.map;
+            outNodes.Add(new AtlasNodeLive(el, id, content, state, biome, flags, compl, x, y, w, h, scale, visible, iconType,
+                sx, sy, sw, sh, gridX, gridY, mapName, resolved.content, mapCode, resolved.badges, resolved.contentCount));
         }
         if (matched < 8) { Invalidate(); return false; }          // canvas no longer the node container
         AllTagsResolved = allCached;   // true once every node's tags are cached (seed defaults only then)
@@ -540,6 +552,8 @@ public sealed class Poe2Atlas
         var count = ((long)last - (long)first) / 8;
         if (count is <= 0 or > 20000) { Invalidate(); return false; }
 
+        var projectionElements = new Dictionary<nint, UiElementProjection.Element>(256);
+        var projectionParents = new Dictionary<nint, UiElementProjection.Point>(64);
         var matched = 0;
         for (long i = 0; i < count; i++)
         {
@@ -556,7 +570,7 @@ public sealed class Poe2Atlas
             var old = _nodeSnapshot[idx];
             var data = ReadNodeData(el);
             var flags = data.Resolved ? AtlasNodeState.FlagsFromStatus(data.Status) : directFlags;
-            var screen = TryScreenRect(el, winW, winH, out var rect)
+            var screen = TryScreenRect(el, winW, winH, projectionElements, projectionParents, out var rect)
                 ? rect
                 : (old.ScreenX, old.ScreenY, old.ScreenW, old.ScreenH);
             _nodeSnapshot[idx] = old with { X = x, Y = y, Scale = scale, Flags = flags, Visible = visible,
@@ -574,8 +588,8 @@ public sealed class Poe2Atlas
 
         _reader.TryReadStruct<byte>(data + Poe2.AtlasNode.DataBiome, out var biome);
         _reader.TryReadStruct<byte>(data + Poe2.AtlasNode.DataStatus, out var status);
-        var mapName = ReadDataMapId(data);
-        return new AtlasNodeData(true, mapName, biome, status);
+        var mapCode = ReadDataMapId(data);
+        return new AtlasNodeData(true, mapCode, biome, status);
     }
 
     private string ReadDataMapId(nint data)
@@ -588,53 +602,45 @@ public sealed class Poe2Atlas
         return code.StartsWith("Map", StringComparison.Ordinal) ? code : "";
     }
 
-    private bool TryScreenRect(nint el, float winW, float winH, out (float x, float y, float w, float h) rect)
+    private bool TryReadAtlasNodeIdentity(nint el, out int gridX, out int gridY, out float w, out float h, out AtlasNodeData data)
+    {
+        gridX = gridY = 0;
+        w = h = 0f;
+        data = default;
+        if (!_reader.TryReadStruct<int>(el + Poe2.AtlasNode.GridPos, out gridX)) return false;
+        if (!_reader.TryReadStruct<int>(el + Poe2.AtlasNode.GridPos + 4, out gridY)) return false;
+        if (!IsSaneAtlasGrid(gridX, gridY)) return false;
+        if (!_reader.TryReadStruct<float>(el + Poe2.UiElement.SizeW, out w)) return false;
+        if (!_reader.TryReadStruct<float>(el + Poe2.UiElement.SizeH, out h)) return false;
+        if (!IsSaneAtlasNodeSize(w, h)) return false;
+        data = ReadNodeData(el);
+        return data.Resolved && data.Biome <= 12 && !string.IsNullOrEmpty(data.MapCode);
+    }
+
+    private static bool IsSaneAtlasGrid(int x, int y)
+        => x is > -512 and < 512 && y is > -512 and < 512;
+
+    private static bool IsSaneAtlasNodeSize(float w, float h)
+        => float.IsFinite(w) && float.IsFinite(h) && w is >= 8f and <= 160f && h is >= 8f and <= 160f;
+
+    private bool TryScreenRect(
+        nint el,
+        float winW,
+        float winH,
+        IDictionary<nint, UiElementProjection.Element> elementCache,
+        IDictionary<nint, UiElementProjection.Point> parentCache,
+        out (float x, float y, float w, float h) rect)
     {
         rect = default;
-        if (winW <= 0 || winH <= 0) return false;
-        if (!_reader.TryReadStruct<byte>(el + Poe2.UiElement.UiScaleIndex, out var idx)) return false;
-        _reader.TryReadStruct<float>(el + Poe2.UiElement.LocalScaleMul, out var mul);
-        _reader.TryReadStruct<float>(el + Poe2.UiElement.SizeW, out var uw);
-        _reader.TryReadStruct<float>(el + Poe2.UiElement.SizeH, out var uh);
-        var (sw, sh) = UiScaleValue(idx, mul, winW, winH);
-        if (sw <= 0f || sh <= 0f) return false;
-        var (px, py) = UiUnscaledPos(el, 0, winW, winH);
-        if (!float.IsFinite(px) || !float.IsFinite(py)) return false;
-        rect = (px * sw, py * sh, uw * sw, uh * sh);
-        return rect.w > 1f && rect.h > 1f;
-    }
+        if (!UiElementProjection.TryGetRect(el, TryReadProjectionElement, winW, winH, elementCache, parentCache, out var r))
+            return false;
+        rect = (r.X, r.Y, r.W, r.H);
+        return true;
 
-    private static (float w, float h) UiScaleValue(byte idx, float mul, float winW, float winH)
-    {
-        if (mul == 0f) mul = 1f;
-        var v1 = winW / (float)Poe2.UiElement.BaseResW;
-        var v2 = winH / (float)Poe2.UiElement.BaseResH;
-        float w = mul, h = mul;
-        switch (idx)
+        bool TryReadProjectionElement(nint addr, out UiElementProjection.Element element)
         {
-            case 1: w *= v1; h *= v1; break;
-            case 2: w *= v2; h *= v2; break;
-            case 3: w *= v1; h *= v2; break;
+            return UiElementProjection.TryRead(_reader, addr, out element);
         }
-        return (w, h);
-    }
-
-    private (float x, float y) UiUnscaledPos(nint el, int depth, float winW, float winH)
-    {
-        _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos, out var lx);
-        _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos + 4, out var ly);
-        var parent = Ptr(el + Poe2.UiElement.Parent);
-        if (parent == 0 || depth >= 64) return (lx, ly);
-
-        var (ppx, ppy) = UiUnscaledPos(parent, depth + 1, winW, winH);
-        if (_reader.TryReadStruct<uint>(el + Poe2.UiElement.Flags, out var flags)
-            && (flags & (1u << Poe2.UiElement.FlagModifyPosBit)) != 0)
-        {
-            _reader.TryReadStruct<float>(el + Poe2.UiElement.UiPositionModifier, out var mx);
-            _reader.TryReadStruct<float>(el + Poe2.UiElement.UiPositionModifier + 4, out var my);
-            ppx += mx; ppy += my;
-        }
-        return (ppx + lx, ppy + ly);
     }
 
     private void RebuildElementIndex(List<AtlasNodeLive> nodes)
@@ -654,7 +660,7 @@ public sealed class Poe2Atlas
         _nodeCanvas = 0; _nodeVtable = 0; _hiddenTicks = 0;
         _tagCache.Clear(); _iconTypeCache.Clear(); _nodeSnapshot.Clear();
         _elementIndex.Clear();
-        _graph.Clear(); _graphCanvas = 0; _currentMarker = 0;
+        _graph.Clear(); _graphCanvas = 0; _currentMarker = 0; _currentMarkerCandidates.Clear();
         AllTagsResolved = false;
         AtlasPanelResolver.Invalidate();
     }
@@ -681,6 +687,47 @@ public sealed class Poe2Atlas
             if (!_reader.TryReadStruct<int>(node + Poe2.AtlasNode.GridPos, out var gx)) return null;
             if (!_reader.TryReadStruct<int>(node + Poe2.AtlasNode.GridPos + 4, out var gy)) return null;
             return (gx, gy);
+        }
+    }
+
+    public Vector2? CurrentMarkerCenter(float winW, float winH)
+    {
+        lock (_nodeLock)
+        {
+            if (_currentMarkerCandidates.Count == 0 || _nodeSnapshot.Count == 0) return null;
+            var projectionElements = new Dictionary<nint, UiElementProjection.Element>(128);
+            var projectionParents = new Dictionary<nint, UiElementProjection.Point>(32);
+            var centers = new List<Vector2>(_nodeSnapshot.Count);
+            foreach (var node in _nodeSnapshot)
+            {
+                var center = node.ScreenCenter;
+                if (float.IsFinite(center.X) && float.IsFinite(center.Y))
+                    centers.Add(center);
+            }
+            if (centers.Count == 0) return null;
+
+            Vector2? best = null;
+            var bestD = float.MaxValue;
+            foreach (var marker in _currentMarkerCandidates)
+            {
+                if (Ptr(marker + Poe2.UiElement.Self) != marker) continue;
+                if (!TryScreenRect(marker, winW, winH, projectionElements, projectionParents, out var rect)) continue;
+                var c = new Vector2 { X = rect.x + rect.w * 0.5f, Y = rect.y + rect.h * 0.5f };
+                var nearest = float.MaxValue;
+                foreach (var nodeCenter in centers)
+                {
+                    var dx = c.X - nodeCenter.X;
+                    var dy = c.Y - nodeCenter.Y;
+                    var d = dx * dx + dy * dy;
+                    if (d < nearest) nearest = d;
+                }
+                if (nearest < bestD)
+                {
+                    bestD = nearest;
+                    best = c;
+                }
+            }
+            return best;
         }
     }
 
@@ -834,11 +881,12 @@ public sealed class Poe2Atlas
     /// the headline content (row+0x38 → content row +0x30 name, e.g. "Powerful Map Boss") plus the league
     /// mechanics harvested from the stats sub-struct (row+0x50): stat ids "map_atlas_node_has_&lt;x&gt;"
     /// → "X" (Breach, Delirium, …). Validated live 2026-06-07; re-confirm offsets via Research --atlas-resolve.</summary>
-    private (string map, string[] content) ResolveTags(nint el)
+    private (string mapCode, string map, string[] content, string[] badges, int contentCount) ResolveTags(nint el)
     {
         // Map NAME (every node, content or not): node +0x300 → EndgameMaps row; +0x00 is the std::wstring
         // map code "MapXxx" → Prettify ("MapSunTemple"→"Sun Temple", "MapPrecursorTowerGrass"→"Tower …").
         // Kept SEPARATE from content tags so the dashboard can offer a distinct "Map" filter group.
+        var mapCode = "";
         var map = "";
         var mapRow = Ptr(el + 0x300);
         if (mapRow != 0)
@@ -846,14 +894,24 @@ public sealed class Poe2Atlas
             var w = Ptr(mapRow);
             var code = w != 0 ? _reader.ReadStringUtf16(w, 64) : "";
             if (!code.StartsWith("Map", StringComparison.Ordinal)) { var w2 = Ptr(w); code = w2 != 0 ? _reader.ReadStringUtf16(w2, 64) : code; }
-            if (code.StartsWith("Map", StringComparison.Ordinal)) map = Prettify(code);
+            if (code.StartsWith("Map", StringComparison.Ordinal))
+            {
+                mapCode = code;
+                map = AtlasCatalog.Shared.MapName(code);
+            }
         }
 
         var tags = new List<string>(4);
+        var badges = new List<string>(4);
+        var contentCount = CountContentMarkers(el);
+
+        foreach (var tokenName in ReadContentTokenNames(el))
+            AddUnique(tags, tokenName);
 
         // Rolled content lives on the EndgameMapAtlas row at +0x310 (null ⇒ none).
         var row = Ptr(el + 0x310);
-        if (row == 0) return (map, NoTags);
+        if (row == 0)
+            return (mapCode, map, tags.Count == 0 ? NoTags : tags.ToArray(), badges.Count == 0 ? NoTags : badges.ToArray(), contentCount);
 
         // Headline content: row+0x38 → content row; +0x30 is a pointer to the (NUL-terminated UTF-16)
         // display name, e.g. "Powerful Map Boss" / "Trialmaster's Trainee".
@@ -862,7 +920,7 @@ public sealed class Poe2Atlas
         {
             var np = Ptr(contentRow + 0x30);
             var nm = np != 0 ? _reader.ReadStringUtf16(np, 64) : "";
-            if (LooksLikeName(nm)) tags.Add(nm.Trim());
+            if (LooksLikeName(nm)) AddUnique(tags, nm.Trim());
         }
 
         // League mechanics: row+0x50 → stats sub-struct; harvest "map_atlas_node_has_<mechanic>" stat ids.
@@ -882,11 +940,71 @@ public sealed class Poe2Atlas
                 if (s.StartsWith(pre, StringComparison.Ordinal))
                 {
                     var mech = TitleCase(s[pre.Length..].Replace('_', ' '));
-                    if (mech.Length > 0 && !tags.Contains(mech)) tags.Add(mech);
+                    if (mech.Length > 0) AddUnique(tags, mech);
                 }
             }
         }
-        return (map, tags.Count == 0 ? NoTags : tags.ToArray());
+
+        foreach (var t in tags)
+            if (AtlasCatalog.Shared.ContentInfoFor(t) is { } ci)
+                AddUnique(badges, ci.ShortLabel);
+
+        return (mapCode, map, tags.Count == 0 ? NoTags : tags.ToArray(), badges.Count == 0 ? NoTags : badges.ToArray(), Math.Max(contentCount, tags.Count));
+    }
+
+    private List<string> ReadContentTokenNames(nint el)
+    {
+        var names = new List<string>(4);
+        if (!_reader.TryReadStruct<StdVector>(el + Poe2.AtlasNode.ContentVec, out var vec)) return names;
+        var bytes = (long)vec.Last - (long)vec.First;
+        if (vec.First == 0 || bytes <= 0 || bytes > 4096) return names;
+        var count = (int)Math.Min(bytes / 4, 128);
+        Span<byte> buf = stackalloc byte[Math.Min(count * 4, 512)];
+        var got = _reader.TryReadBytes(vec.First, buf);
+        for (var i = 0; i + 4 <= got; i += 4)
+        {
+            var token = BitConverter.ToUInt32(buf[i..]);
+            if (TryContentTokenName(token, out var name))
+                AddUnique(names, name);
+        }
+        return names;
+    }
+
+    private static bool TryContentTokenName(uint token, out string name)
+    {
+        name = token switch
+        {
+            1 => "Powerful Map Boss",
+            2 => "Grand Mirror",
+            3 => "Delirium",
+            4 => "Abyss",
+            5 => "Ritual",
+            6 => "Vaal Beacons",
+            7 => "Breach",
+            8 => "Expedition",
+            9 => "Indomitable Essence",
+            10 => "Strongbox",
+            11 => "Shrine",
+            _ => "",
+        };
+        return name.Length > 0;
+    }
+
+    private int CountContentMarkers(nint el)
+    {
+        var firstChild = Ptr(el + Poe2.UiElement.Children);
+        if (firstChild == 0) return 0;
+        if (!_reader.TryReadStruct<nint>(el + Poe2.UiElement.ChildrenEnd, out var lastChild)) return 0;
+        var childCount = ((long)lastChild - (long)firstChild) / 8;
+        return childCount is > 0 and < 256 ? (int)childCount : 0;
+    }
+
+    private static void AddUnique(List<string> list, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return;
+        foreach (var existing in list)
+            if (string.Equals(existing, value, StringComparison.OrdinalIgnoreCase)) return;
+        list.Add(value);
     }
 
     /// <summary>Read a NUL/garbage-terminated ASCII run at <paramref name="addr"/> (stat ids are ASCII).</summary>
@@ -935,6 +1053,9 @@ public sealed class Poe2Atlas
     private bool DetectNodeClass(nint uiRoot)
     {
         LastDetectFailure = null;
+        if (TryResolveGameHelperNodeList(uiRoot, out var ghNodeList) && TryInitializeNodeCanvas(ghNodeList))
+            return true;
+
         // Scope BFS to the resolved atlas panel — avoids walking 50k UI elements and ignores stray
         // biome-ish classes elsewhere in the tree.
         nint root;
@@ -964,14 +1085,21 @@ public sealed class Poe2Atlas
         foreach (var (vt, list) in byVtable)
         {
             if (list.Count < 30) continue;
-            var biomes = new HashSet<int>(); var widths = new Dictionary<int, int>();
+            var valid = 0;
+            var biomes = new HashSet<int>();
+            var widths = new Dictionary<int, int>();
             foreach (var el in list.Take(400))
             {
-                if (_reader.TryReadStruct<byte>(el + Poe2.AtlasNode.Biome, out var b) && b is >= 1 and <= 12) biomes.Add(b);
-                if (_reader.TryReadStruct<float>(el + Poe2.UiElement.SizeW, out var w)) { var iw = (int)w; widths[iw] = widths.GetValueOrDefault(iw) + 1; }
+                if (!TryReadAtlasNodeIdentity(el, out _, out _, out var w, out _, out var data))
+                    continue;
+                valid++;
+                biomes.Add(data.Biome);
+                var iw = (int)w;
+                widths[iw] = widths.GetValueOrDefault(iw) + 1;
             }
+            if (valid < 30) continue;
             var modalW = widths.Count == 0 ? 0 : widths.OrderByDescending(k => k.Value).First().Key;
-            ranked.Add((vt, list.Count, biomes.Count, modalW));
+            ranked.Add((vt, valid, biomes.Count, modalW));
         }
 
         if (ranked.Count == 0)
@@ -995,7 +1123,9 @@ public sealed class Poe2Atlas
         }
 
         _nodeVtable = pick.vt;
-        var nodeList = byVtable[pick.vt];
+        var nodeList = byVtable[pick.vt]
+            .Where(el => TryReadAtlasNodeIdentity(el, out _, out _, out _, out _, out _))
+            .ToList();
         var parentCount = new Dictionary<nint, int>();
         foreach (var el in nodeList)
         {
@@ -1027,5 +1157,105 @@ public sealed class Poe2Atlas
         }
 
         return true;
+    }
+
+    private bool TryResolveGameHelperNodeList(nint uiRoot, out nint nodeList)
+    {
+        nodeList = WalkFlagsChain(uiRoot, GhKbMouseNodeListChain, gateStep: 1, step: 0);
+        if (nodeList != 0) return true;
+        nodeList = WalkFlagsChain(uiRoot, GhControllerNodeListChain, gateStep: 4, step: 0);
+        return nodeList != 0;
+    }
+
+    private nint WalkFlagsChain(nint parentAddr, IReadOnlyList<uint> flagsChain, int gateStep, int step)
+    {
+        if (step == flagsChain.Count) return parentAddr;
+        var first = Ptr(parentAddr + Poe2.UiElement.Children);
+        if (first == 0 || !_reader.TryReadStruct<nint>(parentAddr + Poe2.UiElement.ChildrenEnd, out var last))
+            return 0;
+        var count = ((long)last - (long)first) / 8;
+        if (count is <= 0 or > 5000) return 0;
+
+        var target = flagsChain[step] & ~GhVisibleMask;
+        for (var pass = 0; pass < 2; pass++)
+        {
+            var wantVisible = pass == 0;
+            for (long i = 0; i < count; i++)
+            {
+                var child = Ptr(first + (nint)(i * 8));
+                if (child == 0 || Ptr(child + Poe2.UiElement.Self) != child) continue;
+                if (!_reader.TryReadStruct<uint>(child + Poe2.UiElement.Flags, out var flags)) continue;
+                if ((flags & ~GhVisibleMask) != target) continue;
+                var visible = (flags & GhVisibleMask) != 0;
+                if (visible != wantVisible) continue;
+                if (step == gateStep && !visible) continue;
+
+                var deeper = WalkFlagsChain(child, flagsChain, gateStep, step + 1);
+                if (deeper != 0) return deeper;
+            }
+        }
+
+        return 0;
+    }
+
+    private bool TryInitializeNodeCanvas(nint canvas)
+    {
+        var first = Ptr(canvas + Poe2.UiElement.Children);
+        if (first == 0 || !_reader.TryReadStruct<nint>(canvas + Poe2.UiElement.ChildrenEnd, out var last))
+            return false;
+        var count = ((long)last - (long)first) / 8;
+        if (count is <= 0 or > 20000) return false;
+
+        var byVtable = new Dictionary<nint, List<nint>>();
+        var markerCandidates = new List<nint>();
+        for (long i = 0; i < count; i++)
+        {
+            var child = Ptr(first + (nint)(i * 8));
+            if (child == 0 || Ptr(child + Poe2.UiElement.Self) != child) continue;
+            if (!_reader.TryReadStruct<uint>(child + Poe2.UiElement.Flags, out var flags)) continue;
+            if ((flags & ~GhVisibleMask) == (GhAtlasNodeListFlags & ~GhVisibleMask) && (flags & GhVisibleMask) != 0)
+                markerCandidates.Add(child);
+            if (!TryReadAtlasNodeIdentity(child, out _, out _, out _, out _, out _)) continue;
+            var vt = Ptr(child);
+            if (vt != 0) (byVtable.TryGetValue(vt, out var l) ? l : byVtable[vt] = new()).Add(child);
+        }
+
+        if (byVtable.Count == 0) return false;
+        var pick = byVtable
+            .Select(kv => (vt: kv.Key, nodes: kv.Value, biomes: CountBiomes(kv.Value)))
+            .Where(x => x.nodes.Count >= 8)
+            .OrderByDescending(x => x.biomes)
+            .ThenByDescending(x => x.nodes.Count)
+            .FirstOrDefault();
+        if (pick.vt == 0 || pick.nodes.Count < 8) return false;
+
+        _nodeCanvas = canvas;
+        _nodeVtable = pick.vt;
+        _currentMarkerCandidates.Clear();
+        _currentMarkerCandidates.AddRange(markerCandidates);
+        _currentMarker = 0;
+
+        var nodeSet = new HashSet<nint>(pick.nodes);
+        for (long i = 0; i < count; i++)
+        {
+            var child = Ptr(first + (nint)(i * 8));
+            if (child == 0 || nodeSet.Contains(child)) continue;
+            var p = Ptr(child + Poe2.AtlasGraph.CurrentMarkerNodePtr);
+            if (p != 0 && nodeSet.Contains(p)) { _currentMarker = child; break; }
+        }
+
+        return true;
+    }
+
+    private int CountBiomes(IReadOnlyList<nint> nodes)
+    {
+        var biomes = new HashSet<byte>();
+        foreach (var node in nodes.Take(400))
+        {
+            var data = ReadNodeData(node);
+            if (data.Resolved && data.Biome <= 12)
+                biomes.Add(data.Biome);
+        }
+        return biomes.Count;
     }
 }

@@ -597,6 +597,23 @@ public sealed class ApiServer : IDisposable
         atlasUseCurrentStart = _settings.AtlasUseCurrentStart,
         atlasIconScale = _settings.AtlasIconScale,
         atlasLabelScale = _settings.AtlasLabelScale,
+        atlasLanguage = _settings.AtlasLanguage,
+        atlasSearchQuery = _settings.AtlasSearchQuery,
+        atlasHideCompletedMaps = _settings.AtlasHideCompletedMaps,
+        atlasHideNotAccessibleMaps = _settings.AtlasHideNotAccessibleMaps,
+        atlasHideAvailableMaps = _settings.AtlasHideAvailableMaps,
+        atlasShowBiomeBorders = _settings.AtlasShowBiomeBorders,
+        atlasShowContentBadges = _settings.AtlasShowContentBadges,
+        atlasShowContentCount = _settings.AtlasShowContentCount,
+        atlasShowContentTokens = _settings.AtlasShowContentTokens,
+        atlasShowRouteChevrons = _settings.AtlasShowRouteChevrons,
+        atlasRouteLineThickness = _settings.AtlasRouteLineThickness,
+        atlasRouteChevronSpacing = _settings.AtlasRouteChevronSpacing,
+        atlasSearchRange = _settings.AtlasSearchRange,
+        atlasLabelOffsetX = _settings.AtlasLabelOffsetX,
+        atlasLabelOffsetY = _settings.AtlasLabelOffsetY,
+        atlasMapGroups = _settings.AtlasMapGroups,
+        atlasRouteGroups = _settings.AtlasRouteGroups,
         hideEntityHotkey = _settings.HideEntityHotkey,
         trackEntityHotkey = _settings.TrackEntityHotkey,
         autoPathToggleHotkey = _settings.AutoPathToggleHotkey,
@@ -721,6 +738,28 @@ public sealed class ApiServer : IDisposable
                 case "atlasOffScreenArrows" when TryBool(p.Value, out var b): _settings.AtlasOffScreenArrows = b; applied.Add(p.Name); break;
                 case "atlasShowRoute" when TryBool(p.Value, out var b): _settings.AtlasShowRoute = b; applied.Add(p.Name); break;
                 case "atlasUseCurrentStart" when TryBool(p.Value, out var b): _settings.AtlasUseCurrentStart = b; applied.Add(p.Name); break;
+                case "atlasLanguage" when p.Value.ValueKind == JsonValueKind.String:
+                    _settings.AtlasLanguage = p.Value.GetString() ?? "english"; applied.Add(p.Name); break;
+                case "atlasSearchQuery" when p.Value.ValueKind == JsonValueKind.String:
+                    _settings.AtlasSearchQuery = p.Value.GetString() ?? ""; applied.Add(p.Name); break;
+                case "atlasHideCompletedMaps" when TryBool(p.Value, out var b): _settings.AtlasHideCompletedMaps = b; applied.Add(p.Name); break;
+                case "atlasHideNotAccessibleMaps" when TryBool(p.Value, out var b): _settings.AtlasHideNotAccessibleMaps = b; applied.Add(p.Name); break;
+                case "atlasHideAvailableMaps" when TryBool(p.Value, out var b): _settings.AtlasHideAvailableMaps = b; applied.Add(p.Name); break;
+                case "atlasShowBiomeBorders" when TryBool(p.Value, out var b): _settings.AtlasShowBiomeBorders = b; applied.Add(p.Name); break;
+                case "atlasShowContentBadges" when TryBool(p.Value, out var b): _settings.AtlasShowContentBadges = b; applied.Add(p.Name); break;
+                case "atlasShowContentCount" when TryBool(p.Value, out var b): _settings.AtlasShowContentCount = b; applied.Add(p.Name); break;
+                case "atlasShowContentTokens" when TryBool(p.Value, out var b): _settings.AtlasShowContentTokens = b; applied.Add(p.Name); break;
+                case "atlasShowRouteChevrons" when TryBool(p.Value, out var b): _settings.AtlasShowRouteChevrons = b; applied.Add(p.Name); break;
+                case "atlasRouteLineThickness" when TryFloat(p.Value, out var art):
+                    _settings.AtlasRouteLineThickness = Math.Clamp(art, 1f, 8f); applied.Add(p.Name); break;
+                case "atlasRouteChevronSpacing" when TryFloat(p.Value, out var arcs):
+                    _settings.AtlasRouteChevronSpacing = Math.Clamp(arcs, 8f, 80f); applied.Add(p.Name); break;
+                case "atlasSearchRange" when TryFloat(p.Value, out var asr):
+                    _settings.AtlasSearchRange = Math.Clamp(asr, 1f, 10f); applied.Add(p.Name); break;
+                case "atlasLabelOffsetX" when TryFloat(p.Value, out var alox):
+                    _settings.AtlasLabelOffsetX = Math.Clamp(alox, -80f, 80f); applied.Add(p.Name); break;
+                case "atlasLabelOffsetY" when TryFloat(p.Value, out var aloy):
+                    _settings.AtlasLabelOffsetY = Math.Clamp(aloy, -80f, 80f); applied.Add(p.Name); break;
                 case "atlasIconScale" when TryFloat(p.Value, out var ais):
                     _settings.AtlasIconScale = Math.Clamp(ais, 0.25f, 4f);
                     applied.Add(p.Name);

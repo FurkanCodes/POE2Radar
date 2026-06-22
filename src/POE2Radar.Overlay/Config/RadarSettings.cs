@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using POE2Radar.Core.Game;
 
 namespace POE2Radar.Overlay.Config;
 
@@ -211,6 +212,23 @@ public sealed class RadarSettings
     public bool AtlasShowRoute { get; set; } = true;
     // When no manual F10 START is set, route from the player's current atlas tile (live marker read).
     public bool AtlasUseCurrentStart { get; set; } = true;
+    public string AtlasLanguage { get; set; } = "english";
+    public string AtlasSearchQuery { get; set; } = "";
+    public bool AtlasHideCompletedMaps { get; set; } = false;
+    public bool AtlasHideNotAccessibleMaps { get; set; } = false;
+    public bool AtlasHideAvailableMaps { get; set; } = false;
+    public bool AtlasShowBiomeBorders { get; set; } = true;
+    public bool AtlasShowContentBadges { get; set; } = true;
+    public bool AtlasShowContentCount { get; set; } = true;
+    public bool AtlasShowContentTokens { get; set; } = false;
+    public bool AtlasShowRouteChevrons { get; set; } = true;
+    public float AtlasRouteLineThickness { get; set; } = 3.5f;
+    public float AtlasRouteChevronSpacing { get; set; } = 28f;
+    public float AtlasSearchRange { get; set; } = 1f;
+    public float AtlasLabelOffsetX { get; set; } = 0f;
+    public float AtlasLabelOffsetY { get; set; } = 0f;
+    public List<AtlasMapGroupSettings> AtlasMapGroups { get; set; } = BuildDefaultAtlasMapGroups();
+    public List<AtlasRouteGroupSettings> AtlasRouteGroups { get; set; } = BuildDefaultAtlasRouteGroups();
 
     // ── Auto-flask thresholds + per-flask cooldowns (milliseconds). ──
     // What the (single) life-flask key triggers on: "Health" watches HP% only (default — unchanged
@@ -391,8 +409,52 @@ public sealed class RadarSettings
             changed = true;
         }
 
+        if (AtlasMapGroups.Count == 0)
+        {
+            AtlasMapGroups = BuildDefaultAtlasMapGroups();
+            changed = true;
+        }
+        if (AtlasRouteGroups.Count == 0)
+        {
+            AtlasRouteGroups = BuildDefaultAtlasRouteGroups();
+            changed = true;
+        }
+
         return changed;
     }
+
+    private static List<AtlasMapGroupSettings> BuildDefaultAtlasMapGroups()
+        => AtlasCatalog.Shared.DefaultMapGroups
+            .Select(g => new AtlasMapGroupSettings
+            {
+                Name = g.Name,
+                Color = g.Color,
+                FontColor = g.FontColor,
+                Maps = g.Maps.ToList(),
+            })
+            .ToList();
+
+    private static List<AtlasRouteGroupSettings> BuildDefaultAtlasRouteGroups()
+        => new()
+        {
+            new AtlasRouteGroupSettings
+            {
+                Name = "Map Targets",
+                Locked = true,
+                DrawPaths = true,
+                LineThickness = 3.5f,
+                Entries = AtlasCatalog.Shared.DefaultRouteTargets
+                    .Select(t => new AtlasRouteEntrySettings
+                    {
+                        Name = t.Name,
+                        Match = t.Match,
+                        Color = t.Color,
+                        MaxHops = t.MaxHops,
+                        DrawPath = t.Enabled,
+                    })
+                    .ToList(),
+            }
+        };
 
     /// <summary>Persist current settings to disk. Never throws on IO error — logs and continues.</summary>
     public void Save()
@@ -408,6 +470,33 @@ public sealed class RadarSettings
             Console.Error.WriteLine($"Settings save failed: {ex.Message}");
         }
     }
+}
+
+public sealed class AtlasMapGroupSettings
+{
+    public string Name { get; set; } = "";
+    public string Color { get; set; } = "#1f2937";
+    public string FontColor { get; set; } = "#ffffff";
+    public bool Enabled { get; set; } = true;
+    public List<string> Maps { get; set; } = new();
+}
+
+public sealed class AtlasRouteGroupSettings
+{
+    public string Name { get; set; } = "";
+    public bool DrawPaths { get; set; } = true;
+    public bool Locked { get; set; }
+    public float LineThickness { get; set; } = 3.5f;
+    public List<AtlasRouteEntrySettings> Entries { get; set; } = new();
+}
+
+public sealed class AtlasRouteEntrySettings
+{
+    public string Name { get; set; } = "";
+    public string Match { get; set; } = "";
+    public string Color { get; set; } = "#58A6FF";
+    public bool DrawPath { get; set; } = true;
+    public int MaxHops { get; set; } = 25;
 }
 
 /// <summary>

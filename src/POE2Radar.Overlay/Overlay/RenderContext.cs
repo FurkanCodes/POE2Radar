@@ -163,7 +163,16 @@ public readonly record struct AtlasMark(
     string? HighlightLabel = null,
     string? Color = null,
     bool Arrow = false,
-    AtlasEndgameTier EndgameTier = AtlasEndgameTier.None);
+    AtlasEndgameTier EndgameTier = AtlasEndgameTier.None,
+    string? BiomeColor = null,
+    string? LabelBg = null,
+    string? LabelFg = null,
+    IReadOnlyList<string>? Badges = null,
+    int ContentCount = 0,
+    string? Tooltip = null);
+
+/// <summary>One atlas route polyline with display metadata for multi-target search/content routes.</summary>
+public readonly record struct AtlasRouteLine(IReadOnlyList<NumVec2> Points, string Label, string Color, int Hops);
 
 /// <summary>Distinct atlas tag or map name for the overlay Settings → Atlas filter picker.</summary>
 public readonly record struct AtlasTagCatalogEntry(string Key, string Kind, int Count);
@@ -261,6 +270,15 @@ public sealed record RenderContext(
     bool AtlasOffScreenArrows = true,
     float AtlasIconScale = 1f,
     float AtlasLabelScale = 1f,
+    bool AtlasShowRouteChevrons = true,
+    float AtlasRouteLineThickness = 3.5f,
+    float AtlasRouteChevronSpacing = 28f,
+    bool AtlasShowBiomeBorders = true,
+    bool AtlasShowContentBadges = true,
+    bool AtlasShowContentCount = true,
+    bool AtlasShowContentTokens = false,
+    float AtlasLabelOffsetX = 0f,
+    float AtlasLabelOffsetY = 0f,
     IReadOnlyList<AtlasTagCatalogEntry>? AtlasTagCatalog = null,
     // Atlas canvas→screen homography coefficients (h0..h7; h8=1). Shear/persp 0 ⇒ plain affine.
     float AtlasScale = 0.5f,   // h0
@@ -277,6 +295,8 @@ public sealed record RenderContext(
     NumVec2? AtlasStart = null,
     NumVec2? AtlasEnd = null,
     IReadOnlyList<NumVec2>? AtlasRoute = null,
+    IReadOnlyList<AtlasRouteLine>? AtlasRoutes = null,
+    NumVec2? AtlasCurrent = null,
     // Entity under cursor (hover inspect) — title + metadata for the on-screen HUD.
     string? CursorInspectTitle = null,
     string? CursorInspectMeta = null,

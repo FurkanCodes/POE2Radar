@@ -637,6 +637,10 @@ internal static class DashboardHtml
             <div class="row" style="margin:0 0 10px;flex-direction:column;align-items:stretch;gap:6px">
               <div class="controls" style="gap:8px;align-items:center">
                 <span class="hint-row" style="flex:1"><b id="atlasHlCount">0 active</b> &mdash; click a row to <b>Track</b> (ring it in-game); click the <b style="color:#e0b341">&#10148;</b> to <b>Arrow</b> (point to it from the screen edge when off-screen). Track without Arrow = highlight only, no arrow.</span>
+                <button class="chip on" id="atlasViewRegion" data-view="region">Region</button>
+                <button class="chip" id="atlasViewCatalog" data-view="catalog">Catalog</button>
+                <button class="chip" id="atlasViewNodes" data-view="nodes">Nodes</button>
+                <input type="search" id="atlasSearch" placeholder="search atlas data&hellip;" style="width:180px">
                 <input type="search" id="atlasHlFilter" placeholder="search filters&hellip;" style="width:200px">
                 <button class="chip" id="atlasHlSelOnly">Selected</button>
                 <button class="chip" id="atlasHlClear">Clear</button>
@@ -644,6 +648,7 @@ internal static class DashboardHtml
               <div id="atlasHlTable" style="max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:6px">
                 <span class="hint-row" style="padding:8px;display:block">Open the Atlas in-game + Refresh to list filters.</span>
               </div>
+              <div id="atlasList" style="margin-top:10px;max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:6px"></div>
             </div>
           </div>
         </div>
@@ -886,10 +891,32 @@ internal static class DashboardHtml
               <label class="sw"><input type="checkbox" data-set="atlasShowRoute"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl">Route from current tile<small>when no F10 start is set, use your live atlas position</small></div>
               <label class="sw"><input type="checkbox" data-set="atlasUseCurrentStart"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Search query<small>comma-separated map/content search; routes matches</small></div>
+              <input class="numin" type="text" data-set="atlasSearchQuery" style="width:220px"></div>
+            <div class="row"><div class="rl">Hide completed maps</div>
+              <label class="sw"><input type="checkbox" data-set="atlasHideCompletedMaps"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Hide inaccessible maps</div>
+              <label class="sw"><input type="checkbox" data-set="atlasHideNotAccessibleMaps"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Hide available maps</div>
+              <label class="sw"><input type="checkbox" data-set="atlasHideAvailableMaps"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Biome borders</div>
+              <label class="sw"><input type="checkbox" data-set="atlasShowBiomeBorders"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Content badges</div>
+              <label class="sw"><input type="checkbox" data-set="atlasShowContentBadges"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Content count pips</div>
+              <label class="sw"><input type="checkbox" data-set="atlasShowContentCount"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl">Route chevrons</div>
+              <label class="sw"><input type="checkbox" data-set="atlasShowRouteChevrons"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl">Atlas icon scale</div>
               <input class="numin" type="number" step="0.05" min="0.25" max="4" data-set="atlasIconScale"></div>
             <div class="row"><div class="rl">Atlas label scale</div>
               <input class="numin" type="number" step="0.05" min="0.5" max="3" data-set="atlasLabelScale"></div>
+            <div class="row"><div class="rl">Route thickness</div>
+              <input class="numin" type="number" step="0.5" min="1" max="8" data-set="atlasRouteLineThickness"></div>
+            <div class="row"><div class="rl">Chevron spacing</div>
+              <input class="numin" type="number" step="1" min="8" max="80" data-set="atlasRouteChevronSpacing"></div>
+            <div class="row"><div class="rl">Atlas language<small>currently English; ready for translated catalogs</small></div>
+              <input class="numin" type="text" data-set="atlasLanguage" style="width:150px"></div>
           </div>
           </div>
           <div class="settings-section panel-grid" id="setFlask" hidden>
@@ -2138,6 +2165,10 @@ function renderAtlas(){
   // Seed active rules from the overlay (once): tracked + arrow sets. Then render the filter table.
   if(atlasHl===null){ atlasHl=new Set((d.highlightTags||[]).map(t=>t.toLowerCase())); atlasArrow=new Set((d.arrowTags||[]).map(t=>t.toLowerCase())); }
   renderAtlasHighlight(d);
+  const f=($('#atlasSearch')?.value||'').trim().toLowerCase();
+  if(atlasView==='catalog') renderAtlasCatalog(d,f);
+  else if(atlasView==='nodes') renderAtlasNodes(d,f);
+  else renderAtlasRegion(d,f);
 }
 // Biome index → friendly-ish label (best-effort; index is the ground truth).
 const BIOMES=['Grass','Sand','Swamp','Forest','Snow','Stone','Volcanic','Coast','Cave','Vaal','Water','Desert','Special'];
@@ -2244,6 +2275,26 @@ function renderAtlasNodes(d, f){
   });
 }
 async function postAtlasSel(){ try{ await fetch('/api/atlas-select',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({els:[...atlasSel]})}); }catch(e){} }
+
+function renderAtlasCatalog(d, f){
+  let list=d.atlasCatalog||d.catalog||[];
+  if(f) list=list.filter(m=>(m.name||'').toLowerCase().includes(f)||(m.code||'').toLowerCase().includes(f)||(m.type||'').toLowerCase().includes(f)||((m.tags||[]).join(' ').toLowerCase().includes(f)));
+  if(list.length===0){ $('#atlasList').innerHTML='<div class="hint-row" style="padding:8px">No catalog rows.</div>'; return; }
+  const head='<div class="arow ahead nrow"><span>Map</span><span>Code</span><span>Type</span><span>Tags</span></div>';
+  const body=list.slice(0,1200).map(m=>'<div class="arow nrow">'
+    +'<span>'+esc(m.name||'—')+'</span><span class="amono">'+esc(m.code||'')+'</span>'
+    +'<span>'+esc(m.type||m.kind||'')+'</span><span>'+((m.tags||[]).map(t=>'<span class="ntag tc">'+esc(t)+'</span>').join(' ')||'—')+'</span></div>').join('');
+  $('#atlasList').innerHTML=head+body+'<div class="hint-row" style="padding:8px">Showing '+Math.min(list.length,1200)+' of '+list.length+' catalog maps.</div>';
+}
+
+function renderAtlasRegion(d, f){
+  let list=d.region||[];
+  if(f) list=list.filter(m=>(m.name||'').toLowerCase().includes(f)||(m.code||'').toLowerCase().includes(f)||(m.kind||'').toLowerCase().includes(f));
+  if(list.length===0){ $('#atlasList').innerHTML='<div class="hint-row" style="padding:8px">No region maps yet (open the Atlas in-game).</div>'; return; }
+  const head='<div class="arow ahead nrow"><span>Map</span><span>Code</span><span>Kind</span><span></span></div>';
+  const body=list.map(m=>'<div class="arow nrow"><span>'+esc(m.name||'—')+'</span><span class="amono">'+esc(m.code||'')+'</span><span>'+esc(m.kind||'')+'</span><span></span></div>').join('');
+  $('#atlasList').innerHTML=head+body;
+}
 
 $('#atlasRefresh')?.addEventListener('click',loadAtlas);
 $('#atlasSearch')?.addEventListener('input',()=>{ if(atlasData) renderAtlas(); });
