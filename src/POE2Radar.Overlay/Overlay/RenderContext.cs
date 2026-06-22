@@ -150,11 +150,15 @@ public enum AtlasEndgameTier : byte
     Pinnacle = 6,
 }
 
-/// <summary>One atlas node to draw. <see cref="X"/>/<see cref="Y"/> are canvas-space RelativePos;
-/// the renderer projects them to screen via the atlas transform (scale + offset).</summary>
+/// <summary>One atlas node to draw. <see cref="X"/>/<see cref="Y"/> keep canvas-space RelativePos for API
+/// compatibility; <see cref="ScreenX"/>/<see cref="ScreenY"/> are live game UI screen-space centers.</summary>
 public readonly record struct AtlasMark(
     float X, float Y, bool Selected, bool HasContent, bool Visited, bool Unlocked, bool Visible,
     int Biome, int IconType,
+    float ScreenX = 0f,
+    float ScreenY = 0f,
+    float ScreenW = 0f,
+    float ScreenH = 0f,
     string? MapName = null,
     string? HighlightLabel = null,
     string? Color = null,

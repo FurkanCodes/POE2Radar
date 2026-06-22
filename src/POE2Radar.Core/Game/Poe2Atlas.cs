@@ -285,6 +285,7 @@ public sealed class Poe2Atlas
     public readonly record struct AtlasNodeLive(
         nint Element, uint Id, uint Content, byte State, byte Biome, byte Flags, byte Completion,
         float X, float Y, float W, float H, float Scale, bool Visible, int IconType,
+        float ScreenX, float ScreenY, float ScreenW, float ScreenH,
         int GridX, int GridY, string MapName, IReadOnlyList<string> Tags)
     {
         /// <summary>The node's atlas grid coordinate (<see cref="Poe2Offsets.AtlasNode.GridPos"/>) — the
@@ -293,7 +294,27 @@ public sealed class Poe2Atlas
         public bool Unlocked => (Flags & 0x01) != 0;
         public bool Visited => (Flags & 0x02) != 0;
         public bool HasContent => Content != 0;   // +0x310 (atlas-row ptr) non-null ⇒ has rolled content
+        public bool Completed => (Flags & AtlasNodeState.CompletedBit) != 0;
+        public bool AccessibleNow => (Flags & AtlasNodeState.AccessibleBit) != 0 && !Completed;
+        public Vector2 ScreenCenter => new() { X = ScreenX + ScreenW * 0.5f, Y = ScreenY + ScreenH * 0.5f };
     }
+
+    /// <summary>GameHelper-derived atlas node status byte semantics.</summary>
+    public static class AtlasNodeState
+    {
+        public const byte AccessibleBit = 0x01;
+        public const byte CompletedBit = 0x02;
+
+        public static byte FlagsFromStatus(byte status)
+        {
+            byte flags = 0;
+            if ((status & AccessibleBit) != 0) flags |= 0x01;
+            if ((status & CompletedBit) != 0) flags |= 0x02;
+            return flags;
+        }
+    }
+
+    private readonly record struct AtlasNodeData(bool Resolved, string MapName, byte Biome, byte Status);
 
     private readonly object _nodeLock = new(); // ReadNodes is called from both the tick + API threads
     private nint _nodeVtable;    // cached atlas-node element class vtable
@@ -360,7 +381,7 @@ public sealed class Poe2Atlas
         }
     }
 
-    public List<AtlasNodeLive> ReadNodes(nint inGameState, AtlasNodeReadMode mode = AtlasNodeReadMode.Full)
+    public List<AtlasNodeLive> ReadNodes(nint inGameState, AtlasNodeReadMode mode = AtlasNodeReadMode.Full, float winW = 0, float winH = 0)
     {
         var uiRoot = UiRootResolver.Resolve(_reader, inGameState);
         if (uiRoot == 0) return new List<AtlasNodeLive>();
@@ -382,7 +403,7 @@ public sealed class Poe2Atlas
                 if (HierarchicallyVisible(_nodeCanvas))
                 {
                     _hiddenTicks = 0;
-                    if (ReadCanvasPositions(_nodeCanvas))
+                    if (ReadCanvasPositions(_nodeCanvas, winW, winH))
                         return _nodeSnapshot;
                 }
                 else
@@ -401,7 +422,7 @@ public sealed class Poe2Atlas
                 if (HierarchicallyVisible(_nodeCanvas))
                 {
                     _hiddenTicks = 0;
-                    if (ReadCanvasNodes(_nodeCanvas, nodes))
+                    if (ReadCanvasNodes(_nodeCanvas, nodes, winW, winH))
                     {
                         _nodeSnapshot = new List<AtlasNodeLive>(nodes);
                         return nodes;
@@ -436,7 +457,7 @@ public sealed class Poe2Atlas
             _nodeRetry++;
             if (!DetectNodeClass(uiRoot))
                 return nodes;
-            if (HierarchicallyVisible(_nodeCanvas) && ReadCanvasNodes(_nodeCanvas, nodes))
+            if (HierarchicallyVisible(_nodeCanvas) && ReadCanvasNodes(_nodeCanvas, nodes, winW, winH))
                 _nodeSnapshot = new List<AtlasNodeLive>(nodes);
             return nodes;
         }
@@ -444,7 +465,7 @@ public sealed class Poe2Atlas
 
     /// <summary>Read the cached canvas's children, keeping those of the node class. Returns false (and
     /// invalidates the cache) if the canvas no longer looks right, forcing a re-detect.</summary>
-    private bool ReadCanvasNodes(nint canvas, List<AtlasNodeLive> outNodes)
+    private bool ReadCanvasNodes(nint canvas, List<AtlasNodeLive> outNodes, float winW, float winH)
     {
         var first = Ptr(canvas + Poe2.UiElement.Children);
         if (first == 0 || !_reader.TryReadStruct<nint>(canvas + Poe2.UiElement.ChildrenEnd, out var last)) { Invalidate(); return false; }
@@ -462,8 +483,8 @@ public sealed class Poe2Atlas
             _reader.TryReadStruct<uint>(el + Poe2.AtlasNode.MapNodeId, out var id);
             _reader.TryReadStruct<uint>(el + Poe2.AtlasNode.Content, out var content);
             _reader.TryReadStruct<byte>(el + Poe2.AtlasNode.State, out var state);
-            _reader.TryReadStruct<byte>(el + Poe2.AtlasNode.Biome, out var biome);
-            _reader.TryReadStruct<byte>(el + Poe2.AtlasNode.Flags, out var flags);
+            _reader.TryReadStruct<byte>(el + Poe2.AtlasNode.Biome, out var directBiome);
+            _reader.TryReadStruct<byte>(el + Poe2.AtlasNode.Flags, out var directFlags);
             _reader.TryReadStruct<byte>(el + Poe2.AtlasNode.Completion, out var compl);
             _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos, out var x);
             _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos + 4, out var y);
@@ -474,6 +495,13 @@ public sealed class Poe2Atlas
             _reader.TryReadStruct<int>(el + Poe2.AtlasNode.GridPos + 4, out var gridY); // → the routing graph key
             _reader.TryReadStruct<uint>(el + Poe2.UiElement.Flags, out var uiFlags);
             var visible = ((uiFlags >> Poe2.UiElement.FlagVisibleBit) & 1) != 0;
+            var data = ReadNodeData(el);
+            var biome = data.Resolved && data.Biome <= 12 ? data.Biome : directBiome;
+            var flags = data.Resolved ? AtlasNodeState.FlagsFromStatus(data.Status) : directFlags;
+            if (data.Resolved) state = data.Status;
+            var (sx, sy, sw, sh) = TryScreenRect(el, winW, winH, out var screen)
+                ? screen
+                : (x, y, w, h);
             // The node's content/icon TYPE lives on a nested sigil-icon child (content int 1..~50);
             // walk first-children a few levels to find it. Lets us classify + match nodes to in-game icons.
             if (!_iconTypeCache.TryGetValue(el, out var iconType))
@@ -494,7 +522,8 @@ public sealed class Poe2Atlas
                 if (resolveBudget > 0) { resolved = ResolveTags(el); _tagCache[el] = resolved; resolveBudget--; }
                 else { resolved = ("", NoTags); allCached = false; } // budget spent — retried next call (not cached)
             }
-            outNodes.Add(new AtlasNodeLive(el, id, content, state, biome, flags, compl, x, y, w, h, scale, visible, iconType, gridX, gridY, resolved.map, resolved.content));
+            var mapName = data.Resolved && !string.IsNullOrEmpty(data.MapName) ? Prettify(data.MapName) : resolved.map;
+            outNodes.Add(new AtlasNodeLive(el, id, content, state, biome, flags, compl, x, y, w, h, scale, visible, iconType, sx, sy, sw, sh, gridX, gridY, mapName, resolved.content));
         }
         if (matched < 8) { Invalidate(); return false; }          // canvas no longer the node container
         AllTagsResolved = allCached;   // true once every node's tags are cached (seed defaults only then)
@@ -504,7 +533,7 @@ public sealed class Poe2Atlas
     }
 
     /// <summary>Live relPos/scale refresh for pan tracking — no tag resolve, no new lists.</summary>
-    private bool ReadCanvasPositions(nint canvas)
+    private bool ReadCanvasPositions(nint canvas, float winW, float winH)
     {
         var first = Ptr(canvas + Poe2.UiElement.Children);
         if (first == 0 || !_reader.TryReadStruct<nint>(canvas + Poe2.UiElement.ChildrenEnd, out var last)) { Invalidate(); return false; }
@@ -521,14 +550,91 @@ public sealed class Poe2Atlas
             _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos, out var x);
             _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos + 4, out var y);
             _reader.TryReadStruct<float>(el + 0x130, out var scale);
-            _reader.TryReadStruct<byte>(el + Poe2.AtlasNode.Flags, out var flags);
+            _reader.TryReadStruct<byte>(el + Poe2.AtlasNode.Flags, out var directFlags);
             _reader.TryReadStruct<uint>(el + Poe2.UiElement.Flags, out var uiFlags);
             var visible = ((uiFlags >> Poe2.UiElement.FlagVisibleBit) & 1) != 0;
             var old = _nodeSnapshot[idx];
-            _nodeSnapshot[idx] = old with { X = x, Y = y, Scale = scale, Flags = flags, Visible = visible };
+            var data = ReadNodeData(el);
+            var flags = data.Resolved ? AtlasNodeState.FlagsFromStatus(data.Status) : directFlags;
+            var screen = TryScreenRect(el, winW, winH, out var rect)
+                ? rect
+                : (old.ScreenX, old.ScreenY, old.ScreenW, old.ScreenH);
+            _nodeSnapshot[idx] = old with { X = x, Y = y, Scale = scale, Flags = flags, Visible = visible,
+                ScreenX = screen.Item1, ScreenY = screen.Item2, ScreenW = screen.Item3, ScreenH = screen.Item4 };
         }
         if (matched < 8) { Invalidate(); return false; }
         return true;
+    }
+
+    private AtlasNodeData ReadNodeData(nint node)
+    {
+        var storage = Ptr(node + Poe2.AtlasNode.DataStorage);
+        var data = storage == 0 ? 0 : Ptr(storage + Poe2.AtlasNode.DataModel);
+        if (data == 0) return default;
+
+        _reader.TryReadStruct<byte>(data + Poe2.AtlasNode.DataBiome, out var biome);
+        _reader.TryReadStruct<byte>(data + Poe2.AtlasNode.DataStatus, out var status);
+        var mapName = ReadDataMapId(data);
+        return new AtlasNodeData(true, mapName, biome, status);
+    }
+
+    private string ReadDataMapId(nint data)
+    {
+        var c = Ptr(data + Poe2.AtlasNode.DataMapId);
+        if (c == 0) return "";
+        var hdr = Ptr(c);
+        var buf = hdr == 0 ? 0 : Ptr(hdr);
+        var code = buf == 0 ? "" : _reader.ReadStringUtf16(buf, 64);
+        return code.StartsWith("Map", StringComparison.Ordinal) ? code : "";
+    }
+
+    private bool TryScreenRect(nint el, float winW, float winH, out (float x, float y, float w, float h) rect)
+    {
+        rect = default;
+        if (winW <= 0 || winH <= 0) return false;
+        if (!_reader.TryReadStruct<byte>(el + Poe2.UiElement.UiScaleIndex, out var idx)) return false;
+        _reader.TryReadStruct<float>(el + Poe2.UiElement.LocalScaleMul, out var mul);
+        _reader.TryReadStruct<float>(el + Poe2.UiElement.SizeW, out var uw);
+        _reader.TryReadStruct<float>(el + Poe2.UiElement.SizeH, out var uh);
+        var (sw, sh) = UiScaleValue(idx, mul, winW, winH);
+        if (sw <= 0f || sh <= 0f) return false;
+        var (px, py) = UiUnscaledPos(el, 0, winW, winH);
+        if (!float.IsFinite(px) || !float.IsFinite(py)) return false;
+        rect = (px * sw, py * sh, uw * sw, uh * sh);
+        return rect.w > 1f && rect.h > 1f;
+    }
+
+    private static (float w, float h) UiScaleValue(byte idx, float mul, float winW, float winH)
+    {
+        if (mul == 0f) mul = 1f;
+        var v1 = winW / (float)Poe2.UiElement.BaseResW;
+        var v2 = winH / (float)Poe2.UiElement.BaseResH;
+        float w = mul, h = mul;
+        switch (idx)
+        {
+            case 1: w *= v1; h *= v1; break;
+            case 2: w *= v2; h *= v2; break;
+            case 3: w *= v1; h *= v2; break;
+        }
+        return (w, h);
+    }
+
+    private (float x, float y) UiUnscaledPos(nint el, int depth, float winW, float winH)
+    {
+        _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos, out var lx);
+        _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos + 4, out var ly);
+        var parent = Ptr(el + Poe2.UiElement.Parent);
+        if (parent == 0 || depth >= 64) return (lx, ly);
+
+        var (ppx, ppy) = UiUnscaledPos(parent, depth + 1, winW, winH);
+        if (_reader.TryReadStruct<uint>(el + Poe2.UiElement.Flags, out var flags)
+            && (flags & (1u << Poe2.UiElement.FlagModifyPosBit)) != 0)
+        {
+            _reader.TryReadStruct<float>(el + Poe2.UiElement.UiPositionModifier, out var mx);
+            _reader.TryReadStruct<float>(el + Poe2.UiElement.UiPositionModifier + 4, out var my);
+            ppx += mx; ppy += my;
+        }
+        return (ppx + lx, ppy + ly);
     }
 
     private void RebuildElementIndex(List<AtlasNodeLive> nodes)
@@ -664,6 +770,61 @@ public sealed class Poe2Atlas
                 cameFrom[nb] = cur;
                 gScore[nb] = tentative;
                 open.Enqueue(nb, tentative + Dist(nb, goal));
+            }
+        }
+        return null;
+    }
+
+    public List<(int X, int Y)>? FindPathFromAccessible(IEnumerable<(int X, int Y)> starts, (int X, int Y) goal)
+    {
+        Dictionary<(int, int), List<(int, int)>> g;
+        lock (_nodeLock)
+        {
+            if (!_graph.ContainsKey(goal)) return null;
+            g = new Dictionary<(int, int), List<(int, int)>>(_graph);
+        }
+        return MultiSourceShortestPath(g, starts, goal);
+    }
+
+    public static List<(int X, int Y)>? MultiSourceShortestPath(
+        IReadOnlyDictionary<(int X, int Y), List<(int X, int Y)>> graph,
+        IEnumerable<(int X, int Y)> starts,
+        (int X, int Y) goal)
+    {
+        if (!graph.ContainsKey(goal)) return null;
+        var queue = new Queue<(int X, int Y)>();
+        var seen = new HashSet<(int X, int Y)>();
+        var cameFrom = new Dictionary<(int X, int Y), (int X, int Y)>();
+
+        foreach (var s in starts)
+        {
+            if (!graph.ContainsKey(s) || !seen.Add(s)) continue;
+            queue.Enqueue(s);
+            if (s == goal) return new List<(int X, int Y)> { s };
+        }
+        if (queue.Count == 0) return null;
+
+        while (queue.Count > 0)
+        {
+            var cur = queue.Dequeue();
+            if (!graph.TryGetValue(cur, out var neighbours)) continue;
+            foreach (var nb in neighbours)
+            {
+                if (!seen.Add(nb)) continue;
+                cameFrom[nb] = cur;
+                if (nb == goal)
+                {
+                    var path = new List<(int X, int Y)> { nb };
+                    var p = nb;
+                    while (cameFrom.TryGetValue(p, out var prev))
+                    {
+                        p = prev;
+                        path.Add(p);
+                    }
+                    path.Reverse();
+                    return path;
+                }
+                queue.Enqueue(nb);
             }
         }
         return null;

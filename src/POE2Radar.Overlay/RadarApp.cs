@@ -1411,29 +1411,20 @@ public sealed partial class RadarApp : IDisposable
         Console.WriteLine($"          Rule: {ruleName} (hide={hideFlag} nav={navFlag})");
     }
 
-    /// <summary>F10: pick the atlas tile under the cursor and advance the route workflow (START → END → reset).
-    /// Inverts the same projection the renderer draws with (relPos = screen / scale) to map the cursor into
-    /// canvas space, then picks the tile whose box CONTAINS it (fallback: nearest centre). Stores the pick by
-    /// GRID coord so the route survives pan/zoom and tiles going off-screen. (No on-screen tile-details
-    /// tooltip — that interfered with the point-to-point selection; the pick is just echoed to the console.)</summary>
+    /// <summary>F10: pick the atlas tile under the cursor using the live UI-element screen rect.</summary>
     private void AtlasRoutePick()
     {
-        if (_inGameStateForApi == 0 || !GetCursorPos(out var pt)) { Console.WriteLine("\n[atlas route] not in game."); return; }
-        // Invert the shared projection: for screen = relPos × scale (offset/shear/persp = 0), relPos = screen/scale.
-        var proj = AtlasProjection();
-        double scaleX = Math.Abs(proj[0]) > 1e-6 ? proj[0] : 1, scaleY = Math.Abs(proj[4]) > 1e-6 ? proj[4] : 1;
-        double curX = pt.X / scaleX, curY = pt.Y / scaleY; // cursor in canvas/relPos units
+        if (_inGameStateForApi == 0 || !TryGetCursorClient(out var cursor)) { Console.WriteLine("\n[atlas route] not in game."); return; }
+        double curX = cursor.X, curY = cursor.Y;
 
         Poe2Atlas.AtlasNodeLive? bestIn = null, bestAny = null; double bdIn = 1e18, bdAny = 1e18;
-        foreach (var n in _atlas.ReadNodes(_inGameStateForApi))
+        foreach (var n in _atlas.ReadNodes(_inGameStateForApi, AtlasNodeReadMode.Positions, OverlayWidth, OverlayHeight))
         {
-            // Consider EVERY node (not just the local-Visible ones): the game leaves the visible bit OFF for
-            // undiscovered / fog-of-war tiles even though it draws them at a valid relPos, so filtering it made
-            // F10 skip fogged tiles and snap to the nearest visible neighbour. Routing must reach those tiles.
-            if (!float.IsFinite(n.X) || !float.IsFinite(n.Y)) continue;
-            double dx = curX - n.X, dy = curY - n.Y, d = dx * dx + dy * dy;
+            if (!float.IsFinite(n.ScreenX) || !float.IsFinite(n.ScreenY)) continue;
+            var c = n.ScreenCenter;
+            double dx = curX - c.X, dy = curY - c.Y, d = dx * dx + dy * dy;
             if (d < bdAny) { bdAny = d; bestAny = n; }     // nearest centre (fallback)
-            double hw = (n.W > 1 ? n.W : 40) * 0.5, hh = (n.H > 1 ? n.H : 40) * 0.5; // tile half-extents (canvas units)
+            double hw = (n.ScreenW > 1 ? n.ScreenW : 40) * 0.5, hh = (n.ScreenH > 1 ? n.ScreenH : 40) * 0.5;
             if (Math.Abs(dx) <= hw && Math.Abs(dy) <= hh && d < bdIn) { bdIn = d; bestIn = n; } // cursor inside the tile box
         }
         if ((bestIn ?? bestAny) is not { } b) { Console.WriteLine("\n[atlas route] no tile under cursor (is the Atlas open?)."); return; }
@@ -2426,7 +2417,7 @@ public sealed partial class RadarApp : IDisposable
         var readMode = _builtAtlasOnce && _atlas.AllTagsResolved
             ? AtlasNodeReadMode.Positions
             : AtlasNodeReadMode.Full;
-        var nodes = _atlas.ReadNodes(inGameState, readMode);
+        var nodes = _atlas.ReadNodes(inGameState, readMode, OverlayWidth, OverlayHeight);
         if (nodes.Count == 0)
         {
             var panelOpen = _atlas.IsAtlasOpen(inGameState);
@@ -2535,8 +2526,9 @@ public sealed partial class RadarApp : IDisposable
             string? color = matched != null && _settings.AtlasHighlightColors.TryGetValue(matched, out var c) ? c : null;
             var mapName = string.IsNullOrEmpty(n.MapName) ? null : n.MapName;
             var tier = AtlasEndgameCatalog.Classify(n.MapName, n.Tags);
+            var center = n.ScreenCenter;
             _atlasMarks.Add(new AtlasMark(n.X, n.Y, isTracked, n.HasContent, n.Visited, n.Unlocked, n.Visible,
-                n.Biome, n.IconType, mapName, matched, color, isArrow, tier));
+                n.Biome, n.IconType, center.X, center.Y, n.ScreenW, n.ScreenH, mapName, matched, color, isArrow, tier));
         }
         BuildAtlasRoute(nodes);
         _atlasMarksPublish = _atlasMarks.Count > 0 ? _atlasMarks.ToArray() : Array.Empty<AtlasMark>();
@@ -2571,25 +2563,43 @@ public sealed partial class RadarApp : IDisposable
         _atlasRoute = new(); _atlasStartPt = null; _atlasEndPt = null;
         if (nodes.Count == 0) return;
 
-        var gridToRel = new Dictionary<(int, int), NumVec2>(nodes.Count);
-        foreach (var n in nodes) gridToRel[n.Grid] = new NumVec2(n.X, n.Y);
+        var gridToScreen = new Dictionary<(int, int), NumVec2>(nodes.Count);
+        foreach (var n in nodes)
+        {
+            var c = n.ScreenCenter;
+            if (float.IsFinite(c.X) && float.IsFinite(c.Y))
+                gridToScreen[n.Grid] = new NumVec2(c.X, c.Y);
+        }
 
         var startGrid = _atlasStartGrid;
         if (startGrid is null && _settings.AtlasUseCurrentStart)
             startGrid = _atlas.CurrentNodeGrid();
 
-        if (startGrid is { } s && gridToRel.TryGetValue(s, out var sp)) _atlasStartPt = sp;
-        if (_atlasGoalGrid is { } g && gridToRel.TryGetValue(g, out var gp)) _atlasEndPt = gp;
+        if (startGrid is { } s && gridToScreen.TryGetValue(s, out var sp)) _atlasStartPt = sp;
+        if (_atlasGoalGrid is { } g && gridToScreen.TryGetValue(g, out var gp)) _atlasEndPt = gp;
 
-        if (startGrid is { } start && _atlasGoalGrid is { } goal)
+        if (_atlasGoalGrid is { } goal)
         {
-            var path = _atlas.FindPath(start, goal);
-            if (path != null) foreach (var p in path) if (gridToRel.TryGetValue(p, out var rp)) _atlasRoute.Add(rp);
-            // Log once per (start,goal) pair so we can see graph connectivity (or the lack of it).
-            if (_loggedRoute != (start, goal))
+            List<(int X, int Y)>? path;
+            if (_atlasStartGrid is { } explicitStart)
+                path = _atlas.FindPath(explicitStart, goal);
+            else
             {
-                _loggedRoute = (start, goal);
-                Console.WriteLine($"[atlas route] {start}→{goal}: {(path == null ? $"NO graph path (graph has {_atlas.GraphNodeCount} nodes; start in graph={_atlas.GraphHas(start)}, goal in graph={_atlas.GraphHas(goal)})" : $"{path.Count} hops")}");
+                var accessible = nodes.Where(n => n.AccessibleNow).Select(n => n.Grid).ToList();
+                path = _atlas.FindPathFromAccessible(accessible, goal);
+                if (path is { Count: > 0 })
+                {
+                    startGrid = path[0];
+                    if (gridToScreen.TryGetValue(path[0], out var asp)) _atlasStartPt = asp;
+                }
+            }
+            if (path != null) foreach (var p in path) if (gridToScreen.TryGetValue(p, out var rp)) _atlasRoute.Add(rp);
+            // Log once per (start,goal) pair so we can see graph connectivity (or the lack of it).
+            var logStart = startGrid ?? _atlasStartGrid ?? goal;
+            if (_loggedRoute != (logStart, goal))
+            {
+                _loggedRoute = (logStart, goal);
+                Console.WriteLine($"[atlas route] {logStart}→{goal}: {(path == null ? $"NO graph path (graph has {_atlas.GraphNodeCount} nodes; start in graph={_atlas.GraphHas(logStart)}, goal in graph={_atlas.GraphHas(goal)})" : $"{path.Count} hops")}");
             }
         }
         else _loggedRoute = null;

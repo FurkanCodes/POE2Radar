@@ -340,40 +340,28 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         var sw = Stopwatch.GetTimestamp();
         var W = ctx.WindowWidth;
         var H = ctx.WindowHeight;
-        float h0 = ctx.AtlasScale, h1 = ctx.AtlasShearX, h2 = ctx.AtlasOffX,
-              h3 = ctx.AtlasShearY, h4 = ctx.AtlasScaleY, h5 = ctx.AtlasOffY,
-              h6 = ctx.AtlasPersX, h7 = ctx.AtlasPersY;
         float ccx = W * 0.5f, ccy = H * 0.5f;
         var iconScale = ctx.AtlasIconScale;
         var labelScale = ctx.AtlasLabelScale;
-
-        NumVec2 ProjAtlas(NumVec2 p)
-        {
-            var pw = h6 * p.X + h7 * p.Y + 1f;
-            if (MathF.Abs(pw) < 1e-6f) pw = 1f;
-            return new NumVec2((h0 * p.X + h1 * p.Y + h2) / pw, (h3 * p.X + h4 * p.Y + h5) / pw);
-        }
 
         var route = ctx.AtlasRoute;
         if (route is { Count: >= 2 })
         {
             var dark = ColorU32(0, 0, 0, 0.6f);
             var bright = ColorU32(59, 219, 255, 0.95f);
-            var pts = new NumVec2[route.Count];
-            for (var i = 0; i < route.Count; i++) pts[i] = ProjAtlas(route[i]);
+            var pts = route.ToArray();
             for (var i = 1; i < pts.Length; i++) dl.AddLine(pts[i - 1], pts[i], dark, 7f);
             for (var i = 1; i < pts.Length; i++) dl.AddLine(pts[i - 1], pts[i], bright, 3.5f);
             for (var i = 1; i < pts.Length - 1; i++) dl.AddCircle(pts[i], 4f, bright, 0, 2f);
         }
         else if (ctx.AtlasStart is { } sa && ctx.AtlasEnd is { } eb)
         {
-            var a = ProjAtlas(sa); var b = ProjAtlas(eb);
-            dl.AddLine(a, b, ColorU32(0, 0, 0, 0.6f), 6f);
-            dl.AddLine(a, b, ColorU32(224, 179, 65, 1f), 2.5f);
+            dl.AddLine(sa, eb, ColorU32(0, 0, 0, 0.6f), 6f);
+            dl.AddLine(sa, eb, ColorU32(224, 179, 65, 1f), 2.5f);
         }
 
-        if (ctx.AtlasStart is { } s) { var p = ProjAtlas(s); dl.AddCircleFilled(p, 8f, ColorU32(110, 232, 135, 1f), 12); dl.AddCircleFilled(p, 3f, ColorU32(110, 232, 135, 1f), 8); }
-        if (ctx.AtlasEnd is { } e) { var p = ProjAtlas(e); dl.AddCircle(p, 11f, ColorU32(224, 179, 65, 1f), 0, 3f); dl.AddCircle(p, 4f, ColorU32(224, 179, 65, 1f), 0, 2f); }
+        if (ctx.AtlasStart is { } s) { dl.AddCircleFilled(s, 8f, ColorU32(110, 232, 135, 1f), 12); dl.AddCircleFilled(s, 3f, ColorU32(110, 232, 135, 1f), 8); }
+        if (ctx.AtlasEnd is { } e) { dl.AddCircle(e, 11f, ColorU32(224, 179, 65, 1f), 0, 3f); dl.AddCircle(e, 4f, ColorU32(224, 179, 65, 1f), 0, 2f); }
 
         if (ctx.AtlasNodes is { Count: > 0 } marks)
         {
@@ -381,10 +369,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             var labelCandidates = _atlasLabelScratch;
             foreach (var n in marks)
             {
-                var w = h6 * n.X + h7 * n.Y + 1f;
-                if (MathF.Abs(w) < 1e-6f) continue;
-                var sx = (h0 * n.X + h1 * n.Y + h2) / w;
-                var sy = (h3 * n.X + h4 * n.Y + h5) / w;
+                var sx = n.ScreenX;
+                var sy = n.ScreenY;
+                if (!float.IsFinite(sx) || !float.IsFinite(sy)) continue;
                 var onScreen = sx >= 0 && sx <= W && sy >= 0 && sy <= H;
 
                 var colHex = string.IsNullOrEmpty(n.Color)

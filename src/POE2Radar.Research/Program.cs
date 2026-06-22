@@ -278,16 +278,18 @@ if (HasFlag(args, "--atlas-readnodes"))
     if (igs2 == 0) { Console.Error.WriteLine("no chain."); return 1; }
     var sw = System.Diagnostics.Stopwatch.StartNew();
     var atlas = new POE2Radar.Core.Game.Poe2Atlas(reader);
-    var nodes = atlas.ReadNodes(igs2);   // first call may BFS-detect
-    if (nodes.Count == 0) { Thread.Sleep(200); nodes = atlas.ReadNodes(igs2); }
+    var nodes = atlas.ReadNodes(igs2, AtlasNodeReadMode.Full, 1920, 1080);   // first call may BFS-detect
+    if (nodes.Count == 0) { Thread.Sleep(200); nodes = atlas.ReadNodes(igs2, AtlasNodeReadMode.Full, 1920, 1080); }
     var t1 = sw.ElapsedMilliseconds;
-    var n2 = atlas.ReadNodes(igs2);      // cached fast path
+    var n2 = atlas.ReadNodes(igs2, AtlasNodeReadMode.Positions, 1920, 1080);      // cached fast path
     Console.WriteLine($"ReadNodes: {nodes.Count} nodes (first {t1}ms, cached {sw.ElapsedMilliseconds - t1}ms). " +
         $"visible={n2.Count(n => n.Visible)} hasContent={n2.Count(n => n.HasContent)} unvisited={n2.Count(n => !n.Visited)} unlocked={n2.Count(n => n.Unlocked)}");
     Console.WriteLine("biome histogram: " + string.Join(" ", n2.GroupBy(n => n.Biome).OrderBy(g => g.Key).Select(g => $"{g.Key}:{g.Count()}")));
+    Console.WriteLine("status histogram: " + string.Join(" ", n2.GroupBy(n => n.State).OrderBy(g => g.Key).Select(g => $"0x{g.Key:X2}:{g.Count()}")));
+    Console.WriteLine($"data-chain map ids: {n2.Count(n => !string.IsNullOrEmpty(n.MapName))}/{n2.Count}; screen rects: {n2.Count(n => n.ScreenW > 1 && n.ScreenH > 1)}/{n2.Count}; graph nodes={atlas.GraphNodeCount}");
     Console.WriteLine("sample (visible, hasContent or unvisited):");
     foreach (var n in n2.Where(n => n.Visible && (n.HasContent || !n.Visited)).Take(16))
-        Console.WriteLine($"  id={n.Id,-9} biome={n.Biome,-2} content={n.Content,-6} flags=0x{n.Flags:X2}(unlk={(n.Unlocked ? 1 : 0)} vis={(n.Visited ? 1 : 0)}) compl={n.Completion} pos=({n.X:F0},{n.Y:F0}) size=({n.W:F0}x{n.H:F0}) scale={n.Scale:G4}");
+        Console.WriteLine($"  id={n.Id,-9} map='{n.MapName}' biome={n.Biome,-2} content={n.Content,-6} status=0x{n.State:X2} flags=0x{n.Flags:X2}(acc={(n.AccessibleNow ? 1 : 0)} comp={(n.Completed ? 1 : 0)}) grid=({n.GridX},{n.GridY}) screen=({n.ScreenCenter.X:F0},{n.ScreenCenter.Y:F0}) size=({n.ScreenW:F0}x{n.ScreenH:F0}) rel=({n.X:F0},{n.Y:F0}) scale={n.Scale:G4}");
     return 0;
 }
 
