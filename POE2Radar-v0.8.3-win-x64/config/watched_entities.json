@@ -129,7 +129,7 @@
   },
   {
     "pattern": "AbyssJumpInteractable",
-    "label": "Abyss Crack",
+    "label": "Abyss",
     "color": "#33cccc",
     "enabled": true,
     "size": 7,

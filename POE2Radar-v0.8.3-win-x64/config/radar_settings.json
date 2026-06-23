@@ -86,7 +86,7 @@
   "chipSmoothingMs": 0,
   "pixelSnapLabels": true,
   "overlayVSync": false,
-  "navMenuCorner": "BottomRight",
+  "navMenuCorner": "BottomLeft",
   "showPerfStats": false,
   "showFpsOverlay": true,
   "autoNavPatterns": [],

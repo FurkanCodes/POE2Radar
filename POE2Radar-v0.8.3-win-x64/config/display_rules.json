@@ -1,72 +1,6 @@
 [
   {
     "enabled": true,
-    "name": "Verisium Crafting Bench",
-    "categories": [
-      "Other"
-    ],
-    "match": [
-      "VerisiumCraftingBench"
-    ],
-    "hide": true,
-    "shape": "Star",
-    "color": "#FFD926",
-    "opacity": 1,
-    "size": 6,
-    "navigable": false
-  },
-  {
-    "enabled": true,
-    "name": "Multiplex Portal",
-    "categories": [
-      "Other"
-    ],
-    "match": [
-      "MultiplexPortal"
-    ],
-    "hide": true,
-    "shape": "Star",
-    "color": "#FFD926",
-    "opacity": 1,
-    "size": 6,
-    "navigable": false
-  },
-  {
-    "enabled": true,
-    "name": "Atlas Point Doodad",
-    "categories": [
-      "Other"
-    ],
-    "match": [
-      "AtlasPointDoodad"
-    ],
-    "hide": true,
-    "shape": "Star",
-    "color": "#FFD926",
-    "opacity": 1,
-    "size": 6,
-    "navigable": false
-  },
-  {
-    "enabled": true,
-    "name": "Boss Chain Anchor 3",
-    "categories": [
-      "Object"
-    ],
-    "match": [
-      "BossChainAnchor_3",
-      "BossChainAnchor_1",
-      "BossChainAnchor_2"
-    ],
-    "hide": true,
-    "shape": "Star",
-    "color": "#FFD926",
-    "opacity": 1,
-    "size": 6,
-    "navigable": false
-  },
-  {
-    "enabled": true,
     "name": "Hide dead monsters",
     "categories": [
       "Monster"
@@ -117,18 +51,11 @@
     ],
     "hide": false,
     "shape": "Diamond",
-    "color": "#00FFFF",
+    "color": "#00ffff",
     "opacity": 1,
-    "size": 10,
-    "sprite": {
-      "sheet": "icons.png",
-      "col": 12,
-      "row": 44,
-      "cellSize": 64,
-      "scale": 1.25
-    },
+    "size": 7,
     "label": "Waypoint",
-    "navigable": true
+    "navigable": false
   },
   {
     "enabled": true,
@@ -139,17 +66,25 @@
     ],
     "hide": false,
     "shape": "Diamond",
-    "color": "#00CCFF",
+    "color": "#00ccff",
     "opacity": 1,
-    "size": 10,
-    "sprite": {
-      "sheet": "icons.png",
-      "col": 0,
-      "row": 0,
-      "cellSize": 64,
-      "scale": 1.25
-    },
+    "size": 7,
     "label": "Checkpoint",
+    "navigable": false
+  },
+  {
+    "enabled": true,
+    "name": "Entrance",
+    "categories": [],
+    "match": [
+      "MiscellaneousObjects/AreaTransition"
+    ],
+    "hide": false,
+    "shape": "Diamond",
+    "color": "#66ff99",
+    "opacity": 1,
+    "size": 7,
+    "label": "Entrance",
     "navigable": false
   },
   {
@@ -159,18 +94,11 @@
     "match": [
       "MiscellaneousObjects/Stash"
     ],
-    "hide": true,
+    "hide": false,
     "shape": "Diamond",
-    "color": "#FFCC00",
+    "color": "#ffcc00",
     "opacity": 1,
-    "size": 10,
-    "sprite": {
-      "sheet": "icons.png",
-      "col": 4,
-      "row": 48,
-      "cellSize": 64,
-      "scale": 1.25
-    },
+    "size": 7,
     "label": "Stash",
     "navigable": false
   },
@@ -181,18 +109,11 @@
     "match": [
       "MiscellaneousObjects/TownPortal"
     ],
-    "hide": true,
+    "hide": false,
     "shape": "Diamond",
-    "color": "#CC99FF",
+    "color": "#cc99ff",
     "opacity": 1,
-    "size": 10,
-    "sprite": {
-      "sheet": "icons.png",
-      "col": 5,
-      "row": 0,
-      "cellSize": 64,
-      "scale": 1.25
-    },
+    "size": 7,
     "label": "Portal",
     "navigable": false
   },
@@ -203,12 +124,27 @@
     "match": [
       "MiscellaneousObjects/ReturnToLastTownPortal"
     ],
-    "hide": true,
+    "hide": false,
     "shape": "Diamond",
-    "color": "#CC99FF",
+    "color": "#cc99ff",
     "opacity": 1,
     "size": 7,
     "label": "Town Portal",
+    "navigable": false
+  },
+  {
+    "enabled": true,
+    "name": "Quest Chest",
+    "categories": [],
+    "match": [
+      "QuestChests"
+    ],
+    "hide": false,
+    "shape": "Diamond",
+    "color": "#ff9900",
+    "opacity": 1,
+    "size": 7,
+    "label": "Quest Chest",
     "navigable": false
   },
   {
@@ -218,9 +154,9 @@
     "match": [
       "QuestObjects"
     ],
-    "hide": true,
+    "hide": false,
     "shape": "Diamond",
-    "color": "#FFFF00",
+    "color": "#ffff00",
     "opacity": 1,
     "size": 7,
     "label": "Quest Object",
@@ -235,7 +171,7 @@
     ],
     "hide": false,
     "shape": "Diamond",
-    "color": "#FFDD33",
+    "color": "#ffdd33",
     "opacity": 1,
     "size": 7,
     "label": "NPC",
@@ -243,27 +179,48 @@
   },
   {
     "enabled": true,
-    "name": "Strongbox",
-    "categories": [
-      "Chest"
+    "name": "Reforging Bench",
+    "categories": [],
+    "match": [
+      "ReforgingBench"
     ],
+    "hide": false,
+    "shape": "Diamond",
+    "color": "#ff66cc",
+    "opacity": 1,
+    "size": 7,
+    "label": "Reforging Bench",
+    "navigable": false
+  },
+  {
+    "enabled": true,
+    "name": "Crafting Bench",
+    "categories": [],
+    "match": [
+      "TransmutationBench"
+    ],
+    "hide": false,
+    "shape": "Diamond",
+    "color": "#ff66cc",
+    "opacity": 1,
+    "size": 7,
+    "label": "Crafting Bench",
+    "navigable": false
+  },
+  {
+    "enabled": true,
+    "name": "Strongbox",
+    "categories": [],
     "match": [
       "StrongBoxes"
     ],
     "hide": false,
     "shape": "Diamond",
-    "color": "#FF9933",
+    "color": "#ff9933",
     "opacity": 1,
-    "size": 10,
-    "sprite": {
-      "sheet": "icons.png",
-      "col": 8,
-      "row": 38,
-      "cellSize": 64,
-      "scale": 1.25
-    },
+    "size": 7,
     "label": "Strongbox",
-    "navigable": true
+    "navigable": false
   },
   {
     "enabled": true,
@@ -274,17 +231,94 @@
     ],
     "hide": false,
     "shape": "Diamond",
-    "color": "#99FF99",
+    "color": "#99ff99",
     "opacity": 1,
-    "size": 10,
+    "size": 7,
+    "label": "Shrine",
+    "navigable": false
+  },
+  {
+    "enabled": true,
+    "name": "Ritual",
+    "categories": [],
+    "match": [
+      "LeagueRitual"
+    ],
+    "hide": false,
+    "shape": "Diamond",
+    "color": "#ff3333",
+    "opacity": 1,
+    "size": 7,
+    "label": "Ritual",
+    "navigable": false
+  },
+  {
+    "enabled": true,
+    "name": "Quest Marker",
+    "categories": [],
+    "match": [
+      "EinharQuestMarker"
+    ],
+    "hide": false,
+    "shape": "Diamond",
+    "color": "#ffff33",
+    "opacity": 1,
+    "size": 7,
+    "label": "Quest Marker",
+    "navigable": false
+  },
+  {
+    "enabled": true,
+    "name": "Expedition",
+    "categories": [],
+    "match": [
+      "Expedition2/Expedition2Encounter"
+    ],
+    "hide": false,
+    "shape": "Diamond",
+    "color": "#cc8833",
+    "opacity": 1,
+    "size": 7,
+    "label": "Expedition",
+    "navigable": false
+  },
+  {
+    "enabled": true,
+    "name": "Abyss",
+    "categories": [],
+    "match": [
+      "AbyssJumpInteractable"
+    ],
+    "hide": false,
+    "shape": "Diamond",
+    "color": "#33cccc",
+    "opacity": 1,
+    "size": 7,
+    "label": "Abyss",
+    "navigable": false
+  },
+  {
+    "enabled": true,
+    "name": "Expedition",
+    "categories": [
+      "Other"
+    ],
+    "match": [
+      "Expedition2/Expedition2Encounter"
+    ],
+    "hide": false,
+    "shape": "Plus",
+    "color": "#26E6D9",
+    "opacity": 1,
+    "size": 12,
     "sprite": {
       "sheet": "icons.png",
-      "col": 7,
-      "row": 0,
+      "col": 5,
+      "row": 38,
       "cellSize": 64,
       "scale": 1.25
     },
-    "label": "Shrine",
+    "label": "Expedition",
     "navigable": true
   },
   {
@@ -301,8 +335,8 @@
       "/Ritual/"
     ],
     "hide": false,
-    "shape": "Diamond",
-    "color": "#FF3333",
+    "shape": "Star",
+    "color": "#FF3355",
     "opacity": 1,
     "size": 12,
     "sprite": {
@@ -317,49 +351,13 @@
   },
   {
     "enabled": true,
-    "name": "Quest Marker",
+    "name": "Breach",
     "categories": [],
     "match": [
-      "EinharQuestMarker"
-    ],
-    "hide": true,
-    "shape": "Diamond",
-    "color": "#FFFF33",
-    "opacity": 1,
-    "size": 7,
-    "label": "Quest Marker",
-    "navigable": false
-  },
-  {
-    "enabled": true,
-    "name": "Expedition",
-    "categories": [
-      "Other"
-    ],
-    "match": [
-      "Expedition2/Expedition2Encounter"
-    ],
-    "hide": false,
-    "shape": "Diamond",
-    "color": "#CC8833",
-    "opacity": 1,
-    "size": 12,
-    "sprite": {
-      "sheet": "icons.png",
-      "col": 5,
-      "row": 38,
-      "cellSize": 64,
-      "scale": 1.25
-    },
-    "label": "Expedition",
-    "navigable": true
-  },
-  {
-    "enabled": true,
-    "name": "BrequelInitiator",
-    "categories": [],
-    "match": [
-      "BrequelInitiator"
+      "Leagues/Breach",
+      "LeagueBreach",
+      "BreachHand",
+      "/Breach/"
     ],
     "hide": false,
     "shape": "Diamond",
@@ -378,42 +376,61 @@
   },
   {
     "enabled": true,
-    "name": "Essence",
-    "categories": [],
+    "name": "Abyss",
+    "categories": [
+      "Object",
+      "Other"
+    ],
     "match": [
-      "fireessencemod",
-      "coldessencemod",
-      "lifeessencemod",
-      "chaosessencemod",
-      "physicalessencemod",
-      "manaessencemod",
-      "speedessencemod",
-      "casteressencemod",
-      "attackessencemod",
-      "attributeessencemod",
-      "greaterchaosessencemod",
-      "greatercoldessencemod",
-      "greaterlifeessencemod",
-      "greaterphysicalessencemod",
-      "essencehorror",
-      "essencehysteria",
-      "essenceinsanity",
-      "essencestartcalm",
-      "/essencemoddaemons/essencemod"
+      "Leagues/Abyss",
+      "/Abyss/",
+      "AbyssJumpInteractable",
+      "AbyssPit",
+      "AbyssHole",
+      "AbyssTrove",
+      "AbyssalTrove",
+      "AbyssGate",
+      "AbyssFissure",
+      "AbyssStart"
     ],
     "hide": false,
-    "shape": "Triangle",
-    "color": "#33E0FF",
+    "shape": "Diamond",
+    "color": "#33CCCC",
     "opacity": 1,
     "size": 12,
     "sprite": {
       "sheet": "icons.png",
-      "col": 7,
-      "row": 45,
+      "col": 0,
+      "row": 0,
       "cellSize": 64,
       "scale": 1.25
     },
-    "label": "Essence",
+    "label": "Abyss",
+    "navigable": true
+  },
+  {
+    "enabled": true,
+    "name": "Delirium",
+    "categories": [],
+    "match": [
+      "Delirium",
+      "Simulacrum",
+      "LeagueDelirium",
+      "Leagues/Delirium"
+    ],
+    "hide": false,
+    "shape": "Triangle",
+    "color": "#9B59B6",
+    "opacity": 1,
+    "size": 12,
+    "sprite": {
+      "sheet": "icons.png",
+      "col": 6,
+      "row": 0,
+      "cellSize": 64,
+      "scale": 1.25
+    },
+    "label": "Delirium",
     "navigable": true
   },
   {
@@ -720,61 +737,88 @@
   },
   {
     "enabled": true,
-    "name": "Abyss",
+    "name": "Strongbox",
     "categories": [
-      "Object",
-      "Other"
+      "Chest"
     ],
     "match": [
-      "Leagues/Abyss",
-      "/Abyss/",
-      "AbyssJumpInteractable",
-      "AbyssPit",
-      "AbyssHole",
-      "AbyssTrove",
-      "AbyssalTrove",
-      "AbyssGate",
-      "AbyssFissure",
-      "AbyssStart"
+      "StrongBoxes"
     ],
     "hide": false,
-    "shape": "Diamond",
-    "color": "#33CCCC",
+    "shape": "Square",
+    "color": "#FFB300",
     "opacity": 1,
-    "size": 12,
+    "size": 10,
     "sprite": {
       "sheet": "icons.png",
-      "col": 0,
-      "row": 0,
+      "col": 8,
+      "row": 38,
       "cellSize": 64,
       "scale": 1.25
     },
-    "label": "Abyss",
+    "label": "Strongbox",
     "navigable": true
   },
   {
     "enabled": true,
-    "name": "Delirium",
+    "name": "Essence",
     "categories": [],
     "match": [
-      "Delirium",
-      "Simulacrum",
-      "LeagueDelirium",
-      "Leagues/Delirium"
+      "fireessencemod",
+      "coldessencemod",
+      "lifeessencemod",
+      "chaosessencemod",
+      "physicalessencemod",
+      "manaessencemod",
+      "speedessencemod",
+      "casteressencemod",
+      "attackessencemod",
+      "attributeessencemod",
+      "greaterchaosessencemod",
+      "greatercoldessencemod",
+      "greaterlifeessencemod",
+      "greaterphysicalessencemod",
+      "essencehorror",
+      "essencehysteria",
+      "essenceinsanity",
+      "essencestartcalm",
+      "/essencemoddaemons/essencemod"
     ],
     "hide": false,
     "shape": "Triangle",
-    "color": "#9B59B6",
+    "color": "#33E0FF",
     "opacity": 1,
     "size": 12,
     "sprite": {
       "sheet": "icons.png",
-      "col": 6,
+      "col": 7,
+      "row": 45,
+      "cellSize": 64,
+      "scale": 1.25
+    },
+    "label": "Essence",
+    "navigable": true
+  },
+  {
+    "enabled": true,
+    "name": "Shrine",
+    "categories": [],
+    "match": [
+      "Shrine"
+    ],
+    "hide": false,
+    "shape": "Star",
+    "color": "#7DFF7D",
+    "opacity": 1,
+    "size": 10,
+    "sprite": {
+      "sheet": "icons.png",
+      "col": 7,
       "row": 0,
       "cellSize": 64,
       "scale": 1.25
     },
-    "label": "Delirium",
+    "label": "Shrine",
     "navigable": true
   },
   {
@@ -859,14 +903,7 @@
     "shape": "Star",
     "color": "#FF7300",
     "opacity": 1,
-    "size": 12,
-    "sprite": {
-      "sheet": "icons.png",
-      "col": 6,
-      "row": 57,
-      "cellSize": 64,
-      "scale": 1.25
-    },
+    "size": 6.5,
     "label": "Boss",
     "navigable": true
   },
@@ -883,14 +920,7 @@
     "shape": "Triangle",
     "color": "#FFD926",
     "opacity": 1,
-    "size": 10,
-    "sprite": {
-      "sheet": "icons.png",
-      "col": 4,
-      "row": 57,
-      "cellSize": 64,
-      "scale": 1.25
-    },
+    "size": 5.5,
     "label": "Rare",
     "navigable": true
   },
@@ -907,15 +937,8 @@
     "shape": "Diamond",
     "color": "#73A6FF",
     "opacity": 0.97,
-    "size": 9,
-    "sprite": {
-      "sheet": "icons.png",
-      "col": 4,
-      "row": 57,
-      "cellSize": 64,
-      "scale": 1.25
-    },
-    "label": "Monster \u00B7 Magic",
+    "size": 3.4,
+    "label": "Magic",
     "navigable": false
   },
   {
@@ -931,15 +954,8 @@
     "shape": "Circle",
     "color": "#FF3333",
     "opacity": 0.95,
-    "size": 9,
-    "sprite": {
-      "sheet": "icons.png",
-      "col": 0,
-      "row": 14,
-      "cellSize": 64,
-      "scale": 1.25
-    },
-    "label": "Monster \u00B7 Normal",
+    "size": 2.6,
+    "label": "Normal",
     "navigable": false
   },
   {
@@ -1011,46 +1027,13 @@
       "Transition"
     ],
     "match": [],
-    "hide": true,
+    "hide": false,
     "shape": "Diamond",
     "color": "#66FF99",
     "opacity": 0.95,
-    "size": 10,
-    "sprite": {
-      "sheet": "icons.png",
-      "col": 1,
-      "row": 37,
-      "cellSize": 64,
-      "scale": 1.25
-    },
+    "size": 4.5,
     "label": "Transition",
-    "navigable": false
-  },
-  {
-    "enabled": true,
-    "name": "Bridge",
-    "categories": [
-      "Object",
-      "Other",
-      "Transition"
-    ],
-    "match": [
-      "Bridge"
-    ],
-    "hide": true,
-    "shape": "Diamond",
-    "color": "#66FF99",
-    "opacity": 0.9,
-    "size": 10,
-    "sprite": {
-      "sheet": "icons.png",
-      "col": 1,
-      "row": 37,
-      "cellSize": 64,
-      "scale": 1.25
-    },
-    "label": "Bridge",
-    "navigable": false
+    "navigable": true
   },
   {
     "enabled": true,
@@ -1059,7 +1042,7 @@
       "ServerIcon"
     ],
     "match": [
-      "MiscellaneousObjects/WaypointWaypoint"
+      "Waypoint"
     ],
     "hide": false,
     "shape": "Star",
@@ -1295,14 +1278,69 @@
   },
   {
     "enabled": true,
-    "name": "Map marker",
+    "name": "Quest object",
     "categories": [
       "Object",
       "Other"
     ],
-    "match": [],
+    "match": [
+      "QuestObjects",
+      "QuestChests",
+      "QuestObject"
+    ],
+    "hide": false,
+    "shape": "Diamond",
+    "color": "#FFD966",
+    "opacity": 0.95,
+    "size": 10,
+    "sprite": {
+      "sheet": "icons.png",
+      "col": 12,
+      "row": 44,
+      "cellSize": 64,
+      "scale": 1.25
+    },
+    "label": "Quest",
+    "navigable": true
+  },
+  {
+    "enabled": true,
+    "name": "Quest marker",
+    "categories": [
+      "Object",
+      "Other"
+    ],
+    "match": [
+      "Quest",
+      "EinharQuestMarker"
+    ],
     "poi": "Yes",
-    "hide": true,
+    "hide": false,
+    "shape": "Diamond",
+    "color": "#FFD966",
+    "opacity": 1,
+    "size": 10,
+    "sprite": {
+      "sheet": "icons.png",
+      "col": 12,
+      "row": 44,
+      "cellSize": 64,
+      "scale": 1.25
+    },
+    "label": "Quest marker",
+    "navigable": true
+  },
+  {
+    "enabled": true,
+    "name": "Waypoint",
+    "categories": [
+      "Object",
+      "Other"
+    ],
+    "match": [
+      "Waypoint"
+    ],
+    "hide": false,
     "shape": "Circle",
     "color": "#8CBFFF",
     "opacity": 0.7,
@@ -1314,7 +1352,135 @@
       "cellSize": 64,
       "scale": 1.25
     },
-    "label": "Map marker",
+    "label": "Waypoint",
+    "navigable": true
+  },
+  {
+    "enabled": true,
+    "name": "Checkpoint",
+    "categories": [
+      "Object",
+      "Other"
+    ],
+    "match": [
+      "Checkpoint"
+    ],
+    "hide": false,
+    "shape": "Circle",
+    "color": "#00CCFF",
+    "opacity": 0.95,
+    "size": 10,
+    "sprite": {
+      "sheet": "icons.png",
+      "col": 0,
+      "row": 0,
+      "cellSize": 64,
+      "scale": 1.25
+    },
+    "label": "Checkpoint",
+    "navigable": true
+  },
+  {
+    "enabled": true,
+    "name": "Stash",
+    "categories": [
+      "Object",
+      "Other"
+    ],
+    "match": [
+      "Stash"
+    ],
+    "hide": false,
+    "shape": "Square",
+    "color": "#FFCC00",
+    "opacity": 0.95,
+    "size": 10,
+    "sprite": {
+      "sheet": "icons.png",
+      "col": 4,
+      "row": 48,
+      "cellSize": 64,
+      "scale": 1.25
+    },
+    "label": "Stash",
+    "navigable": false
+  },
+  {
+    "enabled": true,
+    "name": "Town portal",
+    "categories": [
+      "Object",
+      "Other"
+    ],
+    "match": [
+      "TownPortal",
+      "ReturnToLastTownPortal"
+    ],
+    "hide": false,
+    "shape": "Circle",
+    "color": "#CC99FF",
+    "opacity": 0.7,
+    "size": 10,
+    "sprite": {
+      "sheet": "icons.png",
+      "col": 5,
+      "row": 0,
+      "cellSize": 64,
+      "scale": 1.25
+    },
+    "label": "Town portal",
+    "navigable": false
+  },
+  {
+    "enabled": true,
+    "name": "Bridge",
+    "categories": [
+      "Object",
+      "Other",
+      "Transition"
+    ],
+    "match": [
+      "Bridge"
+    ],
+    "hide": false,
+    "shape": "Diamond",
+    "color": "#66FF99",
+    "opacity": 0.9,
+    "size": 10,
+    "sprite": {
+      "sheet": "icons.png",
+      "col": 1,
+      "row": 37,
+      "cellSize": 64,
+      "scale": 1.25
+    },
+    "label": "Bridge",
+    "navigable": false
+  },
+  {
+    "enabled": true,
+    "name": "Portal",
+    "categories": [
+      "Object",
+      "Other"
+    ],
+    "match": [
+      "MiscellaneousObjects/Multiplex",
+      "Multiplex"
+    ],
+    "hide": false,
+    "shape": "Circle",
+    "color": "#B38CFF",
+    "opacity": 0.7,
+    "size": 10,
+    "sprite": {
+      "sheet": "icons.png",
+      "col": 5,
+      "row": 0,
+      "cellSize": 64,
+      "scale": 1.25
+    },
+    "label": "Portal",
     "navigable": false
   },
   {
@@ -1326,7 +1492,7 @@
     ],
     "match": [],
     "poi": "Yes",
-    "hide": true,
+    "hide": false,
     "shape": "Circle",
     "color": "#8CBFFF",
     "opacity": 0.7,
@@ -1339,6 +1505,6 @@
       "scale": 1.25
     },
     "label": "Map marker",
-    "navigable": false
+    "navigable": true
   }
 ]
