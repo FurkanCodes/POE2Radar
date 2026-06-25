@@ -418,6 +418,8 @@ resources/_reference/
 
 # release build output
 publish/
+release/
+POE2Radar-*-win-x64/
 POE2Radar-*-win-x64.zip
 
 

@@ -33,9 +33,6 @@ public sealed class TextureRegistry
         out TextureHandle handle)
     {
         var path = Path.Combine(AppContext.BaseDirectory, "Overlay", "Textures", fileName);
-        if (TryGet(overlay, path, out handle)) return true;
-
-        path = Path.Combine(AppContext.BaseDirectory, "Textures", fileName);
         return TryGet(overlay, path, out handle);
     }
 

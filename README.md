@@ -47,11 +47,37 @@ Notes:
 
 Requires the **.NET 10 SDK**, Windows x64.
 
+**Development** (fast iteration while coding):
+
 ```
 dotnet build POE2Radar.slnx
 # launch with PoE2 already running and you in a zone:
 src\POE2Radar.Overlay\bin\Debug\net10.0-windows\POE2Radar.Overlay.exe
 ```
+
+Use `-c Release` for a local optimized build in `bin\Release\...`. Dev output is for testing only — it does not bundle the full release asset layout.
+
+**Shipping a release** (self-contained distributable with textures, icons, and docs):
+
+```
+./release.ps1
+# or pin an explicit version:
+./release.ps1 -Version 0.15.2
+```
+
+On Windows, double-click **`release.bat`** instead of `release.ps1` — the console stays open so you can read errors. From a terminal, either command works.
+
+This writes a complete folder to `release/POE2Radar-vX.Y.Z-win-x64/` and a matching zip beside it:
+
+```
+POE2Radar.Overlay.exe
+Overlay/icons.png
+Overlay/Textures/full_bar.png, hollow_bar.png
+icons/*.svg
+README.md, LICENSE, VERSION.txt
+```
+
+`config/`, `cache/`, and `logs/` are created at runtime on first use. `publish.ps1` is a thin wrapper around `release.ps1` for backward compatibility.
 
 Reading another process generally requires running the overlay **as Administrator**.
 

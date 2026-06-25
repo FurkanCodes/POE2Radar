@@ -90,6 +90,7 @@ public sealed partial class RadarApp
         _windowWidth = winW;
         _windowHeight = winH;
         SyncPriceBookLeague(areaInstance);
+        UpdateRuneforge(inGameState, _runeforge);
         UpdateLootTags(inGameState);
         UpdateMonoliths(areaInstance, areaLevel, areaHash, entities);
     }
@@ -203,6 +204,17 @@ public sealed partial class RadarApp
         var enabled = cfg.Categories is { Count: > 0 }
             ? new HashSet<string>(cfg.Categories, StringComparer.OrdinalIgnoreCase) : null;
         if (!cfg.Enabled || !cfg.AnchorValuesToTags || !_priceBook.IsLoaded || enabled is null)
+        {
+            if (!ReferenceEquals(_lootTags, LootTagRender.Empty)) _lootTags = LootTagRender.Empty;
+            return;
+        }
+
+        // ScanLootLabels grabs EVERY visible UI text element, including the open "Runeshape Combinations"
+        // (monolith) reward panel rows ("3x Glassblower's Bauble"). Those would be priced at the UNIT value
+        // (StripCount drops the "3x") and chipped on top of the runeforge stack-total chip — two overlapping
+        // labels. While that panel is open you're interacting with it, not the ground, so suppress ground
+        // tags (UpdateRuneforge ran earlier this tick, so PanelOpen is current).
+        if (_runeforge.PanelOpen)
         {
             if (!ReferenceEquals(_lootTags, LootTagRender.Empty)) _lootTags = LootTagRender.Empty;
             return;

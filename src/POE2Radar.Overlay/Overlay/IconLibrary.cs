@@ -40,6 +40,16 @@ public static class IconLibrary
     public static string? Canonical(string? name)
         => !string.IsNullOrEmpty(name) && Map.TryGetValue(name, out var d) ? d.Name : null;
 
+    /// <summary>Write all built-in SVG icons to <c>icons/</c> under <paramref name="baseDirectory"/>.
+    /// Used by <c>release.ps1</c> so release zips ship editable icons without a first-run materialize.</summary>
+    public static void MaterializeTo(string baseDirectory)
+    {
+        var iconsDir = Path.Combine(baseDirectory, "icons");
+        System.IO.Directory.CreateDirectory(iconsDir);
+        foreach (var icon in BuiltIns())
+            File.WriteAllText(Path.Combine(iconsDir, icon.Name + ".svg"), ToSvg(icon));
+    }
+
     private static (IReadOnlyList<IconDef>, IReadOnlyDictionary<string, IconDef>) Load()
     {
         var builtins = BuiltIns();

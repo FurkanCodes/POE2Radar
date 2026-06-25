@@ -12,7 +12,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- App version — bump per release and tag the repo to match (vX.Y.Z). UpdateChecker compares this
          to the latest GitHub release/tag so the user is told when they're out of date. -->
-    <Version>0.8.3</Version>
+    <Version>0.15.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -31,9 +31,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="Overlay\icons.png" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Overlay\Textures\*.png" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Textures\*.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Overlay\icons.png" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="Overlay\Textures\*.png" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
 
 </Project>

@@ -326,8 +326,8 @@ public static class Poe2
         public const int AnchorHolder = 0x30;
         public const int HoleCount = 0x38;
         public const int AnchorPos = 0x3C;
-        public const int ListenerSub = 0x98;
-        public const int RuneStride = 0x6C;
+        public const int ListenerSub = 0xA0; // ✓ listener node ptr = station + 0xA0 (2026-06-25 patch shifted +0x08, was 0x98; re-validated live: N=4 Tidal @ hole 3)
+        public const int RuneStride = 0x68; // ✓ Expedition2Runes row stride (anchorIdx = (rowPtr-base)/stride). 2026-06-25 patch: 0x6C→0x68 (re-validated: delta 0x5B0/0x68 = 14 = Tidal)
         public const int RuneCount = 34;
     }
 
