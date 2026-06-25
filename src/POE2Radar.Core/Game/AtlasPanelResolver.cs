@@ -27,18 +27,23 @@ public static class AtlasPanelResolver
     {
         if (uiRoot == 0 || _cachedForUiRoot == uiRoot)
         {
-            _cachedForUiRoot = 0;
-            _cachedPanel = 0;
-            _cachedIndex = Poe2.AtlasPanel.UiRootChildIndex;
+            DropCachedPanel();
         }
         _lastVisible.Clear();
         _toggleScore.Clear();
+    }
+
+    public static void NotifyPanelOpened(nint uiRoot)
+    {
+        if (uiRoot != 0 && _cachedForUiRoot == uiRoot)
+            DropCachedPanel();
     }
 
     /// <summary>Call each atlas tick to accumulate visible-bit toggles per UiRoot child index.</summary>
     public static void RecordSample(MemoryReader reader, nint uiRoot)
     {
         if (uiRoot == 0) return;
+        var opened = false;
         foreach (var (index, el, _) in EnumerateCandidates(reader, uiRoot))
         {
             var vis = ReadVisible(reader, el);
@@ -50,7 +55,10 @@ public static class AtlasPanelResolver
             if (prev == vis) continue;
             _toggleScore[index] = _toggleScore.GetValueOrDefault(index) + 1;
             _lastVisible[index] = vis;
+            opened |= vis;
         }
+        if (opened && _cachedForUiRoot == uiRoot)
+            DropCachedPanel();
     }
 
     public static bool TryResolvePanel(MemoryReader reader, nint uiRoot, out nint panel, out int index)
@@ -59,12 +67,18 @@ public static class AtlasPanelResolver
         index = -1;
         if (uiRoot == 0) return false;
 
-        if (_cachedForUiRoot == uiRoot && _cachedPanel != 0 && IsValidPanel(reader, _cachedPanel))
+        if (_cachedForUiRoot == uiRoot
+            && _cachedPanel != 0
+            && TryChildAt(reader, uiRoot, _cachedIndex, out var livePanel)
+            && livePanel == _cachedPanel
+            && IsValidPanel(reader, _cachedPanel))
         {
             panel = _cachedPanel;
             index = _cachedIndex;
             return true;
         }
+        if (_cachedForUiRoot == uiRoot)
+            DropCachedPanel();
 
         var bestIndex = DiscoverBestIndex(reader, uiRoot);
         if (bestIndex < 0)
@@ -83,8 +97,11 @@ public static class AtlasPanelResolver
     public static bool IsPanelOpen(MemoryReader reader, nint uiRoot)
     {
         if (!TryResolvePanel(reader, uiRoot, out var panel, out _)) return false;
-        return ReadVisible(reader, panel);
+        return IsPanelHierarchicallyOpen(reader, panel);
     }
+
+    public static bool IsPanelHierarchicallyOpen(MemoryReader reader, nint panel)
+        => ReadHierarchicallyVisible(reader, panel);
 
     public static PanelDiag GetDiag(MemoryReader reader, nint uiRoot)
     {
@@ -166,7 +183,7 @@ public static class AtlasPanelResolver
         childCount = 0;
         if (!TryChildAt(reader, uiRoot, index, out var panel) || !IsValidPanel(reader, panel)) return false;
         childCount = CountDirectChildren(reader, panel);
-        return ReadVisible(reader, panel);
+        return IsPanelHierarchicallyOpen(reader, panel);
     }
 
     private static bool TryChildAt(MemoryReader reader, nint uiRoot, int index, out nint child)
@@ -194,6 +211,27 @@ public static class AtlasPanelResolver
     {
         if (!reader.TryReadStruct<uint>(el + Poe2.UiElement.Flags, out var fl)) return false;
         return ((fl >> Poe2.UiElement.FlagVisibleBit) & 1) != 0;
+    }
+
+    private static bool ReadHierarchicallyVisible(MemoryReader reader, nint el)
+    {
+        var cur = el;
+        var guard = 0;
+        while (cur != 0 && guard++ < 16)
+        {
+            if (!ReadVisible(reader, cur)) return false;
+            var parent = SafePtr(reader, cur + Poe2.UiElement.Parent);
+            if (parent == cur) break;
+            cur = parent;
+        }
+        return true;
+    }
+
+    private static void DropCachedPanel()
+    {
+        _cachedForUiRoot = 0;
+        _cachedPanel = 0;
+        _cachedIndex = Poe2.AtlasPanel.UiRootChildIndex;
     }
 
     private static nint SafePtr(MemoryReader reader, nint addr)

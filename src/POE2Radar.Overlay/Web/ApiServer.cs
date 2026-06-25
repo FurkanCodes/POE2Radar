@@ -626,8 +626,6 @@ public sealed class ApiServer : IDisposable
         openDashboardHotkey = _settings.OpenDashboardHotkey,
         gamepadHotkeysEnabled = _settings.GamepadHotkeysEnabled,
         gamepadUserIndex = _settings.GamepadUserIndex,
-        suppressCompletedContent = _settings.SuppressCompletedContent,
-        completedSuppressMinutes = _settings.CompletedSuppressMinutes,
         hpBarNormal = _settings.HpBarNormal,
         hpBarMagic = _settings.HpBarMagic,
         hpBarRare = _settings.HpBarRare,
@@ -846,14 +844,6 @@ public sealed class ApiServer : IDisposable
                     break;
                 case "gamepadUserIndex" when TryInt(p.Value, out var gi):
                     _settings.GamepadUserIndex = Math.Clamp(gi, 0, 3);
-                    applied.Add(p.Name);
-                    break;
-                case "suppressCompletedContent" when TryBool(p.Value, out var sc):
-                    _settings.SuppressCompletedContent = sc;
-                    applied.Add(p.Name);
-                    break;
-                case "completedSuppressMinutes" when TryInt(p.Value, out var csm):
-                    _settings.CompletedSuppressMinutes = Math.Clamp(csm, 1, 60);
                     applied.Add(p.Name);
                     break;
                 case "hpBarNormal" when TryBool(p.Value, out var b): _settings.HpBarNormal = b; applied.Add(p.Name); break;
@@ -1311,7 +1301,6 @@ public sealed class ApiServer : IDisposable
         r.Life      = OneOf(r.Life, "Alive", "Dead");
         r.Chest     = OneOf(r.Chest, "Opened", "Unopened");
         r.Poi       = OneOf(r.Poi, "Yes", "No");
-        r.Encounter = OneOf(r.Encounter, "Active", "Complete");
         r.Shape = SanitizeShape(r.Shape);
         r.Color = SanitizeColor(r.Color);
         r.Opacity = Math.Clamp(r.Opacity, 0f, 1f);

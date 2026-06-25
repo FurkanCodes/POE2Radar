@@ -143,7 +143,6 @@ public sealed class DisplayRuleEngine
         Life = r.Life,
         Chest = r.Chest,
         Poi = r.Poi,
-        Encounter = r.Encounter,
         Hide = r.Hide,
         Shape = r.Shape,
         Color = r.Color,

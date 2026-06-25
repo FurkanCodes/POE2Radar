@@ -321,7 +321,6 @@ public sealed class Poe2Atlas
     private nint _nodeVtable;    // cached atlas-node element class vtable
     private nint _nodeCanvas;    // cached parent container holding the node elements
     private int _nodeRetry;      // throttle counter (legacy; detect runs every tick while uncached)
-    private int _hiddenTicks;    // counts ticks the cached canvas read as hidden (self-heal a stale cache)
     /// <summary>Last DetectNodeClass failure reason (for overlay diagnostics).</summary>
     public string? LastDetectFailure { get; private set; }
     // Per-element resolved content tags (display names). Content is read via the +0x310 EndgameMapAtlas
@@ -413,15 +412,13 @@ public sealed class Poe2Atlas
             {
                 if (HierarchicallyVisible(_nodeCanvas))
                 {
-                    _hiddenTicks = 0;
                     if (ReadCanvasPositions(_nodeCanvas, winW, winH))
                         return _nodeSnapshot;
                 }
                 else
                 {
-                    var liveSelf = Ptr(_nodeCanvas + Poe2.UiElement.Self) == _nodeCanvas;
-                    if (liveSelf && ++_hiddenTicks % 150 != 0) return _nodeSnapshot;
                     Invalidate();
+                    return new List<AtlasNodeLive>();
                 }
             }
 
@@ -432,7 +429,6 @@ public sealed class Poe2Atlas
             {
                 if (HierarchicallyVisible(_nodeCanvas))
                 {
-                    _hiddenTicks = 0;
                     if (ReadCanvasNodes(_nodeCanvas, nodes, winW, winH))
                     {
                         _nodeSnapshot = new List<AtlasNodeLive>(nodes);
@@ -442,14 +438,10 @@ public sealed class Poe2Atlas
                 }
                 else
                 {
-                    // Canvas hidden = atlas closed → normally a cheap return (no node read). BUT the game
-                    // RECREATES the atlas panel on close/reopen, so the cached pointer can go stale and
-                    // never recover (the old "restart the overlay to fix detection" bug). Guard against
-                    // that: drop a cache that's no longer a live element immediately, and force a periodic
-                    // re-detect as a self-heal. Otherwise cheap-return.
-                    var liveSelf = Ptr(_nodeCanvas + Poe2.UiElement.Self) == _nodeCanvas;
-                    if (liveSelf && ++_hiddenTicks % 150 != 0) return nodes;
+                    // Canvas hidden = atlas closed or recreated. Drop the cache immediately so callers
+                    // stop drawing stale marks and the next open detects the fresh panel/canvas.
                     Invalidate();
+                    return nodes;
                 }
             }
 
@@ -655,9 +647,22 @@ public sealed class Poe2Atlas
     /// defaults only when the full map/content set is available.</summary>
     public bool AllTagsResolved { get; private set; }
 
+    public bool IsCanvasLive()
+    {
+        lock (_nodeLock)
+            return _nodeCanvas != 0 && _nodeVtable != 0 && HierarchicallyVisible(_nodeCanvas);
+    }
+
+    public void NotifyPanelOpened(nint inGameState)
+    {
+        var uiRoot = UiRootResolver.Resolve(_reader, inGameState);
+        if (uiRoot != 0)
+            AtlasPanelResolver.NotifyPanelOpened(uiRoot);
+    }
+
     private void Invalidate()
     {
-        _nodeCanvas = 0; _nodeVtable = 0; _hiddenTicks = 0;
+        _nodeCanvas = 0; _nodeVtable = 0;
         _tagCache.Clear(); _iconTypeCache.Clear(); _nodeSnapshot.Clear();
         _elementIndex.Clear();
         _graph.Clear(); _graphCanvas = 0; _currentMarker = 0; _currentMarkerCandidates.Clear();

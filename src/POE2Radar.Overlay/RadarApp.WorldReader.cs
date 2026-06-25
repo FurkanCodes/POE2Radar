@@ -38,7 +38,13 @@ public sealed partial class RadarApp
             return;
         }
 
-        if (areaInstance != _lastAreaInstance) { _worldTerrain = null; _lastAreaInstance = areaInstance; }
+        if (areaInstance != _lastAreaInstance)
+        {
+            _worldTerrain = null;
+            if (_lastAreaInstance != 0 && (_atlasOpen || _atlasMarksPublish.Count > 0))
+                CloseAtlasSession();
+            _lastAreaInstance = areaInstance;
+        }
         _areaInstanceForApi = areaInstance;
         _inGameStateForApi = inGameState;
         _areaHash = _worldLive.AreaHash(areaInstance);
@@ -48,6 +54,12 @@ public sealed partial class RadarApp
         var charLevel = _worldLive.PlayerLevel(localPlayer);
         _charLevel = charLevel;
         var player = _worldLive.PlayerGrid(localPlayer) ?? NumVec2.Zero;
+
+        if (!_atlasWarmupDone)
+        {
+            _atlas.GetAtlasPanelDiag(inGameState);
+            _atlasWarmupDone = true;
+        }
 
         var atlasStart = System.Diagnostics.Stopwatch.GetTimestamp();
         UpdateAtlas(inGameState);
@@ -75,18 +87,6 @@ public sealed partial class RadarApp
                 entities = entities.Where(e => !_hidden.IsHidden(e.Metadata)).ToList();
             if (_settings.EntityDrawRadiusGrid > 0)
                 entities = entities.Where(e => NumVec2.Distance(e.Grid, player) <= _settings.EntityDrawRadiusGrid).ToList();
-            if (_areaHash != _suppressorAreaHash)
-            {
-                _completedSuppressor.OnAreaHashChanged(_areaHash);
-                _suppressorAreaHash = _areaHash;
-            }
-            _completedSuppressor.Observe(_areaHash, entities, _settings.SuppressCompletedContent,
-                _settings.CompletedSuppressMinutes);
-            if (_settings.SuppressCompletedContent)
-                entities = entities.Where(e =>
-                    !_completedSuppressor.IsSuppressed(_areaHash,
-                        EntityDisplayHelper.TypeToken(e.Metadata), true,
-                        _settings.CompletedSuppressMinutes)).ToList();
 
             if (_landmarkPatterns.Generation != _landmarkGen)
             {
@@ -130,7 +130,6 @@ public sealed partial class RadarApp
                 OnAreaChanged(player);
             }
 
-            PruneCompletedTargets();
             AutoSelectNavigable(player);
             WorldMaintainRoutes(player, landmarks, entities);
         }
@@ -306,7 +305,6 @@ public sealed partial class RadarApp
         var items = new List<MapEntityRenderItem>(entities.Length);
         foreach (var e in entities)
         {
-            if (e.IconComplete) continue;
             var rule = _ruleEngine.Resolve(e, areaCode, _settings.ImportantOnly, entities);
             if (rule is { Hide: true }) continue;
             if (_settings.ImportantOnly && EntityImportanceHelper.IsTrash(EntityImportanceHelper.Classify(e, _settings.Styles, rule)))

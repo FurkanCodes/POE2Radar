@@ -38,8 +38,6 @@ public sealed partial class RadarApp : IDisposable
     private readonly ZoneEntityOverrides _zoneOverrides;
     private readonly DisplayRuleEngine _ruleEngine;
     private readonly LandmarkStore _landmarkStore;
-    private readonly CompletedContentSuppressor _completedSuppressor = new();
-    private uint _suppressorAreaHash;
     private int _landmarkGen;
     private int _displayRulesGen;
     private int _landmarkStoreGen;
@@ -61,13 +59,14 @@ public sealed partial class RadarApp : IDisposable
     private readonly VisualMotionSmoother _visualSmoother = new();
     private LiveFrameState _liveFrame = LiveFrameState.Empty;
     private volatile bool _mainLandmarksInvalid;
+    private bool _atlasWarmupDone;
 
     // ── Atlas overlay: live node highlights (takes precedence over the radar when the atlas is open). ──
     private readonly object _atlasLock = new();
     private readonly HashSet<nint> _atlasSel = new();   // selected node element addresses (from the dashboard)
-    private bool _atlasOpen;
+    private volatile bool _atlasOpen;
     private List<AtlasMark> _atlasMarks = new();         // built each world tick (tick thread only)
-    private IReadOnlyList<AtlasMark> _atlasMarksPublish = Array.Empty<AtlasMark>(); // snapshot for render thread
+    private volatile IReadOnlyList<AtlasMark> _atlasMarksPublish = Array.Empty<AtlasMark>(); // snapshot for render thread
     private IReadOnlyList<NumVec2> _atlasRoutePublish = Array.Empty<NumVec2>();
     private IReadOnlyList<AtlasRouteLine> _atlasRoutesPublish = Array.Empty<AtlasRouteLine>();
     private List<AtlasTagCatalogEntry> _atlasTagCatalog = new(); // distinct tags/maps for overlay Settings → Atlas
@@ -902,7 +901,7 @@ public sealed partial class RadarApp : IDisposable
                 0f);
         var playerTerrainHeight = _live.PlayerTerrainHeight(localPlayer);
 
-        if (_atlasOpen && !_atlas.IsAtlasOpen(inGameState))
+        if (_atlasOpen && (!_atlas.IsAtlasOpen(inGameState) || !_atlas.IsCanvasLive()))
             CloseAtlasSession();
 
         var maps = _cachedMaps;
@@ -1509,7 +1508,7 @@ public sealed partial class RadarApp : IDisposable
         // resolved display rule says so (visible + navigable); this is what lets the Entities-tab
         // Nav/Hide toggles (and the web dashboard) actually include/exclude a type from auto-path.
         var pois = _entities
-            .Where(e => e.IsAlive && !e.IconComplete)
+            .Where(e => e.IsAlive)
             .Select(e => (e, rule: _ruleEngine.Resolve(e, _areaCode, _settings.ImportantOnly, _entities)))
             .Where(x => x.rule is { Hide: false, Navigable: true })
             .OrderBy(x => NumVec2.DistanceSquared(x.e.Grid, player));
@@ -1686,35 +1685,6 @@ public sealed partial class RadarApp : IDisposable
 
         if (count > 0)
             Console.WriteLine($"\nNav: {(restored ? "restored" : "auto-selected")} {count} target(s) on zone change.");
-    }
-
-    /// <summary>
-    /// Drop selected ENTITY targets the game has marked complete (IconComplete — e.g. a claimed
-    /// expedition / used incursion device). Such an entity is hidden from the map and excluded from
-    /// the nav-target list, but it lingers (faded) in the live entity set, so <see cref="TryResolveTargetGrid"/>
-    /// would still resolve it and the route would keep pathing there. Pruning the id stops the route
-    /// (its tracker is removed by the next ReconcileTrackers) and "sticks" via the per-zone memory.
-    /// <para>Only prunes targets whose entity is PRESENT-and-complete — an entity merely out of network
-    /// range (temporarily absent) is left selected so it resumes when you return to it.</para>
-    /// </summary>
-    private void PruneCompletedTargets()
-    {
-        lock (_navLock)
-        {
-            if (_selectedIds.Count == 0) return;
-            _selectedIds.RemoveAll(id =>
-            {
-                if (!id.StartsWith("e:", StringComparison.Ordinal) || !uint.TryParse(id.AsSpan(2), out var eid))
-                    return false;
-                foreach (var e in _entities)
-                    if (e.Id == eid)
-                    {
-                        if (e.IconComplete) _autoSelectedIds.Remove(id);
-                        return e.IconComplete; // present → prune iff completed; else keep
-                    }
-                return false; // absent (out of range) → keep; it may return
-            });
-        }
     }
 
     /// <summary>When <see cref="RadarSettings.AutoPathNavigable"/> is on, keep the selection filled with
@@ -2451,8 +2421,17 @@ public sealed partial class RadarApp : IDisposable
             return;
         }
 
+        if (_atlasOpen && !_atlas.IsCanvasLive())
+        {
+            CloseAtlasSession();
+            return;
+        }
+
         if (_atlasPanelOpenSince == DateTime.MinValue)
+        {
             _atlasPanelOpenSince = DateTime.UtcNow;
+            _atlas.NotifyPanelOpened(inGameState);
+        }
 
         var readMode = _builtAtlasOnce && _atlas.AllTagsResolved
             ? AtlasNodeReadMode.Positions

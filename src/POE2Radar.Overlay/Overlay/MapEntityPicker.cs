@@ -93,7 +93,6 @@ public static class MapEntityPicker
 
         foreach (var e in entities)
         {
-            if (e.IconComplete) continue;
             var rule = resolve?.Invoke(e);
             if (rule is { Hide: true }) continue;
             if (importantOnly && EntityImportanceHelper.IsTrash(

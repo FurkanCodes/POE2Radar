@@ -1647,17 +1647,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 s.ImportantOnly = !showAll;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
                 ImGui.SetTooltip("Show normal/magic grey monsters and other map clutter on the radar.");
-
-            bool suppressDone = s.SuppressCompletedContent;
-            if (ImGui.Checkbox("Hide completed content (per type)", ref suppressDone))
-                s.SuppressCompletedContent = suppressDone;
-            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
-                ImGui.SetTooltip("Hide consumed map content by metadata type — mechanics, POIs, chests, shrines, killed bosses/rares — until instance reset or the timer below.");
-
-            int suppressMin = s.CompletedSuppressMinutes;
-            ImGui.SetNextItemWidth(120f);
-            if (ImGui.SliderInt("Completed hide (min)", ref suppressMin, 1, 60))
-                s.CompletedSuppressMinutes = suppressMin;
         }
 
         if (_displayRules is null)
@@ -2923,7 +2912,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         Life = r.Life,
         Chest = r.Chest,
         Poi = r.Poi,
-        Encounter = r.Encounter,
         Hide = r.Hide,
         Shape = r.Shape,
         Color = r.Color,

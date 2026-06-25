@@ -28,7 +28,6 @@ public sealed class DisplayRule
     public string? Life { get; set; }                       // Alive | Dead
     public string? Chest { get; set; }                      // Opened | Unopened
     public string? Poi { get; set; }                        // Yes | No   (game MinimapIcon present)
-    public string? Encounter { get; set; }                  // Active | Complete   (IconComplete faded state)
 
     // ── Action ──
     public bool Hide { get; set; }                          // match → stop, don't draw
@@ -93,7 +92,7 @@ public sealed class DisplayRules
         return null;
     }
 
-    /// <summary>State-hide rules only (dead / opened / completed encounter). Checked before zone overrides.</summary>
+    /// <summary>State-hide rules only (dead / opened chest). Checked before zone overrides.</summary>
     public DisplayRule? ResolveStateHide(Poe2Live.EntityDot e)
     {
         var snap = _snapshot;
@@ -115,7 +114,7 @@ public sealed class DisplayRules
     }
 
     public static bool IsStateHideRule(DisplayRule r)
-        => r.Hide && (r.Life == "Dead" || r.Chest == "Opened" || r.Encounter == "Complete");
+        => r.Hide && (r.Life == "Dead" || r.Chest == "Opened");
 
     /// <summary>
     /// Resolve a terrain TILE path to its first matching enabled rule of the special "Tile" category,
@@ -208,9 +207,8 @@ public sealed class DisplayRules
         // 1) State hides (precede everything — mirror the old IsDrawable corpse/opened/complete gate).
         rules.Add(new DisplayRule { Name = "Hide dead monsters",        Categories = new() { "Monster" }, Life = "Dead",     Hide = true });
         rules.Add(new DisplayRule { Name = "Hide opened chests",        Categories = new() { "Chest" },   Chest = "Opened",  Hide = true });
-        rules.Add(new DisplayRule { Name = "Hide completed encounters", Encounter = "Complete",                              Hide = true });
 
-        // 2) Watched highlights (force-draw + label; substring, any category) — before mechanics so
+        // 2) Watched highlights
         //    watched still wins, matching the old DrawMap precedence.
         foreach (var w in watched)
             rules.Add(new DisplayRule
@@ -490,7 +488,11 @@ public sealed class DisplayRules
         {
             if (!File.Exists(_filePath)) return;
             var list = JsonSerializer.Deserialize<List<DisplayRule>>(File.ReadAllText(_filePath), Json);
-            if (list != null) _rules = list;
+            if (list == null) return;
+            var removed = list.RemoveAll(r =>
+                string.Equals(r.Name, "Hide completed encounters", StringComparison.OrdinalIgnoreCase));
+            _rules = list;
+            if (removed > 0) Save();
         }
         catch (Exception ex) { Console.Error.WriteLine($"Display rules load failed: {ex.Message}"); }
     }
@@ -521,7 +523,7 @@ public sealed class DisplayRules
         private readonly (string sub, Regex? glob)[]? _match; // null = any
         private readonly bool _anyRarity;                  // true = no rarity filter
         private readonly Poe2Live.Rarity _rarity;          // matched rarity enum (sentinel if unparseable → never matches)
-        private readonly int _reaction, _life, _chest, _poi, _enc; // 0 any / 1 / 2
+        private readonly int _reaction, _life, _chest, _poi; // 0 any / 1 / 2
 
         public Compiled(DisplayRule r)
         {
@@ -544,7 +546,6 @@ public sealed class DisplayRules
             _life     = Code(r.Life, "Alive", "Dead");
             _chest    = Code(r.Chest, "Opened", "Unopened");
             _poi      = Code(r.Poi, "Yes", "No");
-            _enc      = Code(r.Encounter, "Active", "Complete");
         }
 
         public bool Matches(in Poe2Live.EntityDot e)
@@ -561,8 +562,6 @@ public sealed class DisplayRules
             if (_chest == 2 && e.Opened) return false;
             if (_poi == 1 && !e.Poi) return false;
             if (_poi == 2 && e.Poi) return false;
-            if (_enc == 1 && e.IconComplete) return false;   // "Active" requires not-complete
-            if (_enc == 2 && !e.IconComplete) return false;  // "Complete" requires complete
             return true;
         }
 

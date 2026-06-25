@@ -41,10 +41,6 @@ public sealed class RadarSettings
     // ── In-game hotkey to toggle <see cref="AutoPathNavigable"/> (default F3 = 0x72). 0 = disabled. ──
     public int AutoPathToggleHotkey { get; set; } = 0x72;
 
-    // ── After map content is consumed, hide that metadata type until instance reset or TTL. ──
-    public bool SuppressCompletedContent { get; set; } = true;
-    public int CompletedSuppressMinutes { get; set; } = 15;
-
     // ── One-time guard: the nav model moved to "display rules are the single source of truth" (an entity
     //    auto-paths only via its rule's Navigable flag, not a hardcoded POI/unique clause). On the first
     //    run after the upgrade we flip Navigable on the default POI/Transition/Unique rules so behavior is

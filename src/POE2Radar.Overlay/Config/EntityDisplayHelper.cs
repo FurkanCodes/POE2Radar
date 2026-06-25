@@ -387,17 +387,7 @@ public static class EntityDisplayHelper
     private static readonly Regex ZoneCodeLike = new(@"^P?\d+[_\d]*$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     public static bool IsStateHideRule(DisplayRule r)
-        => r.Hide && (r.Life == "Dead" || r.Chest == "Opened" || r.Encounter == "Complete");
-
-    /// <summary>True when interactable map content is consumed — mirrors display-rules state-hide signals
-    /// (completed encounter, opened chest/shrine/strongbox, killed boss/rare). Normal/magic clutter excluded.</summary>
-    public static bool IsCompletedContentState(Poe2Live.EntityDot e)
-    {
-        if (e.IconComplete || e.Opened) return true;
-        if (e.HasLife && !e.IsAlive && e.Category == Poe2Live.EntityCategory.Monster)
-            return e.Rarity is Poe2Live.Rarity.Rare or Poe2Live.Rarity.Unique;
-        return false;
-    }
+        => r.Hide && (r.Life == "Dead" || r.Chest == "Opened");
 
     public static bool IsPerTypeEntityRule(DisplayRule r)
     {

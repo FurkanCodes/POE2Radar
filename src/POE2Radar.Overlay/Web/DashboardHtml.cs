@@ -785,10 +785,6 @@ internal static class DashboardHtml
                 <option value="BottomLeft">Bottom left</option>
                 <option value="BottomRight">Bottom right</option>
               </select></div>
-            <div class="row"><div class="rl">Hide completed content<small>per type: hide finished mechanics, POIs, chests, shrines, killed bosses/rares until instance reset or timer</small></div>
-              <label class="sw"><input type="checkbox" data-set="suppressCompletedContent"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Completed hide duration<small>minutes before type can show again in the same instance</small></div>
-              <input class="numin" type="number" step="1" min="1" max="60" data-set="completedSuppressMinutes"></div>
             <p class="hint-oneline" style="margin-top:8px">Per-entity path targets: Rules tab (&ldquo;Show path to this&rdquo;) or Live tab (Nav). Toggle auto-path in-game with the hotkey below.</p>
           </div>
           </div>
@@ -1572,7 +1568,7 @@ const KNOWN_SEMANTIC_NAMES=new Set(['Boss','Monster · Unique','Monster · Rare'
   'Strongbox · Researcher','Strongbox · Abyss',
   'Essence','Shrine','Summoning Circle','Wisp','Rogue Exile']);
 const _ztOpen={};
-function isStateHideRule(r){ return r.hide&&(r.life==='Dead'||r.chest==='Opened'||r.encounter==='Complete'); }
+function isStateHideRule(r){ return r.hide&&(r.life==='Dead'||r.chest==='Opened'); }
 function isPerTypeEntityRule(r){
   if(isStateHideRule(r)) return false;
   if((r.categories||[]).length>0) return false;
@@ -1587,7 +1583,7 @@ function druleVisible(r){
   if((r.name||'').toLowerCase().includes(q)) return true;
   if((r.match||[]).some(m=>m.toLowerCase().includes(q))) return true;
   if((r.categories||[]).some(c=>c.toLowerCase().includes(q))) return true;
-  for(const f of ['rarity','reaction','life','chest','poi','encounter']){
+  for(const f of ['rarity','reaction','life','chest','poi']){
     if(r[f]&&String(r[f]).toLowerCase().includes(q)) return true;
   }
   return false;
@@ -1696,7 +1692,7 @@ function stopZoneTypesPoll(){ if(zoneTypesPoll){ clearInterval(zoneTypesPoll); z
    the WHOLE list on any change (add / remove / reorder / toggle / field) — same pattern styles used. ── */
 const DR_CATS=['Monster','Chest','Npc','Object','Other','Transition','Player','Tile'];
 const DR_SELECTS=[['rarity','Rarity',['Normal','Magic','Rare','Unique']],['reaction','Reaction',['Hostile','Friendly']],
-  ['life','Life',['Alive','Dead']],['chest','Chest',['Opened','Unopened']],['poi','POI',['Yes','No']],['encounter','Encounter',['Active','Complete']]];
+  ['life','Life',['Alive','Dead']],['chest','Chest',['Opened','Unopened']],['poi','POI',['Yes','No']]];
 async function saveDrules(){ try{ await fetch('/api/display-rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules:drules})}); flashF(); updateLiveRuleCol(); }catch(e){ toast('Save failed'); } }
 async function refreshLiveCache(){ try{ _liveEntsCache=await getJSON('/entities?limit=2000')||[]; }catch(_){ _liveEntsCache=[]; } }
 async function loadDrules(){ try{ const r=await getJSON('/api/display-rules'); drules=r.rules||[]; }catch(e){ drules=[]; } await refreshLiveCache(); renderDrules(); }
@@ -1716,7 +1712,7 @@ function drSummary(r){
   const p=[];
   p.push((r.categories&&r.categories.length)?r.categories.join('/'):'any type');
   if(r.match&&r.match.length) p.push('“'+r.match.join(', ')+'”');
-  ['rarity','reaction','life','chest','poi','encounter'].forEach(f=>{ if(r[f]) p.push(r[f]); });
+  ['rarity','reaction','life','chest','poi'].forEach(f=>{ if(r[f]) p.push(r[f]); });
   return esc(p.join(' · '));
 }
 function compileTerm(term){
@@ -1745,8 +1741,6 @@ function ruleMatchesEntity(e,r){
   if(r.chest==='Unopened'&&e.opened) return false;
   if(r.poi==='Yes'&&!e.poi) return false;
   if(r.poi==='No'&&e.poi) return false;
-  if(r.encounter==='Active'&&e.iconComplete) return false;
-  if(r.encounter==='Complete'&&!e.iconComplete) return false;
   return true;
 }
 function countRuleMatches(r){ return _liveEntsCache.filter(e=>ruleMatchesEntity(e,r)).length; }
