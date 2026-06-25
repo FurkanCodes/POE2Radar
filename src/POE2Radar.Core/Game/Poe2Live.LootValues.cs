@@ -5,7 +5,7 @@ public sealed partial class Poe2Live
     private string _league = "";
     private nint _leagueFor = -1;
 
-    /// <summary>Current league name (ServerData @ AreaInstance+0x580 → std::wstring +0x21E0). Cached per area.</summary>
+    /// <summary>Current league name (ServerData @ AreaInstance+ServerDataPtr -> std::wstring +0x21E0). Cached per area.</summary>
     public string LeagueName(nint areaInstance)
     {
         if (areaInstance == _leagueFor) return _league;

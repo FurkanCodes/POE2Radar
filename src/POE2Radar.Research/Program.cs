@@ -55,6 +55,9 @@ if (HasFlag(args, "--aob"))
 if (HasFlag(args, "--chain"))
     return RunChainProbe(process, reader);
 
+if (HasFlag(args, "--chain-deep"))
+    return RunChainDeepProbe(process, reader);
+
 if (HasFlag(args, "--item") || HasFlag(args, "--groundlabels") || HasFlag(args, "--runeforge")
     || HasFlag(args, "--ritual-shop") || HasFlag(args, "--monolith") || HasFlag(args, "--league"))
 {
@@ -327,23 +330,23 @@ Console.WriteLine("  --dump <hexAddr> [--dump-len <N>]   hex-dump a region for i
     Console.WriteLine("  --entity <hexAddr>         walk a PoE2 entity: id, metadata path, component map, Render→grid, Life");
 Console.WriteLine("  --presence [--diff]        baseline (then --diff) player components to find the presence-radius float");
 Console.WriteLine("  --devtree [--port N]       browser-based live memory/UI/entity explorer (default port 7778)");
-Console.WriteLine("  --serverdata               dump ServerData (AreaInstance+0x580): strings + StdVector quest-list candidates");
+Console.WriteLine("  --serverdata               dump ServerData (AreaInstance+ServerDataPtr): strings + StdVector quest-list candidates");
 Console.WriteLine("  --server-icons             scan ServerData / PlayerInfo for server-side minimap icon arrays");
 Console.WriteLine("  --aob                      scan for IngameState via AOB patterns");
 Console.WriteLine("  --mechanic-survey          group awake entities by endgame mechanic catalog matchers");
 return 0;
 
 // ── ServerData probe — locate the quest-state container ────────────────────
-// AreaInstance+0x580 is the PlayerInfo/LocalPlayerStruct base (+0x00 ServerDataPtr,
-// +0x20 LocalPlayerPtr). LocalPlayer @ AreaInstance+0x5A0 (= base+0x20) is validated, so the
-// +0x580 deref is the ServerData object. In PoE1 GameHelper, ServerData holds the quest-states
+// AreaInstance+ServerDataPtr is the PlayerInfo/LocalPlayerStruct base (+0x00 ServerDataPtr,
+// +0x20 LocalPlayerPtr). LocalPlayer @ AreaInstance+LocalPlayer (= base+0x20) is validated, so the
+// ServerDataPtr deref is the ServerData object. In PoE1 GameHelper, ServerData holds the quest-states
 // list (among league/guild/passives). This surfaces ServerData's strings (to confirm identity)
 // and its StdVector-shaped fields (quest-list candidates), and writes the raw region to a temp
 // file so two runs (before/after advancing a quest) can be byte-diffed to pinpoint quest flags.
 //
 // FINDINGS (2026-05-31, PAUSED mid-decode — resume here):
-//   • ServerData = *(AreaInstance+0x580) CONFIRMED — its +0x20 equals the validated LocalPlayer
-//     (AreaInstance+0x5A0), so the PlayerInfo shape holds.
+//   • ServerData = *(AreaInstance+ServerDataPtr) CONFIRMED — its +0x20 equals the validated LocalPlayer
+//     (AreaInstance+LocalPlayer), so the PlayerInfo shape holds.
 //   • Clean before/after-quest diffs (delta 0, no zone change) RULED OUT two volatile candidates:
 //     +0x22D0 (an int that drifts up AND down between reads) and the +0x23C8 StdVector (reallocates
 //     constantly; grew 27→204 across a zone — content/area-dependent, NOT a stable quest list).
@@ -359,13 +362,13 @@ static int RunServerData(ProcessHandle process, MemoryReader reader)
     var (_, _, ai, _) = ResolveChain(process, reader);
     if (ai == 0) { Console.Error.WriteLine("Could not resolve chain (in game?)."); return 1; }
 
-    var playerInfo = ai + 0x580;
+    var playerInfo = ai + Poe2.AreaInstance.ServerDataPtr;
     var serverData = SafePtr(reader, playerInfo);
     var localPlayer = SafePtr(reader, playerInfo + 0x20);
-    var validatedPlayer = SafePtr(reader, ai + 0x5A0);
-    Console.WriteLine($"AreaInstance 0x{ai:X}  PlayerInfo(+0x580) 0x{playerInfo:X}");
+    var validatedPlayer = SafePtr(reader, ai + Poe2.AreaInstance.LocalPlayer);
+    Console.WriteLine($"AreaInstance 0x{ai:X}  PlayerInfo(+0x{Poe2.AreaInstance.ServerDataPtr:X}) 0x{playerInfo:X}");
     Console.WriteLine($"  ServerDataPtr (+0x00) -> 0x{serverData:X}");
-    Console.WriteLine($"  LocalPlayerPtr(+0x20) -> 0x{localPlayer:X}   (AreaInstance+0x5A0 = 0x{validatedPlayer:X}, {(localPlayer == validatedPlayer && localPlayer != 0 ? "MATCH" : "mismatch")})");
+    Console.WriteLine($"  LocalPlayerPtr(+0x20) -> 0x{localPlayer:X}   (AreaInstance+0x{Poe2.AreaInstance.LocalPlayer:X} = 0x{validatedPlayer:X}, {(localPlayer == validatedPlayer && localPlayer != 0 ? "MATCH" : "mismatch")})");
     if (serverData == 0) { Console.Error.WriteLine("ServerData null — wrong offset or not in game."); return 1; }
 
     const int scan = 0x4000;
@@ -419,7 +422,7 @@ static int RunServerDataVec(ProcessHandle process, MemoryReader reader, int off)
 {
     var (_, _, ai, _) = ResolveChain(process, reader);
     if (ai == 0) { Console.Error.WriteLine("Could not resolve chain (in game?)."); return 1; }
-    var sd = SafePtr(reader, ai + 0x580);
+    var sd = SafePtr(reader, ai + Poe2.AreaInstance.ServerDataPtr);
     if (sd == 0) { Console.Error.WriteLine("ServerData null."); return 1; }
 
     var vec = reader.ReadStruct<POE2Radar.Core.Game.StdVector>(sd + off);
@@ -465,7 +468,7 @@ static int RunServerDataDiff(ProcessHandle process, MemoryReader reader)
 
     var (_, _, ai, _) = ResolveChain(process, reader);
     if (ai == 0) { Console.Error.WriteLine("Could not resolve chain (in game?)."); return 1; }
-    var serverData = SafePtr(reader, ai + 0x580);
+    var serverData = SafePtr(reader, ai + Poe2.AreaInstance.ServerDataPtr);
     if (serverData == 0) { Console.Error.WriteLine("ServerData null."); return 1; }
 
     var cur = new byte[baseline.Length];
@@ -492,7 +495,7 @@ static int RunServerDataDiff(ProcessHandle process, MemoryReader reader)
 }
 
 // ── Server minimap icons probe ─────────────────────────────────────────────
-// AreaInstance+0x580 -> PlayerInfo; +0x00 -> ServerData. Scans ServerData for
+// AreaInstance+ServerDataPtr -> PlayerInfo; +0x00 -> ServerData. Scans ServerData for
 // inline arrays of 0xC0-byte structs whose layout matches server-side minimap
 // icons: row ptr @ +0x00, ID @ +0x10, grid X/Y @ +0x14/+0x18. The name is read
 // as *(row+0x00) -> UTF-16 string. Dumps candidates so we can validate the
@@ -502,13 +505,13 @@ static int RunServerIcons(ProcessHandle process, MemoryReader reader)
     var (_, _, ai, _) = ResolveChain(process, reader);
     if (ai == 0) { Console.Error.WriteLine("Could not resolve chain (in game?)."); return 1; }
 
-    var playerInfo = ai + 0x580;
+    var playerInfo = ai + Poe2.AreaInstance.ServerDataPtr;
     var serverData = SafePtr(reader, playerInfo);
     var localPlayer = SafePtr(reader, playerInfo + 0x20);
-    var validatedPlayer = SafePtr(reader, ai + 0x5A0);
-    Console.WriteLine($"AreaInstance 0x{ai:X}  PlayerInfo(+0x580) 0x{playerInfo:X}");
+    var validatedPlayer = SafePtr(reader, ai + Poe2.AreaInstance.LocalPlayer);
+    Console.WriteLine($"AreaInstance 0x{ai:X}  PlayerInfo(+0x{Poe2.AreaInstance.ServerDataPtr:X}) 0x{playerInfo:X}");
     Console.WriteLine($"  ServerDataPtr (+0x00) -> 0x{serverData:X}");
-    Console.WriteLine($"  LocalPlayerPtr(+0x20) -> 0x{localPlayer:X}   (AreaInstance+0x5A0 = 0x{validatedPlayer:X}, {(localPlayer == validatedPlayer && localPlayer != 0 ? "MATCH" : "mismatch")})");
+    Console.WriteLine($"  LocalPlayerPtr(+0x20) -> 0x{localPlayer:X}   (AreaInstance+0x{Poe2.AreaInstance.LocalPlayer:X} = 0x{validatedPlayer:X}, {(localPlayer == validatedPlayer && localPlayer != 0 ? "MATCH" : "mismatch")})");
     if (serverData == 0) { Console.Error.WriteLine("ServerData null — wrong offset or not in game."); return 1; }
     if (localPlayer != validatedPlayer) Console.WriteLine("⚠ LocalPlayer validation mismatch; results may be stale.");
 
@@ -1388,13 +1391,13 @@ static nint ResolveComponentAddr(MemoryReader reader, nint entity, string name)
 // ── Tiles: read the terrain tile grid (GameHelper2 GetTgtFileData) — each tile's TgtPath →
 // grid positions. Shows what static tile-based landmarks exist (boss arenas, special rooms,
 // waypoints) and whether a per-tile semantic "detail name" is reachable. TerrainStruct @
-// AreaInstance+0x8A0: TotalTiles@+0x18, TileDetailsPtr StdVector@+0x28 (TileStructure=0x38);
+// AreaInstance+TerrainMetadata: TotalTiles@+0x18, TileDetailsPtr StdVector@+0x28 (TileStructure=0x38);
 // TileStructure.TgtFilePtr@+0x8 → TgtFileStruct.TgtPath (StdWString)@+0x8.
 static int RunTiles(ProcessHandle process, MemoryReader reader)
 {
     var (_, _, ai, _) = ResolveChain(process, reader);
     if (ai == 0) { Console.Error.WriteLine("Could not resolve chain (in game?)."); return 1; }
-    var terrain = ai + 0x8A0;
+    var terrain = ai + Poe2.AreaInstance.TerrainMetadata;
     reader.TryReadStruct<long>(terrain + 0x18, out var tilesX);
     reader.TryReadStruct<nint>(terrain + 0x28, out var first);
     reader.TryReadStruct<nint>(terrain + 0x30, out var last);
@@ -3797,7 +3800,7 @@ static int RunFindMap(ProcessHandle process, MemoryReader reader)
 
 // ── PoE2 top-level chain resolver ───────────────────────────────────────────
 // AOB "Game States" → GameState → CurrentStatePtr StdVector @+0x08; its first element is the
-// active InGameState. InGameState+0x290 → AreaInstance. AreaInstance+0x5A0 → LocalPlayer.
+// active InGameState. InGameState+0x290 -> AreaInstance. AreaInstance+LocalPlayer -> LocalPlayer.
 // Validated live (resolved LocalPlayer == the value-scanned player entity). Falls back to
 // scanning the 12 States[] slots if the current-state vector doesn't validate.
 static (nint gameState, nint inGameState, nint areaInstance, nint localPlayer) ResolveChain(
@@ -3838,6 +3841,115 @@ static int RunChainProbe(ProcessHandle process, MemoryReader reader)
     Console.WriteLine($"AreaInstance : 0x{areaInstance:X16}");
     Console.WriteLine($"LocalPlayer  : 0x{localPlayer:X16}  ({ReadEntityMetadata(reader, localPlayer)})");
     return 0;
+}
+
+static int RunChainDeepProbe(ProcessHandle process, MemoryReader reader)
+{
+    Console.WriteLine("Deep GameState chain probe");
+    Console.WriteLine("--------------------------");
+    var totalSlots = 0;
+    var totalStateCandidates = 0;
+    var totalAreaCandidates = 0;
+
+    foreach (var pattern in AobPatterns.GameStateRefs)
+    {
+        Console.WriteLine($"Pattern: {pattern.Description}");
+        var slots = AobScanner.ScanForResolvedAddresses(process, reader, pattern).Distinct().ToList();
+        Console.WriteLine($"  slots: {slots.Count}");
+
+        foreach (var slot in slots)
+        {
+            totalSlots++;
+            var gameState = SafePtr(reader, slot);
+            Console.WriteLine($"\nslot @ 0x{slot:X16} -> GameState 0x{gameState:X16}");
+            if (gameState == 0) continue;
+
+            var candidates = new List<(string Label, nint Ptr)>();
+            var vecFirst = SafePtr(reader, gameState + Poe2.GameState.CurrentStatePtr);
+            var vecLast = SafePtr(reader, gameState + Poe2.GameState.CurrentStatePtr + 8);
+            var vecCount = vecFirst != 0 && vecLast >= vecFirst ? ((long)vecLast - (long)vecFirst) / 8 : 0;
+            var current = vecFirst != 0 ? SafePtr(reader, vecFirst) : 0;
+            Console.WriteLine($"  CurrentState vec @+0x{Poe2.GameState.CurrentStatePtr:X}: first=0x{vecFirst:X16} last=0x{vecLast:X16} count={vecCount} firstValue=0x{current:X16}");
+            if (current != 0) candidates.Add(("current[0]", current));
+
+            Console.WriteLine($"  States array @+0x{Poe2.GameState.States:X}:");
+            for (var i = 0; i < Poe2.GameState.StateSlotCount; i++)
+            {
+                var addr = gameState + Poe2.GameState.States + (nint)(i * Poe2.GameState.StateSlotStride);
+                var state = SafePtr(reader, addr);
+                Console.WriteLine($"    [{i,2}] *(+0x{Poe2.GameState.States + i * Poe2.GameState.StateSlotStride:X3}) = 0x{state:X16}");
+                if (state != 0) candidates.Add(($"states[{i}]", state));
+            }
+
+            foreach (var group in candidates.GroupBy(c => c.Ptr).Take(32))
+            {
+                totalStateCandidates++;
+                var label = string.Join(", ", group.Select(g => g.Label));
+                totalAreaCandidates += InspectStateCandidate(reader, group.Key, label);
+            }
+        }
+    }
+
+    Console.WriteLine($"\nsummary: slots={totalSlots}, stateCandidates={totalStateCandidates}, areaCandidatesWithMetadata={totalAreaCandidates}");
+    if (totalAreaCandidates == 0)
+        Console.WriteLine("No state candidate produced an AreaInstance-like pointer with an entity metadata path. If you are not loaded into a zone, load one and rerun.");
+    return totalAreaCandidates > 0 ? 0 : 1;
+}
+
+static int InspectStateCandidate(MemoryReader reader, nint state, string label)
+{
+    Console.WriteLine($"\n  State candidate {label}: 0x{state:X16}");
+    var knownArea = SafePtr(reader, state + Poe2.InGameState.AreaInstanceData);
+    var knownUi = SafePtr(reader, state + Poe2.InGameState.UiRoot);
+    var knownCamera = SafePtr(reader, state + Poe2.InGameState.Camera);
+    Console.WriteLine($"    known offsets: Area@+0x{Poe2.InGameState.AreaInstanceData:X}=0x{knownArea:X16} UiRoot@+0x{Poe2.InGameState.UiRoot:X}=0x{knownUi:X16} Camera@+0x{Poe2.InGameState.Camera:X}=0x{knownCamera:X16}");
+    if (knownArea != 0)
+    {
+        var knownLp = SafePtr(reader, knownArea + Poe2.AreaInstance.LocalPlayer);
+        Console.WriteLine($"      known LocalPlayer Area+0x{Poe2.AreaInstance.LocalPlayer:X}=0x{knownLp:X16} meta='{ReadEntityMetadata(reader, knownLp)}'");
+    }
+
+    var hits = new List<(int AreaOff, nint Area, int LocalPlayerOff, nint LocalPlayer, string Meta, int MapOff, int MapSize)>();
+    for (var areaOff = 0; areaOff <= 0x600; areaOff += 8)
+    {
+        var area = SafePtr(reader, state + areaOff);
+        if (area == 0) continue;
+
+        var bestMapOff = -1;
+        var bestMapSize = 0;
+        for (var mapOff = 0; mapOff <= 0x1000; mapOff += 8)
+        {
+            var head = SafePtr(reader, area + mapOff);
+            if (head == 0) continue;
+            if (!reader.TryReadStruct<int>(area + mapOff + 8, out var size) || size <= 0 || size > 100000) continue;
+            var root = SafePtr(reader, head + Poe2.StdMapNode.Parent);
+            var entity = SafePtr(reader, root + Poe2.StdMapNode.ValueEntityPtr);
+            if (ReadEntityMetadata(reader, entity).StartsWith("Metadata/", StringComparison.Ordinal))
+            {
+                bestMapOff = mapOff;
+                bestMapSize = size;
+                break;
+            }
+        }
+
+        for (var lpOff = 0; lpOff <= 0x1000; lpOff += 8)
+        {
+            var lp = SafePtr(reader, area + lpOff);
+            if (lp == 0) continue;
+            var meta = ReadEntityMetadata(reader, lp);
+            if (!meta.StartsWith("Metadata/", StringComparison.Ordinal)) continue;
+            hits.Add((areaOff, area, lpOff, lp, meta, bestMapOff, bestMapSize));
+            break;
+        }
+    }
+
+    foreach (var h in hits.Take(12))
+    {
+        var map = h.MapOff >= 0 ? $" map@+0x{h.MapOff:X} size={h.MapSize}" : " map=<not found>";
+        Console.WriteLine($"    AREA? state+0x{h.AreaOff:X3} -> 0x{h.Area:X16}; local? area+0x{h.LocalPlayerOff:X3} -> 0x{h.LocalPlayer:X16};{map}; meta='{h.Meta}'");
+    }
+    if (hits.Count > 12) Console.WriteLine($"    ... {hits.Count - 12} more metadata-bearing candidates suppressed");
+    return hits.Count;
 }
 
 // ── Vitals: dump the local player's Life component for per-patch re-validation ──
