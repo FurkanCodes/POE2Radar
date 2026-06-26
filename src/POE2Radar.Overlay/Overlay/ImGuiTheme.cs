@@ -80,6 +80,9 @@ internal static class ImGuiTheme
         ImGui.Spacing();
     }
 
+    /// <summary>When true, the next accordion headers on this frame start collapsed (tab switch).</summary>
+    internal static bool CollapseSectionsOnNextDraw;
+
     /// <summary>Collapsible settings section — ImGui accordion (state persists while the window is open).</summary>
     internal static bool BeginAccordionSection(string id, string title, string? subtitle = null, bool defaultOpen = false)
     {
@@ -88,6 +91,8 @@ internal static class ImGuiTheme
 
         var flags = ImGuiTreeNodeFlags.SpanAvailWidth | ImGuiTreeNodeFlags.FramePadding;
         if (defaultOpen) flags |= ImGuiTreeNodeFlags.DefaultOpen;
+        if (CollapseSectionsOnNextDraw)
+            ImGui.SetNextItemOpen(false, ImGuiCond.Always);
 
         bool open = ImGui.CollapsingHeader(title, flags);
         if (open)

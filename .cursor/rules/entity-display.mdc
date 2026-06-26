@@ -17,7 +17,8 @@ alwaysApply: false
 
 - Match patterns: case-insensitive `Contains` on metadata paths unless documented otherwise.
 - `Migrate()` on rule stores when renaming default patterns (see strongbox/expedition migrations).
-- Dashboard + API expose CRUD for display rules; changes apply without restart where possible.
+- **Radar tab** owns map display, entity detection/auto-path, types-in-zone overrides, display rules, never-show patterns, calibration, and terrain. No separate Entities tab.
+- Dashboard + API remain for import/export and pick-from-game-data; in-game editor is **Radar → Display rules** (`DrawDisplayRulesEditor`).
 
 ## Rarity & hostility
 
