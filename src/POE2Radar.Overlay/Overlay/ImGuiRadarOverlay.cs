@@ -1652,37 +1652,51 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         {
             if (ImGui.BeginTabItem("Radar"))
             {
-                ImGui.BeginChild("RadarScroll", new NumVec2(0, 0));
+                ImGuiTheme.BeginTabScroll("RadarScroll");
                 DrawRadarTab(s);
-                ImGui.EndChild();
+                ImGuiTheme.EndTabScroll();
+                ImGui.EndTabItem();
+            }
+            if (ImGui.BeginTabItem("Performance"))
+            {
+                ImGuiTheme.BeginTabScroll("PerformanceScroll");
+                DrawPerformanceTab(s);
+                ImGuiTheme.EndTabScroll();
                 ImGui.EndTabItem();
             }
             if (ImGui.BeginTabItem("Entities"))
             {
-                ImGui.BeginChild("EntitiesScroll", new NumVec2(0, 0));
+                ImGuiTheme.BeginTabScroll("EntitiesScroll");
                 DrawEntitiesTab(s, ctx);
-                ImGui.EndChild();
+                ImGuiTheme.EndTabScroll();
                 ImGui.EndTabItem();
             }
             if (ImGui.BeginTabItem("HP Bars"))
             {
-                ImGui.BeginChild("HpBarsScroll", new NumVec2(0, 0));
+                ImGuiTheme.BeginTabScroll("HpBarsScroll");
                 DrawHpBarsTab(s);
-                ImGui.EndChild();
+                ImGuiTheme.EndTabScroll();
                 ImGui.EndTabItem();
             }
             if (ImGui.BeginTabItem("Flask"))
             {
-                ImGui.BeginChild("FlaskScroll", new NumVec2(0, 0));
+                ImGuiTheme.BeginTabScroll("FlaskScroll");
                 DrawFlaskTab(s);
-                ImGui.EndChild();
+                ImGuiTheme.EndTabScroll();
                 ImGui.EndTabItem();
             }
             if (ImGui.BeginTabItem("Atlas"))
             {
-                ImGui.BeginChild("AtlasScroll", new NumVec2(0, 0));
+                ImGuiTheme.BeginTabScroll("AtlasScroll");
                 DrawAtlasTab(s);
-                ImGui.EndChild();
+                ImGuiTheme.EndTabScroll();
+                ImGui.EndTabItem();
+            }
+            if (ImGui.BeginTabItem("Hotkeys"))
+            {
+                ImGuiTheme.BeginTabScroll("HotkeysScroll");
+                DrawHotkeysTab(s);
+                ImGuiTheme.EndTabScroll();
                 ImGui.EndTabItem();
             }
             ImGui.EndTabBar();
@@ -1859,8 +1873,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             ImGui.EndChild();
             DrawSpritePickerWindow();
         }
-
-        DrawHotkeysSection(s);
 
         if (_hidden is null) return;
 
@@ -2097,62 +2109,26 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         ImGui.SetNextItemWidth(UiW());
         if (ImGui.SliderInt("Cluster Gap", ref lcg, 0, 64)) s.LandmarkClusterGap = lcg;
         ImGuiTheme.Tooltip("Max tile distance for merging nearby landmarks into one marker (0 = disable clustering)");
+
+        bool drawAllLm = s.DrawAllLandmarkPaths;
+        if (ImGui.Checkbox("Draw all landmark paths", ref drawAllLm)) s.DrawAllLandmarkPaths = drawAllLm;
+        ImGuiTheme.Tooltip("Draw path lines to every landmark tile (heavy; off by default)");
+
+        DrawNavMenuCornerSetting(s);
         ImGuiTheme.EndPanel();
 
-        ImGuiTheme.SectionHeader("Performance", "CPU and refresh cadence — lower values save resources.");
-
-        ImGuiTheme.BeginPanel("Performance");
-        bool lowImpact = s.LowImpactMode; ImGui.Checkbox("Low impact mode", ref lowImpact); s.LowImpactMode = lowImpact;
-        ImGuiTheme.Tooltip("Favor lower memory-read cadence when idle or unfocused");
-
-        ImGui.SetNextItemWidth(UiW());
-        int fps = s.FpsCap; if (ImGui.SliderInt("FPS Cap", ref fps, 15, 360)) s.FpsCap = fps;
-        ImGui.SetNextItemWidth(UiW());
-        int liveHz = s.LiveRefreshHz; if (ImGui.SliderInt("Live refresh Hz", ref liveHz, 5, 120)) s.LiveRefreshHz = liveHz;
-        ImGui.SetNextItemWidth(UiW());
-        int worldHz = s.WorldRefreshHz; if (ImGui.SliderInt("World refresh Hz", ref worldHz, 1, 60)) s.WorldRefreshHz = worldHz;
-        ImGui.SetNextItemWidth(UiW());
-        int inactiveHz = s.InactiveRefreshHz; if (ImGui.SliderInt("Inactive refresh Hz", ref inactiveHz, 1, 10)) s.InactiveRefreshHz = inactiveHz;
-        ImGui.SetNextItemWidth(UiW());
-        int hpHz = s.HpBarRefreshHz; if (ImGui.SliderInt("HP bar refresh Hz", ref hpHz, 1, 30)) s.HpBarRefreshHz = hpHz;
-        ImGui.SetNextItemWidth(UiW());
-        int maxHp = s.MaxLiveHpBars; if (ImGui.SliderInt("Max live HP bars", ref maxHp, 0, 256)) s.MaxLiveHpBars = maxHp;
-
-        bool smooth = s.SmoothOverlayMotion; ImGui.Checkbox("Smooth overlay motion", ref smooth); s.SmoothOverlayMotion = smooth;
-        ImGuiTheme.Tooltip("Smooth visual path, map, and label movement between memory samples");
-        ImGui.SetNextItemWidth(UiW());
-        int smoothMs = s.OverlaySmoothingMs; if (ImGui.SliderInt("Overlay smoothing ms", ref smoothMs, 0, 150)) s.OverlaySmoothingMs = smoothMs;
-        ImGui.SetNextItemWidth(UiW());
-        int chipMs = s.ChipSmoothingMs; if (ImGui.SliderInt("Chip smoothing ms", ref chipMs, 0, 250)) s.ChipSmoothingMs = chipMs;
-        bool snapLabels = s.PixelSnapLabels; ImGui.Checkbox("Pixel snap labels", ref snapLabels); s.PixelSnapLabels = snapLabels;
-        bool vsync = s.OverlayVSync; ImGui.Checkbox("Overlay VSync", ref vsync); s.OverlayVSync = vsync;
-
-        bool fpsHud = s.ShowFpsOverlay; ImGui.Checkbox("FPS / resource overlay", ref fpsHud); s.ShowFpsOverlay = fpsHud;
-        ImGuiTheme.Tooltip("FPS + App CPU/GPU/RAM under the POE2Radar nav button; sampling is opt-in");
-        bool pf = s.ShowPerfStats; ImGui.Checkbox("Extended perf stats", ref pf); s.ShowPerfStats = pf;
-        ImGuiTheme.Tooltip("Extra timing and memory-read lines under the nav menu");
-        ImGui.SetNextItemWidth(UiW());
-        int metricsHz = s.MetricsRefreshHz; if (ImGui.SliderInt("Metrics refresh Hz", ref metricsHz, 1, 10)) s.MetricsRefreshHz = metricsHz;
-        ImGui.SetNextItemWidth(UiW());
-        int gpuSeconds = s.GpuMetricsRefreshSeconds; if (ImGui.SliderInt("GPU metrics seconds", ref gpuSeconds, 1, 30)) s.GpuMetricsRefreshSeconds = gpuSeconds;
-        ImGuiTheme.EndPanel();
-
-        ImGuiTheme.SectionHeader("Interface", "In-game settings panel font (GameHelper defaults).");
-
-        ImGuiTheme.BeginPanel("Interface");
-        ImGui.TextDisabled($"Active font: {OverlayFonts.LastResolvedLabel} ({OverlayFonts.LastResolvedPath})");
-        ImGui.SetNextItemWidth(UiW());
-        int uiSize = s.UiFontSize;
-        if (ImGui.SliderInt("UI font size", ref uiSize, 13, 40))
-            s.UiFontSize = uiSize;
-        ImGuiTheme.Tooltip("Applies on next font reload (automatic when you release the slider).");
-        ImGuiTheme.EndPanel();
+        DrawPerformanceSettings(s);
 
         ImGuiTheme.SectionHeader("Map calibration", "Fine-tune overlay alignment with the game minimap.");
 
         ImGuiTheme.BeginPanel("MapCalibration");
         ImGui.SetNextItemWidth(UiW());
-        float smul = s.ScaleMul; if (ImGui.SliderFloat("Scale", ref smul, 0.1f, 3f, "%.2f")) s.ScaleMul = smul;
+        float lmap = s.LargeMapScaleMultiplier;
+        if (ImGui.SliderFloat("Large map scale", ref lmap, 0.01f, 1f, "%.4f")) s.LargeMapScaleMultiplier = lmap;
+        ImGuiTheme.Tooltip("Tab-map overlay scale multiplier (fine-tune large map alignment)");
+
+        ImGui.SetNextItemWidth(UiW());
+        float smul = s.ScaleMul; if (ImGui.SliderFloat("Minimap scale", ref smul, 0.1f, 3f, "%.2f")) s.ScaleMul = smul;
         ImGuiTheme.Tooltip("Adjust the map overlay zoom multiplier relative to the game's minimap");
         ImGui.SetNextItemWidth(UiW());
         float ox = s.OffX; if (ImGui.SliderFloat("Offset X", ref ox, -200f, 200f, "%.0f")) s.OffX = ox;
@@ -2192,6 +2168,15 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             s.Terrain.EdgeOpacity = ev.W;
         }
         ImGuiTheme.Tooltip("Color and opacity for walkable terrain boundary edges");
+
+        ImGui.SetNextItemWidth(UiW());
+        int edgeDetail = s.Terrain.ImGuiEdgeDetail;
+        if (ImGui.SliderInt("Edge detail", ref edgeDetail, 1, 8)) s.Terrain.ImGuiEdgeDetail = edgeDetail;
+        ImGuiTheme.Tooltip("Terrain edge sampling detail — higher = smoother edges, more GPU work");
+
+        ImGui.SetNextItemWidth(UiW());
+        float edgeThick = s.Terrain.ImGuiEdgeThickness;
+        if (ImGui.SliderFloat("Edge thickness", ref edgeThick, 0.5f, 4f, "%.1f")) s.Terrain.ImGuiEdgeThickness = edgeThick;
         ImGuiTheme.EndPanel();
 
         ImGuiTheme.SectionHeader("Radar rules", "Deep rule editing lives in the web dashboard.");
@@ -2201,6 +2186,118 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         if (ImGui.Button("Save Settings"))
             SaveSettings();
         ImGuiTheme.Tooltip("Write settings now (also auto-saves when you change a control)");
+    }
+
+    private void DrawPerformanceTab(RadarSettings s)
+    {
+        DrawPerformanceSettings(s);
+        if (ImGui.Button("Save Settings"))
+            SaveSettings();
+    }
+
+    private void DrawPerformanceSettings(RadarSettings s)
+    {
+        ImGuiTheme.SectionHeader("Refresh cadence", "How often POE2Radar reads memory and redraws.");
+
+        ImGuiTheme.BeginPanel("RefreshCadence");
+        bool lowImpact = s.LowImpactMode; ImGui.Checkbox("Low impact mode", ref lowImpact); s.LowImpactMode = lowImpact;
+        ImGuiTheme.Tooltip("Favor lower memory-read cadence when idle or unfocused");
+
+        ImGui.SetNextItemWidth(UiW());
+        int fps = s.FpsCap; if (ImGui.SliderInt("FPS cap", ref fps, 15, 360)) s.FpsCap = fps;
+        ImGuiTheme.Tooltip("Overlay present rate — lower = less GPU load");
+
+        ImGui.SetNextItemWidth(UiW());
+        int liveHz = s.LiveRefreshHz; if (ImGui.SliderInt("Live refresh Hz", ref liveHz, 5, 120)) s.LiveRefreshHz = liveHz;
+        ImGuiTheme.Tooltip("Player position, map UI, vitals, camera");
+
+        ImGui.SetNextItemWidth(UiW());
+        int worldHz = s.WorldRefreshHz; if (ImGui.SliderInt("World refresh Hz", ref worldHz, 1, 60)) s.WorldRefreshHz = worldHz;
+        ImGuiTheme.Tooltip("Entities, terrain, landmarks, routes");
+
+        ImGui.SetNextItemWidth(UiW());
+        int inactiveHz = s.InactiveRefreshHz; if (ImGui.SliderInt("Inactive refresh Hz", ref inactiveHz, 1, 10)) s.InactiveRefreshHz = inactiveHz;
+        ImGuiTheme.Tooltip("World reads while PoE2 is unfocused and overlay is hidden");
+
+        ImGui.SetNextItemWidth(UiW());
+        int hpHz = s.HpBarRefreshHz; if (ImGui.SliderInt("HP bar refresh Hz", ref hpHz, 1, 30)) s.HpBarRefreshHz = hpHz;
+
+        ImGui.SetNextItemWidth(UiW());
+        int maxHp = s.MaxLiveHpBars; if (ImGui.SliderInt("Max live HP bars", ref maxHp, 0, 256)) s.MaxLiveHpBars = maxHp;
+        ImGuiTheme.EndPanel();
+
+        ImGuiTheme.SectionHeader("Smoothing", "Visual interpolation between memory samples.");
+
+        ImGuiTheme.BeginPanel("Smoothing");
+        bool smooth = s.SmoothOverlayMotion; ImGui.Checkbox("Smooth overlay motion", ref smooth); s.SmoothOverlayMotion = smooth;
+        ImGuiTheme.Tooltip("Smooth paths, map transform, and label movement");
+
+        ImGui.SetNextItemWidth(UiW());
+        int smoothMs = s.OverlaySmoothingMs; if (ImGui.SliderInt("Overlay smoothing ms", ref smoothMs, 0, 150)) s.OverlaySmoothingMs = smoothMs;
+
+        ImGui.SetNextItemWidth(UiW());
+        int chipMs = s.ChipSmoothingMs; if (ImGui.SliderInt("Chip smoothing ms", ref chipMs, 0, 250)) s.ChipSmoothingMs = chipMs;
+
+        bool snapLabels = s.PixelSnapLabels; ImGui.Checkbox("Pixel snap labels", ref snapLabels); s.PixelSnapLabels = snapLabels;
+        bool vsync = s.OverlayVSync; ImGui.Checkbox("Overlay VSync", ref vsync); s.OverlayVSync = vsync;
+        ImGuiTheme.EndPanel();
+
+        ImGuiTheme.SectionHeader("On-screen metrics", "FPS / CPU / GPU HUD under the nav menu.");
+
+        ImGuiTheme.BeginPanel("MetricsHud");
+        bool fpsHud = s.ShowFpsOverlay; ImGui.Checkbox("FPS / resource overlay", ref fpsHud); s.ShowFpsOverlay = fpsHud;
+        ImGuiTheme.Tooltip("Tick + render FPS and app CPU/GPU/RAM under the POE2Radar nav button");
+
+        bool pf = s.ShowPerfStats; ImGui.Checkbox("Extended perf stats", ref pf); s.ShowPerfStats = pf;
+        ImGuiTheme.Tooltip("Extra timing and memory-read lines under the nav menu");
+
+        ImGui.SetNextItemWidth(UiW());
+        int metricsHz = s.MetricsRefreshHz; if (ImGui.SliderInt("Metrics refresh Hz", ref metricsHz, 1, 10)) s.MetricsRefreshHz = metricsHz;
+
+        ImGui.SetNextItemWidth(UiW());
+        int gpuSeconds = s.GpuMetricsRefreshSeconds; if (ImGui.SliderInt("GPU metrics seconds", ref gpuSeconds, 1, 30)) s.GpuMetricsRefreshSeconds = gpuSeconds;
+        ImGuiTheme.EndPanel();
+
+        ImGuiTheme.SectionHeader("Settings UI", "In-game panel font (GameHelper defaults).");
+
+        ImGuiTheme.BeginPanel("SettingsUi");
+        ImGui.TextDisabled($"Active font: {OverlayFonts.LastResolvedLabel}");
+        ImGui.TextWrapped(OverlayFonts.LastResolvedPath);
+        ImGui.SetNextItemWidth(UiW());
+        int uiSize = s.UiFontSize;
+        if (ImGui.SliderInt("UI font size", ref uiSize, 13, 40))
+            s.UiFontSize = uiSize;
+        ImGuiTheme.Tooltip("Applies automatically when you release the slider.");
+        ImGuiTheme.EndPanel();
+    }
+
+    private void DrawNavMenuCornerSetting(RadarSettings s)
+    {
+        var corners = new[] { "TopLeft", "TopRight", "BottomLeft", "BottomRight" };
+        var idx = Array.IndexOf(corners, s.NavMenuCorner);
+        if (idx < 0) idx = 0;
+        ImGui.SetNextItemWidth(UiW(8f));
+        if (ImGui.BeginCombo("Nav menu corner", corners[idx]))
+        {
+            for (var i = 0; i < corners.Length; i++)
+            {
+                if (ImGui.Selectable(corners[i], i == idx))
+                {
+                    s.NavMenuCorner = corners[i];
+                    _navMenuCorner = corners[i];
+                }
+            }
+            ImGui.EndCombo();
+        }
+        ImGuiTheme.Tooltip("Where the in-game POE2Radar nav dropdown is pinned");
+    }
+
+    private void DrawHotkeysTab(RadarSettings s)
+    {
+        ImGuiTheme.SectionHeader("Hotkeys", "Keyboard + Xbox (when gamepad hotkeys enabled).");
+        DrawHotkeysSection(s);
+        if (ImGui.Button("Save Settings"))
+            SaveSettings();
     }
 
     private void DrawHpBarsTab(RadarSettings s)
@@ -2639,8 +2736,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private void DrawHotkeysSection(RadarSettings s)
     {
-        if (!ImGui.CollapsingHeader("Hotkeys (keyboard + Xbox)", ImGuiTreeNodeFlags.DefaultOpen)) return;
-
+        ImGuiTheme.BeginPanel("Hotkeys");
         bool gp = s.GamepadHotkeysEnabled;
         if (ImGui.Checkbox("Gamepad hotkeys", ref gp)) s.GamepadHotkeysEnabled = gp;
         if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
@@ -2664,6 +2760,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         DrawHotkeyRow(s, "toggleSettingsHotkey", "Overlay settings", "Toggle this settings panel.");
         DrawHotkeyRow(s, "openDashboardHotkey", "Open dashboard", "Open web dashboard (PoE2 focused).");
         DrawHotkeyRow(s, "quitHotkey", "Quit overlay", "Exit POE2Radar.");
+        ImGuiTheme.EndPanel();
     }
 
     private void DrawHotkeyRow(RadarSettings s, string settingKey, string label, string tooltip)

@@ -80,17 +80,27 @@ internal static class ImGuiTheme
         ImGui.Spacing();
     }
 
+    /// <summary>Lightweight group — no nested child windows (those broke tab scrolling).</summary>
     internal static void BeginPanel(string id)
     {
-        ImGui.PushStyleColor(ImGuiCol.ChildBg, SectionBg);
-        ImGui.BeginChild(id, Vector2.Zero, ImGuiChildFlags.Borders);
+        ImGui.PushID(id);
+        ImGui.Indent(6f);
     }
 
     internal static void EndPanel()
     {
-        ImGui.EndChild();
-        ImGui.PopStyleColor();
+        ImGui.Unindent(6f);
+        ImGui.PopID();
+        ImGui.Spacing();
     }
+
+    /// <summary>Fills the tab body and scrolls — standard ImGui tab pattern.</summary>
+    internal static void BeginTabScroll(string id)
+    {
+        ImGui.BeginChild(id, Vector2.Zero, ImGuiChildFlags.None, ImGuiWindowFlags.AlwaysVerticalScrollbar);
+    }
+
+    internal static void EndTabScroll() => ImGui.EndChild();
 
     internal static void Tooltip(string text)
     {
