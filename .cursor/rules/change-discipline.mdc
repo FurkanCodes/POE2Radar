@@ -23,6 +23,7 @@ alwaysApply: true
 
 - [ ] Core/Overlay/Research boundary respected
 - [ ] Settings + migration + API + ImGui (if user-facing)
+- [ ] Tooltip/hint in `SettingHints` + ImGui + dashboard (if user-facing control)
 - [ ] Keyboard + gamepad (if bindable)
 - [ ] Perf: cadence/sleep, no hot-path LINQ
 - [ ] Unit test for pure logic / migration

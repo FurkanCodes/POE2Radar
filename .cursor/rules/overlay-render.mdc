@@ -51,6 +51,12 @@ ImGuiTheme.EndAccordionSection(open);
 
 New settings groups → new accordion section with stable `id`; wire in ImGui + dashboard per `config-settings.mdc`.
 
+## Setting tooltips
+
+- After every control: `ImGuiTheme.Tooltip(SettingHints.…)` — see `settings-tooltips.mdc`.
+- Table column headers: `ImGuiTheme.TableHeadersWithTooltips([("Label", hint), …])` instead of bare `TableHeadersRow()`.
+- Do not use raw `ImGui.SetTooltip` — go through `ImGuiTheme.Tooltip` for consistent delay behavior.
+
 ## Assets
 
 - Built-in SVG icons → `IconLibrary.MaterializeTo` on first run; user overrides in `icons/`.

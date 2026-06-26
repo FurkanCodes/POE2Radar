@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using ImGuiNET;
 using POE2Radar.Overlay.Config;
 using POE2Radar.Overlay.Native;
+using POE2Radar.Overlay.Settings;
 
 namespace POE2Radar.Overlay;
 
@@ -108,6 +109,7 @@ internal sealed class StartupMenuOverlay : ClickableTransparentOverlay.Overlay
         if (!hasGame) ImGui.BeginDisabled();
         if (ImGui.Button("Start Game", new Vector2(UiW(11f), 0f)))
             LaunchGame();
+        ImGuiTheme.Tooltip(SettingHints.Startup.StartGame);
         if (!hasGame) ImGui.EndDisabled();
 
         ImGui.SameLine();
@@ -115,11 +117,13 @@ internal sealed class StartupMenuOverlay : ClickableTransparentOverlay.Overlay
         if (!canRadar) ImGui.BeginDisabled();
         if (ImGui.Button("Start Radar", new Vector2(UiW(11f), 0f)))
             StartRadar();
+        ImGuiTheme.Tooltip(SettingHints.Startup.StartRadar);
         if (!canRadar) ImGui.EndDisabled();
 
         ImGui.SameLine();
         if (ImGui.Button("Quit", new Vector2(UiW(8f), 0f)))
             RequestQuit();
+        ImGuiTheme.Tooltip(SettingHints.Startup.Quit);
 
         ImGui.End();
     }
@@ -166,6 +170,7 @@ internal sealed class StartupMenuOverlay : ClickableTransparentOverlay.Overlay
 
         if (ImGui.Button("Browse…", new Vector2(UiW(10f), 0f)))
             BrowseForGame();
+        ImGuiTheme.Tooltip(SettingHints.Startup.BrowseGame);
     }
 
     private void DrawAttachSection()

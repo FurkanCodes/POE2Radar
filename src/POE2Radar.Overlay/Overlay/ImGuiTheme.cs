@@ -130,6 +130,19 @@ internal static class ImGuiTheme
             ImGui.SetTooltip(text);
     }
 
+    /// <summary>Header row with per-column hover hints (replaces bare <see cref="ImGui.TableHeadersRow"/>).</summary>
+    internal static void TableHeadersWithTooltips(ReadOnlySpan<(string Label, string Hint)> columns)
+    {
+        ImGui.TableNextRow(ImGuiTableRowFlags.Headers);
+        for (var i = 0; i < columns.Length; i++)
+        {
+            ImGui.TableSetColumnIndex(i);
+            ImGui.TextUnformatted(columns[i].Label);
+            if (!string.IsNullOrEmpty(columns[i].Hint))
+                Tooltip(columns[i].Hint);
+        }
+    }
+
     internal static float TooltipWrapWidth(float fontSize)
         => fontSize * TooltipWrapFactor;
 

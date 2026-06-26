@@ -30,6 +30,12 @@ Publish snapshots from `RadarApp` (`/state`, `/entities`, `/landmarks`) — **do
 
 `DashboardHtml.cs` is large but intentional — keep JS/CSS inline consistent with existing patterns. New settings need matching form controls + hotkey capture (keyboard + pad).
 
+## Tooltips
+
+- Row labels and table column headers: `title="{SettingHints constant}"` from [`SettingHints.cs`](src/POE2Radar.Overlay/Settings/SettingHints.cs).
+- Keep existing `<small>` subtitles where helpful; still add `title=` on the label for hover parity.
+- Copy must match ImGui tooltips (same catalog, same plain-language tone). See `settings-tooltips.mdc`.
+
 ## Icons API
 
 `/api/icons` serves shape library for dashboard pickers; built-ins from `IconLibrary`, overrides from `icons/*.svg` next to exe.

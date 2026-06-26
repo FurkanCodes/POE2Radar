@@ -1,0 +1,40 @@
+---
+description: Hover tooltips on every setting — simple copy, shared catalog
+alwaysApply: true
+---
+
+# Settings Tooltips
+
+Every user-facing control must explain **what it does** on hover, in plain language. The app should feel approachable, not complex.
+
+## Coverage
+
+| Surface | Mechanism |
+|---------|-----------|
+| **ImGui settings** | `ImGuiTheme.Tooltip(...)` immediately after each control; table columns via `ImGuiTheme.TableHeadersWithTooltips` |
+| **Web dashboard** | `title="..."` on row labels and table column headers (from `SettingHints`) |
+| **Startup launcher** | `ImGuiTheme.Tooltip` on attach, launch, and any toggle |
+
+Applies to: checkbox, slider, combo, color picker, button, table header, table cell control, hotkey bind row.
+
+**Out of scope:** in-game overlay draw elements (map dots, nav menu items) unless they are settings controls.
+
+## Copy style
+
+- One short sentence; two only when needed.
+- Say what it does **for the player**, not implementation detail.
+- Avoid jargon (offsets, struct names). If the label uses a term (e.g. "Hz"), explain in plain terms ("how often the map updates").
+- No save/workflow notes — auto-save is implicit.
+- Tone example: *"Hide cosmetic FX, daemons, and other noise dots on the map."*
+
+## Shared catalog
+
+All hint strings live in [`SettingHints.cs`](src/POE2Radar.Overlay/Settings/SettingHints.cs). ImGui and dashboard pull from the same constants — do not duplicate prose inline.
+
+## New setting checklist
+
+1. Add `SettingHints.*` entry.
+2. Wire ImGui tooltip + dashboard `title=` (keep existing `<small>` subtitles if present; still add `title=` for hover parity).
+3. Feature checklist: **Tooltip/hint added?**
+
+See also: `config-settings.mdc`, `overlay-render.mdc`, `api-dashboard.mdc`, `change-discipline.mdc`.

@@ -1,5 +1,8 @@
 namespace POE2Radar.Overlay.Web;
 
+using System.Net;
+using POE2Radar.Overlay.Settings;
+
 /// <summary>
 /// Self-contained web dashboard served at <c>GET /</c> by <see cref="ApiServer"/>. One inlined
 /// HTML/CSS/JS document — no external assets beyond Google Fonts. The Console tab reads/writes
@@ -10,7 +13,130 @@ namespace POE2Radar.Overlay.Web;
 /// </summary>
 internal static class DashboardHtml
 {
-    public const string Page = """
+    public static string Page => ApplySettingHints(PageTemplate);
+
+    private static string H(string s) => WebUtility.HtmlEncode(s);
+
+    private static string ApplySettingHints(string html) => html
+        .Replace("{{H.ShowMonsters}}", H(SettingHints.Radar.ShowMonsters))
+        .Replace("{{H.ShowTerrain}}", H(SettingHints.Radar.ShowTerrain))
+        .Replace("{{H.ShowPlayerBlip}}", H(SettingHints.Radar.ShowPlayerBlip))
+        .Replace("{{H.AlwaysShowOverlay}}", H(SettingHints.Radar.AlwaysShowOverlay))
+        .Replace("{{H.HideJunk}}", H(SettingHints.Radar.HideJunk))
+        .Replace("{{H.CuratedLandmarks}}", H(SettingHints.Radar.CuratedLandmarks))
+        .Replace("{{H.LandmarkClusterGap}}", H(SettingHints.Radar.LandmarkClusterGap))
+        .Replace("{{H.LowImpactMode}}", H(SettingHints.Performance.LowImpactMode))
+        .Replace("{{H.FpsCap}}", H(SettingHints.Performance.FpsCap))
+        .Replace("{{H.LiveRefreshHz}}", H(SettingHints.Performance.LiveRefreshHz))
+        .Replace("{{H.WorldRefreshHz}}", H(SettingHints.Performance.WorldRefreshHz))
+        .Replace("{{H.InactiveRefreshHz}}", H(SettingHints.Performance.InactiveRefreshHz))
+        .Replace("{{H.HpBarRefreshHz}}", H(SettingHints.Performance.HpBarRefreshHz))
+        .Replace("{{H.MaxLiveHpBars}}", H(SettingHints.Performance.MaxLiveHpBars))
+        .Replace("{{H.SmoothOverlayMotion}}", H(SettingHints.Performance.SmoothOverlayMotion))
+        .Replace("{{H.OverlaySmoothingMs}}", H(SettingHints.Performance.OverlaySmoothingMs))
+        .Replace("{{H.ChipSmoothingMs}}", H(SettingHints.Performance.ChipSmoothingMs))
+        .Replace("{{H.PixelSnapLabels}}", H(SettingHints.Performance.PixelSnapLabels))
+        .Replace("{{H.OverlayVSync}}", H(SettingHints.Performance.OverlayVSync))
+        .Replace("{{H.FpsResourceOverlay}}", H(SettingHints.Performance.FpsResourceOverlay))
+        .Replace("{{H.ExtendedPerfStats}}", H(SettingHints.Performance.ExtendedPerfStats))
+        .Replace("{{H.MetricsRefreshHz}}", H(SettingHints.Performance.MetricsRefreshHz))
+        .Replace("{{H.GpuMetricsSeconds}}", H(SettingHints.Performance.GpuMetricsSeconds))
+        .Replace("{{H.ShowPathWorld}}", H(SettingHints.Radar.ShowPathWorld))
+        .Replace("{{H.ShowGroundWaypoints}}", H(SettingHints.Radar.ShowGroundWaypoints))
+        .Replace("{{H.ShowPathMap}}", H(SettingHints.Radar.ShowPathMap))
+        .Replace("{{H.ShowPathMinimap}}", H(SettingHints.Radar.ShowPathMinimap))
+        .Replace("{{H.AutoPathNearest}}", H(SettingHints.Entities.AutoPathNearest))
+        .Replace("{{H.DetectionRadius}}", H(SettingHints.Entities.DetectionRadius))
+        .Replace("{{H.ShowAllMonsters}}", H(SettingHints.Entities.ShowAllMonsters))
+        .Replace("{{H.NavMenuCorner}}", H(SettingHints.Performance.NavMenuCorner))
+        .Replace("{{H.GlobalIconScale}}", H(SettingHints.DisplayRules.GlobalIconScale))
+        .Replace("{{H.LargeMapScale}}", H(SettingHints.Radar.LargeMapScale))
+        .Replace("{{H.MinimapScale}}", H(SettingHints.Radar.MinimapScale))
+        .Replace("{{H.OffsetX}}", H(SettingHints.Radar.OffsetX))
+        .Replace("{{H.OffsetY}}", H(SettingHints.Radar.OffsetY))
+        .Replace("{{H.TerrainInterior}}", H(SettingHints.Radar.TerrainInterior))
+        .Replace("{{H.TerrainEdge}}", H(SettingHints.Radar.TerrainEdge))
+        .Replace("{{H.TerrainEdgeDetail}}", H(SettingHints.Radar.TerrainEdgeDetail))
+        .Replace("{{H.TerrainEdgeThickness}}", H(SettingHints.Radar.TerrainEdgeThickness))
+        .Replace("{{H.AtlasShowAllNodes}}", H(SettingHints.Atlas.ShowAllNodes))
+        .Replace("{{H.AtlasShowNames}}", H(SettingHints.Atlas.ShowNames))
+        .Replace("{{H.AtlasRevealFog}}", H(SettingHints.Atlas.RevealFog))
+        .Replace("{{H.AtlasOffScreenArrows}}", H(SettingHints.Atlas.OffScreenArrows))
+        .Replace("{{H.AtlasShowRoute}}", H(SettingHints.Atlas.ShowRoute))
+        .Replace("{{H.AtlasRouteFromCurrent}}", H(SettingHints.Atlas.RouteFromCurrent))
+        .Replace("{{H.AtlasSearchQuery}}", H(SettingHints.Atlas.SearchQuery))
+        .Replace("{{H.AtlasHideCompleted}}", H(SettingHints.Atlas.HideCompleted))
+        .Replace("{{H.AtlasHideNotAccessible}}", H(SettingHints.Atlas.HideNotAccessible))
+        .Replace("{{H.AtlasHideAvailable}}", H(SettingHints.Atlas.HideAvailable))
+        .Replace("{{H.AtlasBiomeBorders}}", H(SettingHints.Atlas.BiomeBorders))
+        .Replace("{{H.AtlasContentBadges}}", H(SettingHints.Atlas.ContentBadges))
+        .Replace("{{H.AtlasContentCount}}", H(SettingHints.Atlas.ContentCount))
+        .Replace("{{H.AtlasRouteChevrons}}", H(SettingHints.Atlas.RouteChevrons))
+        .Replace("{{H.AtlasIconScale}}", H(SettingHints.Atlas.IconScale))
+        .Replace("{{H.AtlasLabelScale}}", H(SettingHints.Atlas.LabelScale))
+        .Replace("{{H.AtlasRouteThickness}}", H(SettingHints.Atlas.RouteThickness))
+        .Replace("{{H.AtlasChevronSpacing}}", H(SettingHints.Atlas.ChevronSpacing))
+        .Replace("{{H.AtlasLanguage}}", H(SettingHints.Atlas.Language))
+        .Replace("{{H.FlaskTriggerPool}}", H(SettingHints.Flask.TriggerPool))
+        .Replace("{{H.FlaskLifeThreshold}}", H(SettingHints.Flask.LifeThreshold))
+        .Replace("{{H.FlaskEsThreshold}}", H(SettingHints.Flask.EsThreshold))
+        .Replace("{{H.FlaskManaThreshold}}", H(SettingHints.Flask.ManaThreshold))
+        .Replace("{{H.FlaskLifeKey}}", H(SettingHints.Flask.LifeKey))
+        .Replace("{{H.FlaskManaKey}}", H(SettingHints.Flask.ManaKey))
+        .Replace("{{H.FlaskLifeCooldown}}", H(SettingHints.Flask.LifeCooldown))
+        .Replace("{{H.FlaskManaCooldown}}", H(SettingHints.Flask.ManaCooldown))
+        .Replace("{{H.GamepadHotkeys}}", H(SettingHints.Hotkeys.GamepadEnabled))
+        .Replace("{{H.PadSlot}}", H(SettingHints.Hotkeys.PadSlot))
+        .Replace("{{H.HkHideEntity}}", H(SettingHints.Hotkeys.HideEntity))
+        .Replace("{{H.HkTrackEntity}}", H(SettingHints.Hotkeys.TrackEntity))
+        .Replace("{{H.HkAutoPath}}", H(SettingHints.Hotkeys.AutoPathToggle))
+        .Replace("{{H.HkAddNearest}}", H(SettingHints.Hotkeys.AddNearestPath))
+        .Replace("{{H.HkClearPaths}}", H(SettingHints.Hotkeys.ClearPaths))
+        .Replace("{{H.HkAutoFlask}}", H(SettingHints.Hotkeys.AutoFlaskToggle))
+        .Replace("{{H.HkAtlasPick}}", H(SettingHints.Hotkeys.AtlasPick))
+        .Replace("{{H.HkToggleSettings}}", H(SettingHints.Hotkeys.ToggleSettings))
+        .Replace("{{H.HkOpenDashboard}}", H(SettingHints.Hotkeys.OpenDashboard))
+        .Replace("{{H.HkQuit}}", H(SettingHints.Hotkeys.Quit))
+        .Replace("{{H.HpNormal}}", H(SettingHints.HpBars.Normal))
+        .Replace("{{H.HpMagic}}", H(SettingHints.HpBars.Magic))
+        .Replace("{{H.HpRare}}", H(SettingHints.HpBars.Rare))
+        .Replace("{{H.HpUnique}}", H(SettingHints.HpBars.Unique))
+        .Replace("{{H.HpUseTextures}}", H(SettingHints.HpBars.UseTextures))
+        .Replace("{{H.HpHeight}}", H(SettingHints.HpBars.BarHeight))
+        .Replace("{{H.HpOffsetX}}", H(SettingHints.HpBars.OffsetX))
+        .Replace("{{H.HpOffsetY}}", H(SettingHints.HpBars.OffsetY))
+        .Replace("{{H.HpColOn}}", H(SettingHints.HpBars.ColumnOn))
+        .Replace("{{H.HpColWidth}}", H(SettingHints.HpBars.ColumnWidth))
+        .Replace("{{H.HpColBorder}}", H(SettingHints.HpBars.ColumnBorder))
+        .Replace("{{H.HpColThick}}", H(SettingHints.HpBars.ColumnThick))
+        .Replace("{{H.LiveColName}}", H(SettingHints.Dashboard.LiveColName))
+        .Replace("{{H.LiveColCategory}}", H(SettingHints.Dashboard.LiveColCategory))
+        .Replace("{{H.LiveColRarity}}", H(SettingHints.Dashboard.LiveColRarity))
+        .Replace("{{H.LiveColDist}}", H(SettingHints.Dashboard.LiveColDist))
+        .Replace("{{H.LiveColHp}}", H(SettingHints.Dashboard.LiveColHp))
+        .Replace("{{H.LiveColRule}}", H(SettingHints.Dashboard.LiveColRule))
+        .Replace("{{H.DbColCategory}}", H(SettingHints.Dashboard.DbColCategory))
+        .Replace("{{H.DbColPath}}", H(SettingHints.Dashboard.DbColPath))
+        .Replace("{{H.RulesPaused}}", H(SettingHints.Dashboard.RulesPaused))
+        .Replace("{{H.RulesHide}}", H(SettingHints.Dashboard.RulesHide))
+        .Replace("{{H.RulesPath}}", H(SettingHints.Dashboard.RulesPath))
+        .Replace("{{H.LootEnabled}}", H(SettingHints.Loot.Enabled))
+        .Replace("{{H.LootLeague}}", H(SettingHints.Loot.LeagueOverride))
+        .Replace("{{H.LootHighlightMin}}", H(SettingHints.Loot.HighlightMin))
+        .Replace("{{H.LootUniqueFloor}}", H(SettingHints.Loot.UniqueFloor))
+        .Replace("{{H.LootCurrencyFloor}}", H(SettingHints.Loot.CurrencyFloor))
+        .Replace("{{H.LootOtherFloor}}", H(SettingHints.Loot.OtherFloor))
+        .Replace("{{H.LootMinQty}}", H(SettingHints.Loot.MinListingQty))
+        .Replace("{{H.LootAnchorTags}}", H(SettingHints.Loot.AnchorToTags))
+        .Replace("{{H.MonolithEnabled}}", H(SettingHints.Monoliths.Enabled))
+        .Replace("{{H.MonolithHighlightMin}}", H(SettingHints.Monoliths.HighlightMin))
+        .Replace("{{H.MonolithMinReward}}", H(SettingHints.Monoliths.MinReward))
+        .Replace("{{H.MonolithMinValue}}", H(SettingHints.Monoliths.MinValue))
+        .Replace("{{H.MonolithHideCollected}}", H(SettingHints.Monoliths.HideCollected))
+        .Replace("{{H.MonolithShowMapLabel}}", H(SettingHints.Monoliths.ShowMapLabel))
+        .Replace("{{H.MonolithShowPanel}}", H(SettingHints.Monoliths.ShowPanel));
+
+    private const string PageTemplate = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -566,7 +692,7 @@ internal static class DashboardHtml
             </div>
             <div class="filter-btns" id="liveCatFilters"></div>
             <div class="scrollbox">
-              <table><thead><tr><th>Name</th><th>Category</th><th>Rarity</th><th>Dist</th><th>HP</th><th>Matching rule</th><th></th></tr></thead>
+              <table><thead><tr><th title="{{H.LiveColName}}">Name</th><th title="{{H.LiveColCategory}}">Category</th><th title="{{H.LiveColRarity}}">Rarity</th><th title="{{H.LiveColDist}}">Dist</th><th title="{{H.LiveColHp}}">HP</th><th title="{{H.LiveColRule}}">Matching rule</th><th></th></tr></thead>
               <tbody id="liveBody"></tbody></table>
             </div>
           </div>
@@ -586,7 +712,7 @@ internal static class DashboardHtml
             </div>
             <div class="filter-btns" id="dbCatFilters"></div>
             <div class="scrollbox">
-              <table><thead><tr><th>Category</th><th>Path</th><th></th></tr></thead>
+              <table><thead><tr><th title="{{H.DbColCategory}}">Category</th><th title="{{H.DbColPath}}">Path</th><th></th></tr></thead>
               <tbody id="dbBody"></tbody></table>
             </div>
           </div>
@@ -672,72 +798,72 @@ internal static class DashboardHtml
           <div class="settings-section panel-grid" id="setDisplay">
           <div class="card">
             <h3>Radar Display <span class="save-stamp" id="stampSettings"></span></h3>
-            <div class="row"><div class="rl">Show monsters &amp; entities<small>entity dots (monsters, NPCs, chests, POIs)</small></div>
+            <div class="row"><div class="rl" title="{{H.ShowMonsters}}">Show monsters &amp; entities<small>entity dots (monsters, NPCs, chests, POIs)</small></div>
               <label class="sw"><input type="checkbox" data-set="showMonsters"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Show terrain<small>walkable-terrain bitmap</small></div>
+            <div class="row"><div class="rl" title="{{H.ShowTerrain}}">Show terrain<small>walkable-terrain bitmap</small></div>
               <label class="sw"><input type="checkbox" data-set="showTerrain"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Show player blip<small>dot at your position on the map</small></div>
+            <div class="row"><div class="rl" title="{{H.ShowPlayerBlip}}">Show player blip<small>dot at your position on the map</small></div>
               <label class="sw"><input type="checkbox" data-set="showPlayerBlip"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Always show overlay<small>draw when PoE2 isn&rsquo;t focused; auto-flask stays focus-gated</small></div>
+            <div class="row"><div class="rl" title="{{H.AlwaysShowOverlay}}">Always show overlay<small>draw when PoE2 isn&rsquo;t focused; auto-flask stays focus-gated</small></div>
               <label class="sw"><input type="checkbox" data-set="alwaysShowOverlay"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Hide map clutter<small>cosmetic FX, daemons, and noise dots</small></div>
+            <div class="row"><div class="rl" title="{{H.HideJunk}}">Hide map clutter<small>cosmetic FX, daemons, and noise dots</small></div>
               <label class="sw"><input type="checkbox" data-set="hideJunk"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Curated landmark names<small>community labels (boss / reward / exits)</small></div>
+            <div class="row"><div class="rl" title="{{H.CuratedLandmarks}}">Curated landmark names<small>community labels (boss / reward / exits)</small></div>
               <label class="sw"><input type="checkbox" data-set="useCuratedLandmarks"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Landmark cluster gap<small>max tile distance to merge nearby tile markers (0 = no clustering)</small></div>
+            <div class="row"><div class="rl" title="{{H.LandmarkClusterGap}}">Landmark cluster gap<small>max tile distance to merge nearby tile markers (0 = no clustering)</small></div>
               <input class="numin" type="number" step="1" min="0" max="64" data-set="landmarkClusterGap"></div>
-            <div class="row"><div class="rl">Low impact mode<small>favor lower memory-read cadence when idle or unfocused</small></div>
+            <div class="row"><div class="rl" title="{{H.LowImpactMode}}">Low impact mode<small>favor lower memory-read cadence when idle or unfocused</small></div>
               <label class="sw"><input type="checkbox" data-set="lowImpactMode"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Overlay FPS cap<small>15&ndash;360; lower = less GPU load</small></div>
+            <div class="row"><div class="rl" title="{{H.FpsCap}}">Overlay FPS cap<small>15&ndash;360; lower = less GPU load</small></div>
               <input class="numin" type="number" step="1" min="15" max="360" data-set="fpsCap"></div>
-            <div class="row"><div class="rl">Live refresh Hz<small>player position, map UI, vitals, camera: 5&ndash;120</small></div>
+            <div class="row"><div class="rl" title="{{H.LiveRefreshHz}}">Live refresh Hz<small>player position, map UI, vitals, camera: 5&ndash;120</small></div>
               <input class="numin" type="number" step="1" min="5" max="120" data-set="liveRefreshHz"></div>
-            <div class="row"><div class="rl">World refresh Hz<small>entities, terrain, landmarks, routes: 1&ndash;60</small></div>
+            <div class="row"><div class="rl" title="{{H.WorldRefreshHz}}">World refresh Hz<small>entities, terrain, landmarks, routes: 1&ndash;60</small></div>
               <input class="numin" type="number" step="1" min="1" max="60" data-set="worldRefreshHz"></div>
-            <div class="row"><div class="rl">Inactive refresh Hz<small>world reads while PoE2 is unfocused and overlay is hidden: 1&ndash;10</small></div>
+            <div class="row"><div class="rl" title="{{H.InactiveRefreshHz}}">Inactive refresh Hz<small>world reads while PoE2 is unfocused and overlay is hidden: 1&ndash;10</small></div>
               <input class="numin" type="number" step="1" min="1" max="10" data-set="inactiveRefreshHz"></div>
-            <div class="row"><div class="rl">HP bar refresh Hz<small>live nameplate HP/position reads: 1&ndash;30</small></div>
+            <div class="row"><div class="rl" title="{{H.HpBarRefreshHz}}">HP bar refresh Hz<small>live nameplate HP/position reads: 1&ndash;30</small></div>
               <input class="numin" type="number" step="1" min="1" max="30" data-set="hpBarRefreshHz"></div>
-            <div class="row"><div class="rl">Max live HP bars<small>cap read-heavy nameplates: 0&ndash;256</small></div>
+            <div class="row"><div class="rl" title="{{H.MaxLiveHpBars}}">Max live HP bars<small>cap read-heavy nameplates: 0&ndash;256</small></div>
               <input class="numin" type="number" step="1" min="0" max="256" data-set="maxLiveHpBars"></div>
-            <div class="row"><div class="rl">Smooth overlay motion<small>interpolate visual positions between memory samples</small></div>
+            <div class="row"><div class="rl" title="{{H.SmoothOverlayMotion}}">Smooth overlay motion<small>interpolate visual positions between memory samples</small></div>
               <label class="sw"><input type="checkbox" data-set="smoothOverlayMotion"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Overlay smoothing ms<small>path/player/map transform smoothing: 0&ndash;150</small></div>
+            <div class="row"><div class="rl" title="{{H.OverlaySmoothingMs}}">Overlay smoothing ms<small>path/player/map transform smoothing: 0&ndash;150</small></div>
               <input class="numin" type="number" step="1" min="0" max="150" data-set="overlaySmoothingMs"></div>
-            <div class="row"><div class="rl">Chip smoothing ms<small>label chip rectangle smoothing: 0&ndash;250</small></div>
+            <div class="row"><div class="rl" title="{{H.ChipSmoothingMs}}">Chip smoothing ms<small>label chip rectangle smoothing: 0&ndash;250</small></div>
               <input class="numin" type="number" step="1" min="0" max="250" data-set="chipSmoothingMs"></div>
-            <div class="row"><div class="rl">Pixel snap labels<small>round final text/chip positions to whole pixels</small></div>
+            <div class="row"><div class="rl" title="{{H.PixelSnapLabels}}">Pixel snap labels<small>round final text/chip positions to whole pixels</small></div>
               <label class="sw"><input type="checkbox" data-set="pixelSnapLabels"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Overlay VSync<small>present overlay frames on the display cadence</small></div>
+            <div class="row"><div class="rl" title="{{H.OverlayVSync}}">Overlay VSync<small>present overlay frames on the display cadence</small></div>
               <label class="sw"><input type="checkbox" data-set="overlayVSync"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">FPS / resource overlay<small>tick/render FPS + App CPU/GPU/RAM under POE2Radar nav</small></div>
+            <div class="row"><div class="rl" title="{{H.FpsResourceOverlay}}">FPS / resource overlay<small>tick/render FPS + App CPU/GPU/RAM under POE2Radar nav</small></div>
               <label class="sw"><input type="checkbox" data-set="showFpsOverlay"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Extended perf stats<small>extra timing/read lines under the nav menu</small></div>
+            <div class="row"><div class="rl" title="{{H.ExtendedPerfStats}}">Extended perf stats<small>extra timing/read lines under the nav menu</small></div>
               <label class="sw"><input type="checkbox" data-set="showPerfStats"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Metrics refresh Hz<small>CPU/RAM sampling cadence when metrics HUD is enabled: 1&ndash;10</small></div>
+            <div class="row"><div class="rl" title="{{H.MetricsRefreshHz}}">Metrics refresh Hz<small>CPU/RAM sampling cadence when metrics HUD is enabled: 1&ndash;10</small></div>
               <input class="numin" type="number" step="1" min="1" max="10" data-set="metricsRefreshHz"></div>
-            <div class="row"><div class="rl">GPU metrics seconds<small>GPU/VRAM sampling interval when metrics HUD is enabled: 1&ndash;30</small></div>
+            <div class="row"><div class="rl" title="{{H.GpuMetricsSeconds}}">GPU metrics seconds<small>GPU/VRAM sampling interval when metrics HUD is enabled: 1&ndash;30</small></div>
               <input class="numin" type="number" step="1" min="1" max="30" data-set="gpuMetricsRefreshSeconds"></div>
           </div>
           </div>
           <div class="settings-section panel-grid" id="setLoot" hidden>
           <div class="card">
             <h3>Ground loot values (poe.ninja)</h3>
-            <div class="row"><div class="rl">Enabled</div>
+            <div class="row"><div class="rl" title="{{H.LootEnabled}}">Enabled</div>
               <label class="sw"><input type="checkbox" data-set="groundItemsEnabled"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">League override<small>blank = auto-detect from game</small></div>
+            <div class="row"><div class="rl" title="{{H.LootLeague}}">League override<small>blank = auto-detect from game</small></div>
               <input class="numin" type="text" data-set="groundItemsLeague" style="width:220px"></div>
-            <div class="row"><div class="rl">Highlight min (ex)</div>
+            <div class="row"><div class="rl" title="{{H.LootHighlightMin}}">Highlight min (ex)</div>
               <input class="numin" type="number" step="0.1" min="0" data-set="groundItemsHighlightMinEx"></div>
-            <div class="row"><div class="rl">Unique floor (ex)</div>
+            <div class="row"><div class="rl" title="{{H.LootUniqueFloor}}">Unique floor (ex)</div>
               <input class="numin" type="number" step="0.1" min="0" data-set="groundItemsUniqueMinEx"></div>
-            <div class="row"><div class="rl">Currency floor (ex)</div>
+            <div class="row"><div class="rl" title="{{H.LootCurrencyFloor}}">Currency floor (ex)</div>
               <input class="numin" type="number" step="0.1" min="0" data-set="groundItemsCurrencyMinEx"></div>
-            <div class="row"><div class="rl">Other floor (ex)</div>
+            <div class="row"><div class="rl" title="{{H.LootOtherFloor}}">Other floor (ex)</div>
               <input class="numin" type="number" step="0.1" min="0" data-set="groundItemsOtherMinEx"></div>
-            <div class="row"><div class="rl">Min listing qty<small>skip low-confidence rows</small></div>
+            <div class="row"><div class="rl" title="{{H.LootMinQty}}">Min listing qty<small>skip low-confidence rows</small></div>
               <input class="numin" type="number" step="1" min="0" data-set="groundItemsMinQuantity"></div>
-            <div class="row"><div class="rl">Anchor to loot tags</div>
+            <div class="row"><div class="rl" title="{{H.LootAnchorTags}}">Anchor to loot tags</div>
               <label class="sw"><input type="checkbox" data-set="groundItemsAnchorValuesToTags"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl">Price cache</div>
               <span id="priceStatus" class="muted">loading…</span>
@@ -745,40 +871,40 @@ internal static class DashboardHtml
           </div>
           <div class="card">
             <h3>Runeshape monoliths</h3>
-            <div class="row"><div class="rl">Enabled</div>
+            <div class="row"><div class="rl" title="{{H.MonolithEnabled}}">Enabled</div>
               <label class="sw"><input type="checkbox" data-set="monolithsEnabled"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Highlight min (ex)</div>
+            <div class="row"><div class="rl" title="{{H.MonolithHighlightMin}}">Highlight min (ex)</div>
               <input class="numin" type="number" step="0.1" min="0" data-set="monolithsHighlightMinEx"></div>
-            <div class="row"><div class="rl">Min reward (ex)</div>
+            <div class="row"><div class="rl" title="{{H.MonolithMinReward}}">Min reward (ex)</div>
               <input class="numin" type="number" step="0.1" min="0" data-set="monolithsMinRewardEx"></div>
-            <div class="row"><div class="rl">Min monolith value (ex)</div>
+            <div class="row"><div class="rl" title="{{H.MonolithMinValue}}">Min monolith value (ex)</div>
               <input class="numin" type="number" step="0.1" min="0" data-set="monolithsMinValueEx"></div>
-            <div class="row"><div class="rl">Hide collected</div>
+            <div class="row"><div class="rl" title="{{H.MonolithHideCollected}}">Hide collected</div>
               <label class="sw"><input type="checkbox" data-set="monolithsHideCollected"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Show map label</div>
+            <div class="row"><div class="rl" title="{{H.MonolithShowMapLabel}}">Show map label</div>
               <label class="sw"><input type="checkbox" data-set="monolithsShowMapLabel"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Show reward panel</div>
+            <div class="row"><div class="rl" title="{{H.MonolithShowPanel}}">Show reward panel</div>
               <label class="sw"><input type="checkbox" data-set="monolithsShowPanel"><span class="track"></span><span class="knob"></span></label></div>
           </div>
           </div>
           <div class="settings-section panel-grid" id="setNav" hidden>
           <div class="card">
             <h3>Navigation &amp; paths</h3>
-            <div class="row"><div class="rl">Path on ground<small>world-projected route when the large map is closed</small></div>
+            <div class="row"><div class="rl" title="{{H.ShowPathWorld}}">Path on ground<small>world-projected route when the large map is closed</small></div>
               <label class="sw"><input type="checkbox" data-set="showPathWorld"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Ground waypoints<small>world-screen breadcrumbs (requires path on ground)</small></div>
+            <div class="row"><div class="rl" title="{{H.ShowGroundWaypoints}}">Ground waypoints<small>world-screen breadcrumbs (requires path on ground)</small></div>
               <label class="sw"><input type="checkbox" data-set="showGroundWaypoints"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Path on large map<small>route overlay when Tab map is open</small></div>
+            <div class="row"><div class="rl" title="{{H.ShowPathMap}}">Path on large map<small>route overlay when Tab map is open</small></div>
               <label class="sw"><input type="checkbox" data-set="showPathMap"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Path on minimap<small>route inside the corner minimap</small></div>
+            <div class="row"><div class="rl" title="{{H.ShowPathMinimap}}">Path on minimap<small>route inside the corner minimap</small></div>
               <label class="sw"><input type="checkbox" data-set="showPathMinimap"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Auto-path to nearest targets<small>continuously path to nearest entities whose rule has &ldquo;Show path to this&rdquo; (F6 picks manually too)</small></div>
+            <div class="row"><div class="rl" title="{{H.AutoPathNearest}}">Auto-path to nearest targets<small>continuously path to nearest entities whose rule has &ldquo;Show path to this&rdquo; (F6 picks manually too)</small></div>
               <label class="sw"><input type="checkbox" data-set="autoPathNavigable"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Detection radius<small>max grid distance for entity dots, nav, and API list (0 = unlimited)</small></div>
+            <div class="row"><div class="rl" title="{{H.DetectionRadius}}">Detection radius<small>max grid distance for entity dots, nav, and API list (0 = unlimited)</small></div>
               <input class="numin" type="number" step="10" min="0" max="2000" data-set="entityDrawRadiusGrid"></div>
-            <div class="row"><div class="rl">Show all monsters<small>include normal/magic grey clutter on the radar (off = curated important-only view)</small></div>
+            <div class="row"><div class="rl" title="{{H.ShowAllMonsters}}">Show all monsters<small>include normal/magic grey clutter on the radar (off = curated important-only view)</small></div>
               <label class="sw"><input type="checkbox" data-set-inv="importantOnly"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Nav menu corner<small>where the in-game nav dropdown is pinned</small></div>
+            <div class="row"><div class="rl" title="{{H.NavMenuCorner}}">Nav menu corner<small>where the in-game nav dropdown is pinned</small></div>
               <select class="numin selin" data-set="navMenuCorner">
                 <option value="TopLeft">Top left</option>
                 <option value="TopRight">Top right</option>
@@ -791,7 +917,7 @@ internal static class DashboardHtml
           <div class="settings-section panel-grid" id="setIcons" hidden>
           <div class="card" style="grid-column:1/-1">
             <h3>Default icon styles <span class="tag">&middot; category defaults</span></h3>
-            <div class="row"><div class="rl">Global icon scale<small>multiplier on icons.png sprite size (per-rule size stacks on top)</small></div>
+            <div class="row"><div class="rl" title="{{H.GlobalIconScale}}">Global icon scale<small>multiplier on icons.png sprite size (per-rule size stacks on top)</small></div>
               <input class="numin" type="number" step="0.05" min="0.25" max="4" data-set="globalIconScale"></div>
             <div id="iconStyles"></div>
           </div>
@@ -807,33 +933,33 @@ internal static class DashboardHtml
             <h3>Monster HP Bars <span class="tag">&middot; by rarity</span></h3>
             <p class="hint-oneline">Toggle On per rarity; geometry fields set bar size per tier.</p>
             <div class="hpgrid">
-              <span class="hph">On</span><span class="hph">Rarity</span><span class="hph">Width</span><span class="hph">Border</span><span class="hph">Thick</span>
-              <input type="checkbox" data-set="hpBarNormal">
-              <span class="hpr">Normal</span>
+              <span class="hph" title="{{H.HpColOn}}">On</span><span class="hph">Rarity</span><span class="hph" title="{{H.HpColWidth}}">Width</span><span class="hph" title="{{H.HpColBorder}}">Border</span><span class="hph" title="{{H.HpColThick}}">Thick</span>
+              <input type="checkbox" data-set="hpBarNormal" title="{{H.HpNormal}}">
+              <span class="hpr" title="{{H.HpNormal}}">Normal</span>
               <input class="numin" type="number" step="1" min="4" data-hp="widthNormal">
               <input type="color" class="i-color" data-hpcolor="borderColorNormal">
               <input class="numin" type="number" step="0.5" min="0" max="20" data-hp="borderNormal">
-              <input type="checkbox" data-set="hpBarMagic">
-              <span class="hpr" style="color:var(--magic)">Magic</span>
+              <input type="checkbox" data-set="hpBarMagic" title="{{H.HpMagic}}">
+              <span class="hpr" style="color:var(--magic)" title="{{H.HpMagic}}">Magic</span>
               <input class="numin" type="number" step="1" min="4" data-hp="widthMagic">
               <input type="color" class="i-color" data-hpcolor="borderColorMagic">
               <input class="numin" type="number" step="0.5" min="0" max="20" data-hp="borderMagic">
-              <input type="checkbox" data-set="hpBarRare">
-              <span class="hpr" style="color:var(--rare)">Rare</span>
+              <input type="checkbox" data-set="hpBarRare" title="{{H.HpRare}}">
+              <span class="hpr" style="color:var(--rare)" title="{{H.HpRare}}">Rare</span>
               <input class="numin" type="number" step="1" min="4" data-hp="widthRare">
               <input type="color" class="i-color" data-hpcolor="borderColorRare">
               <input class="numin" type="number" step="0.5" min="0" max="20" data-hp="borderRare">
-              <input type="checkbox" data-set="hpBarUnique">
-              <span class="hpr" style="color:var(--unique)">Unique</span>
+              <input type="checkbox" data-set="hpBarUnique" title="{{H.HpUnique}}">
+              <span class="hpr" style="color:var(--unique)" title="{{H.HpUnique}}">Unique</span>
               <input class="numin" type="number" step="1" min="4" data-hp="widthUnique">
               <input type="color" class="i-color" data-hpcolor="borderColorUnique">
               <input class="numin" type="number" step="0.5" min="0" max="20" data-hp="borderUnique">
             </div>
             <div class="hpshared">
-              <label>Textures<input type="checkbox" data-hpcheck="useTextures"></label>
-              <label>Height<input class="numin" type="number" step="1" min="1" max="30" data-hp="height"></label>
-              <label>Offset X<input class="numin" type="number" step="1" data-hp="offsetX"></label>
-              <label>Offset Y<input class="numin" type="number" step="1" data-hp="offsetY"></label>
+              <label title="{{H.HpUseTextures}}">Textures<input type="checkbox" data-hpcheck="useTextures"></label>
+              <label title="{{H.HpHeight}}">Height<input class="numin" type="number" step="1" min="1" max="30" data-hp="height"></label>
+              <label title="{{H.HpOffsetX}}">Offset X<input class="numin" type="number" step="1" data-hp="offsetX"></label>
+              <label title="{{H.HpOffsetY}}">Offset Y<input class="numin" type="number" step="1" data-hp="offsetY"></label>
               <label>ES color<input type="color" class="i-color" data-hpcolor="energyShieldColor"></label>
             </div>
             <p class="hint-oneline" style="margin-top:8px">Offset Y negative = above the mob; thickness 0 = no border.</p>
@@ -842,19 +968,19 @@ internal static class DashboardHtml
           <div class="settings-section panel-grid" id="setTerrain" hidden>
           <div class="card">
             <h3>Terrain <span class="tag">&middot; walkable overlay</span></h3>
-            <div class="row"><div class="rl">Interior fill<small>wash over walkable cells</small></div>
+            <div class="row"><div class="rl" title="{{H.TerrainInterior}}">Interior fill<small>wash over walkable cells</small></div>
               <span class="trow-ctl">
                 <input type="color" class="i-color" data-tcolor="interiorColor">
                 <input type="range" class="op" min="0" max="100" data-topacity="interiorOpacity">
                 <span class="opv" data-topv="interiorOpacity">—</span></span></div>
-            <div class="row"><div class="rl" style="color:var(--poi)">Wall edge<small>outlines around rooms</small></div>
+            <div class="row"><div class="rl" style="color:var(--poi)" title="{{H.TerrainEdge}}">Wall edge<small>outlines around rooms</small></div>
               <span class="trow-ctl">
                 <input type="color" class="i-color" data-tcolor="edgeColor">
                 <input type="range" class="op" min="0" max="100" data-topacity="edgeOpacity">
                 <span class="opv" data-topv="edgeOpacity">—</span></span></div>
-            <div class="row"><div class="rl">ImGui edge detail<small>higher = smoother terrain edge, more draw work</small></div>
+            <div class="row"><div class="rl" title="{{H.TerrainEdgeDetail}}">ImGui edge detail<small>higher = smoother terrain edge, more draw work</small></div>
               <input class="numin" type="number" step="1" min="1" max="8" data-tnum="imGuiEdgeDetail"></div>
-            <div class="row"><div class="rl">ImGui edge thickness<small>visibility of terrain edge points</small></div>
+            <div class="row"><div class="rl" title="{{H.TerrainEdgeThickness}}">ImGui edge thickness<small>visibility of terrain edge points</small></div>
               <input class="numin" type="number" step="0.1" min="0.5" max="4" data-tnum="imGuiEdgeThickness"></div>
             <p class="hint-oneline" style="margin-top:8px">Edits rebuild the terrain bitmap.</p>
           </div>
@@ -862,12 +988,12 @@ internal static class DashboardHtml
           <div class="settings-section panel-grid" id="setCalib" hidden>
           <div class="card">
             <h3>Map Calibration</h3>
-            <div class="row"><div class="rl">Large-map scale base<small>GameHelper-style diagonal/zoom multiplier</small></div>
+            <div class="row"><div class="rl" title="{{H.LargeMapScale}}">Large-map scale base<small>GameHelper-style diagonal/zoom multiplier</small></div>
               <input class="numin" type="number" step="0.0001" min="0.01" data-set="largeMapScaleMultiplier"></div>
-            <div class="row"><div class="rl">Scale multiplier<small>projection scale of the map overlay</small></div>
+            <div class="row"><div class="rl" title="{{H.MinimapScale}}">Scale multiplier<small>projection scale of the map overlay</small></div>
               <input class="numin" type="number" step="0.01" data-set="scaleMul"></div>
-            <div class="row"><div class="rl">Offset X</div><input class="numin" type="number" step="1" data-set="offX"></div>
-            <div class="row"><div class="rl">Offset Y</div><input class="numin" type="number" step="1" data-set="offY"></div>
+            <div class="row"><div class="rl" title="{{H.OffsetX}}">Offset X</div><input class="numin" type="number" step="1" data-set="offX"></div>
+            <div class="row"><div class="rl" title="{{H.OffsetY}}">Offset Y</div><input class="numin" type="number" step="1" data-set="offY"></div>
             <p class="hint-oneline" style="margin-top:8px">Changes apply live.</p>
           </div>
           </div>
@@ -875,68 +1001,68 @@ internal static class DashboardHtml
           <div class="card">
             <h3>Atlas overlay</h3>
             <p class="hint-oneline">In-game atlas map drawing. Highlights are on the Atlas tab.</p>
-            <div class="row"><div class="rl">Show all on-screen nodes<small>when Track filters are active, only tracked nodes draw</small></div>
+            <div class="row"><div class="rl" title="{{H.AtlasShowAllNodes}}">Show all on-screen nodes<small>when Track filters are active, only tracked nodes draw</small></div>
               <label class="sw"><input type="checkbox" data-set="atlasShowOnScreenNodes"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Show map names<small>label on-screen tiles with map name</small></div>
+            <div class="row"><div class="rl" title="{{H.AtlasShowNames}}">Show map names<small>label on-screen tiles with map name</small></div>
               <label class="sw"><input type="checkbox" data-set="atlasShowNames"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Reveal fog<small>draw fogged nodes at full opacity with a cool tint</small></div>
+            <div class="row"><div class="rl" title="{{H.AtlasRevealFog}}">Reveal fog<small>draw fogged nodes at full opacity with a cool tint</small></div>
               <label class="sw"><input type="checkbox" data-set="atlasRevealFog"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Off-screen arrows<small>edge arrows for arrow-tagged highlights (e.g. Citadels)</small></div>
+            <div class="row"><div class="rl" title="{{H.AtlasOffScreenArrows}}">Off-screen arrows<small>edge arrows for arrow-tagged highlights (e.g. Citadels)</small></div>
               <label class="sw"><input type="checkbox" data-set="atlasOffScreenArrows"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Show F10 route<small>draw path through the atlas node graph</small></div>
+            <div class="row"><div class="rl" title="{{H.AtlasShowRoute}}">Show F10 route<small>draw path through the atlas node graph</small></div>
               <label class="sw"><input type="checkbox" data-set="atlasShowRoute"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Route from current tile<small>when no F10 start is set, use your live atlas position</small></div>
+            <div class="row"><div class="rl" title="{{H.AtlasRouteFromCurrent}}">Route from current tile<small>when no F10 start is set, use your live atlas position</small></div>
               <label class="sw"><input type="checkbox" data-set="atlasUseCurrentStart"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Search query<small>comma-separated map/content search; routes matches</small></div>
+            <div class="row"><div class="rl" title="{{H.AtlasSearchQuery}}">Search query<small>comma-separated map/content search; routes matches</small></div>
               <input class="numin" type="text" data-set="atlasSearchQuery" style="width:220px"></div>
-            <div class="row"><div class="rl">Hide completed maps</div>
+            <div class="row"><div class="rl" title="{{H.AtlasHideCompleted}}">Hide completed maps</div>
               <label class="sw"><input type="checkbox" data-set="atlasHideCompletedMaps"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Hide inaccessible maps</div>
+            <div class="row"><div class="rl" title="{{H.AtlasHideNotAccessible}}">Hide inaccessible maps</div>
               <label class="sw"><input type="checkbox" data-set="atlasHideNotAccessibleMaps"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Hide available maps</div>
+            <div class="row"><div class="rl" title="{{H.AtlasHideAvailable}}">Hide available maps</div>
               <label class="sw"><input type="checkbox" data-set="atlasHideAvailableMaps"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Biome borders</div>
+            <div class="row"><div class="rl" title="{{H.AtlasBiomeBorders}}">Biome borders</div>
               <label class="sw"><input type="checkbox" data-set="atlasShowBiomeBorders"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Content badges</div>
+            <div class="row"><div class="rl" title="{{H.AtlasContentBadges}}">Content badges</div>
               <label class="sw"><input type="checkbox" data-set="atlasShowContentBadges"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Content count pips</div>
+            <div class="row"><div class="rl" title="{{H.AtlasContentCount}}">Content count pips</div>
               <label class="sw"><input type="checkbox" data-set="atlasShowContentCount"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Route chevrons</div>
+            <div class="row"><div class="rl" title="{{H.AtlasRouteChevrons}}">Route chevrons</div>
               <label class="sw"><input type="checkbox" data-set="atlasShowRouteChevrons"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Atlas icon scale</div>
+            <div class="row"><div class="rl" title="{{H.AtlasIconScale}}">Atlas icon scale</div>
               <input class="numin" type="number" step="0.05" min="0.25" max="4" data-set="atlasIconScale"></div>
-            <div class="row"><div class="rl">Atlas label scale</div>
+            <div class="row"><div class="rl" title="{{H.AtlasLabelScale}}">Atlas label scale</div>
               <input class="numin" type="number" step="0.05" min="0.5" max="3" data-set="atlasLabelScale"></div>
-            <div class="row"><div class="rl">Route thickness</div>
+            <div class="row"><div class="rl" title="{{H.AtlasRouteThickness}}">Route thickness</div>
               <input class="numin" type="number" step="0.5" min="1" max="8" data-set="atlasRouteLineThickness"></div>
-            <div class="row"><div class="rl">Chevron spacing</div>
+            <div class="row"><div class="rl" title="{{H.AtlasChevronSpacing}}">Chevron spacing</div>
               <input class="numin" type="number" step="1" min="8" max="80" data-set="atlasRouteChevronSpacing"></div>
-            <div class="row"><div class="rl">Atlas language<small>currently English; ready for translated catalogs</small></div>
+            <div class="row"><div class="rl" title="{{H.AtlasLanguage}}">Atlas language<small>currently English; ready for translated catalogs</small></div>
               <input class="numin" type="text" data-set="atlasLanguage" style="width:150px"></div>
           </div>
           </div>
           <div class="settings-section panel-grid" id="setFlask" hidden>
           <div class="card">
             <h3>Auto-Flask</h3>
-            <div class="row"><div class="rl">Life flask triggers on<small>which pool the life flask key watches &mdash; ES is ignored if your build has none</small></div>
+            <div class="row"><div class="rl" title="{{H.FlaskTriggerPool}}">Life flask triggers on<small>which pool the life flask key watches &mdash; ES is ignored if your build has none</small></div>
               <select class="numin selin" data-set="lifeFlaskMode">
                 <option value="Health">Health %</option>
                 <option value="EnergyShield">Energy Shield %</option>
                 <option value="Either">Either (HP or ES)</option>
               </select></div>
-            <div class="row"><div class="rl">Life threshold %<small>tap life flask below this Life %</small></div>
+            <div class="row"><div class="rl" title="{{H.FlaskLifeThreshold}}">Life threshold %<small>tap life flask below this Life %</small></div>
               <input class="numin" type="number" step="1" min="0" max="100" data-set="lifeThresholdPct"></div>
-            <div class="row"><div class="rl">ES threshold %<small>tap life flask below this Energy Shield % (ES / Either modes)</small></div>
+            <div class="row"><div class="rl" title="{{H.FlaskEsThreshold}}">ES threshold %<small>tap life flask below this Energy Shield % (ES / Either modes)</small></div>
               <input class="numin" type="number" step="1" min="0" max="100" data-set="esThresholdPct"></div>
-            <div class="row"><div class="rl">Mana threshold %<small>tap mana flask below this Mana %</small></div>
+            <div class="row"><div class="rl" title="{{H.FlaskManaThreshold}}">Mana threshold %<small>tap mana flask below this Mana %</small></div>
               <input class="numin" type="number" step="1" min="0" max="100" data-set="manaThresholdPct"></div>
-            <div class="row"><div class="rl">Life flask key</div>
+            <div class="row"><div class="rl" title="{{H.FlaskLifeKey}}">Life flask key</div>
               <input class="numin keyin" type="text" maxlength="1" data-set="lifeKey"></div>
-            <div class="row"><div class="rl">Mana flask key</div>
+            <div class="row"><div class="rl" title="{{H.FlaskManaKey}}">Mana flask key</div>
               <input class="numin keyin" type="text" maxlength="1" data-set="manaKey"></div>
-            <div class="row"><div class="rl">Life cooldown<small>min ms between life taps</small></div>
+            <div class="row"><div class="rl" title="{{H.FlaskLifeCooldown}}">Life cooldown<small>min ms between life taps</small></div>
               <input class="numin" type="number" step="100" min="0" data-set="lifeCooldownMs"></div>
-            <div class="row"><div class="rl">Mana cooldown<small>min ms between mana taps</small></div>
+            <div class="row"><div class="rl" title="{{H.FlaskManaCooldown}}">Mana cooldown<small>min ms between mana taps</small></div>
               <input class="numin" type="number" step="100" min="0" data-set="manaCooldownMs"></div>
             <p class="hint-oneline" style="margin-top:8px">F8 toggles in-game. Status: <span id="flaskState">&mdash;</span></p>
           </div>
@@ -945,56 +1071,56 @@ internal static class DashboardHtml
           <div class="card">
             <h3>In-game hotkeys</h3>
             <p class="hint-oneline">Click <b>Bind</b>, then press a key. Use <b>Pad</b> chips for Xbox buttons, or bind pad buttons in overlay settings (Entities tab).</p>
-            <div class="row"><div class="rl">Gamepad hotkeys<small>XInput / Xbox controller on player slot 0–3</small></div>
+            <div class="row"><div class="rl" title="{{H.GamepadHotkeys}}">Gamepad hotkeys<small>XInput / Xbox controller on player slot 0–3</small></div>
               <label class="sw"><input type="checkbox" data-set="gamepadHotkeysEnabled"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Pad player slot<small>0 = first controller</small></div>
+            <div class="row"><div class="rl" title="{{H.PadSlot}}">Pad player slot<small>0 = first controller</small></div>
               <input class="numin" type="number" step="1" min="0" max="3" data-set="gamepadUserIndex"></div>
-            <div class="row"><div class="rl">Never show under cursor<small>hover entity → hide type globally</small></div>
+            <div class="row"><div class="rl" title="{{H.HkHideEntity}}">Never show under cursor<small>hover entity → hide type globally</small></div>
               <span class="hkctl"><span class="hk-display" data-hk="hideEntityHotkey">F5</span>
                 <button type="button" class="chip" data-hk-bind="hideEntityHotkey">Bind</button>
                 <button type="button" class="chip" data-hk-pad="hideEntityHotkey">Pad</button>
                 <button type="button" class="chip" data-hk-clear="hideEntityHotkey">Clear</button></span></div>
-            <div class="row"><div class="rl">Inspect under cursor<small>print entity info to console</small></div>
+            <div class="row"><div class="rl" title="{{H.HkTrackEntity}}">Inspect under cursor<small>print entity info to console</small></div>
               <span class="hkctl"><span class="hk-display" data-hk="trackEntityHotkey">F4</span>
                 <button type="button" class="chip" data-hk-bind="trackEntityHotkey">Bind</button>
                 <button type="button" class="chip" data-hk-pad="trackEntityHotkey">Pad</button>
                 <button type="button" class="chip" data-hk-clear="trackEntityHotkey">Clear</button></span></div>
-            <div class="row"><div class="rl">Auto-path toggle<small>continuous auto-pathing (default F3)</small></div>
+            <div class="row"><div class="rl" title="{{H.HkAutoPath}}">Auto-path toggle<small>continuous auto-pathing (default F3)</small></div>
               <span class="hkctl"><span class="hk-display" data-hk="autoPathToggleHotkey">F3</span>
                 <button type="button" class="chip" data-hk-bind="autoPathToggleHotkey">Bind</button>
                 <button type="button" class="chip" data-hk-pad="autoPathToggleHotkey">Pad</button>
                 <button type="button" class="chip" data-hk-clear="autoPathToggleHotkey">Clear</button></span></div>
-            <div class="row"><div class="rl">Add nearest path<small>F6 default</small></div>
+            <div class="row"><div class="rl" title="{{H.HkAddNearest}}">Add nearest path<small>F6 default</small></div>
               <span class="hkctl"><span class="hk-display" data-hk="addNearestPathHotkey">F6</span>
                 <button type="button" class="chip" data-hk-bind="addNearestPathHotkey">Bind</button>
                 <button type="button" class="chip" data-hk-pad="addNearestPathHotkey">Pad</button>
                 <button type="button" class="chip" data-hk-clear="addNearestPathHotkey">Clear</button></span></div>
-            <div class="row"><div class="rl">Clear paths<small>F7 default</small></div>
+            <div class="row"><div class="rl" title="{{H.HkClearPaths}}">Clear paths<small>F7 default</small></div>
               <span class="hkctl"><span class="hk-display" data-hk="clearPathsHotkey">F7</span>
                 <button type="button" class="chip" data-hk-bind="clearPathsHotkey">Bind</button>
                 <button type="button" class="chip" data-hk-pad="clearPathsHotkey">Pad</button>
                 <button type="button" class="chip" data-hk-clear="clearPathsHotkey">Clear</button></span></div>
-            <div class="row"><div class="rl">Auto-flask toggle<small>F8 default</small></div>
+            <div class="row"><div class="rl" title="{{H.HkAutoFlask}}">Auto-flask toggle<small>F8 default</small></div>
               <span class="hkctl"><span class="hk-display" data-hk="autoFlaskToggleHotkey">F8</span>
                 <button type="button" class="chip" data-hk-bind="autoFlaskToggleHotkey">Bind</button>
                 <button type="button" class="chip" data-hk-pad="autoFlaskToggleHotkey">Pad</button>
                 <button type="button" class="chip" data-hk-clear="autoFlaskToggleHotkey">Clear</button></span></div>
-            <div class="row"><div class="rl">Atlas tile pick<small>F10 default — atlas routing</small></div>
+            <div class="row"><div class="rl" title="{{H.HkAtlasPick}}">Atlas tile pick<small>F10 default — atlas routing</small></div>
               <span class="hkctl"><span class="hk-display" data-hk="atlasPickHotkey">F10</span>
                 <button type="button" class="chip" data-hk-bind="atlasPickHotkey">Bind</button>
                 <button type="button" class="chip" data-hk-pad="atlasPickHotkey">Pad</button>
                 <button type="button" class="chip" data-hk-clear="atlasPickHotkey">Clear</button></span></div>
-            <div class="row"><div class="rl">Overlay settings<small>F11 default</small></div>
+            <div class="row"><div class="rl" title="{{H.HkToggleSettings}}">Overlay settings<small>F11 default</small></div>
               <span class="hkctl"><span class="hk-display" data-hk="toggleSettingsHotkey">F11</span>
                 <button type="button" class="chip" data-hk-bind="toggleSettingsHotkey">Bind</button>
                 <button type="button" class="chip" data-hk-pad="toggleSettingsHotkey">Pad</button>
                 <button type="button" class="chip" data-hk-clear="toggleSettingsHotkey">Clear</button></span></div>
-            <div class="row"><div class="rl">Open dashboard<small>F12 default (PoE2 focused)</small></div>
+            <div class="row"><div class="rl" title="{{H.HkOpenDashboard}}">Open dashboard<small>F12 default (PoE2 focused)</small></div>
               <span class="hkctl"><span class="hk-display" data-hk="openDashboardHotkey">F12</span>
                 <button type="button" class="chip" data-hk-bind="openDashboardHotkey">Bind</button>
                 <button type="button" class="chip" data-hk-pad="openDashboardHotkey">Pad</button>
                 <button type="button" class="chip" data-hk-clear="openDashboardHotkey">Clear</button></span></div>
-            <div class="row"><div class="rl">Quit overlay<small>F9 default</small></div>
+            <div class="row"><div class="rl" title="{{H.HkQuit}}">Quit overlay<small>F9 default</small></div>
               <span class="hkctl"><span class="hk-display" data-hk="quitHotkey">F9</span>
                 <button type="button" class="chip" data-hk-bind="quitHotkey">Bind</button>
                 <button type="button" class="chip" data-hk-pad="quitHotkey">Pad</button>
@@ -1770,20 +1896,20 @@ function drRow(r,i){
       <div class="dr-section">Then on the map</div>
       <div class="dr-preview-lg">${r.hide?'':iconPreview(r.shape,r.color,r.sprite,32)}</div>
       <div class="ctl">
-        <label class="drflag dr-hideflag" title="Don&rsquo;t draw on the radar when this rule matches"><input type="checkbox" class="dr-hide"${r.hide?' checked':''}> Don&rsquo;t show on map</label>
+        <label class="drflag dr-hideflag" title="{{H.RulesHide}}"><input type="checkbox" class="dr-hide"${r.hide?' checked':''}> Don&rsquo;t show on map</label>
         ${pickerHtml(r.shape,r.color,r.sprite)}
         <input type="color" class="dr-color" value="${r.color||'#ffffff'}">
         <input type="range" class="op dr-op" min="0" max="100" value="${pct(r.opacity)}"><span class="opv">${pct(r.opacity)}%</span>
         <input type="number" class="numin sz dr-size" step="0.1" min="0.5" value="${r.size}">
         <span class="mcats-lbl">Icon from sheet</span>${spriteCtl(r)}
         <input class="mname dr-label" style="flex:1;min-width:70px" value="${esc(r.label||'')}" placeholder="Label (optional)">
-        <label class="drflag" title="Draw a walking path to this (needs paths enabled in Settings)"><input type="checkbox" class="dr-nav"${r.navigable?' checked':''}> Show path to this</label>
+        <label class="drflag" title="{{H.RulesPath}}"><input type="checkbox" class="dr-nav"${r.navigable?' checked':''}> Show path to this</label>
       </div>
     </div>`:'';
   return `<div class="mechrow drrow${r.hide?' hideon':''}${open?' open':''}${r.enabled?'':' off'}" data-i="${i}" draggable="true">
     <div class="drhead">
       <button type="button" class="ordbtn dr-drag" title="Drag to reorder">⠿</button>
-      <label class="sw" title="When paused, this rule is ignored and the next rule can match"><input type="checkbox" class="dr-en"${r.enabled?' checked':''}><span class="track"></span><span class="knob"></span></label>
+      <label class="sw" title="{{H.RulesPaused}}"><input type="checkbox" class="dr-en"${r.enabled?' checked':''}><span class="track"></span><span class="knob"></span></label>
       <span class="dr-status${r.enabled?'':' paused'}">${r.enabled?'Active':'Paused'}</span>
       <span class="drcaret">${open?'▾':'▸'}</span>
       <span class="drswatch">${r.hide?'':iconPreview(r.shape,r.color,r.sprite,15)}</span>
