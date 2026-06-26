@@ -14,7 +14,6 @@ public sealed class RadarSettingsMigrationTests
             PathTogglesMigrated = false,
             ShowPathWorld = false,
             ShowPathMap = false,
-            ShowPathMinimap = false,
         };
 
         var changed = s.Migrate();
@@ -23,7 +22,6 @@ public sealed class RadarSettingsMigrationTests
         Assert.True(s.PathTogglesMigrated);
         Assert.True(s.ShowPathWorld);
         Assert.True(s.ShowPathMap);
-        Assert.True(s.ShowPathMinimap);
     }
 
     [Fact]
@@ -35,7 +33,6 @@ public sealed class RadarSettingsMigrationTests
 
         Assert.False(s.ShowPathWorld);
         Assert.False(s.ShowPathMap);
-        Assert.False(s.ShowPathMinimap);
     }
 
     [Fact]
@@ -135,16 +132,15 @@ public sealed class RadarSettingsMigrationTests
         {
             ShowPathWorld = true,
             ShowPathMap = false,
-            ShowPathMinimap = false,
         };
 
         Assert.True(s.ShowPathAnyLayer);
 
         s.ShowPathWorld = false;
-        s.ShowPathMinimap = true;
+        s.ShowPathMap = true;
         Assert.True(s.ShowPathAnyLayer);
 
-        s.ShowPathMinimap = false;
+        s.ShowPathMap = false;
         Assert.False(s.ShowPathAnyLayer);
     }
 
@@ -155,7 +151,6 @@ public sealed class RadarSettingsMigrationTests
         {
             ShowPathWorld = false,
             ShowPathMap = true,
-            ShowPathMinimap = false,
             AutoPathNavigable = false,
         };
 
@@ -163,6 +158,5 @@ public sealed class RadarSettingsMigrationTests
 
         Assert.False(s.ShowPathWorld);
         Assert.True(s.ShowPathMap);
-        Assert.False(s.ShowPathMinimap);
     }
 }

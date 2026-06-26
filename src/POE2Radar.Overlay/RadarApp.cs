@@ -133,7 +133,6 @@ public sealed partial class RadarApp : IDisposable
     private bool _trackKeyWasDown;
     private bool _settingsWereOpen;
     private MapFrame _lastMapFrame;
-    private MapFrame _lastMiniMapFrame;
     private NumVec2 _lastPlayerGrid;
     private string? _cursorInspectTitle;
     private string? _cursorInspectMeta;
@@ -589,22 +588,14 @@ public sealed partial class RadarApp : IDisposable
     {
         if (!ctx.InGame || !ctx.Active || ctx.AtlasOpen || ctx.MapLockLocalPlayer == 0)
             return null;
-        if (frame.IsMinimap)
-        {
-            if (!MapOverlayDrawPolicy.ShouldDrawMinimap(ctx.Map, ctx.MiniMap))
-                return null;
-        }
-        else if (!MapOverlayDrawPolicy.ShouldDrawLargeMap(ctx.Map))
-        {
+        if (!MapOverlayDrawPolicy.ShouldDrawLargeMap(ctx.Map))
             return null;
-        }
 
         return _live.TryReadMapPanLock(
             ctx.MapLockLocalPlayer,
-            ctx.MapLockMiniElement,
+            ctx.MapLockTogglerElement,
             ctx.MapLockLargeElement,
-            new Poe2Live.MapViews(ctx.Map, ctx.MiniMap),
-            frame.IsMinimap,
+            new Poe2Live.MapViews(ctx.Map, ctx.MapLockTogglerElement),
             ctx.WindowWidth,
             ctx.WindowHeight,
             out var sample)
@@ -720,18 +711,14 @@ public sealed partial class RadarApp : IDisposable
         var lootPayload = BuildLootRenderPayload(snap.AreaHash, live.InGame);
 
         var largeMap = live.Maps.LargeMap;
-        var miniMap = live.Maps.MiniMap;
         _state = new RadarState(live.InGame, snap.AreaHash, snap.AreaLevel, largeMap.IsVisible, largeMap.Zoom, live.PlayerGrid, snap.Entities, snap.Landmarks,
             _hpPct, _manaPct, _esPct, _autoFlask, _flaskNote, _areaCode, _charName, snap.CharLevel, _perfSnapshot,
             MapDiag: _mapDiag,
-            MiniMapVisible: miniMap.IsVisible, MiniMapRect: miniMap.HasScreenRect,
-            MiniMapW: miniMap.Width, MiniMapH: miniMap.Height,
             GameFocused: realActive, OverlayActive: drawActive,
             OverlayW: windowWidth, OverlayH: windowHeight, GameHwnd: _gameHwnd);
 
         var atlasProj = AtlasProjection();
         var mapFrame = BuildLargeMapFrame(largeMap, windowWidth, windowHeight, live.PlayerTerrainHeight);
-        var miniMapFrame = BuildMiniMapFrame(miniMap, windowWidth, windowHeight, live.PlayerTerrainHeight);
         var visual = _visualSmoother.Update(
             Stopwatch.GetTimestamp(),
             _settings.SmoothOverlayMotion,
@@ -745,13 +732,10 @@ public sealed partial class RadarApp : IDisposable
                 live.PlayerWorld,
                 live.PlayerTerrainHeight,
                 largeMap,
-                miniMap,
                 mapFrame,
-                miniMapFrame,
                 _atlasOpen,
                 live.CameraMatrix));
         _lastMapFrame = mapFrame;
-        _lastMiniMapFrame = miniMapFrame;
         _lastPlayerGrid = live.PlayerGrid;
         if (live.InGame)
         {
@@ -774,9 +758,7 @@ public sealed partial class RadarApp : IDisposable
             RawPlayerGrid: live.PlayerGrid,
             RawPlayerWorld: live.PlayerWorld,
             Map: largeMap,
-            MiniMap: miniMap,
             MapFrame: mapFrame,
-            MiniMapFrame: miniMapFrame,
             Entities: snap.Entities,
             Landmarks: snap.Landmarks,
             ServerIcons: snap.ServerIcons,
@@ -801,7 +783,6 @@ public sealed partial class RadarApp : IDisposable
             ShowPathWorld: _settings.ShowPathWorld,
             ShowGroundWaypoints: _settings.ShowGroundWaypoints,
             ShowPathMap: _settings.ShowPathMap,
-            ShowPathMinimap: _settings.ShowPathMinimap,
             UseCuratedLandmarks: _settings.UseCuratedLandmarks,
             ShowMonsters: _settings.ShowMonsters,
             ShowTerrain: _settings.ShowTerrain,
@@ -868,7 +849,7 @@ public sealed partial class RadarApp : IDisposable
             ShowMonolithPanel: _settings.Monoliths.ShowPanel,
             ShowMonolithMapLabel: _settings.Monoliths.ShowMapLabel,
             MapLockLocalPlayer: live.InGame ? live.LocalPlayer : 0,
-            MapLockMiniElement: miniMap.Element,
+            MapLockTogglerElement: live.Maps.CornerTogglerElement,
             MapLockLargeElement: largeMap.Element);
         _imguiOverlay?.UpdateContext(ctx);
 
@@ -1062,44 +1043,7 @@ public sealed partial class RadarApp : IDisposable
             _settings.OffX,
             _settings.OffY,
             _settings.ScaleMul);
-        return new MapFrame(center, scale, w, h, map.Element, playerTerrainHeight, NumVec2.Zero, IsMinimap: false);
-    }
-
-    private MapFrame BuildMiniMapFrame(Poe2Live.MapUi map, int windowWidth, int windowHeight, float playerTerrainHeight)
-    {
-        var fallbackSide = MathF.Max(1f, MathF.Min(windowWidth, windowHeight) * 0.28f);
-        var width = map.Width;
-        var height = map.Height;
-        var x = map.PositionX;
-        var y = map.PositionY;
-        var hasUiFrame =
-            map.Element != 0 &&
-            map.HasScreenRect &&    // raw unscaled values must never place the on-screen frame
-            float.IsFinite(width) && float.IsFinite(height) &&
-            float.IsFinite(x) && float.IsFinite(y) &&
-            width >= 32f && height >= 32f &&
-            width <= MathF.Max(1f, windowWidth) && height <= MathF.Max(1f, windowHeight);
-
-        if (!hasUiFrame)
-        {
-            width = fallbackSide;
-            height = fallbackSide;
-            x = MathF.Max(0f, windowWidth - width - 18f);
-            y = 18f;
-        }
-
-        var (center, scale) = MapFrameBuilder.MiniMapProjection(
-            windowWidth,
-            windowHeight,
-            map.ShiftX,
-            map.ShiftY,
-            map.Zoom,
-            _settings.ScaleMul,
-            x,
-            y,
-            x + width,
-            y + height);
-        return new MapFrame(center, scale, width, height, map.Element, playerTerrainHeight, new NumVec2(x, y), IsMinimap: true);
+        return new MapFrame(center, scale, w, h, map.Element, playerTerrainHeight);
     }
 
     /// <summary>Decide which monsters get an HP bar and precompute each bar's style (width + packed
@@ -1362,13 +1306,12 @@ public sealed partial class RadarApp : IDisposable
 
         IReadOnlyList<Poe2Live.EntityDot> entities =
             _snapshot.Entities.Length > 0 ? _snapshot.Entities : _entities;
-        var (largeFrame, miniFrame) = ActiveMapFrames(_liveFrame.Maps);
+        var largeFrame = ActiveMapFrame(_liveFrame.Maps);
         if (!EntityUnderCursorPicker.TryPick(
                 cursor,
                 windowWidth,
                 windowHeight,
                 largeFrame,
-                miniFrame,
                 playerGrid,
                 entities,
                 _settings.ImportantOnly,
@@ -1385,12 +1328,8 @@ public sealed partial class RadarApp : IDisposable
         return true;
     }
 
-    private (MapFrame Large, MapFrame Mini) ActiveMapFrames(Poe2Live.MapViews maps)
-    {
-        var large = MapOverlayDrawPolicy.ShouldDrawLargeMap(maps.LargeMap) ? _lastMapFrame : default;
-        var mini = MapOverlayDrawPolicy.ShouldDrawMinimap(maps.LargeMap, maps.MiniMap) ? _lastMiniMapFrame : default;
-        return (large, mini);
-    }
+    private MapFrame ActiveMapFrame(Poe2Live.MapViews maps)
+        => MapOverlayDrawPolicy.ShouldDrawLargeMap(maps.LargeMap) ? _lastMapFrame : default;
 
     private bool TryPickEntityUnderCursor(string failPrefix, out Poe2Live.EntityDot entity)
     {

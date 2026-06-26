@@ -97,16 +97,14 @@ public readonly record struct PerfSnapshot(
     public static readonly PerfSnapshot Empty = new();
 }
 
-/// <summary>Per-frame map projection state for a concrete game map UI rectangle.</summary>
+/// <summary>Per-frame map projection state for the Tab large-map overlay.</summary>
 public readonly record struct MapFrame(
     NumVec2 Center,
     float Scale,
     float Width,
     float Height,
     nint MapElement,
-    float PlayerTerrainHeight,
-    NumVec2 Position,
-    bool IsMinimap);
+    float PlayerTerrainHeight);
 
 /// <summary>A monster HP bar to draw, with everything expensive already decided at world rate: the style
 /// (width + packed 0xAARRGGBB fill/border colors) was resolved once when the entity set was built; only
@@ -188,9 +186,7 @@ public sealed record RenderContext(
     NumVec2 RawPlayerGrid,
     System.Numerics.Vector3 RawPlayerWorld,
     Poe2Live.MapUi Map,
-    Poe2Live.MapUi MiniMap,
     MapFrame MapFrame,
-    MapFrame MiniMapFrame,
     Poe2Live.EntityDot[] Entities,
     Poe2Live.Landmark[] Landmarks,
     Poe2Live.ServerMinimapIcon[] ServerIcons,
@@ -221,7 +217,6 @@ public sealed record RenderContext(
     bool ShowPathWorld,
     bool ShowGroundWaypoints,
     bool ShowPathMap,
-    bool ShowPathMinimap,
     bool UseCuratedLandmarks,
     // Radar display toggles.
     bool ShowMonsters,
@@ -260,7 +255,7 @@ public sealed record RenderContext(
     // watched/mechanic/category dot decision in DrawMap. Null only if not wired (defensive). ──
     // Tile-landmark styling resolver (Phase 2b): given a tile path, the matching "Tile"-category rule
     // (styling pass) or null. Lets a rule restyle/hide a surfaced landmark; null → default Landmark style.
-    // ── Atlas overlay (takes precedence over the minimap/radar when the Atlas screen is open). ──
+    // ── Atlas overlay (takes precedence over the Tab map overlay when the Atlas screen is open). ──
     bool AtlasOpen = false,                       // the Atlas screen is open → draw atlas highlights + route, suppress radar
     IReadOnlyList<AtlasMark>? AtlasNodes = null,   // atlas nodes to draw (canvas-space coords)
     bool AtlasShowOnScreenNodes = true,
@@ -310,5 +305,5 @@ public sealed record RenderContext(
     bool ShowMonolithMapLabel = true,
     // Handles for render-thread map pan lock (shift/zoom + player read every draw frame).
     nint MapLockLocalPlayer = 0,
-    nint MapLockMiniElement = 0,
+    nint MapLockTogglerElement = 0,
     nint MapLockLargeElement = 0);

@@ -44,7 +44,6 @@ internal static class DashboardHtml
         .Replace("{{H.ShowPathWorld}}", H(SettingHints.Radar.ShowPathWorld))
         .Replace("{{H.ShowGroundWaypoints}}", H(SettingHints.Radar.ShowGroundWaypoints))
         .Replace("{{H.ShowPathMap}}", H(SettingHints.Radar.ShowPathMap))
-        .Replace("{{H.ShowPathMinimap}}", H(SettingHints.Radar.ShowPathMinimap))
         .Replace("{{H.PathDisplaySection}}", H(SettingHints.Radar.PathDisplaySection))
         .Replace("{{H.AutoPathSection}}", H(SettingHints.Radar.AutoPathSection))
         .Replace("{{H.AutoPathNearest}}", H(SettingHints.Entities.AutoPathNearest))
@@ -53,7 +52,7 @@ internal static class DashboardHtml
         .Replace("{{H.NavMenuCorner}}", H(SettingHints.Performance.NavMenuCorner))
         .Replace("{{H.GlobalIconScale}}", H(SettingHints.DisplayRules.GlobalIconScale))
         .Replace("{{H.LargeMapScale}}", H(SettingHints.Radar.LargeMapScale))
-        .Replace("{{H.MinimapScale}}", H(SettingHints.Radar.MinimapScale))
+        .Replace("{{H.MapScale}}", H(SettingHints.Radar.MapScale))
         .Replace("{{H.OffsetX}}", H(SettingHints.Radar.OffsetX))
         .Replace("{{H.OffsetY}}", H(SettingHints.Radar.OffsetY))
         .Replace("{{H.TerrainInterior}}", H(SettingHints.Radar.TerrainInterior))
@@ -900,8 +899,6 @@ internal static class DashboardHtml
               <label class="sw"><input type="checkbox" data-set="showGroundWaypoints"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.ShowPathMap}}">Path on large map<small>route overlay when Tab map is open</small></div>
               <label class="sw"><input type="checkbox" data-set="showPathMap"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.ShowPathMinimap}}">Path on minimap<small>route inside the corner minimap</small></div>
-              <label class="sw"><input type="checkbox" data-set="showPathMinimap"><span class="track"></span><span class="knob"></span></label></div>
             <h4 class="subhead" style="margin-top:14px" title="{{H.AutoPathSection}}">Auto-path targeting</h4>
             <p class="hint-oneline">Picks nearest nav targets automatically. Manual F6/legend picks always work.</p>
             <div class="row"><div class="rl" title="{{H.AutoPathNearest}}">Auto-path to nearest targets<small>continuously path to nearest entities whose rule has &ldquo;Show path to this&rdquo;</small></div>
@@ -996,7 +993,7 @@ internal static class DashboardHtml
             <h3>Map Calibration</h3>
             <div class="row"><div class="rl" title="{{H.LargeMapScale}}">Large-map scale base<small>GameHelper-style diagonal/zoom multiplier</small></div>
               <input class="numin" type="number" step="0.0001" min="0.01" data-set="largeMapScaleMultiplier"></div>
-            <div class="row"><div class="rl" title="{{H.MinimapScale}}">Scale multiplier<small>projection scale of the map overlay</small></div>
+            <div class="row"><div class="rl" title="{{H.MapScale}}">Scale multiplier<small>projection scale of the map overlay</small></div>
               <input class="numin" type="number" step="0.01" data-set="scaleMul"></div>
             <div class="row"><div class="rl" title="{{H.OffsetX}}">Offset X</div><input class="numin" type="number" step="1" data-set="offX"></div>
             <div class="row"><div class="rl" title="{{H.OffsetY}}">Offset Y</div><input class="numin" type="number" step="1" data-set="offY"></div>

@@ -60,7 +60,6 @@ internal static class SettingHints
         public const string ShowPathWorld = "Draw route polylines and target label chips on the world view (independent of auto-path and other map layers).";
         public const string ShowGroundWaypoints = "World-screen breadcrumbs when the Tab map is closed (requires path on world view).";
         public const string ShowPathMap = "Draw route lines on the large Tab map (independent of other layers).";
-        public const string ShowPathMinimap = "Draw route lines on the corner minimap (independent of other layers).";
         public const string PathDisplaySection = "Where selected path targets are drawn — each layer is independent.";
         public const string AutoPathSection = "How targets are picked — does not enable or disable path drawing.";
         public const string HideJunk = "Hide cosmetic FX, daemons, and other noise dots on the map.";
@@ -69,7 +68,7 @@ internal static class SettingHints
         public const string LandmarkClusterGap = "Max tile distance for merging nearby landmarks into one marker (0 = disable clustering).";
         public const string DrawAllLandmarkPaths = "Draw path lines to every landmark tile (heavy; off by default).";
         public const string LargeMapScale = "Tab-map overlay scale multiplier (fine-tune large map alignment).";
-        public const string MinimapScale = "Adjust the map overlay zoom multiplier relative to the game's minimap.";
+        public const string MapScale = "Adjust the Tab map overlay zoom multiplier.";
         public const string OffsetX = "Shift the entire map overlay horizontally in pixels.";
         public const string OffsetY = "Shift the entire map overlay vertically in pixels.";
         public const string TerrainInterior = "Color and opacity for the interior of walkable terrain cells.";
@@ -219,8 +218,8 @@ internal static class SettingHints
         public const string MinReward = "Minimum expected reward value to show a monolith.";
         public const string MinValue = "Minimum total monolith value to show on the map.";
         public const string HideCollected = "Hide monoliths you have already collected.";
-        public const string ShowMapLabel = "Draw the monolith value label on the map.";
-        public const string ShowPanel = "Show the detailed reward panel in-game.";
+        public const string ShowMapLabel = "Draw monolith value chips on the Tab map overlay (not the corner minimap).";
+        public const string ShowPanel = "Screen-space reward list; stacks below the corner minimap when the Tab map is closed.";
     }
 
     internal static class Dashboard

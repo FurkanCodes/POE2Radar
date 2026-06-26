@@ -159,8 +159,6 @@ public sealed class ApiServer : IDisposable
                     areaAct = ZoneGuide.Shared.Area(s.AreaCode)?.Act ?? 0,
                     charName = s.CharName, charLevel = s.CharLevel,
                     mapVisible = s.MapVisible, zoom = s.Zoom,
-                    miniMapVisible = s.MiniMapVisible, miniMapRect = s.MiniMapRect,
-                    miniMapW = s.MiniMapW, miniMapH = s.MiniMapH,
                     mapDiag = s.MapDiag,
                     gameFocused = s.GameFocused, overlayActive = s.OverlayActive,
                     overlayW = s.OverlayW, overlayH = s.OverlayH, gameHwnd = s.GameHwnd.ToInt64(),
@@ -561,7 +559,6 @@ public sealed class ApiServer : IDisposable
         showPathWorld = _settings.ShowPathWorld,
         showGroundWaypoints = _settings.ShowGroundWaypoints,
         showPathMap = _settings.ShowPathMap,
-        showPathMinimap = _settings.ShowPathMinimap,
         autoPathNavigable = _settings.AutoPathNavigable,
         importantOnly = _settings.ImportantOnly,
         entityDrawRadiusGrid = _settings.EntityDrawRadiusGrid,
@@ -683,13 +680,11 @@ public sealed class ApiServer : IDisposable
                 case "showPath" when TryBool(p.Value, out var b):
                     _settings.ShowPathWorld = b;
                     _settings.ShowPathMap = b;
-                    _settings.ShowPathMinimap = b;
                     applied.Add(p.Name);
                     break;
                 case "showPathWorld" when TryBool(p.Value, out var b): _settings.ShowPathWorld = b; applied.Add(p.Name); break;
                 case "showGroundWaypoints" when TryBool(p.Value, out var b): _settings.ShowGroundWaypoints = b; applied.Add(p.Name); break;
                 case "showPathMap" when TryBool(p.Value, out var b): _settings.ShowPathMap = b; applied.Add(p.Name); break;
-            case "showPathMinimap" when TryBool(p.Value, out var b): _settings.ShowPathMinimap = b; applied.Add(p.Name); break;
             case "autoPathNavigable" when TryBool(p.Value, out var b):
                     _settings.AutoPathNavigable = b;
                     applied.Add(p.Name);
@@ -1480,10 +1475,6 @@ public sealed record RadarState(
     int CharLevel,
     PerfSnapshot Perf,
     string MapDiag = "",
-    bool MiniMapVisible = false,
-    bool MiniMapRect = false,
-    float MiniMapW = 0f,
-    float MiniMapH = 0f,
     bool GameFocused = false,
     bool OverlayActive = false,
     int OverlayW = 0,

@@ -53,90 +53,13 @@ public sealed class MapViewportLogicTests
     }
 
     [Fact]
-    public void IsPlausibleMinimapRect_RejectsFullscreenLayoutRect()
-    {
-        Assert.True(MapViewportLogic.IsPlausibleMinimapRect(1650, 850, 1870, 1070, W, H));
-        Assert.False(MapViewportLogic.IsPlausibleMinimapRect(171, 72, 3267, 1368, W, H));
-    }
-
-    [Fact]
-    public void IsTopRightMinimapRect_RejectsMidScreenLayoutRect()
-    {
-        // Live --map-probe on 3440×1440: corner widget parent-chain rect, not the visible minimap.
-        Assert.False(MapViewportLogic.IsTopRightMinimapRect(1719.9f, 720f, 1944.9f, 945f, 3440, 1440));
-        Assert.True(MapViewportLogic.IsTopRightMinimapRect(3200f, 90f, 3420f, 310f, 3440, 1440));
-    }
-
-    [Fact]
-    public void ResolveMinimapClipRect_UsesTopRightFallbackForBadLayoutRect()
-    {
-        var (l, t, r, b) = MapViewportLogic.ResolveMinimapClipRect(
-            1719.9f, 720f, 1944.9f, 945f, 3440, 1440, 1440 / 1600f);
-
-        Assert.True(l > 3000f);
-        Assert.True(t < 1440 * 0.25f);
-    }
-
-    [Fact]
-    public void TopRightMinimapRect_IsTopRightAndScaled()
-    {
-        var uiScale = H / 1600f;
-        var (l, t, r, b) = MapViewportLogic.TopRightMinimapRect(W, H, uiScale);
-        var side = MapViewportLogic.DefaultMinimapSide(H, uiScale);
-
-        Assert.InRange(r - l, side - 1f, side + 1f);
-        Assert.InRange(b - t, side - 1f, side + 1f);
-        Assert.True(l > W * 0.5f);
-        Assert.True(t < H * 0.35f);
-    }
-
-    [Fact]
-    public void DefaultMinimapSide_ScalesWithClientHeight()
-    {
-        Assert.InRange(MapViewportLogic.DefaultMinimapSide(1440, 0.9f), 270f, 278f);
-        Assert.InRange(MapViewportLogic.DefaultMinimapSide(1080, 0.675f), 200f, 210f);
-    }
-
-    [Fact]
-    public void MapProjectionCenter_MinimapIgnoresPanShiftAndDefaultShift()
-    {
-        var (x, y) = MapViewportLogic.MapProjectionCenter(
-            W, H, shiftX: 14f, shiftY: 173f, offsetX: 0f, offsetY: 0f,
-            minimapClip: true, clipLeft: 3070f, clipTop: 9f, clipRight: 3432f, clipBottom: 371f);
-
-        Assert.Equal(3251f, x, 0);
-        Assert.Equal(190f, y, 0);
-    }
-
-    [Fact]
     public void MapProjectionCenter_LargeMapAppliesDefaultShiftY()
     {
         var (x, y) = MapViewportLogic.MapProjectionCenter(
-            W, H, shiftX: 14f, shiftY: 173f, offsetX: 0f, offsetY: 0f,
-            minimapClip: false, 0, 0, 0, 0);
+            W, H, shiftX: 14f, shiftY: 173f, offsetX: 0f, offsetY: 0f);
 
         Assert.Equal(W * 0.5f + 14f, x, 0);
         Assert.Equal(H * 0.5f + 173f + MapViewportLogic.MapDefaultShiftY, y, 0);
-    }
-
-    [Fact]
-    public void TrySelectMinimapFrameRect_PicksLargestTopRightSquareSibling()
-    {
-        // Live --map-scan-frames @ 3440×1440: 402×402 frame (362px) beats smaller HUD icons.
-        var candidates = new[]
-        {
-            new MapViewportLogic.MinimapFrameCandidate(89, 89, 3092, 178, 3172, 258, true),
-            new MapViewportLogic.MinimapFrameCandidate(402, 402, 3070, 9, 3432, 371, true),
-            new MapViewportLogic.MinimapFrameCandidate(693, 230, 2817, 380, 3440, 587, true),
-        };
-
-        Assert.True(MapViewportLogic.TrySelectMinimapFrameRect(candidates, 3440, 1440,
-            out var l, out var t, out var r, out var b));
-
-        Assert.Equal(3070f, l, 0);
-        Assert.Equal(9f, t, 0);
-        Assert.Equal(3432f, r, 0);
-        Assert.Equal(371f, b, 0);
     }
 
     [Fact]
@@ -145,12 +68,8 @@ public sealed class MapViewportLogicTests
         var score = typeof(Poe2Live).GetMethod("ScoreMapViews", BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(score);
 
-        var visibleController = new Poe2Live.MapViews(
-            Map(visible: true, rect: true, element: 1),
-            Map(visible: true, rect: true, element: 2));
-        var staleKeyboard = new Poe2Live.MapViews(
-            Map(visible: false, rect: true, element: 3),
-            Map(visible: false, rect: true, element: 4));
+        var visibleController = new Poe2Live.MapViews(Map(visible: true, rect: true, element: 1));
+        var staleKeyboard = new Poe2Live.MapViews(Map(visible: false, rect: true, element: 3));
 
         var controllerScore = Assert.IsType<int>(score!.Invoke(null, [visibleController]));
         var keyboardScore = Assert.IsType<int>(score.Invoke(null, [staleKeyboard]));

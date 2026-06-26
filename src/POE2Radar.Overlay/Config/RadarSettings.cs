@@ -18,10 +18,9 @@ public sealed class RadarSettings
     public bool PathTogglesMigrated { get; set; }
     public bool ShowPathWorld { get; set; } = true;
     public bool ShowPathMap { get; set; } = true;
-    public bool ShowPathMinimap { get; set; } = true;
     /// <summary>True when any path draw layer is enabled (API backward compat for legacy <c>showPath</c>).</summary>
     [JsonIgnore]
-    public bool ShowPathAnyLayer => ShowPathWorld || ShowPathMap || ShowPathMinimap;
+    public bool ShowPathAnyLayer => ShowPathWorld || ShowPathMap;
     /// <summary>Ground-screen breadcrumbs when the Tab map is closed (sub-toggle of <see cref="ShowPathWorld"/>).</summary>
     public bool ShowGroundWaypoints { get; set; } = true;
     public bool UseCuratedLandmarks { get; set; } = true;
@@ -397,7 +396,7 @@ public sealed class RadarSettings
 
         if (!PathTogglesMigrated)
         {
-            ShowPathWorld = ShowPathMap = ShowPathMinimap = ShowPath;
+            ShowPathWorld = ShowPathMap = ShowPath;
             PathTogglesMigrated = true;
             changed = true;
         }

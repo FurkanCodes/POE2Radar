@@ -2,7 +2,7 @@ namespace POE2Radar.Core.Game;
 
 public sealed partial class Poe2Live
 {
-    /// <summary>One map viewport (large Tab map or corner minimap): projection params + screen clip rect.</summary>
+    /// <summary>Tab map viewport: projection params + optional screen clip rect.</summary>
     public readonly record struct MapViewport(
         bool Visible, float ShiftX, float ShiftY, float Zoom,
         float ScreenLeft, float ScreenTop, float ScreenRight, float ScreenBottom)
@@ -12,10 +12,10 @@ public sealed partial class Poe2Live
         public float ScreenHeight => ScreenBottom - ScreenTop;
     }
 
-    /// <summary>Large map + corner minimap UI state, discovered once per area.</summary>
-    public readonly record struct MapState(MapViewport Large, MapViewport Mini)
+    /// <summary>Tab large-map UI state, discovered once per area.</summary>
+    public readonly record struct MapState(MapViewport Large)
     {
-        public static readonly MapState Empty = new(default, default);
+        public static readonly MapState Empty = default;
         public bool IsLargeOpen => Large.Visible;
     }
 
@@ -53,28 +53,7 @@ public sealed partial class Poe2Live
         else
             large = FallbackLargeMapViewport();
 
-        // ── Corner minimap: only while Tab map is closed; clip rect from the square frame sibling
-        // (live --map-scan-frames), not the 0×0 MapUiElement's parent-chain rect.
-        MapViewport mini = default;
-        if (!large.Visible && _classifiedMiniEl != 0
-            && TryReadActiveMapProjection(_classifiedMiniEl, _classifiedLargeEl, out var msx, out var msy, out var mzoom))
-        {
-            float cl, ct, cr, cb;
-            if (!TryReadMinimapFrameRect(
-                    _classifiedMiniEl, uiScale, windowWidth, windowHeight, out _, out cl, out ct, out cr, out cb))
-            {
-                var rect = ReadElementScreenRect(_classifiedMiniEl, uiScale, windowWidth, windowHeight);
-                (cl, ct, cr, cb) = MapViewportLogic.ResolveMinimapClipRect(
-                    rect.left, rect.top, rect.right, rect.bottom, windowWidth, windowHeight, uiScale);
-            }
-
-            mini = new MapViewport(true, msx, msy, mzoom, cl, ct, cr, cb);
-
-            if (mini.Zoom > 0.05f)
-                mini = mini with { Visible = true };
-        }
-
-        return new MapState(large, mini);
+        return new MapState(large);
     }
 
     /// <summary>Assign Tab-map vs corner-minimap from intrinsic UiElement size (MapParent is not valid in PoE2).</summary>
@@ -186,78 +165,6 @@ public sealed partial class Poe2Live
     private readonly record struct ScreenRect(float left, float top, float right, float bottom)
     {
         public bool HasArea => MapViewportLogic.HasArea(left, top, right, bottom);
-    }
-
-    /// <summary>
-    /// While the corner minimap is shown, the fullscreen MapUiElement is locally visible and carries
-    /// the live pan/zoom; the 0×0 corner MapUiElement does not.
-    /// </summary>
-    private bool TryReadActiveMapProjection(nint miniEl, nint largeEl, out float shiftX, out float shiftY, out float zoom)
-    {
-        if (largeEl != 0
-            && TryReadMapElement(largeEl, out var largeLocal, out _, out shiftX, out shiftY, out zoom)
-            && largeLocal)
-            return true;
-        return TryReadMapElement(miniEl, out _, out _, out shiftX, out shiftY, out zoom);
-    }
-
-    /// <summary>
-    /// The visible minimap border is a square UiElement sibling under the corner MapUiElement's parent
-    /// (Research --map-scan-frames: parent.children → 402×402 @ top-right).
-    /// </summary>
-    private bool TryReadMinimapFrameRect(
-        nint miniMapEl, float uiScale, int windowWidth, int windowHeight,
-        out nint frameEl, out float left, out float top, out float right, out float bottom)
-    {
-        frameEl = 0;
-        left = top = right = bottom = 0;
-        var parent = Ptr(miniMapEl + Poe2.UiElement.Parent);
-        if (parent == 0) return false;
-
-        var first = Ptr(parent + Poe2.UiElement.Children);
-        if (first == 0 || !_reader.TryReadStruct<nint>(parent + Poe2.UiElement.Children + 8, out var lastC))
-            return false;
-        var n = ((long)lastC - (long)first) / 8;
-        if (n is <= 0 or > 256) return false;
-
-        var candidates = new List<MapViewportLogic.MinimapFrameCandidate>((int)n);
-        var children = new List<nint>((int)n);
-        for (long k = 0; k < n; k++)
-        {
-            var child = Ptr(first + (nint)(k * 8));
-            if (child == 0 || child == miniMapEl) continue;
-            children.Add(child);
-            _reader.TryReadStruct<float>(child + Poe2.UiElement.SizeW, out var w);
-            _reader.TryReadStruct<float>(child + Poe2.UiElement.SizeH, out var h);
-            var rect = ReadElementScreenRect(child, uiScale, windowWidth, windowHeight);
-            candidates.Add(new MapViewportLogic.MinimapFrameCandidate(
-                w, h, rect.left, rect.top, rect.right, rect.bottom,
-                IsVisible(child)));
-        }
-
-        var bestIdx = -1;
-        var bestArea = 0f;
-        for (var i = 0; i < candidates.Count; i++)
-        {
-            var c = candidates[i];
-            if (c.Width <= 0f || c.Height <= 0f) continue;
-            var aspect = c.Width / c.Height;
-            if (aspect is < 0.85f or > 1.15f) continue;
-            if (!c.Visible) continue;
-            if (!MapViewportLogic.IsTopRightMinimapRect(c.Left, c.Top, c.Right, c.Bottom, windowWidth, windowHeight)) continue;
-            var area = (c.Right - c.Left) * (c.Bottom - c.Top);
-            if (bestIdx >= 0 && area <= bestArea) continue;
-            bestIdx = i;
-            bestArea = area;
-            left = c.Left;
-            top = c.Top;
-            right = c.Right;
-            bottom = c.Bottom;
-        }
-
-        if (bestIdx < 0) return false;
-        frameEl = children[bestIdx];
-        return true;
     }
 
     /// <summary>Walk the UiElement parent chain summing RelativePos and apply Size × UI scale for clip bounds.</summary>
@@ -397,13 +304,8 @@ public sealed partial class Poe2Live
 
         if (windowWidth > 0 && windowHeight > 0)
         {
-            if (TryReadMinimapFrameRect(miniEl, uiScale, windowWidth, windowHeight, out _, out _, out _, out _, out _))
-                score += 3;
-            else
-            {
-                var rect = ReadElementScreenRect(miniEl, uiScale, windowWidth, windowHeight);
-                if (rect.HasArea) score += 1;
-            }
+            var rect = ReadElementScreenRect(miniEl, uiScale, windowWidth, windowHeight);
+            if (rect.HasArea) score += 1;
         }
 
         if (TryReadMapElement(largeEl, out var largeLocal, out var largeHier, out _, out _, out _))
@@ -447,22 +349,18 @@ public sealed partial class Poe2Live
     public MapViews ReadMapsViewport(nint inGameState, nint areaInstance, int windowWidth, int windowHeight)
     {
         var state = ReadMapState(inGameState, areaInstance, windowWidth, windowHeight);
-        return new MapViews(
-            MapViewportToMapUi(state.Large, _classifiedLargeEl),
-            MapViewportToMapUi(state.Mini, _classifiedMiniEl));
+        return new MapViews(MapViewportToMapUi(state.Large, _classifiedLargeEl), _classifiedMiniEl);
     }
 
-    /// <summary>
-    /// Tick-rate pan/zoom + minimap clip lock between full <see cref="ReadMaps"/> calls.
-    /// </summary>
+    /// <summary>Tick-rate pan/zoom lock between full <see cref="ReadMaps"/> calls.</summary>
     public MapViews RefreshMapPanZoom(MapViews current, nint areaInstance, int windowWidth, int windowHeight)
     {
         _ = areaInstance;
-        var miniEl = current.MiniMap.Element != 0 ? current.MiniMap.Element : _classifiedMiniEl;
+        var togglerEl = _classifiedMiniEl;
         var largeEl = current.LargeMap.Element != 0 ? current.LargeMap.Element : _classifiedLargeEl;
-        if (miniEl == 0 && largeEl == 0 && _classifiedMiniEl == 0 && _classifiedLargeEl == 0)
+        if (togglerEl == 0 && largeEl == 0 && _classifiedLargeEl == 0)
             return current;
-        return ApplyMapPanFromElements(current, miniEl, largeEl, windowWidth, windowHeight);
+        return ApplyMapPanFromElements(current, togglerEl, largeEl);
     }
 
     /// <summary>
@@ -471,44 +369,40 @@ public sealed partial class Poe2Live
     /// </summary>
     public bool TryReadMapPanLock(
         nint localPlayer,
-        nint miniElement,
+        nint togglerElement,
         nint largeElement,
         MapViews baseline,
-        bool forMinimap,
         int windowWidth,
         int windowHeight,
         out MapPanLockSample sample)
     {
+        _ = windowWidth;
+        _ = windowHeight;
         sample = default;
-        if (localPlayer == 0 || (miniElement == 0 && largeElement == 0 && _classifiedMiniEl == 0 && _classifiedLargeEl == 0))
+        if (localPlayer == 0 || (togglerElement == 0 && largeElement == 0 && _classifiedMiniEl == 0 && _classifiedLargeEl == 0))
             return false;
 
         var player = PlayerGrid(localPlayer);
         if (player is not { } pg)
             return false;
 
-        var maps = ApplyMapPanFromElements(baseline, miniElement, largeElement, windowWidth, windowHeight);
-        var map = forMinimap ? maps.MiniMap : maps.LargeMap;
-        if (!forMinimap && !map.IsVisible)
-            map = maps.LargeMap;
+        var maps = ApplyMapPanFromElements(baseline, togglerElement, largeElement);
+        var map = maps.LargeMap;
 
         sample = new MapPanLockSample(pg, map.ShiftX, map.ShiftY, map.Zoom > 0f ? map.Zoom : 1f);
         return true;
     }
 
-    private MapViews ApplyMapPanFromElements(MapViews current, nint miniEl, nint largeEl, int windowWidth, int windowHeight)
+    private MapViews ApplyMapPanFromElements(MapViews current, nint togglerEl, nint largeEl)
     {
         var large = current.LargeMap;
-        var mini = current.MiniMap;
 
-        // Tab-open signal lives on the BFS corner toggler, not the MapParent minimap render ptr
-        // (that element stays locally visible during normal corner-minimap play).
-        var togglerEl = _classifiedMiniEl != 0 ? _classifiedMiniEl : miniEl;
+        // Tab-open signal lives on the BFS corner toggler, not the MapParent large-map render ptr.
+        var toggler = _classifiedMiniEl != 0 ? _classifiedMiniEl : togglerEl;
         var projLargeEl = largeEl != 0 ? largeEl : _classifiedLargeEl;
-        var projMiniEl = _classifiedMiniEl != 0 ? _classifiedMiniEl : miniEl;
 
-        if (togglerEl != 0
-            && TryReadMapElement(togglerEl, out var cornerLocal, out _, out var csx, out var csy, out var czoom))
+        if (toggler != 0
+            && TryReadMapElement(toggler, out var cornerLocal, out _, out var csx, out var csy, out var czoom))
         {
             var tabOpen = MapViewportLogic.IsTabMapOpen(cornerLocal);
             if (!tabOpen && projLargeEl != 0
@@ -520,56 +414,6 @@ public sealed partial class Poe2Live
                 large = large with { IsVisible = tabOpen, ShiftX = csx, ShiftY = csy, Zoom = czoom };
         }
 
-        if (large.IsVisible)
-            mini = mini with { IsVisible = false };
-        else if (projMiniEl != 0
-                 && TryReadActiveMapProjection(projMiniEl, projLargeEl, out var msx, out var msy, out var mzoom))
-        {
-            mini = mini with { ShiftX = msx, ShiftY = msy, Zoom = mzoom };
-            if (windowWidth > 0 && windowHeight > 0)
-                mini = RefreshMinimapScreenRect(mini, projMiniEl, windowWidth, windowHeight);
-            mini = mini with { IsVisible = mzoom > 0.05f && mini.HasScreenRect };
-        }
-
-        return new MapViews(large, mini);
-    }
-
-    private MapUi RefreshMinimapScreenRect(MapUi mini, nint togglerEl, int windowWidth, int windowHeight)
-    {
-        if (togglerEl == 0)
-            return mini;
-
-        var uiScale = windowHeight / 1600f;
-        if (TryReadMinimapFrameRect(togglerEl, uiScale, windowWidth, windowHeight, out _, out var cl, out var ct, out var cr, out var cb)
-            && MapViewportLogic.IsTopRightMinimapRect(cl, ct, cr, cb, windowWidth, windowHeight))
-        {
-            return mini with
-            {
-                PositionX = cl,
-                PositionY = ct,
-                Width = cr - cl,
-                Height = cb - ct,
-                CenterX = (cl + cr) * 0.5f,
-                CenterY = (ct + cb) * 0.5f,
-                HasScreenRect = true,
-            };
-        }
-
-        var rect = ReadElementScreenRect(togglerEl, uiScale, windowWidth, windowHeight);
-        (cl, ct, cr, cb) = MapViewportLogic.ResolveMinimapClipRect(
-            rect.left, rect.top, rect.right, rect.bottom, windowWidth, windowHeight, uiScale);
-        if (!MapViewportLogic.IsPlausibleMinimapRect(cl, ct, cr, cb, windowWidth, windowHeight))
-            return mini;
-
-        return mini with
-        {
-            PositionX = cl,
-            PositionY = ct,
-            Width = cr - cl,
-            Height = cb - ct,
-            CenterX = (cl + cr) * 0.5f,
-            CenterY = (ct + cb) * 0.5f,
-            HasScreenRect = true,
-        };
+        return new MapViews(large, current.CornerTogglerElement != 0 ? current.CornerTogglerElement : _classifiedMiniEl);
     }
 }

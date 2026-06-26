@@ -88,7 +88,7 @@ public sealed partial class Poe2Live
         // to place the on-screen minimap frame.
         bool HasScreenRect = false);
 
-    public readonly record struct MapViews(MapUi LargeMap, MapUi MiniMap);
+    public readonly record struct MapViews(MapUi LargeMap, nint CornerTogglerElement = 0);
 
     /// <summary>A static tile-based landmark: a notable terrain feature and its grid centroid.
     /// <paramref name="CuratedName"/> is an optional curated friendly label (null when none matches);
@@ -892,7 +892,7 @@ public sealed partial class Poe2Live
         var viewport = ReadMapsViewport(inGameState, areaInstance, windowWidth, windowHeight);
         // Direct path: scores GameUi branches for accurate minimap screen rects + element pointers.
         if (TryReadDirectMaps(inGameState, windowWidth, windowHeight, out var direct))
-            return MapViewsMerger.Merge(viewport, direct, windowWidth, windowHeight);
+            return MapViewsMerger.Merge(viewport, direct);
         return viewport;
     }
 
@@ -995,7 +995,7 @@ public sealed partial class Poe2Live
         return true;
     }
 
-    /// <summary>Rank a direct-read map pair so we pick the UI tree that actually shows the minimap / overlay map.</summary>
+    /// <summary>Rank a direct-read map pair so we pick the UI tree that actually shows the Tab overlay map.</summary>
     private static int ScoreMapViews(MapViews views)
     {
         var score = 0;
@@ -1003,11 +1003,6 @@ public sealed partial class Poe2Live
         {
             if (views.LargeMap.IsVisible) score += 8;
             if (views.LargeMap.HasScreenRect) score += 2;
-        }
-        if (views.MiniMap.Element != 0)
-        {
-            if (views.MiniMap.IsVisible) score += 4;
-            if (views.MiniMap.HasScreenRect) score += 1;
         }
         return score;
     }
@@ -1023,8 +1018,7 @@ public sealed partial class Poe2Live
         if (largeMap == 0 || miniMap == 0 || largeMap == miniMap) return false;
 
         if (!TryReadMapElementUi(largeMap, windowWidth, windowHeight, out var large)) return false;
-        if (!TryReadMapElementUi(miniMap, windowWidth, windowHeight, out var mini)) return false;
-        maps = new MapViews(large, mini);
+        maps = new MapViews(large, miniMap);
         return true;
     }
 

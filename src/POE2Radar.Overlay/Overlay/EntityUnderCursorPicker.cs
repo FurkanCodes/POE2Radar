@@ -1,12 +1,11 @@
 using POE2Radar.Core.Game;
-using POE2Radar.Core.Pathfinding;
 using POE2Radar.Overlay.Config;
 using POE2Radar.Overlay.Web;
 using NumVec2 = System.Numerics.Vector2;
 
 namespace POE2Radar.Overlay;
 
-/// <summary>Hit-test entities under the cursor on the large map, minimap, and 3D world view.</summary>
+/// <summary>Hit-test entities under the cursor on the Tab large map and 3D world view.</summary>
 public static class EntityUnderCursorPicker
 {
     private const float WorldHitRadiusPx = 52f;
@@ -16,7 +15,6 @@ public static class EntityUnderCursorPicker
         int windowWidth,
         int windowHeight,
         MapFrame largeMap,
-        MapFrame miniMap,
         NumVec2 playerGrid,
         IReadOnlyList<Poe2Live.EntityDot> entities,
         bool importantOnly,
@@ -33,7 +31,7 @@ public static class EntityUnderCursorPicker
         Poe2Live.EntityDot? best = null;
 
         if (MapEntityPicker.TryPickDistance(
-                cursorClient, largeMap, miniMap, playerGrid, entities, importantOnly, styles, resolve,
+                cursorClient, largeMap, playerGrid, entities, importantOnly, styles, resolve,
                 globalIconScale, ref bestDist, out var mapHit) && mapHit is { } m)
             best = m;
 

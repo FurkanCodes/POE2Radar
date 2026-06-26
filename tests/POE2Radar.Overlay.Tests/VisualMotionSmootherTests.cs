@@ -23,7 +23,6 @@ public sealed class VisualMotionSmootherTests
         Assert.True(smoothed.PlayerGrid.X > 0f);
         Assert.True(smoothed.PlayerGrid.X < next.PlayerGrid.X);
         Assert.Equal(next.MapFrame.Center, smoothed.MapFrame.Center);
-        Assert.Equal(next.MiniMapFrame.Center, smoothed.MiniMapFrame.Center);
     }
 
     [Fact]
@@ -79,8 +78,7 @@ public sealed class VisualMotionSmootherTests
             1,
             0,
             true);
-        var frame = new MapFrame(mapCenter, scale, 1920, 1080, map.Element, 0, NumVec2.Zero, IsMinimap: false);
-        var mini = new MapFrame(new NumVec2(1700, 180), scale, 300, 300, new nint(200), 0, new NumVec2(1550, 30), IsMinimap: true);
+        var frame = new MapFrame(mapCenter, scale, 1920, 1080, map.Element, 0);
         return new LiveVisualSample(
             true,
             areaHash,
@@ -90,9 +88,7 @@ public sealed class VisualMotionSmootherTests
             playerWorld,
             0,
             map,
-            map,
             frame,
-            mini,
             AtlasOpen: false,
             CameraMatrix: null);
     }

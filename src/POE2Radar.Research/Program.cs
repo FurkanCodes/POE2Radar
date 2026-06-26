@@ -4212,19 +4212,30 @@ static int RunMapScanFrames(ProcessHandle process, MemoryReader reader)
         if (aspect is < 0.75f or > 1.33f) continue; // roughly square
 
         var (l, t, r, b) = ReadUiScreenRect(reader, el, uiScale, winW, winH);
-        if (!MapViewportLogic.IsTopRightMinimapRect(l, t, r, b, winW, winH)) continue;
+        if (!IsLooseTopRightSquare(l, t, r, b, winW, winH)) continue;
 
         hits.Add((el, uw, uh, l, t, r, b,
             IsUiVisibleLocal(reader, el),
             IsUiHierarchicallyVisible(reader, el)));
     }
 
-    Console.WriteLine($"Top-right square frames: {hits.Count} (sorted by screen area)");
+    Console.WriteLine($"Top-right square frames (loose band): {hits.Count}");
     foreach (var h in hits.OrderBy(x => (x.r - x.l) * (x.b - x.t)))
     {
         var sw = h.r - h.l; var sh = h.b - h.t;
         Console.WriteLine($"  0x{h.el:X16}  unscaled={h.w:F0}x{h.h:F0}  screen={sw:F0}x{sh:F0}  " +
                           $"rect=({h.l:F0},{h.t:F0})-({h.r:F0},{h.b:F0})  local={h.local}  hier={h.hier}");
+    }
+
+    var live = new Poe2Live(reader, 0);
+    var (_, igs, area, _) = ResolveChain(process, reader);
+    if (igs != 0 && area != 0)
+    {
+        var maps = live.ReadMaps(igs, area, winW, winH);
+        var large = maps.LargeMap;
+        Console.WriteLine("\nOverlay ReadMaps (merged):");
+        Console.WriteLine($"  large: vis={large.IsVisible}  shift=({large.ShiftX:F1},{large.ShiftY:F1})  zoom={large.Zoom:F3}");
+        Console.WriteLine($"  MapDiag: {live.MapDiagnostics(igs, winW, winH)}");
     }
 
     // Also dump map-element ancestry children (first 2 levels) for context.
@@ -4242,6 +4253,16 @@ static int RunMapScanFrames(ProcessHandle process, MemoryReader reader)
     return 0;
 }
 
+static bool IsLooseTopRightSquare(float left, float top, float right, float bottom, int windowWidth, int windowHeight)
+{
+    if (!MapViewportLogic.HasArea(left, top, right, bottom)) return false;
+    var w = right - left;
+    var h = bottom - top;
+    var maxSide = Math.Max(windowWidth, windowHeight) * 0.45f;
+    if (w < 80f || h < 80f || w > maxSide || h > maxSide) return false;
+    return left > windowWidth * 0.55f && top < windowHeight * 0.42f;
+}
+
 static void DumpSquareChildren(MemoryReader reader, nint parent, float uiScale, int winW, int winH, string indent)
 {
     var first = SafePtr(reader, parent + Poe2.UiElement.Children);
@@ -4256,7 +4277,7 @@ static void DumpSquareChildren(MemoryReader reader, nint parent, float uiScale, 
         var (w, h) = ReadUiSize(reader, c);
         if (w <= 0 || h <= 0) continue;
         var (l, t, r, b) = ReadUiScreenRect(reader, c, uiScale, winW, winH);
-        var topRight = MapViewportLogic.IsTopRightMinimapRect(l, t, r, b, winW, winH);
+        var topRight = IsLooseTopRightSquare(l, t, r, b, winW, winH);
         if (!topRight && (r - l) > winW * 0.3f) continue;
         Console.WriteLine($"{indent}  child[{k}] 0x{c:X}  {w:F0}x{h:F0}  rect=({l:F0},{t:F0})-({r:F0},{b:F0})  topRight={topRight}  vis={IsUiVisibleLocal(reader, c)}");
     }
@@ -4275,9 +4296,7 @@ static int RunMapProbe(ProcessHandle process, MemoryReader reader)
 
     var live = new Poe2Live(reader, 0);
     var map = live.ReadMapState(inGameState, areaInstance, winW, winH);
-    Console.WriteLine($"ReadMap → mapVisible={map.IsLargeOpen}  miniVisible={map.Mini.Visible}");
-    Console.WriteLine($"         miniRect=({map.Mini.ScreenLeft:F1},{map.Mini.ScreenTop:F1})-({map.Mini.ScreenRight:F1},{map.Mini.ScreenBottom:F1})  size={map.Mini.ScreenWidth:F0}x{map.Mini.ScreenHeight:F0}");
-    Console.WriteLine($"         miniShift=({map.Mini.ShiftX:F1},{map.Mini.ShiftY:F1})  zoom={map.Mini.Zoom:F3}\n");
+    Console.WriteLine($"ReadMap → tabOpen={map.IsLargeOpen}  shift=({map.Large.ShiftX:F1},{map.Large.ShiftY:F1})  zoom={map.Large.Zoom:F3}\n");
 
     Console.WriteLine("MapUiElements (DefaultShift 0,-20, Zoom≈0.5) — toggle Tab and re-run to diff:");
     var uiScale = winH / 1600f;
@@ -4300,7 +4319,7 @@ static int RunMapProbe(ProcessHandle process, MemoryReader reader)
         if (first != 0 && reader.TryReadStruct<nint>(par + Poe2.UiElement.Children + 8, out var lastC))
         {
             var n = ((long)lastC - (long)first) / 8;
-            Console.WriteLine($"\nMinimap parent 0x{par:X} children ({n}):");
+            Console.WriteLine($"\nCorner toggler parent 0x{par:X} children ({n}):");
             for (long k = 0; k < n && k < 8; k++)
             {
                 var c = SafePtr(reader, first + (nint)(k * 8));
@@ -4412,7 +4431,7 @@ static void DumpMapElementParents(MemoryReader reader, nint el, int winW, int wi
     {
         var (w, h) = ReadUiSize(reader, cur);
         var (l, t, r, b) = ReadUiScreenRect(reader, cur, uiScale, winW, winH);
-        var topRight = MapViewportLogic.IsTopRightMinimapRect(l, t, r, b, winW, winH);
+        var topRight = IsLooseTopRightSquare(l, t, r, b, winW, winH);
         Console.WriteLine($"      parent[{depth}] 0x{cur:X16}  size={w:F0}x{h:F0}  rect=({l:F0},{t:F0})-({r:F0},{b:F0})  topRight={topRight}");
         var par = SafePtr(reader, cur + Poe2.UiElement.Parent);
         if (par == 0 || par == cur) break;
@@ -4427,11 +4446,10 @@ static void DumpMapElement(MemoryReader reader, nint el, int winW, int winH, flo
     reader.TryReadStruct<float>(el + Poe2.MapUiElement.Zoom, out var zoom);
     var (w, h) = ReadUiSize(reader, el);
     var (l, t, r, b) = ReadUiScreenRect(reader, el, uiScale, winW, winH);
-    var (cl, ct, cr, cb) = MapViewportLogic.ResolveMinimapClipRect(l, t, r, b, winW, winH, uiScale);
     var local = IsUiVisibleLocal(reader, el);
     var hier = IsUiHierarchicallyVisible(reader, el);
     Console.WriteLine($"  0x{el:X16}  size={w:F0}x{h:F0}  localVis={local}  hierVis={hier}  zoom={zoom:F3}  shift=({sx:F1},{sy:F1})");
-    Console.WriteLine($"    layoutRect=({l:F1},{t:F1})-({r:F1},{b:F1})  clipRect=({cl:F1},{ct:F1})-({cr:F1},{cb:F1})");
+    Console.WriteLine($"    layoutRect=({l:F1},{t:F1})-({r:F1},{b:F1})");
 }
 
 static (float w, float h) ReadUiSize(MemoryReader reader, nint el)

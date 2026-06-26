@@ -19,7 +19,7 @@ alwaysApply: false
 ## Draw policy (Overlay)
 
 - `MapOverlayDrawPolicy` decides when to draw on large map vs minimap vs world.
-- Respect `ShowTerrain`, map visibility, and path layer toggles (`ShowPathMap`, `ShowPathMinimap`).
+- Respect `ShowTerrain`, map visibility, and path layer toggles (`ShowPathMap`, `ShowPathWorld`).
 - Player blip optional (`ShowPlayerBlip`).
 
 ## Alignment

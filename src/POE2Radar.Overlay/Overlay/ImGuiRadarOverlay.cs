@@ -259,14 +259,10 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 else
                 {
                     var largeMapOpen = ShouldDrawLargeMapOverlay(ctx.Map);
-                    var miniMapOpen = ShouldDrawMinimapOverlay(ctx.Map, ctx.MiniMap);
-                    if (largeMapOpen || miniMapOpen)
+                    if (largeMapOpen)
                     {
                         var t = Stopwatch.GetTimestamp();
-                        if (largeMapOpen)
-                            DrawMap(dl, ctx, ctx.MapFrame);
-                        else if (miniMapOpen)
-                            DrawMap(dl, ctx, ctx.MiniMapFrame);
+                        DrawMap(dl, ctx, ctx.MapFrame);
                         mapMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                     }
                     if (!largeMapOpen && ctx.ShowPathWorld && ctx.ShowGroundWaypoints)
@@ -612,39 +608,25 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private static bool ShouldDrawLargeMapOverlay(Poe2Live.MapUi map)
         => MapOverlayDrawPolicy.ShouldDrawLargeMap(map);
 
-    private static bool ShouldDrawMinimapOverlay(Poe2Live.MapUi largeMap, Poe2Live.MapUi miniMap)
-        => MapOverlayDrawPolicy.ShouldDrawMinimap(largeMap, miniMap);
-
     private void DrawMap(ImDrawListPtr dl, RenderContext ctx, MapFrame frame)
     {
-        var W = ctx.WindowWidth;
-        var H = ctx.WindowHeight;
         var (player, center, scale) = ResolveMapDrawState(ctx, frame);
         scale = MathF.Max(0.01f, scale);
 
-        var clipped = frame.IsMinimap && frame.Width > 1f && frame.Height > 1f;
-        if (clipped)
-            dl.PushClipRect(
-                frame.Position,
-                new NumVec2(frame.Position.X + frame.Width, frame.Position.Y + frame.Height),
-                true);
-
-        try
+        if (ctx.ShowTerrain && ctx.Terrain is { } terrain)
         {
-            if (ctx.ShowTerrain && ctx.Terrain is { } terrain)
-            {
-                if (!DrawTerrainTexture(dl, ctx, terrain, player, center, scale))
-                    DrawTerrainEdges(dl, ctx, terrain, player, center, scale);
-            }
+            if (!DrawTerrainTexture(dl, ctx, terrain, player, center, scale))
+                DrawTerrainEdges(dl, ctx, terrain, player, center, scale);
+        }
 
-            if (frame.IsMinimap ? ctx.ShowPathMinimap : ctx.ShowPathMap)
-                DrawPathsMap(dl, ctx, frame, player, center, scale);
+        if (ctx.ShowPathMap)
+            DrawPathsMap(dl, ctx, player, center, scale);
 
-            var mapLabels = new List<MapLabelCandidate>();
-            var clipL = frame.Position.X;
-            var clipT = frame.Position.Y;
-            var clipR = frame.Position.X + frame.Width;
-            var clipB = frame.Position.Y + frame.Height;
+        var mapLabels = new List<MapLabelCandidate>();
+        var clipL = 0f;
+        var clipT = 0f;
+        var clipR = ctx.WindowWidth;
+        var clipB = ctx.WindowHeight;
 
             if (ctx.ShowMonsters)
             {
@@ -700,19 +682,13 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     clipT,
                     clipR,
                     clipB,
-                    smooth: !frame.IsMinimap && ctx.SmoothOverlayMotion,
+                    smooth: ctx.SmoothOverlayMotion,
                     pixelSnap: ctx.PixelSnapLabels);
 
             DrawMonolithMapMarkers(dl, ctx, player, center, scale, clipL, clipT, clipR, clipB);
 
             if (ctx.ShowPlayerBlip)
                 DrawIconOrShape(dl, center, ctx.Styles.Player.Size, ctx.Styles.Player.Color, ctx.Styles.Player.Opacity, ctx.Styles.Player.Sprite, ctx.Styles.Player.Shape, ctx.GlobalIconScale);
-        }
-        finally
-        {
-            if (clipped)
-                dl.PopClipRect();
-        }
     }
 
     private (NumVec2 Player, NumVec2 Center, float Scale) ResolveMapDrawState(RenderContext ctx, MapFrame frame)
@@ -724,36 +700,15 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             return (player, center, scale);
 
         player = live.PlayerGrid;
-        if (frame.IsMinimap)
-        {
-            var clipL = frame.Position.X;
-            var clipT = frame.Position.Y;
-            var clipR = clipL + frame.Width;
-            var clipB = clipT + frame.Height;
-            (center, scale) = MapFrameBuilder.MiniMapProjection(
-                ctx.WindowWidth,
-                ctx.WindowHeight,
-                live.ShiftX,
-                live.ShiftY,
-                live.Zoom,
-                ctx.ScaleMul,
-                clipL,
-                clipT,
-                clipR,
-                clipB);
-        }
-        else
-        {
-            (center, scale) = MapFrameBuilder.LargeMapProjection(
-                ctx.WindowWidth,
-                ctx.WindowHeight,
-                live.ShiftX,
-                live.ShiftY,
-                live.Zoom,
-                ctx.OffsetX,
-                ctx.OffsetY,
-                ctx.ScaleMul);
-        }
+        (center, scale) = MapFrameBuilder.LargeMapProjection(
+            ctx.WindowWidth,
+            ctx.WindowHeight,
+            live.ShiftX,
+            live.ShiftY,
+            live.Zoom,
+            ctx.OffsetX,
+            ctx.OffsetY,
+            ctx.ScaleMul);
 
         return (player, center, scale);
     }
@@ -899,12 +854,14 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
     }
 
-    private void DrawPathsMap(ImDrawListPtr dl, RenderContext ctx, MapFrame frame, NumVec2 player, NumVec2 center, float scale)
+    private void DrawPathsMap(ImDrawListPtr dl, RenderContext ctx, NumVec2 player, NumVec2 center, float scale)
     {
-        var smoothPaths = frame.IsMinimap && ctx.SmoothOverlayMotion;
+        const float lineThick = 2.2f;
         foreach (var path in ctx.SelectedPaths)
         {
-            var poly = NavigationPathBuilder.BuildDrawPolyline(player, path.Points, path.LiveGoal);
+            var route = path.FullPoints.Length >= 2 ? path.FullPoints : path.Points;
+            if (route.Length == 0) continue;
+            var poly = NavigationPathBuilder.BuildDrawPolyline(player, route, path.LiveGoal);
             if (poly.Count < 2) continue;
             var col = PathColor(path.ColorSlot);
             NumVec2? prev = null;
@@ -912,9 +869,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             {
                 var (x, y) = poly[i];
                 var p = Project(new NumVec2(x, y), player, center, scale);
-                if (smoothPaths)
-                    p = SmoothScreenPoint($"path:map:{path.TargetId}:{i}", p, ctx.OverlaySmoothingMs, true);
-                if (prev is { } a) dl.AddLine(a, p, col, 2.2f);
+                if (prev is { } a) dl.AddLine(a, p, col, lineThick);
                 prev = p;
             }
         }
@@ -1048,6 +1003,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private static readonly uint ColItemText = ColorU32(235, 235, 235, 1f);
     private static readonly uint ColPanelBg = ColorU32(13, 13, 13, 0.82f);
 
+    private const float TopRightHudStackY = 90f;
+
+    private static float TopRightHudPanelX(RenderContext ctx, float panelWidth)
+        => MathF.Max(8f, ctx.WindowWidth - panelWidth - 10f);
+
     private void DrawLootValueOverlays(ImDrawListPtr dl, RenderContext ctx)
     {
         DrawItemLabels(dl, ctx);
@@ -1100,8 +1060,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         const float w = 268f, pad = 6f, lineH = 15f, headH = 17f, titleH = 18f;
         var rows = panel.Rows;
         float h = pad * 2f + titleH + headH + lineH * rows.Count;
-        float x = ctx.WindowWidth - w - 10f;
-        float y = 90f + EstimateMonolithPanelHeight(ctx);
+        float x = TopRightHudPanelX(ctx, w);
+        float y = TopRightHudStackY + EstimateMonolithPanelHeight(ctx);
         dl.AddRectFilled(new NumVec2(x, y), new NumVec2(x + w, y + h), ColPanelBg);
         var font = ImGui.GetFont();
         var fs = font.FontSize;
@@ -1176,7 +1136,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             foreach (var r in m.Rewards) if (r.Ex > 0 && rows < 3) rows++;
             h += headH + lineH * rows;
         }
-        float x = ctx.WindowWidth - w - 10f, y = 90f;
+        float x = TopRightHudPanelX(ctx, w), y = TopRightHudStackY;
         dl.AddRectFilled(new NumVec2(x, y), new NumVec2(x + w, y + h), ColPanelBg);
         var font = ImGui.GetFont();
         var fs = font.FontSize;
@@ -2405,17 +2365,13 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             bool spm = s.ShowPathMap;
             if (ImGui.Checkbox("Paths on Tab map", ref spm)) s.ShowPathMap = spm;
             ImGuiTheme.Tooltip(SettingHints.Radar.ShowPathMap);
-
-            bool spmi = s.ShowPathMinimap;
-            if (ImGui.Checkbox("Paths on minimap", ref spmi)) s.ShowPathMinimap = spmi;
-            ImGuiTheme.Tooltip(SettingHints.Radar.ShowPathMinimap);
         }
         ImGuiTheme.EndAccordionSection(pathOpen);
 
         DrawRadarEntitySections(s, ctx);
 
         bool calOpen = ImGuiTheme.BeginAccordionSection("MapCalibration", "Map calibration",
-            "Fine-tune overlay alignment with the game minimap.");
+            "Fine-tune overlay alignment with the Tab map.");
         if (calOpen)
         {
             ImGui.SetNextItemWidth(UiW());
@@ -2424,8 +2380,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             ImGuiTheme.Tooltip(SettingHints.Radar.LargeMapScale);
 
             ImGui.SetNextItemWidth(UiW());
-            float smul = s.ScaleMul; if (ImGui.SliderFloat("Minimap scale", ref smul, 0.1f, 3f, "%.2f")) s.ScaleMul = smul;
-            ImGuiTheme.Tooltip(SettingHints.Radar.MinimapScale);
+            float smul = s.ScaleMul; if (ImGui.SliderFloat("Map scale", ref smul, 0.1f, 3f, "%.2f")) s.ScaleMul = smul;
+            ImGuiTheme.Tooltip(SettingHints.Radar.MapScale);
             ImGui.SetNextItemWidth(UiW());
             float ox = s.OffX; if (ImGui.SliderFloat("Offset X", ref ox, -200f, 200f, "%.0f")) s.OffX = ox;
             ImGuiTheme.Tooltip(SettingHints.Radar.OffsetX);

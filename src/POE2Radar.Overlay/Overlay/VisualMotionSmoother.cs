@@ -38,9 +38,8 @@ public sealed class VisualMotionSmoother
             Lerp(_state.PlayerGrid, sample.PlayerGrid, alpha),
             Lerp(_state.PlayerWorld, sample.PlayerWorld, alpha),
             Lerp(_state.PlayerTerrainHeight, sample.PlayerTerrainHeight, alpha),
-            // Map/minimap clip + pan must track the game HUD pixel-perfect — smoothing here causes jiggle.
-            sample.MapFrame,
-            sample.MiniMapFrame);
+            // Map pan must track the game HUD pixel-perfect — smoothing here causes jiggle.
+            sample.MapFrame);
         return _state;
     }
 
@@ -75,8 +74,6 @@ public sealed class VisualMotionSmoother
         int WindowHeight,
         nint MapElement,
         bool MapVisible,
-        nint MiniMapElement,
-        bool MiniMapVisible,
         bool AtlasOpen,
         bool HasCamera)
     {
@@ -88,8 +85,6 @@ public sealed class VisualMotionSmoother
                 sample.WindowHeight,
                 sample.MapFrame.MapElement,
                 sample.Map.IsVisible,
-                sample.MiniMapFrame.MapElement,
-                sample.MiniMap.IsVisible,
                 sample.AtlasOpen,
                 sample.CameraMatrix is { Length: >= 16 });
     }
@@ -104,9 +99,7 @@ public readonly record struct LiveVisualSample(
     NumVec3 PlayerWorld,
     float PlayerTerrainHeight,
     Poe2Live.MapUi Map,
-    Poe2Live.MapUi MiniMap,
     MapFrame MapFrame,
-    MapFrame MiniMapFrame,
     bool AtlasOpen,
     float[]? CameraMatrix);
 
@@ -114,14 +107,12 @@ public readonly record struct VisualFrameState(
     NumVec2 PlayerGrid,
     NumVec3 PlayerWorld,
     float PlayerTerrainHeight,
-    MapFrame MapFrame,
-    MapFrame MiniMapFrame)
+    MapFrame MapFrame)
 {
     public static readonly VisualFrameState Empty = new(
         NumVec2.Zero,
         NumVec3.Zero,
         0f,
-        default,
         default);
 
     public static VisualFrameState From(LiveVisualSample sample)
@@ -129,6 +120,5 @@ public readonly record struct VisualFrameState(
             sample.PlayerGrid,
             sample.PlayerWorld,
             sample.PlayerTerrainHeight,
-            sample.MapFrame,
-            sample.MiniMapFrame);
+            sample.MapFrame);
 }

@@ -7,7 +7,7 @@ using GameVec2 = POE2Radar.Core.Game.Vector2;
 
 namespace POE2Radar.Overlay;
 
-/// <summary>Hit-test map-projected entity icons under the cursor (large map + minimap).</summary>
+/// <summary>Hit-test map-projected entity icons under the cursor on the Tab large map.</summary>
 public static class MapEntityPicker
 {
     private const float HitMarginPx = 14f;
@@ -15,7 +15,6 @@ public static class MapEntityPicker
     public static bool TryPick(
         NumVec2 cursorClient,
         MapFrame largeMap,
-        MapFrame miniMap,
         NumVec2 playerGrid,
         IReadOnlyList<Poe2Live.EntityDot> entities,
         bool importantOnly,
@@ -28,7 +27,7 @@ public static class MapEntityPicker
         if (entities.Count == 0) return false;
 
         float bestDist = float.MaxValue;
-        if (!TryPickDistance(cursorClient, largeMap, miniMap, playerGrid, entities, importantOnly, styles,
+        if (!TryPickDistance(cursorClient, largeMap, playerGrid, entities, importantOnly, styles,
                 resolve, globalIconScale, ref bestDist, out var best) || best is not { } hit)
             return false;
 
@@ -39,7 +38,6 @@ public static class MapEntityPicker
     internal static bool TryPickDistance(
         NumVec2 cursorClient,
         MapFrame largeMap,
-        MapFrame miniMap,
         NumVec2 playerGrid,
         IReadOnlyList<Poe2Live.EntityDot> entities,
         bool importantOnly,
@@ -50,14 +48,8 @@ public static class MapEntityPicker
         out Poe2Live.EntityDot? picked)
     {
         picked = null;
-
         ScoreFrame(cursorClient, largeMap, playerGrid, entities, importantOnly, styles, resolve, globalIconScale,
             ref bestDist, ref picked);
-
-        if (miniMap.IsMinimap && miniMap.Width > 1f && miniMap.Height > 1f)
-            ScoreFrame(cursorClient, miniMap, playerGrid, entities, importantOnly, styles, resolve, globalIconScale,
-                ref bestDist, ref picked);
-
         return picked is not null;
     }
 
@@ -75,21 +67,10 @@ public static class MapEntityPicker
     {
         var center = frame.Center;
         var scale = MathF.Max(0.01f, frame.Scale);
-        float clipL, clipT, clipR, clipB;
-        if (frame.IsMinimap && frame.Width > 1f && frame.Height > 1f)
-        {
-            clipL = frame.Position.X;
-            clipT = frame.Position.Y;
-            clipR = clipL + frame.Width;
-            clipB = clipT + frame.Height;
-        }
-        else
-        {
-            clipL = -40f;
-            clipT = -40f;
-            clipR = frame.Width + 40f;
-            clipB = frame.Height + 40f;
-        }
+        var clipL = -40f;
+        var clipT = -40f;
+        var clipR = frame.Width + 40f;
+        var clipB = frame.Height + 40f;
 
         foreach (var e in entities)
         {

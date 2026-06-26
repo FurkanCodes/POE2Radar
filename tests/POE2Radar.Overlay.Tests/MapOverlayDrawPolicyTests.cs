@@ -32,16 +32,4 @@ public sealed class MapOverlayDrawPolicyTests
         Assert.False(MapOverlayDrawPolicy.ShouldDrawLargeMap(Map(visible: false, rect: true)));
         Assert.False(MapOverlayDrawPolicy.ShouldDrawLargeMap(Map(visible: false, rect: false, element: 0)));
     }
-
-    [Fact]
-    public void Minimap_DrawsWhenTabClosed_AndMutuallyExclusiveWithLargeMap()
-    {
-        var tabOpen = Map(visible: true, rect: true, element: 1);
-        var mini = Map(visible: true, rect: true, element: 2);
-
-        Assert.False(MapOverlayDrawPolicy.ShouldDrawMinimap(tabOpen, mini));
-
-        var tabClosed = Map(visible: false, rect: true, element: 1);
-        Assert.True(MapOverlayDrawPolicy.ShouldDrawMinimap(tabClosed, mini));
-    }
 }

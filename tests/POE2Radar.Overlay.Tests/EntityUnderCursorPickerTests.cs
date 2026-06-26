@@ -43,7 +43,6 @@ public sealed class EntityUnderCursorPickerTests
             1920,
             1080,
             default,
-            default,
             new NumVec2(100f, 100f),
             entities,
             importantOnly: false,
@@ -58,10 +57,10 @@ public sealed class EntityUnderCursorPickerTests
     }
 
     [Fact]
-    public void TryPick_WorksWhenShowMonstersWouldHaveBlocked()
+    public void TryPick_TabMap_FindsEntityNearProjectedPoint()
     {
         var center = new NumVec2(960f, 540f);
-        var frame = new MapFrame(center, 1f, 1920f, 1080f, 0, 0f, NumVec2.Zero, IsMinimap: false);
+        var frame = new MapFrame(center, 1f, 1920f, 1080f, 0, 0f);
         var entities = new[] { Dot(100f, 100f, 0f, 0f) };
 
         var ok = EntityUnderCursorPicker.TryPick(
@@ -69,41 +68,6 @@ public sealed class EntityUnderCursorPickerTests
             1920,
             1080,
             frame,
-            default,
-            new NumVec2(100f, 100f),
-            entities,
-            importantOnly: false,
-            new RadarStyles(),
-            resolve: null,
-            globalIconScale: 1f,
-            cameraMatrix: null,
-            out var picked);
-
-        Assert.True(ok);
-        Assert.Equal(entities[0].Metadata, picked.Metadata);
-    }
-
-    [Fact]
-    public void TryPick_Minimap_UsesScreenClipRect()
-    {
-        var miniCenter = new NumVec2(1750f, 150f);
-        var miniFrame = new MapFrame(
-            miniCenter,
-            2f,
-            200f,
-            200f,
-            0,
-            0f,
-            new NumVec2(1650f, 50f),
-            IsMinimap: true);
-        var entities = new[] { Dot(100f, 100f, 0f, 0f) };
-
-        var ok = EntityUnderCursorPicker.TryPick(
-            miniCenter,
-            1920,
-            1080,
-            default,
-            miniFrame,
             new NumVec2(100f, 100f),
             entities,
             importantOnly: false,
