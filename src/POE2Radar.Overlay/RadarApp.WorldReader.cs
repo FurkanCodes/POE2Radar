@@ -256,14 +256,13 @@ public sealed partial class RadarApp
                 if (!_trackers.TryGetValue(id, out var tracker)) continue;
                 tracker.Maintain(player);
                 var pts = tracker.CurrentPoints;
-                var fullPts = tracker.Status == RoutePlanStatus.Planned
+                var hasStoredRoute = NavigationPathBuilder.HasStoredRoute(tracker.Status);
+                var fullPts = hasStoredRoute && tracker.AllWaypoints.Count > 0
                     ? tracker.AllWaypoints.ToArray()
                     : Array.Empty<(int, int)>();
                 (int x, int y)? liveGoal = null;
-                if (tracker.Status == RoutePlanStatus.Planned && tracker.ResolvedGoal is { } resolved)
-                {
+                if (hasStoredRoute && tracker.ResolvedGoal is { } resolved)
                     liveGoal = resolved;
-                }
 
                 var slot = Math.Min(i, MaxSelectedTargets - 1);
                 var drawable = NavigationPathBuilder.HasDrawablePath(pts, liveGoal, tracker.Status);

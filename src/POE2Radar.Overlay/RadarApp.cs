@@ -2205,7 +2205,10 @@ public sealed partial class RadarApp : IDisposable
     private bool HasSelectedPath(string id)
     {
         foreach (var p in _renderPaths)
-            if (p.TargetId == id && p.RouteStatus == RoutePlanStatus.Planned && p.Points.Length > 0) return true;
+        {
+            if (p.TargetId != id || p.Points.Length == 0) continue;
+            if (NavigationPathBuilder.HasStoredRoute(p.RouteStatus)) return true;
+        }
         return false;
     }
 

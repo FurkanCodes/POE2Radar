@@ -12,12 +12,16 @@ public static class NavigationPathBuilder
     public static (int x, int y) PlayerCell(NumVec2 playerGrid)
         => ((int)MathF.Round(playerGrid.X), (int)MathF.Round(playerGrid.Y));
 
+    /// <summary>True when a background replan is in flight but the previous route is still on screen.</summary>
+    public static bool HasStoredRoute(RoutePlanStatus routeStatus)
+        => routeStatus is RoutePlanStatus.Planned or RoutePlanStatus.Planning;
+
     /// <summary>True when there is anything to draw for this target.</summary>
     public static bool HasDrawablePath(
         IReadOnlyList<(int x, int y)> waypoints,
         (int x, int y)? liveGoal,
         RoutePlanStatus routeStatus = RoutePlanStatus.Planned)
-        => routeStatus == RoutePlanStatus.Planned && waypoints.Count > 0;
+        => HasStoredRoute(routeStatus) && waypoints.Count > 0;
 
     /// <summary>
     /// First waypoint index that is not behind the player relative to the goal bearing.

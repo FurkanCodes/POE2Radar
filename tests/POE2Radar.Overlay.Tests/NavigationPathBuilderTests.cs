@@ -53,6 +53,14 @@ public sealed class NavigationPathBuilderTests
         => Assert.False(NavigationPathBuilder.HasDrawablePath([(1, 2)], (3, 4), RoutePlanStatus.NoPath));
 
     [Fact]
+    public void HasDrawablePath_TrueWhileReplanningWithExistingWaypoints()
+        => Assert.True(NavigationPathBuilder.HasDrawablePath([(1, 2), (3, 4)], (5, 6), RoutePlanStatus.Planning));
+
+    [Fact]
+    public void HasDrawablePath_FalseWhileReplanningWithNoPriorRoute()
+        => Assert.False(NavigationPathBuilder.HasDrawablePath([], (1, 2), RoutePlanStatus.Planning));
+
+    [Fact]
     public void DecimateForWorldDisplay_UsesStrideAndKeepsLastPoint()
     {
         var points = new List<(int x, int y)>();
