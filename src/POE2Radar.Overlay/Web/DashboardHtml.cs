@@ -900,8 +900,8 @@ internal static class DashboardHtml
             <div class="row"><div class="rl" title="{{H.ShowPathMap}}">Path on large map<small>route overlay when Tab map is open</small></div>
               <label class="sw"><input type="checkbox" data-set="showPathMap"><span class="track"></span><span class="knob"></span></label></div>
             <h4 class="subhead" style="margin-top:14px" title="{{H.AutoPathSection}}">Auto-path targeting</h4>
-            <p class="hint-oneline">Picks nearest nav targets automatically. Manual F6/legend picks always work.</p>
-            <div class="row"><div class="rl" title="{{H.AutoPathNearest}}">Auto-path to nearest targets<small>continuously path to nearest entities whose rule has &ldquo;Show path to this&rdquo;</small></div>
+            <p class="hint-oneline">Curated terrain paths always on (campaign exits/boss arenas). F3 paths league mechanics (Breach/Ritual/etc.). Strongbox/Essence: enable Auto-path target per rule in Display Rules.</p>
+            <div class="row"><div class="rl" title="{{H.AutoPathNearest}}">Entity auto-path (F3)<small>Breach, Ritual, Expedition, Abyss pit, Summoning Circle by default</small></div>
               <label class="sw"><input type="checkbox" data-set="autoPathNavigable"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.DetectionRadius}}">Detection radius<small>max grid distance for entity dots, nav, and API list (0 = unlimited)</small></div>
               <input class="numin" type="number" step="10" min="0" max="2000" data-set="entityDrawRadiusGrid"></div>

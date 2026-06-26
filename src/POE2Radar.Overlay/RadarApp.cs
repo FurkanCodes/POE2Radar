@@ -148,13 +148,11 @@ public sealed partial class RadarApp : IDisposable
     // ── Phase 1: exploration fog + draw-only path guidance (all gated by RadarSettings flags). ──
     // Unified navigation targets: a single list built each world tick from BOTH terrain-tile
     // landmarks AND entity POIs (bosses, expedition, waypoints…), each addressed by a STABLE STRING
-    // id ("t:<path>" / "e:<entityId>"). Multi-select: each selected target draws its OWN full A*
-    // route in its OWN color (by selection-order slot). F6 adds the nearest not-yet-selected target;
-    // F7 clears the whole selection; clicking a legend row toggles that target. Selection is capped
-    // at the palette size so colors stay distinct (and per-tick planning stays bounded). On a zone
-    // change the selection is cleared, then the persistent auto-nav patterns re-select matching
-    // targets in the new zone.
-    private const int MaxSelectedTargets = 8;
+    // id ("t:<path>" / "e:<entityId>"). GH-static auto-path pool (zone-stable, uncapped) plus manual
+    // picks (F6/legend, cap 8). Dismissed auto targets stay off until zone change.
+    private readonly HashSet<string> _dismissedAutoIds = new(StringComparer.Ordinal);
+    private NumVec2 _lastRouteMaintainPlayer = new(float.MinValue, float.MinValue);
+    private volatile bool _largeMapOpenForRoutes;
     // Background A* replanner (single reused PathPlanner on a worker thread) + one RouteTracker per
     // selected id. The tick thread does only CHEAP per-tick maintenance (cursor advance) and rebuilds
     // _selectedPaths from the trackers; the worker owns all A*. See BackgroundReplanner / RouteTracker.
@@ -1445,12 +1443,8 @@ public sealed partial class RadarApp : IDisposable
     // ── Unified navigation-target selection (draw-only guidance, multi-select). ──────────────
     // Model: _navTargets is one list built each world tick from BOTH tile landmarks AND entity POIs,
     // each addressed by a STABLE STRING id ("t:<path>" / "e:<entityId>"). _selectedIds is the ordered
-    // set of selected ids; an id's position in that list is its color SLOT (0..7), so each selected
-    // target draws its own A* route + legend swatch in its own color. F6 adds the nearest not-yet-
-    // selected target; F7 clears all; clicking a legend row toggles that target. The selection is
-    // capped at MaxSelectedTargets (palette size) so colors stay distinct and per-tick planning is
-    // bounded. On a zone change the selection is cleared and the persistent auto-nav patterns re-
-    // select matching targets.
+    // set of selected ids; an id's position drives its path color. GH-static auto-path pool plus
+    // manual F6/legend picks (cap 8). Dismiss auto targets via legend toggle.
 
     /// <summary>
     /// Build the unified navigation-target list for this world tick: every tile landmark first, then
@@ -1623,7 +1617,7 @@ public sealed partial class RadarApp : IDisposable
     /// NOT touched here — the per-tick reconciliation (ReconcileTrackers) syncs them to _selectedIds.</summary>
     private void OnAreaChanged(NumVec2 player)
     {
-        int count; bool restored;
+        int count; bool restored; bool seedAuto;
         lock (_navLock)
         {
             // Save what was selected in the zone we're leaving, keyed by ITS instance hash.
@@ -1631,9 +1625,11 @@ public sealed partial class RadarApp : IDisposable
 
             _selectedIds.Clear();
             _autoSelectedIds.Clear();
+            _dismissedAutoIds.Clear();
             _selectionCapWarned = false;
             _selectionAreaHash = _areaHash;
             _reachedPathKeys.Clear();
+            _lastRouteMaintainPlayer = new(float.MinValue, float.MinValue);
 
             // Returning to a remembered instance → restore its selection verbatim (the user's explicit
             // choices win, including an intentionally-empty one, so a zone they cleared stays cleared).
@@ -1643,103 +1639,111 @@ public sealed partial class RadarApp : IDisposable
             {
                 foreach (var id in remembered!)
                 {
-                    if (_selectedIds.Count >= MaxSelectedTargets) break;
                     if (!_selectedIds.Contains(id)) _selectedIds.Add(id);
                 }
             }
-            else if (_settings.ShowCuratedPaths || _settings.AutoPathNavigable)
-            {
-                foreach (var id in BuildAutoPathCandidateIds(player))
-                {
-                    if (_selectedIds.Count >= MaxSelectedTargets) break;
-                    if (!_selectedIds.Contains(id))
-                    {
-                        _selectedIds.Add(id);
-                        _autoSelectedIds.Add(id);
-                    }
-                }
-            }
+
+            seedAuto = !restored && (_settings.ShowCuratedPaths || _settings.AutoPathNavigable);
             count = _selectedIds.Count;
         }
+
+        if (seedAuto) RefreshAutoPathSelection();
+
+        count = SnapshotSelection().Count;
         _renderPaths.Clear();
 
         if (count > 0)
             Console.WriteLine($"\nNav: {(restored ? "restored" : "auto-selected")} {count} target(s) on zone change.");
     }
 
-    /// <summary>Keep the path selection filled with auto-path targets (curated terrain when
-    /// <see cref="RadarSettings.ShowCuratedPaths"/>; entity mechanics when
-    /// <see cref="RadarSettings.AutoPathNavigable"/> + <see cref="RadarSettings.ShowEntityPaths"/>).
-    /// Manual selections (F6/legend/API) are preserved.</summary>
-    private void AutoSelectNavigable(NumVec2 player)
+    /// <summary>Sync the zone-stable auto-path pool (curated terrain + F3 entity mechanics).
+    /// Idempotent — only adds/removes when the qualifying set or toggles change.</summary>
+    private void RefreshAutoPathSelection()
     {
-        MarkReachedPaths(player);
+        if (!_settings.ShowCuratedPaths && !_settings.AutoPathNavigable)
+        {
+            ClearAutoPathSelection();
+            return;
+        }
 
-        var candidates = BuildAutoPathCandidateIds(player);
+        var desired = AutoPathSelection.FilterDesiredAuto(
+            BuildAutoPathCandidateIds(),
+            _reachedPathKeys,
+            _dismissedAutoIds);
 
         lock (_navLock)
+            AutoPathSelection.ApplyAutoDiff(_selectedIds, _autoSelectedIds, desired);
+    }
+
+    private void ClearAutoPathSelection()
+    {
+        lock (_navLock)
         {
-            if (candidates.Count == 0)
-            {
-                if (_autoSelectedIds.Count == 0) return;
-                foreach (var id in _autoSelectedIds.ToList())
-                {
-                    _selectedIds.Remove(id);
-                    _autoSelectedIds.Remove(id);
-                }
-                return;
-            }
-
-            var manual = new HashSet<string>(_selectedIds.Where(id => !_autoSelectedIds.Contains(id)));
-            var desiredAuto = new List<string>();
-            foreach (var id in candidates)
-            {
-                if (manual.Contains(id)) continue;
-                if (_settings.HideReachedPaths && _reachedPathKeys.Contains(id)) continue;
-                if (manual.Count + desiredAuto.Count >= MaxSelectedTargets) break;
-                desiredAuto.Add(id);
-            }
-
-            var desiredAutoSet = new HashSet<string>(desiredAuto);
             foreach (var id in _autoSelectedIds.ToList())
             {
-                if (!desiredAutoSet.Contains(id))
-                {
-                    _selectedIds.Remove(id);
-                    _autoSelectedIds.Remove(id);
-                }
-            }
-
-            foreach (var id in desiredAuto)
-            {
-                if (_selectedIds.Contains(id))
-                {
-                    if (!manual.Contains(id)) _autoSelectedIds.Add(id);
-                    continue;
-                }
-                if (_selectedIds.Count >= MaxSelectedTargets) break;
-                _selectedIds.Add(id);
-                _autoSelectedIds.Add(id);
+                _autoSelectedIds.Remove(id);
+                _selectedIds.Remove(id);
             }
         }
     }
 
-    /// <summary>GameHelper-style pipelines: curated terrain (ShowCuratedPaths, always on by default)
-    /// then entity mechanics (AutoPathNavigable + ShowEntityPaths).</summary>
-    private List<string> BuildAutoPathCandidateIds(NumVec2 player)
+    /// <summary>Drop reached auto/manual targets from the active pool for this zone visit.</summary>
+    private void PruneReachedPaths(NumVec2 player)
+    {
+        if (!_settings.HideReachedPaths) return;
+
+        var threshold = _settings.ReachedPathDistance;
+        if (threshold <= 0f) return;
+        var r2 = threshold * threshold;
+
+        var selected = SnapshotSelection();
+        if (selected.Count == 0) return;
+
+        var selectedSet = new HashSet<string>(selected, StringComparer.Ordinal);
+        var newlyReached = new List<string>();
+        foreach (var t in _navTargets)
+        {
+            if (!selectedSet.Contains(t.Id)) continue;
+            if (NumVec2.DistanceSquared(t.Grid, player) <= r2)
+                newlyReached.Add(t.Id);
+        }
+
+        if (newlyReached.Count == 0) return;
+
+        lock (_navLock)
+        {
+            foreach (var id in newlyReached)
+            {
+                _reachedPathKeys.Add(id);
+                _selectedIds.Remove(id);
+                _autoSelectedIds.Remove(id);
+            }
+        }
+    }
+
+    /// <summary>Per world tick: prune reached targets, then sync auto pool as landmarks stream in.</summary>
+    private void MaintainAutoPathSelection(NumVec2 player)
+    {
+        PruneReachedPaths(player);
+        RefreshAutoPathSelection();
+    }
+
+    /// <summary>GameHelper-style pipelines: curated terrain (ShowCuratedPaths) then entity mechanics
+    /// (AutoPathNavigable + ShowEntityPaths). Stable name order — no distance churn.</summary>
+    private List<string> BuildAutoPathCandidateIds()
     {
         var result = new List<string>();
         if (_settings.ShowCuratedPaths && _settings.UseCuratedLandmarks)
         {
             foreach (var t in _navTargets.Where(t => t.AutoPath && IsCuratedLandmarkTarget(t))
-                         .OrderBy(t => NumVec2.DistanceSquared(t.Grid, player)))
+                         .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase))
                 result.Add(t.Id);
         }
 
         if (_settings.AutoPathNavigable && _settings.ShowEntityPaths)
         {
             foreach (var t in _navTargets.Where(t => t.AutoPath && !IsCuratedLandmarkTarget(t))
-                         .OrderBy(t => NumVec2.DistanceSquared(t.Grid, player)))
+                         .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase))
             {
                 if (!result.Contains(t.Id)) result.Add(t.Id);
             }
@@ -1752,26 +1756,6 @@ public sealed partial class RadarApp : IDisposable
         => !t.IsEntity
            && _settings.UseCuratedLandmarks
            && _landmarkStore.Lookup(_areaCode, t.MatchKey) is not null;
-
-    private void MarkReachedPaths(NumVec2 player)
-    {
-        if (!_settings.HideReachedPaths) return;
-
-        var threshold = _settings.ReachedPathDistance;
-        if (threshold <= 0f) return;
-        var r2 = threshold * threshold;
-
-        var selected = SnapshotSelection();
-        if (selected.Count == 0) return;
-
-        var selectedSet = new HashSet<string>(selected, StringComparer.Ordinal);
-        foreach (var t in _navTargets)
-        {
-            if (!selectedSet.Contains(t.Id)) continue;
-            if (NumVec2.DistanceSquared(t.Grid, player) <= r2)
-                _reachedPathKeys.Add(t.Id);
-        }
-    }
 
     private bool IsPathTargetReached(string id)
         => _settings.HideReachedPaths && _reachedPathKeys.Contains(id);
@@ -1837,6 +1821,7 @@ public sealed partial class RadarApp : IDisposable
             wasEmpty = _selectedIds.Count == 0;
             _selectedIds.Clear();
             _autoSelectedIds.Clear();
+            _dismissedAutoIds.Clear();
             _selectionCapWarned = false;
         }
         if (!wasEmpty) Console.WriteLine("\nPath targets: cleared");
@@ -1858,16 +1843,17 @@ public sealed partial class RadarApp : IDisposable
         lock (_navLock)
         {
             if (_selectedIds.Contains(id)) return false;
-            if (_selectedIds.Count >= MaxSelectedTargets)
+            if (!AutoPathSelection.CanAddManual(_selectedIds, _autoSelectedIds, id))
             {
                 if (!_selectionCapWarned)
                 {
-                    Console.WriteLine($"\nPath targets: selection full ({MaxSelectedTargets}); ignoring add.");
+                    Console.WriteLine($"\nPath targets: manual selection full ({AutoPathSelection.MaxManualTargets}); ignoring add.");
                     _selectionCapWarned = true;
                 }
                 return false;
             }
 
+            _dismissedAutoIds.Remove(id);
             _selectedIds.Add(id);
             _selectionCapWarned = false;
             added = true;
@@ -1894,22 +1880,25 @@ public sealed partial class RadarApp : IDisposable
         {
             if (_selectedIds.Remove(id))
             {
-                _autoSelectedIds.Remove(id);
+                if (_autoSelectedIds.Remove(id))
+                    _dismissedAutoIds.Add(id);
                 _selectionCapWarned = false;
                 changed = true;
             }
-            else if (_selectedIds.Count >= MaxSelectedTargets)
+            else if (!AutoPathSelection.CanAddManual(_selectedIds, _autoSelectedIds, id))
             {
                 if (!_selectionCapWarned)
                 {
-                    Console.WriteLine($"\nPath targets: selection full ({MaxSelectedTargets}); ignoring add.");
+                    Console.WriteLine($"\nPath targets: manual selection full ({AutoPathSelection.MaxManualTargets}); ignoring add.");
                     _selectionCapWarned = true;
                 }
-                return; // over cap — ignore the add
+                return;
             }
             else
             {
+                _dismissedAutoIds.Remove(id);
                 _selectedIds.Add(id);
+                _selectionCapWarned = false;
                 changed = true;
             }
 
@@ -2064,8 +2053,30 @@ public sealed partial class RadarApp : IDisposable
                 routeAnchors);
     }
 
+    private bool ShouldPlanPathsNow()
+    {
+        if (!_settings.ShowPathMap && !_settings.ShowPathWorld) return false;
+        if (_settings.ShowPathWorld) return true;
+        return _largeMapOpenForRoutes;
+    }
+
+    private bool PlayerMovedForRouteMaintain(NumVec2 player)
+    {
+        const float minMoveCellsSq = 4f;
+        if (_lastRouteMaintainPlayer.X <= float.MinValue)
+        {
+            _lastRouteMaintainPlayer = player;
+            return true;
+        }
+
+        var moved = NumVec2.DistanceSquared(player, _lastRouteMaintainPlayer) >= minMoveCellsSq;
+        _lastRouteMaintainPlayer = player;
+        return moved;
+    }
+
     private void EnqueueReplan(string id, RouteTracker tracker, TargetRenderInfo info, NumVec2 player)
     {
+        if (!ShouldPlanPathsNow()) return;
         if (_worldTerrain is not { } terrain)
         {
             tracker.MarkWaitingForTerrain();
@@ -2162,7 +2173,7 @@ public sealed partial class RadarApp : IDisposable
             var id = selected[i];
             if (seen.Contains(id)) continue;
 
-            var slot = Math.Min(i, MaxSelectedTargets - 1);
+            var slot = i;
             if (TryResolveTargetInfo(id, _navTargets, _landmarks, _entities, _areaHash, out var info))
             {
                 var target = new NavTarget(

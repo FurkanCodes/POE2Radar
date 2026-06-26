@@ -36,7 +36,7 @@ public sealed class RouteTrackerTests
     }
 
     [Fact]
-    public void ShouldReplan_FiresWhenOffPath()
+    public void ShouldReplan_FiresWhenOffPathAndMoving()
     {
         var tracker = new RouteTracker();
         tracker.ApplyResult(
@@ -44,6 +44,18 @@ public sealed class RouteTrackerTests
             new NumVec2(40, 0));
         ClearReplanCooldown(tracker);
 
-        Assert.True(tracker.ShouldReplan(new NumVec2(25, 20), new NumVec2(40, 0)));
+        Assert.True(tracker.ShouldReplan(new NumVec2(25, 20), new NumVec2(40, 0), playerMovedSinceLastCheck: true));
+    }
+
+    [Fact]
+    public void ShouldReplan_SkipsOffPathWhenPlayerIdle()
+    {
+        var tracker = new RouteTracker();
+        tracker.ApplyResult(
+            [(0, 0), (10, 0), (20, 0), (30, 0), (40, 0)],
+            new NumVec2(40, 0));
+        ClearReplanCooldown(tracker);
+
+        Assert.False(tracker.ShouldReplan(new NumVec2(25, 20), new NumVec2(40, 0), playerMovedSinceLastCheck: false));
     }
 }

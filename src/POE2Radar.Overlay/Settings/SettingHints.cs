@@ -41,7 +41,7 @@ internal static class SettingHints
     internal static class Entities
     {
         public const string DetectionRadius = "Max grid distance from player for entity dots, nav targets, and API list. 0 = no limit.";
-        public const string AutoPathNearest = "Pick nearest nav targets automatically. Does not change path display toggles.";
+        public const string AutoPathNearest = "F3: auto-path league mechanics (Breach, Ritual, Expedition, Abyss pit, Summoning Circle). Strongbox/Essence need Auto-path target enabled per rule.";
         public const string ShowAllMonsters = "Show normal/magic grey monsters and other map clutter on the radar.";
         public const string NeverShowPattern = "Substring or glob (* ?) — not on map, not in lists, not for paths.";
         public const string NeverShowAdd = "Add this pattern to the never-show list.";
@@ -60,12 +60,12 @@ internal static class SettingHints
         public const string ShowPathWorld = "Draw route polylines and target label chips on the world view (independent of auto-path and other map layers).";
         public const string ShowGroundWaypoints = "World-screen breadcrumbs when the Tab map is closed (requires path on world view).";
         public const string ShowPathMap = "Draw route lines on the large Tab map (independent of other layers).";
-        public const string ShowCuratedPaths = "Route to curated campaign/transition POIs on the Tab map (GameHelper important_tgt parity; on by default, no F3 needed).";
-        public const string ShowEntityPaths = "When auto-path (F3) is on, also route to league mechanics whose display rule has Auto-path enabled.";
+        public const string ShowCuratedPaths = "Auto-path every curated campaign exit/boss arena in this zone (always on; no F3). Dismiss via legend toggle.";
+        public const string ShowEntityPaths = "When F3 is on, path every entity whose display rule has Auto-path target enabled (Breach/Ritual/etc. by default; Strongbox/Essence off unless you enable them in Display Rules).";
         public const string HideReachedPaths = "Stop drawing a path once you walk within the reached distance of its target.";
         public const string ReachedPathDistance = "Grid distance at which a path target counts as reached (Hide reached paths).";
         public const string PathDisplaySection = "Where selected path targets are drawn — each layer is independent.";
-        public const string AutoPathSection = "How targets are picked — does not enable or disable path drawing.";
+        public const string AutoPathSection = "How path targets are picked. Curated terrain paths need no F3; entity mechanics need F3 (default: Breach/Ritual/Expedition only).";
         public const string HideJunk = "Hide cosmetic FX, daemons, and other noise dots on the map.";
         public const string CuratedLandmarks = "Use community-curated friendly names for landmarks instead of raw tile paths.";
         public const string AlwaysShowOverlay = "Keep the overlay visible even when PoE2 is not the foreground window.";

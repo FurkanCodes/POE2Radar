@@ -72,6 +72,8 @@ public sealed partial class RadarApp
         if (!_atlasOpen)
         {
             _worldTerrain ??= _worldLive.Terrain(areaInstance);
+            var maps = _worldLive.ReadMaps(inGameState, areaInstance, 0, 0);
+            _largeMapOpenForRoutes = MapOverlayDrawPolicy.ShouldDrawLargeMap(maps.LargeMap);
             var (entityDots, awakeCount, sleepingCount) = _worldLive.Entities(areaInstance);
             entities = entityDots;
             _worldDoorOverrides = BuildDoorOverrides(entities);
@@ -130,7 +132,7 @@ public sealed partial class RadarApp
                 OnAreaChanged(player);
             }
 
-            AutoSelectNavigable(player);
+            MaintainAutoPathSelection(player);
             WorldMaintainRoutes(player, landmarks, entities);
         }
         else
@@ -176,6 +178,7 @@ public sealed partial class RadarApp
         IReadOnlyList<Poe2Live.EntityDot> entities)
     {
         var selected = SnapshotSelection();
+        var playerMoved = PlayerMovedForRouteMaintain(player);
         lock (_trackerGate)
         {
             ReconcileTrackers(selected, landmarks, entities, player);
@@ -186,7 +189,7 @@ public sealed partial class RadarApp
                 if (!_trackers.TryGetValue(id, out var tracker)) continue;
                 if (TryResolveTargetInfo(id, _navTargets, landmarks, entities, _areaHash, out var info))
                 {
-                if (!tracker.ReplanInFlight && tracker.ShouldReplan(player, info.Grid))
+                if (!tracker.ReplanInFlight && tracker.ShouldReplan(player, info.Grid, playerMoved))
                     EnqueueReplan(id, tracker, info, player);
                 }
                 else
@@ -264,7 +267,7 @@ public sealed partial class RadarApp
                 if (hasStoredRoute && tracker.ResolvedGoal is { } resolved)
                     liveGoal = resolved;
 
-                var slot = Math.Min(i, MaxSelectedTargets - 1);
+                var slot = i;
                 var drawable = NavigationPathBuilder.HasDrawablePath(pts, liveGoal, tracker.Status);
                 var drawPts = drawable
                     ? NavigationPathBuilder.BuildForwardPath(player, pts, liveGoal)

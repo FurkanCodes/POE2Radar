@@ -82,6 +82,14 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         new(0.60f, 0.40f, 1.00f, 1f),
         new(0.20f, 1.00f, 0.85f, 1f),
         new(1.00f, 0.40f, 0.40f, 1f),
+        new(0.85f, 0.55f, 0.95f, 1f),
+        new(0.45f, 0.95f, 0.55f, 1f),
+        new(0.95f, 0.75f, 0.35f, 1f),
+        new(0.35f, 0.85f, 0.95f, 1f),
+        new(0.95f, 0.45f, 0.55f, 1f),
+        new(0.70f, 0.95f, 0.30f, 1f),
+        new(0.55f, 0.60f, 1.00f, 1f),
+        new(0.95f, 0.60f, 0.85f, 1f),
     ];
 
     private static readonly string[] ShapeNames = ["Circle", "Diamond", "Triangle", "Square", "Star", "Hexagon", "Pentagon", "Cross", "Plus", "Ring", "Heart", "Shield", "Gem"];
@@ -2082,20 +2090,20 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             ImGuiTheme.Tooltip(SettingHints.Entities.DetectionRadius);
 
             bool ap = s.AutoPathNavigable;
-            if (ImGui.Checkbox("Auto-path to nearest targets", ref ap))
+            if (ImGui.Checkbox("Entity auto-path (F3) — league mechanics", ref ap))
                 s.AutoPathNavigable = ap;
             ImGuiTheme.Tooltip(SettingHints.Entities.AutoPathNearest);
 
             ImGui.BeginDisabled(!s.AutoPathNavigable);
             bool sep = s.ShowEntityPaths;
-            if (ImGui.Checkbox("Entity mechanic paths (needs F3)", ref sep)) s.ShowEntityPaths = sep;
+            if (ImGui.Checkbox("Draw entity mechanic paths", ref sep)) s.ShowEntityPaths = sep;
             ImGuiTheme.Tooltip(SettingHints.Radar.ShowEntityPaths);
             ImGui.EndDisabled();
 
             bool scp = s.ShowCuratedPaths;
-            if (ImGui.Checkbox("Curated terrain POI paths", ref scp)) s.ShowCuratedPaths = scp;
+            if (ImGui.Checkbox("Curated terrain paths (campaign exits/boss arenas)", ref scp)) s.ShowCuratedPaths = scp;
             ImGuiTheme.Tooltip(SettingHints.Radar.ShowCuratedPaths);
-            ImGui.TextDisabled("Target picking only — use Path display for where routes draw.");
+            ImGui.TextDisabled("Strongbox/Essence: enable Auto-path target on their Display Rule, then F3.");
 
             bool showAll = !s.ImportantOnly;
             if (ImGui.Checkbox("Show all monsters (including clutter)", ref showAll))

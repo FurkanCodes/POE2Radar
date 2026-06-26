@@ -89,7 +89,7 @@ public sealed class RouteTracker
     /// Should we kick off a full background replan? True when the cooldown has elapsed AND any
     /// trigger fires: off-path, negative progress (walking away), the goal moved, or staleness.
     /// </summary>
-    public bool ShouldReplan(NumVec2 playerGrid, NumVec2 currentGoalGrid)
+    public bool ShouldReplan(NumVec2 playerGrid, NumVec2 currentGoalGrid, bool playerMovedSinceLastCheck = true)
     {
         var now = DateTime.UtcNow;
         if ((now - _lastReplanUtc).TotalSeconds < ReplanCooldownSec) return false;
@@ -98,6 +98,7 @@ public sealed class RouteTracker
         if (Status != RoutePlanStatus.Planned) return true;
         if (GoalMoved(currentGoalGrid)) return true;
         if ((now - _lastReplanUtc).TotalSeconds > StaleSec) return true;
+        if (!playerMovedSinceLastCheck) return false;
         if (OffPath(playerGrid)) return true;
         if (NegativeProgress(playerGrid)) return true;
         return false;
