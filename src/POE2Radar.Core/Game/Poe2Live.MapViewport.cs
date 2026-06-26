@@ -453,15 +453,16 @@ public sealed partial class Poe2Live
     }
 
     /// <summary>
-    /// Tick-rate pan/zoom lock between full <see cref="ReadMaps"/> calls. Re-reads Shift/Zoom +
-    /// Tab visibility only — keeps screen rects and element pointers from <paramref name="current"/>.
+    /// Tick-rate pan/zoom + minimap clip lock between full <see cref="ReadMaps"/> calls.
     /// </summary>
-    public MapViews RefreshMapPanZoom(MapViews current, nint areaInstance)
+    public MapViews RefreshMapPanZoom(MapViews current, nint areaInstance, int windowWidth, int windowHeight)
     {
         _ = areaInstance;
-        if (_classifiedMiniEl == 0 && _classifiedLargeEl == 0)
+        var miniEl = current.MiniMap.Element != 0 ? current.MiniMap.Element : _classifiedMiniEl;
+        var largeEl = current.LargeMap.Element != 0 ? current.LargeMap.Element : _classifiedLargeEl;
+        if (miniEl == 0 && largeEl == 0 && _classifiedMiniEl == 0 && _classifiedLargeEl == 0)
             return current;
-        return ApplyMapPanFromElements(current, _classifiedMiniEl, _classifiedLargeEl);
+        return ApplyMapPanFromElements(current, miniEl, largeEl, windowWidth, windowHeight);
     }
 
     /// <summary>
@@ -474,17 +475,19 @@ public sealed partial class Poe2Live
         nint largeElement,
         MapViews baseline,
         bool forMinimap,
+        int windowWidth,
+        int windowHeight,
         out MapPanLockSample sample)
     {
         sample = default;
-        if (localPlayer == 0 || (miniElement == 0 && largeElement == 0))
+        if (localPlayer == 0 || (miniElement == 0 && largeElement == 0 && _classifiedMiniEl == 0 && _classifiedLargeEl == 0))
             return false;
 
         var player = PlayerGrid(localPlayer);
         if (player is not { } pg)
             return false;
 
-        var maps = ApplyMapPanFromElements(baseline, miniElement, largeElement);
+        var maps = ApplyMapPanFromElements(baseline, miniElement, largeElement, windowWidth, windowHeight);
         var map = forMinimap ? maps.MiniMap : maps.LargeMap;
         if (!forMinimap && !map.IsVisible)
             map = maps.LargeMap;
@@ -493,17 +496,23 @@ public sealed partial class Poe2Live
         return true;
     }
 
-    private MapViews ApplyMapPanFromElements(MapViews current, nint miniEl, nint largeEl)
+    private MapViews ApplyMapPanFromElements(MapViews current, nint miniEl, nint largeEl, int windowWidth, int windowHeight)
     {
         var large = current.LargeMap;
         var mini = current.MiniMap;
 
-        if (miniEl != 0
-            && TryReadMapElement(miniEl, out var cornerLocal, out _, out var csx, out var csy, out var czoom))
+        // Tab-open signal lives on the BFS corner toggler, not the MapParent minimap render ptr
+        // (that element stays locally visible during normal corner-minimap play).
+        var togglerEl = _classifiedMiniEl != 0 ? _classifiedMiniEl : miniEl;
+        var projLargeEl = largeEl != 0 ? largeEl : _classifiedLargeEl;
+        var projMiniEl = _classifiedMiniEl != 0 ? _classifiedMiniEl : miniEl;
+
+        if (togglerEl != 0
+            && TryReadMapElement(togglerEl, out var cornerLocal, out _, out var csx, out var csy, out var czoom))
         {
             var tabOpen = MapViewportLogic.IsTabMapOpen(cornerLocal);
-            if (!tabOpen && largeEl != 0
-                && TryReadMapElement(largeEl, out _, out _, out var fsx, out var fsy, out var fzoom))
+            if (!tabOpen && projLargeEl != 0
+                && TryReadMapElement(projLargeEl, out _, out _, out var fsx, out var fsy, out var fzoom))
             {
                 large = large with { IsVisible = false, ShiftX = fsx, ShiftY = fsy, Zoom = fzoom };
             }
@@ -513,12 +522,54 @@ public sealed partial class Poe2Live
 
         if (large.IsVisible)
             mini = mini with { IsVisible = false };
-        else if (miniEl != 0
-                 && TryReadActiveMapProjection(miniEl, largeEl, out var msx, out var msy, out var mzoom))
+        else if (projMiniEl != 0
+                 && TryReadActiveMapProjection(projMiniEl, projLargeEl, out var msx, out var msy, out var mzoom))
         {
-            mini = mini with { ShiftX = msx, ShiftY = msy, Zoom = mzoom, IsVisible = mzoom > 0.05f };
+            mini = mini with { ShiftX = msx, ShiftY = msy, Zoom = mzoom };
+            if (windowWidth > 0 && windowHeight > 0)
+                mini = RefreshMinimapScreenRect(mini, projMiniEl, windowWidth, windowHeight);
+            mini = mini with { IsVisible = mzoom > 0.05f && mini.HasScreenRect };
         }
 
         return new MapViews(large, mini);
+    }
+
+    private MapUi RefreshMinimapScreenRect(MapUi mini, nint togglerEl, int windowWidth, int windowHeight)
+    {
+        if (togglerEl == 0)
+            return mini;
+
+        var uiScale = windowHeight / 1600f;
+        if (TryReadMinimapFrameRect(togglerEl, uiScale, windowWidth, windowHeight, out _, out var cl, out var ct, out var cr, out var cb)
+            && MapViewportLogic.IsTopRightMinimapRect(cl, ct, cr, cb, windowWidth, windowHeight))
+        {
+            return mini with
+            {
+                PositionX = cl,
+                PositionY = ct,
+                Width = cr - cl,
+                Height = cb - ct,
+                CenterX = (cl + cr) * 0.5f,
+                CenterY = (ct + cb) * 0.5f,
+                HasScreenRect = true,
+            };
+        }
+
+        var rect = ReadElementScreenRect(togglerEl, uiScale, windowWidth, windowHeight);
+        (cl, ct, cr, cb) = MapViewportLogic.ResolveMinimapClipRect(
+            rect.left, rect.top, rect.right, rect.bottom, windowWidth, windowHeight, uiScale);
+        if (!MapViewportLogic.IsPlausibleMinimapRect(cl, ct, cr, cb, windowWidth, windowHeight))
+            return mini;
+
+        return mini with
+        {
+            PositionX = cl,
+            PositionY = ct,
+            Width = cr - cl,
+            Height = cb - ct,
+            CenterX = (cl + cr) * 0.5f,
+            CenterY = (ct + cb) * 0.5f,
+            HasScreenRect = true,
+        };
     }
 }

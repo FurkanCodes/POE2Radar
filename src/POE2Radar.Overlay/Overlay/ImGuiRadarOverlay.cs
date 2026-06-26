@@ -282,7 +282,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     var t = Stopwatch.GetTimestamp();
                     DrawNameplates(dl, ctx);
                     DrawLootValueOverlays(dl, ctx);
-                    DrawPathLabels(dl, ctx);
+                    if (ctx.ShowPathWorld)
+                        DrawPathLabels(dl, ctx);
                     nameplatesMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                 }
                 else
@@ -1483,7 +1484,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private void DrawPathLabels(ImDrawListPtr dl, RenderContext ctx)
     {
-        if (ctx.SelectedPaths.Length == 0 || ShouldDrawLargeMapOverlay(ctx.Map)) return;
+        if (!ctx.ShowPathWorld || ctx.SelectedPaths.Length == 0 || ShouldDrawLargeMapOverlay(ctx.Map)) return;
         float W = ctx.WindowWidth, H = ctx.WindowHeight;
         if (ctx.CameraMatrix is not { Length: >= 16 } m) return;
 
@@ -2112,7 +2113,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private void DrawRadarEntitySections(RadarSettings s, RenderContext? ctx)
     {
         bool detectOpen = ImGuiTheme.BeginAccordionSection("DetectAutoPath", "Detection & Auto-path",
-            "Entity range, auto-path, and clutter visibility.");
+            SettingHints.Radar.AutoPathSection);
         if (detectOpen)
         {
             int radius = s.EntityDrawRadiusGrid;
@@ -2122,11 +2123,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
             bool ap = s.AutoPathNavigable;
             if (ImGui.Checkbox("Auto-path to nearest targets", ref ap))
-            {
                 s.AutoPathNavigable = ap;
-                if (ap) s.ShowPath = true;
-            }
             ImGuiTheme.Tooltip(SettingHints.Entities.AutoPathNearest);
+            ImGui.TextDisabled("Target picking only — use Path display for where routes draw.");
 
             bool showAll = !s.ImportantOnly;
             if (ImGui.Checkbox("Show all monsters (including clutter)", ref showAll))
@@ -2367,15 +2366,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             bool sb = s.ShowPlayerBlip; ImGui.Checkbox("Player Blip", ref sb); s.ShowPlayerBlip = sb;
             ImGuiTheme.Tooltip(SettingHints.Radar.ShowPlayerBlip);
 
-            bool spw = s.ShowPathWorld; ImGui.Checkbox("Paths on world view", ref spw); s.ShowPathWorld = spw;
-            ImGuiTheme.Tooltip(SettingHints.Radar.ShowPathWorld);
-            bool sgw = s.ShowGroundWaypoints; ImGui.Checkbox("Ground waypoints", ref sgw); s.ShowGroundWaypoints = sgw;
-            ImGuiTheme.Tooltip(SettingHints.Radar.ShowGroundWaypoints);
-            bool spm = s.ShowPathMap; ImGui.Checkbox("Paths on Tab map", ref spm); s.ShowPathMap = spm;
-            ImGuiTheme.Tooltip(SettingHints.Radar.ShowPathMap);
-            bool spmi = s.ShowPathMinimap; ImGui.Checkbox("Paths on minimap", ref spmi); s.ShowPathMinimap = spmi;
-            ImGuiTheme.Tooltip(SettingHints.Radar.ShowPathMinimap);
-
             bool hj = s.HideJunk; ImGui.Checkbox("Hide map clutter", ref hj); s.HideJunk = hj;
             ImGuiTheme.Tooltip(SettingHints.Radar.HideJunk);
 
@@ -2397,6 +2387,30 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             DrawNavMenuCornerSetting(s);
         }
         ImGuiTheme.EndAccordionSection(mapOpen);
+
+        bool pathOpen = ImGuiTheme.BeginAccordionSection("PathDisplay", "Path display",
+            SettingHints.Radar.PathDisplaySection);
+        if (pathOpen)
+        {
+            bool spw = s.ShowPathWorld;
+            if (ImGui.Checkbox("Paths on world view", ref spw)) s.ShowPathWorld = spw;
+            ImGuiTheme.Tooltip(SettingHints.Radar.ShowPathWorld);
+
+            ImGui.BeginDisabled(!s.ShowPathWorld);
+            bool sgw = s.ShowGroundWaypoints;
+            if (ImGui.Checkbox("Ground waypoints", ref sgw)) s.ShowGroundWaypoints = sgw;
+            ImGuiTheme.Tooltip(SettingHints.Radar.ShowGroundWaypoints);
+            ImGui.EndDisabled();
+
+            bool spm = s.ShowPathMap;
+            if (ImGui.Checkbox("Paths on Tab map", ref spm)) s.ShowPathMap = spm;
+            ImGuiTheme.Tooltip(SettingHints.Radar.ShowPathMap);
+
+            bool spmi = s.ShowPathMinimap;
+            if (ImGui.Checkbox("Paths on minimap", ref spmi)) s.ShowPathMinimap = spmi;
+            ImGuiTheme.Tooltip(SettingHints.Radar.ShowPathMinimap);
+        }
+        ImGuiTheme.EndAccordionSection(pathOpen);
 
         DrawRadarEntitySections(s, ctx);
 

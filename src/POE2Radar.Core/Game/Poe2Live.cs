@@ -892,7 +892,7 @@ public sealed partial class Poe2Live
         var viewport = ReadMapsViewport(inGameState, areaInstance, windowWidth, windowHeight);
         // Direct path: scores GameUi branches for accurate minimap screen rects + element pointers.
         if (TryReadDirectMaps(inGameState, windowWidth, windowHeight, out var direct))
-            return MapViewsMerger.Merge(viewport, direct);
+            return MapViewsMerger.Merge(viewport, direct, windowWidth, windowHeight);
         return viewport;
     }
 

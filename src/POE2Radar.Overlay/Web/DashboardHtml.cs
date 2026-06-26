@@ -45,6 +45,8 @@ internal static class DashboardHtml
         .Replace("{{H.ShowGroundWaypoints}}", H(SettingHints.Radar.ShowGroundWaypoints))
         .Replace("{{H.ShowPathMap}}", H(SettingHints.Radar.ShowPathMap))
         .Replace("{{H.ShowPathMinimap}}", H(SettingHints.Radar.ShowPathMinimap))
+        .Replace("{{H.PathDisplaySection}}", H(SettingHints.Radar.PathDisplaySection))
+        .Replace("{{H.AutoPathSection}}", H(SettingHints.Radar.AutoPathSection))
         .Replace("{{H.AutoPathNearest}}", H(SettingHints.Entities.AutoPathNearest))
         .Replace("{{H.DetectionRadius}}", H(SettingHints.Entities.DetectionRadius))
         .Replace("{{H.ShowAllMonsters}}", H(SettingHints.Entities.ShowAllMonsters))
@@ -890,6 +892,8 @@ internal static class DashboardHtml
           <div class="settings-section panel-grid" id="setNav" hidden>
           <div class="card">
             <h3>Navigation &amp; paths</h3>
+            <h4 class="subhead" title="{{H.PathDisplaySection}}">Where paths draw</h4>
+            <p class="hint-oneline">Each layer is independent — toggling auto-path does not change these.</p>
             <div class="row"><div class="rl" title="{{H.ShowPathWorld}}">Path on ground<small>world-projected route when the large map is closed</small></div>
               <label class="sw"><input type="checkbox" data-set="showPathWorld"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.ShowGroundWaypoints}}">Ground waypoints<small>world-screen breadcrumbs (requires path on ground)</small></div>
@@ -898,7 +902,9 @@ internal static class DashboardHtml
               <label class="sw"><input type="checkbox" data-set="showPathMap"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.ShowPathMinimap}}">Path on minimap<small>route inside the corner minimap</small></div>
               <label class="sw"><input type="checkbox" data-set="showPathMinimap"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AutoPathNearest}}">Auto-path to nearest targets<small>continuously path to nearest entities whose rule has &ldquo;Show path to this&rdquo; (F6 picks manually too)</small></div>
+            <h4 class="subhead" style="margin-top:14px" title="{{H.AutoPathSection}}">Auto-path targeting</h4>
+            <p class="hint-oneline">Picks nearest nav targets automatically. Manual F6/legend picks always work.</p>
+            <div class="row"><div class="rl" title="{{H.AutoPathNearest}}">Auto-path to nearest targets<small>continuously path to nearest entities whose rule has &ldquo;Show path to this&rdquo;</small></div>
               <label class="sw"><input type="checkbox" data-set="autoPathNavigable"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.DetectionRadius}}">Detection radius<small>max grid distance for entity dots, nav, and API list (0 = unlimited)</small></div>
               <input class="numin" type="number" step="10" min="0" max="2000" data-set="entityDrawRadiusGrid"></div>
@@ -1418,14 +1424,10 @@ $('#priceRefreshBtn')?.addEventListener('click',async()=>{
 async function saveSetting(key,val){
   try{
     const body={[key]:val};
-    if(key==='autoPathNavigable'&&val){ body.showPath=true; body.showPathWorld=true; }
     await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const m=$('#savedMsg'); m.classList.add('show'); clearTimeout(m._t); m._t=setTimeout(()=>m.classList.remove('show'),1100);
     markStamp('stampSettings'); toast('Settings saved','ok');
     if(key==='hideJunk') updateHeaderQuick();
-    if(key==='autoPathNavigable'&&val){
-      const spw=$('[data-set="showPathWorld"]'); if(spw) spw.checked=true;
-    }
     if(_settingsCache) _settingsCache[key]=val;
   }catch(e){ toast('Settings save failed'); }
 }

@@ -60,20 +60,20 @@ public sealed class MapViewsMergerTests
             zoom: 3f,
             element: 20,
             rect: true,
-            posX: 12,
-            posY: 34,
+            posX: 1650,
+            posY: 90,
             width: 250,
             height: 250);
 
-        var merged = MapViewsMerger.MergeMiniMap(viewport, direct);
+        var merged = MapViewsMerger.MergeMiniMap(viewport, direct, windowWidth: 1920, windowHeight: 1080);
 
         Assert.Equal(1f, merged.ShiftX);
         Assert.Equal(2f, merged.ShiftY);
         Assert.Equal(0.4f, merged.Zoom);
         Assert.Equal(20, merged.Element);
         Assert.True(merged.HasScreenRect);
-        Assert.Equal(12f, merged.PositionX);
-        Assert.Equal(34f, merged.PositionY);
+        Assert.Equal(1650f, merged.PositionX);
+        Assert.Equal(90f, merged.PositionY);
         Assert.Equal(250f, merged.Width);
         Assert.Equal(250f, merged.Height);
     }
@@ -93,19 +93,72 @@ public sealed class MapViewsMergerTests
                 zoom: 0.8f,
                 element: 4,
                 rect: true,
-                posX: 5,
-                posY: 6,
+                posX: 1650,
+                posY: 90,
                 width: 180,
                 height: 180));
 
-        var merged = MapViewsMerger.Merge(viewport, direct);
+        var merged = MapViewsMerger.Merge(viewport, direct, windowWidth: 1920, windowHeight: 1080);
 
         Assert.True(merged.LargeMap.IsVisible);
         Assert.Equal(14f, merged.LargeMap.ShiftX);
         Assert.Equal(173f, merged.LargeMap.ShiftY);
         Assert.Equal(0.5f, merged.LargeMap.Zoom);
         Assert.True(merged.MiniMap.HasScreenRect);
-        Assert.Equal(5f, merged.MiniMap.PositionX);
+        Assert.Equal(1650f, merged.MiniMap.PositionX);
         Assert.Equal(0.25f, merged.MiniMap.Zoom);
+    }
+
+    [Fact]
+    public void MergeMiniMap_RejectsMidScreenDirectRect_KeepsViewportFrame()
+    {
+        var viewport = Map(
+            visible: false,
+            shiftX: 1,
+            shiftY: 2,
+            zoom: 0.4f,
+            element: 10,
+            rect: true,
+            posX: 1650,
+            posY: 90,
+            width: 220,
+            height: 220);
+        var direct = Map(
+            visible: true,
+            shiftX: 888,
+            shiftY: -888,
+            zoom: 3f,
+            element: 20,
+            rect: true,
+            posX: 1719.9f,
+            posY: 720f,
+            width: 225,
+            height: 225);
+
+        var merged = MapViewsMerger.MergeMiniMap(viewport, direct, windowWidth: 3440, windowHeight: 1440);
+
+        Assert.Equal(1650f, merged.PositionX);
+        Assert.Equal(90f, merged.PositionY);
+        Assert.Equal(220f, merged.Width);
+        Assert.Equal(20, merged.Element);
+        Assert.True(merged.HasScreenRect);
+    }
+
+    [Fact]
+    public void ShouldUseDirectMinimapRect_RejectsMidScreenLayoutRect()
+    {
+        var midScreen = Map(
+            visible: true,
+            shiftX: 0,
+            shiftY: 0,
+            zoom: 0.5f,
+            element: 1,
+            rect: true,
+            posX: 1719.9f,
+            posY: 720f,
+            width: 225,
+            height: 225);
+
+        Assert.False(MapViewsMerger.ShouldUseDirectMinimapRect(midScreen, 3440, 1440));
     }
 }

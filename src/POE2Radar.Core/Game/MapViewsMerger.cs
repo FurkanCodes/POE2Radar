@@ -9,8 +9,8 @@ public static class MapViewsMerger
     /// <summary>
     /// Viewport supplies projection + Tab visibility; direct supplies element addresses and minimap screen rects.
     /// </summary>
-    public static Poe2Live.MapViews Merge(Poe2Live.MapViews viewport, Poe2Live.MapViews direct)
-        => new(MergeLargeMap(viewport.LargeMap, direct.LargeMap), MergeMiniMap(viewport.MiniMap, direct.MiniMap));
+    public static Poe2Live.MapViews Merge(Poe2Live.MapViews viewport, Poe2Live.MapViews direct, int windowWidth = 0, int windowHeight = 0)
+        => new(MergeLargeMap(viewport.LargeMap, direct.LargeMap), MergeMiniMap(viewport.MiniMap, direct.MiniMap, windowWidth, windowHeight));
 
     public static Poe2Live.MapUi MergeLargeMap(Poe2Live.MapUi viewport, Poe2Live.MapUi direct)
     {
@@ -18,10 +18,10 @@ public static class MapViewsMerger
         return viewport with { Element = element };
     }
 
-    public static Poe2Live.MapUi MergeMiniMap(Poe2Live.MapUi viewport, Poe2Live.MapUi direct)
+    public static Poe2Live.MapUi MergeMiniMap(Poe2Live.MapUi viewport, Poe2Live.MapUi direct, int windowWidth = 0, int windowHeight = 0)
     {
         var element = direct.Element != 0 ? direct.Element : viewport.Element;
-        if (!direct.HasScreenRect)
+        if (!ShouldUseDirectMinimapRect(direct, windowWidth, windowHeight))
             return viewport with { Element = element };
 
         return viewport with
@@ -37,5 +37,25 @@ public static class MapViewsMerger
             LocalScaleMultiplier = direct.LocalScaleMultiplier,
             ScaleIndex = direct.ScaleIndex,
         };
+    }
+
+    /// <summary>
+    /// Direct MapParent minimap reads often resolve a mid-screen layout rect for the 0×0 corner widget.
+    /// Only trust direct rects that land in the live top-right minimap band.
+    /// </summary>
+    public static bool ShouldUseDirectMinimapRect(Poe2Live.MapUi direct, int windowWidth, int windowHeight)
+    {
+        if (!direct.HasScreenRect || direct.Width < 32f || direct.Height < 32f)
+            return false;
+        if (windowWidth <= 0 || windowHeight <= 0)
+            return true;
+
+        return MapViewportLogic.IsTopRightMinimapRect(
+            direct.PositionX,
+            direct.PositionY,
+            direct.PositionX + direct.Width,
+            direct.PositionY + direct.Height,
+            windowWidth,
+            windowHeight);
     }
 }

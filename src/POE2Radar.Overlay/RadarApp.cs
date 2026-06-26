@@ -605,6 +605,8 @@ public sealed partial class RadarApp : IDisposable
             ctx.MapLockLargeElement,
             new Poe2Live.MapViews(ctx.Map, ctx.MiniMap),
             frame.IsMinimap,
+            ctx.WindowWidth,
+            ctx.WindowHeight,
             out var sample)
             ? sample
             : null;
@@ -691,7 +693,7 @@ public sealed partial class RadarApp : IDisposable
 
         var live = _liveFrame;
         if (live.InGame)
-            live = RefreshMapLock(live, drawActive);
+            live = RefreshMapLock(live, drawActive, windowWidth, windowHeight);
 
         if (live.InGame)
         {
@@ -971,7 +973,7 @@ public sealed partial class RadarApp : IDisposable
 
     /// <summary>Fast player + map pan/zoom lock every app tick. Full map discovery/rect reads stay on
     /// <see cref="RefreshLiveFrame"/> at LiveRefreshHz; shift/zoom here keep the overlay HUD-locked while moving.</summary>
-    private LiveFrameState RefreshMapLock(LiveFrameState live, bool drawActive)
+    private LiveFrameState RefreshMapLock(LiveFrameState live, bool drawActive, int windowWidth, int windowHeight)
     {
         if (!live.InGame || live.LocalPlayer == 0 || live.InGameState == 0 || live.AreaInstance == 0)
             return live;
@@ -981,7 +983,7 @@ public sealed partial class RadarApp : IDisposable
         var maps = live.Maps;
         if (drawActive && !_atlasOpen)
         {
-            var refreshed = _live.RefreshMapPanZoom(maps, live.AreaInstance);
+            var refreshed = _live.RefreshMapPanZoom(maps, live.AreaInstance, windowWidth, windowHeight);
             if (!refreshed.Equals(maps))
             {
                 maps = refreshed;
@@ -1251,7 +1253,6 @@ public sealed partial class RadarApp : IDisposable
         if (HotkeyPressed(_settings.AutoPathToggleHotkey, ref _nextAutoPathToggleAt, requireGameFocus: true))
         {
             _settings.AutoPathNavigable = !_settings.AutoPathNavigable;
-            if (_settings.AutoPathNavigable) _settings.ShowPath = true;
             _settings.Save();
             Console.WriteLine($"\nAuto-path: {(_settings.AutoPathNavigable ? "ON" : "OFF")}");
         }

@@ -13,11 +13,15 @@ public sealed class RadarSettings
 {
     // ── Feature flags (reserved for later phases; no behavior wired yet). ──
     public bool HideJunk { get; set; } = false;
+    /// <summary>Legacy master flag — read on first migrate only. Rendering uses per-layer toggles below.</summary>
     public bool ShowPath { get; set; } = false;
     public bool PathTogglesMigrated { get; set; }
     public bool ShowPathWorld { get; set; } = true;
     public bool ShowPathMap { get; set; } = true;
     public bool ShowPathMinimap { get; set; } = true;
+    /// <summary>True when any path draw layer is enabled (API backward compat for legacy <c>showPath</c>).</summary>
+    [JsonIgnore]
+    public bool ShowPathAnyLayer => ShowPathWorld || ShowPathMap || ShowPathMinimap;
     /// <summary>Ground-screen breadcrumbs when the Tab map is closed (sub-toggle of <see cref="ShowPathWorld"/>).</summary>
     public bool ShowGroundWaypoints { get; set; } = true;
     public bool UseCuratedLandmarks { get; set; } = true;

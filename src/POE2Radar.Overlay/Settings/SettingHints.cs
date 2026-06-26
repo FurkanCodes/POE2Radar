@@ -41,7 +41,7 @@ internal static class SettingHints
     internal static class Entities
     {
         public const string DetectionRadius = "Max grid distance from player for entity dots, nav targets, and API list. 0 = no limit.";
-        public const string AutoPathNearest = "Continuously draw paths to the nearest navigation targets — endgame mechanics, rares, uniques, POIs by default.";
+        public const string AutoPathNearest = "Pick nearest nav targets automatically. Does not change path display toggles.";
         public const string ShowAllMonsters = "Show normal/magic grey monsters and other map clutter on the radar.";
         public const string NeverShowPattern = "Substring or glob (* ?) — not on map, not in lists, not for paths.";
         public const string NeverShowAdd = "Add this pattern to the never-show list.";
@@ -57,10 +57,12 @@ internal static class SettingHints
         public const string ShowMonsters = "Draw entity dots (monsters, NPCs, chests, POIs) on the map overlay.";
         public const string ShowTerrain = "Draw walkable terrain boundary edges on the map overlay.";
         public const string ShowPlayerBlip = "Show a cyan dot at your position on the map overlay.";
-        public const string ShowPathWorld = "Draw guidance route polylines between you and selected targets.";
-        public const string ShowGroundWaypoints = "World-screen breadcrumbs when the Tab map is closed (requires Paths on world view).";
-        public const string ShowPathMap = "Draw route lines on the large Tab map.";
-        public const string ShowPathMinimap = "Draw route lines on the corner minimap.";
+        public const string ShowPathWorld = "Draw route polylines and target label chips on the world view (independent of auto-path and other map layers).";
+        public const string ShowGroundWaypoints = "World-screen breadcrumbs when the Tab map is closed (requires path on world view).";
+        public const string ShowPathMap = "Draw route lines on the large Tab map (independent of other layers).";
+        public const string ShowPathMinimap = "Draw route lines on the corner minimap (independent of other layers).";
+        public const string PathDisplaySection = "Where selected path targets are drawn — each layer is independent.";
+        public const string AutoPathSection = "How targets are picked — does not enable or disable path drawing.";
         public const string HideJunk = "Hide cosmetic FX, daemons, and other noise dots on the map.";
         public const string CuratedLandmarks = "Use community-curated friendly names for landmarks instead of raw tile paths.";
         public const string AlwaysShowOverlay = "Keep the overlay visible even when PoE2 is not the foreground window.";

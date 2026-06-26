@@ -127,4 +127,42 @@ public sealed class RadarSettingsMigrationTests
 
         Assert.True(s.ShowGroundWaypoints);
     }
+
+    [Fact]
+    public void ShowPathAnyLayer_ReflectsIndependentLayerToggles()
+    {
+        var s = new RadarSettings
+        {
+            ShowPathWorld = true,
+            ShowPathMap = false,
+            ShowPathMinimap = false,
+        };
+
+        Assert.True(s.ShowPathAnyLayer);
+
+        s.ShowPathWorld = false;
+        s.ShowPathMinimap = true;
+        Assert.True(s.ShowPathAnyLayer);
+
+        s.ShowPathMinimap = false;
+        Assert.False(s.ShowPathAnyLayer);
+    }
+
+    [Fact]
+    public void AutoPathNavigable_DoesNotMutatePathDisplayLayers()
+    {
+        var s = new RadarSettings
+        {
+            ShowPathWorld = false,
+            ShowPathMap = true,
+            ShowPathMinimap = false,
+            AutoPathNavigable = false,
+        };
+
+        s.AutoPathNavigable = true;
+
+        Assert.False(s.ShowPathWorld);
+        Assert.True(s.ShowPathMap);
+        Assert.False(s.ShowPathMinimap);
+    }
 }

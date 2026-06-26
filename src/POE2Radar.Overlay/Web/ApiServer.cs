@@ -557,7 +557,7 @@ public sealed class ApiServer : IDisposable
     private object ReadSettings() => new
     {
         hideJunk = _settings.HideJunk,
-        showPath = _settings.ShowPath,
+        showPath = _settings.ShowPathAnyLayer,
         showPathWorld = _settings.ShowPathWorld,
         showGroundWaypoints = _settings.ShowGroundWaypoints,
         showPathMap = _settings.ShowPathMap,
@@ -680,14 +680,18 @@ public sealed class ApiServer : IDisposable
             switch (p.Name)
             {
                 case "hideJunk" when TryBool(p.Value, out var b): _settings.HideJunk = b; applied.Add(p.Name); break;
-                case "showPath" when TryBool(p.Value, out var b): _settings.ShowPath = b; applied.Add(p.Name); break;
+                case "showPath" when TryBool(p.Value, out var b):
+                    _settings.ShowPathWorld = b;
+                    _settings.ShowPathMap = b;
+                    _settings.ShowPathMinimap = b;
+                    applied.Add(p.Name);
+                    break;
                 case "showPathWorld" when TryBool(p.Value, out var b): _settings.ShowPathWorld = b; applied.Add(p.Name); break;
                 case "showGroundWaypoints" when TryBool(p.Value, out var b): _settings.ShowGroundWaypoints = b; applied.Add(p.Name); break;
                 case "showPathMap" when TryBool(p.Value, out var b): _settings.ShowPathMap = b; applied.Add(p.Name); break;
             case "showPathMinimap" when TryBool(p.Value, out var b): _settings.ShowPathMinimap = b; applied.Add(p.Name); break;
             case "autoPathNavigable" when TryBool(p.Value, out var b):
                     _settings.AutoPathNavigable = b;
-                    if (b) { _settings.ShowPath = true; _settings.ShowPathWorld = true; }
                     applied.Add(p.Name);
                     break;
                 case "importantOnly" when TryBool(p.Value, out var b): _settings.ImportantOnly = b; applied.Add(p.Name); break;
