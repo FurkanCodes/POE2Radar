@@ -1209,7 +1209,7 @@ public sealed partial class RadarApp : IDisposable
         {
             _settings.AutoPathNavigable = !_settings.AutoPathNavigable;
             _settings.Save();
-            Console.WriteLine($"\nAuto-path: {(_settings.AutoPathNavigable ? "ON" : "OFF")}");
+            Console.WriteLine($"\nAuto-path (entities): {(_settings.AutoPathNavigable ? "ON" : "OFF")}  [curated terrain paths: {(_settings.ShowCuratedPaths ? "ON" : "OFF")}]");
         }
 
         if (HotkeyPressed(_settings.AtlasPickHotkey, ref _nextInspectAt, debounceMs: 250))
@@ -1647,9 +1647,9 @@ public sealed partial class RadarApp : IDisposable
                     if (!_selectedIds.Contains(id)) _selectedIds.Add(id);
                 }
             }
-            else if (_settings.AutoPathNavigable)
+            else if (_settings.ShowCuratedPaths || _settings.AutoPathNavigable)
             {
-                foreach (var id in OrderedAutoPathCandidateIds(player))
+                foreach (var id in BuildAutoPathCandidateIds(player))
                 {
                     if (_selectedIds.Count >= MaxSelectedTargets) break;
                     if (!_selectedIds.Contains(id))
@@ -1667,29 +1667,29 @@ public sealed partial class RadarApp : IDisposable
             Console.WriteLine($"\nNav: {(restored ? "restored" : "auto-selected")} {count} target(s) on zone change.");
     }
 
-    /// <summary>When <see cref="RadarSettings.AutoPathNavigable"/> is on, keep the selection filled with
-    /// auto-path targets (curated terrain first, then conservative entity mechanics), up to the cap.
+    /// <summary>Keep the path selection filled with auto-path targets (curated terrain when
+    /// <see cref="RadarSettings.ShowCuratedPaths"/>; entity mechanics when
+    /// <see cref="RadarSettings.AutoPathNavigable"/> + <see cref="RadarSettings.ShowEntityPaths"/>).
     /// Manual selections (F6/legend/API) are preserved.</summary>
     private void AutoSelectNavigable(NumVec2 player)
     {
-        if (!_settings.AutoPathNavigable)
-        {
-            if (_autoSelectedIds.Count == 0) return;
-            lock (_navLock)
-            {
-                foreach (var id in _autoSelectedIds)
-                    _selectedIds.Remove(id);
-                _autoSelectedIds.Clear();
-            }
-            return;
-        }
-
         MarkReachedPaths(player);
 
-        var candidates = OrderedAutoPathCandidateIds(player);
+        var candidates = BuildAutoPathCandidateIds(player);
 
         lock (_navLock)
         {
+            if (candidates.Count == 0)
+            {
+                if (_autoSelectedIds.Count == 0) return;
+                foreach (var id in _autoSelectedIds.ToList())
+                {
+                    _selectedIds.Remove(id);
+                    _autoSelectedIds.Remove(id);
+                }
+                return;
+            }
+
             var manual = new HashSet<string>(_selectedIds.Where(id => !_autoSelectedIds.Contains(id)));
             var desiredAuto = new List<string>();
             foreach (var id in candidates)
@@ -1724,20 +1724,28 @@ public sealed partial class RadarApp : IDisposable
         }
     }
 
-    /// <summary>Curated terrain landmarks first (GameHelper important_tgt parity), then other auto-path
-    /// targets by distance.</summary>
-    private IEnumerable<string> OrderedAutoPathCandidateIds(NumVec2 player)
+    /// <summary>GameHelper-style pipelines: curated terrain (ShowCuratedPaths, always on by default)
+    /// then entity mechanics (AutoPathNavigable + ShowEntityPaths).</summary>
+    private List<string> BuildAutoPathCandidateIds(NumVec2 player)
     {
-        var auto = _navTargets.Where(t => t.AutoPath).ToList();
-        if (auto.Count == 0) yield break;
+        var result = new List<string>();
+        if (_settings.ShowCuratedPaths && _settings.UseCuratedLandmarks)
+        {
+            foreach (var t in _navTargets.Where(t => t.AutoPath && IsCuratedLandmarkTarget(t))
+                         .OrderBy(t => NumVec2.DistanceSquared(t.Grid, player)))
+                result.Add(t.Id);
+        }
 
-        foreach (var t in auto.Where(IsCuratedLandmarkTarget)
-                     .OrderBy(t => NumVec2.DistanceSquared(t.Grid, player)))
-            yield return t.Id;
+        if (_settings.AutoPathNavigable && _settings.ShowEntityPaths)
+        {
+            foreach (var t in _navTargets.Where(t => t.AutoPath && !IsCuratedLandmarkTarget(t))
+                         .OrderBy(t => NumVec2.DistanceSquared(t.Grid, player)))
+            {
+                if (!result.Contains(t.Id)) result.Add(t.Id);
+            }
+        }
 
-        foreach (var t in auto.Where(t => !IsCuratedLandmarkTarget(t))
-                     .OrderBy(t => NumVec2.DistanceSquared(t.Grid, player)))
-            yield return t.Id;
+        return result;
     }
 
     private bool IsCuratedLandmarkTarget(NavTarget t)

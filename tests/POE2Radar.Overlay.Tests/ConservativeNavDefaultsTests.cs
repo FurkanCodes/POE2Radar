@@ -44,15 +44,13 @@ public sealed class ConservativeNavDefaultsTests
     }
 
     [Fact]
-    public void FreshSettings_DefaultGameHelperPathToggles()
+    public void FreshSettings_CuratedPathsOnByDefault_EntityAutoPathNeedsF3()
     {
         var s = new RadarSettings();
 
-        Assert.False(s.ShowPathWorld);
-        Assert.True(s.ShowPathMap);
         Assert.True(s.ShowCuratedPaths);
         Assert.True(s.ShowEntityPaths);
-        Assert.True(s.HideReachedPaths);
-        Assert.Equal(50f, s.ReachedPathDistance);
+        Assert.False(s.AutoPathNavigable);
+        Assert.True(s.ShowPathMap);
     }
 }

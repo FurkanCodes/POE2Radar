@@ -2087,13 +2087,14 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             ImGuiTheme.Tooltip(SettingHints.Entities.AutoPathNearest);
 
             ImGui.BeginDisabled(!s.AutoPathNavigable);
+            bool sep = s.ShowEntityPaths;
+            if (ImGui.Checkbox("Entity mechanic paths (needs F3)", ref sep)) s.ShowEntityPaths = sep;
+            ImGuiTheme.Tooltip(SettingHints.Radar.ShowEntityPaths);
+            ImGui.EndDisabled();
+
             bool scp = s.ShowCuratedPaths;
             if (ImGui.Checkbox("Curated terrain POI paths", ref scp)) s.ShowCuratedPaths = scp;
             ImGuiTheme.Tooltip(SettingHints.Radar.ShowCuratedPaths);
-            bool sep = s.ShowEntityPaths;
-            if (ImGui.Checkbox("Entity mechanic paths", ref sep)) s.ShowEntityPaths = sep;
-            ImGuiTheme.Tooltip(SettingHints.Radar.ShowEntityPaths);
-            ImGui.EndDisabled();
             ImGui.TextDisabled("Target picking only — use Path display for where routes draw.");
 
             bool showAll = !s.ImportantOnly;

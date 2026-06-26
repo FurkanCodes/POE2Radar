@@ -60,8 +60,8 @@ internal static class SettingHints
         public const string ShowPathWorld = "Draw route polylines and target label chips on the world view (independent of auto-path and other map layers).";
         public const string ShowGroundWaypoints = "World-screen breadcrumbs when the Tab map is closed (requires path on world view).";
         public const string ShowPathMap = "Draw route lines on the large Tab map (independent of other layers).";
-        public const string ShowCuratedPaths = "When auto-path is on, route to curated campaign/transition POIs from the landmark database.";
-        public const string ShowEntityPaths = "When auto-path is on, route to league mechanics whose display rule has Auto-path enabled.";
+        public const string ShowCuratedPaths = "Route to curated campaign/transition POIs on the Tab map (GameHelper important_tgt parity; on by default, no F3 needed).";
+        public const string ShowEntityPaths = "When auto-path (F3) is on, also route to league mechanics whose display rule has Auto-path enabled.";
         public const string HideReachedPaths = "Stop drawing a path once you walk within the reached distance of its target.";
         public const string ReachedPathDistance = "Grid distance at which a path target counts as reached (Hide reached paths).";
         public const string PathDisplaySection = "Where selected path targets are drawn — each layer is independent.";

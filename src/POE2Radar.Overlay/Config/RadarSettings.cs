@@ -45,8 +45,7 @@ public sealed class RadarSettings
     // ── Entity gather/draw radius (grid cells from player). 0 = unlimited (game network bubble only). ──
     public int EntityDrawRadiusGrid { get; set; } = 0;
 
-    // ── Live auto-path: each world tick, fill remaining path slots with nearest targets whose display
-    //    rule has Auto-path (Navigable) enabled. Manual F6/legend selections are never overridden. ──
+    // ── Live auto-path: F3 fills entity-mechanic slots; curated terrain paths follow ShowCuratedPaths. ──
     public bool AutoPathNavigable { get; set; } = false;
 
     // ── In-game hotkey to toggle <see cref="AutoPathNavigable"/> (default F3 = 0x72). 0 = disabled. ──
