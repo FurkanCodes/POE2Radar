@@ -39,6 +39,7 @@ Dense tabs (Radar, Performance, Entities, HP Bars, Flask, Atlas, Hotkeys) use **
 - **Helpers:** `ImGuiTheme.BeginAccordionSection(id, title, subtitle?, defaultOpen)` + `EndAccordionSection(open)` — full-width `CollapsingHeader` (`SpanAvailWidth | FramePadding`), muted subtitle only when expanded, light indent for controls.
 - **Tab scroll:** one `BeginTabScroll` child per tab (`Vector2.Zero` + vertical scrollbar). **Never** nest extra `BeginChild(0,0)` section panels inside tabs — that collapsed content in the past.
 - **Defaults:** open the primary section only (e.g. Radar → Map display, Performance → Refresh cadence); other sections start collapsed. ImGui persists expand state while the window is open.
+- **Tab ownership:** app-wide perf (FPS cap, Hz, smoothing, metrics HUD, UI font) lives **only** on the **Performance** tab — not duplicated on Radar. Radar may show a one-line cross-link to Performance.
 - **Nested lists:** large inventories (entity tiers, atlas tags) may use inner `CollapsingHeader` or fixed-height `BeginChild` **inside** an open accordion — not as the tab's outer layout.
 - **Startup launcher** (`StartupMenuOverlay`) keeps flat `SectionHeader` — fewer controls, no accordion needed.
 

@@ -2130,8 +2130,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
         ImGuiTheme.EndAccordionSection(mapOpen);
 
-        DrawPerformanceSettings(s, openRefreshByDefault: false);
-
         bool calOpen = ImGuiTheme.BeginAccordionSection("MapCalibration", "Map calibration",
             "Fine-tune overlay alignment with the game minimap.");
         if (calOpen)
@@ -2204,6 +2202,10 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             ImGuiTheme.Tooltip("Open the web dashboard to edit what shows on the map — icons, colors, hide, and paths.");
         }
         ImGuiTheme.EndAccordionSection(rulesOpen);
+
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGuiTheme.TextMuted);
+        ImGui.TextWrapped("FPS, refresh rates, smoothing, and metrics HUD → Performance tab.");
+        ImGui.PopStyleColor();
 
         if (ImGui.Button("Save Settings"))
             SaveSettings();
