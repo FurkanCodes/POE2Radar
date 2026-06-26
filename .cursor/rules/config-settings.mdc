@@ -10,6 +10,8 @@ alwaysApply: false
 
 - User settings: `config/radar_settings.json` via `RadarSettings.Save()`.
 - Defaults must reproduce prior behavior for missing keys (additive JSON, no breaking renames without migration).
+- **ImGui:** no manual Save buttons — all `RadarSettings` edits use debounced auto-save (`SettingsAutoSaveDebouncer`, 350ms) via `MarkSettingsDirty` / `FlushSettingsAutoSave`; force flush on settings panel close and hotkey bind/clear (`FlushSettingsNow`).
+- Separate JSON stores (`DisplayRules`, `HiddenEntities`, `ZoneEntityOverrides`) save immediately on their mutation APIs — not through `RadarSettings`.
 
 ## Migration pattern
 

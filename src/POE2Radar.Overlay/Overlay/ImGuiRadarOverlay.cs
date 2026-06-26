@@ -63,9 +63,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private bool _hotkeyBindArmed;
     private string _activeSettingsTab = "";
     private bool _settingsPanelWasOpen;
-    private string? _settingsAutoSaveSnapshot;
-    private long _settingsAutoSaveDueStamp;
-    private const double SettingsAutoSaveDebounceSec = 0.35;
+    private readonly SettingsAutoSaveDebouncer _settingsAutoSave = new();
     private int _appliedUiFontSize = -1;
     private string _appliedUiFontPath = "";
     private UiFontGlyphRange _appliedUiGlyphRange = (UiFontGlyphRange)(-1);
@@ -296,7 +294,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (_settingsOpen)
                 DrawSettingsPanel(ctx);
             else if (_settingsPanelWasOpen)
-                FlushSettingsAutoSave(force: true);
+                FlushSettingsNow();
 
             _settingsPanelWasOpen = _settingsOpen;
         }
@@ -1657,8 +1655,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
         ImGui.Spacing();
 
-        if (_settingsAutoSaveSnapshot is null)
-            _settingsAutoSaveSnapshot = JsonSerializer.Serialize(s);
+        _settingsAutoSave.SeedIfNeeded(JsonSerializer.Serialize(s));
 
         MaybeReapplyOverlayFont(s);
 
@@ -1678,7 +1675,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
         PollHotkeyCapture(s);
 
-        TouchSettingsAutoSave(s);
+        MarkSettingsDirty(s);
         FlushSettingsAutoSave();
 
         ImGui.End();
@@ -2381,17 +2378,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         ImGui.PushStyleColor(ImGuiCol.Text, ImGuiTheme.TextMuted);
         ImGui.TextWrapped("FPS, refresh rates, smoothing, and metrics HUD → Performance tab.");
         ImGui.PopStyleColor();
-
-        if (ImGui.Button("Save Settings"))
-            SaveSettings();
-        ImGuiTheme.Tooltip("Write settings now (also auto-saves when you change a control)");
     }
 
     private void DrawPerformanceTab(RadarSettings s)
     {
         DrawPerformanceSettings(s);
-        if (ImGui.Button("Save Settings"))
-            SaveSettings();
     }
 
     private void DrawPerformanceSettings(RadarSettings s)
@@ -2502,8 +2493,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private void DrawHotkeysTab(RadarSettings s)
     {
         DrawHotkeysSection(s);
-        if (ImGui.Button("Save Settings"))
-            SaveSettings();
     }
 
     private void DrawHpBarsTab(RadarSettings s)
@@ -2637,7 +2626,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     if (ImGui.Selectable(option, selected))
                     {
                         s.AtlasLanguage = option;
-                        SaveSettings();
                     }
                     if (selected) ImGui.SetItemDefaultFocus();
                 }
@@ -2646,50 +2634,49 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
             bool son = s.AtlasShowOnScreenNodes;
             var trackActive = s.AtlasHighlightTags is { Count: > 0 };
-            if (ImGui.Checkbox("Show all nodes", ref son)) { s.AtlasShowOnScreenNodes = son; SaveSettings(); }
+            if (ImGui.Checkbox("Show all nodes", ref son)) { s.AtlasShowOnScreenNodes = son; }
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
                 ImGui.SetTooltip(trackActive
                     ? "Track filters are active — leave this on to show all nodes while still drawing tracked rings."
                     : "Draw every atlas tile on the current screen");
 
             bool sn = s.AtlasShowNames;
-            if (ImGui.Checkbox("Show names", ref sn)) { s.AtlasShowNames = sn; SaveSettings(); }
+            if (ImGui.Checkbox("Show names", ref sn)) { s.AtlasShowNames = sn; }
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Label on-screen nodes with map name (and highlight tag when matched)");
 
             bool rf = s.AtlasRevealFog;
-            if (ImGui.Checkbox("Reveal fog", ref rf)) { s.AtlasRevealFog = rf; SaveSettings(); }
+            if (ImGui.Checkbox("Reveal fog", ref rf)) { s.AtlasRevealFog = rf; }
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Draw fogged/hidden nodes at full opacity with a cool tint");
 
             bool oa = s.AtlasOffScreenArrows;
-            if (ImGui.Checkbox("Off-screen arrows (highlights)", ref oa)) { s.AtlasOffScreenArrows = oa; SaveSettings(); }
+            if (ImGui.Checkbox("Off-screen arrows (highlights)", ref oa)) { s.AtlasOffScreenArrows = oa; }
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Edge arrows for arrow-tagged highlights only (e.g. Citadels off-screen)");
 
             bool sr = s.AtlasShowRoute;
-            if (ImGui.Checkbox("Show F10 route", ref sr)) { s.AtlasShowRoute = sr; SaveSettings(); }
+            if (ImGui.Checkbox("Show F10 route", ref sr)) { s.AtlasShowRoute = sr; }
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Draw the F10 route through the atlas node connection graph");
 
             bool ucs = s.AtlasUseCurrentStart;
-            if (ImGui.Checkbox("Route from current tile", ref ucs)) { s.AtlasUseCurrentStart = ucs; SaveSettings(); }
+            if (ImGui.Checkbox("Route from current tile", ref ucs)) { s.AtlasUseCurrentStart = ucs; }
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("When no F10 START is set, route from your current atlas position");
 
             bool chev = s.AtlasShowRouteChevrons;
-            if (ImGui.Checkbox("Route chevrons", ref chev)) { s.AtlasShowRouteChevrons = chev; SaveSettings(); }
+            if (ImGui.Checkbox("Route chevrons", ref chev)) { s.AtlasShowRouteChevrons = chev; }
 
             bool bb = s.AtlasShowBiomeBorders;
-            if (ImGui.Checkbox("Biome borders", ref bb)) { s.AtlasShowBiomeBorders = bb; SaveSettings(); }
+            if (ImGui.Checkbox("Biome borders", ref bb)) { s.AtlasShowBiomeBorders = bb; }
 
             bool cb = s.AtlasShowContentBadges;
-            if (ImGui.Checkbox("Content badges", ref cb)) { s.AtlasShowContentBadges = cb; SaveSettings(); }
+            if (ImGui.Checkbox("Content badges", ref cb)) { s.AtlasShowContentBadges = cb; }
 
             bool cc = s.AtlasShowContentCount;
-            if (ImGui.Checkbox("Content count pips", ref cc)) { s.AtlasShowContentCount = cc; SaveSettings(); }
+            if (ImGui.Checkbox("Content count pips", ref cc)) { s.AtlasShowContentCount = cc; }
 
             float atlasIcon = s.AtlasIconScale;
             ImGui.SetNextItemWidth(180f);
             if (ImGui.SliderFloat("Icon scale", ref atlasIcon, 0.5f, 3f, "%.2f"))
             {
                 s.AtlasIconScale = Math.Clamp(atlasIcon, 0.25f, 4f);
-                SaveSettings();
             }
 
             float atlasLabel = s.AtlasLabelScale;
@@ -2697,7 +2684,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (ImGui.SliderFloat("Label scale", ref atlasLabel, 0.5f, 2.5f, "%.2f"))
             {
                 s.AtlasLabelScale = Math.Clamp(atlasLabel, 0.5f, 3f);
-                SaveSettings();
             }
 
             float routeThickness = s.AtlasRouteLineThickness;
@@ -2705,7 +2691,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (ImGui.SliderFloat("Route thickness", ref routeThickness, 1f, 8f, "%.1f"))
             {
                 s.AtlasRouteLineThickness = Math.Clamp(routeThickness, 1f, 8f);
-                SaveSettings();
             }
 
             float routeSpacing = s.AtlasRouteChevronSpacing;
@@ -2713,7 +2698,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (ImGui.SliderFloat("Chevron spacing", ref routeSpacing, 8f, 80f, "%.0f"))
             {
                 s.AtlasRouteChevronSpacing = Math.Clamp(routeSpacing, 8f, 80f);
-                SaveSettings();
             }
         }
         ImGuiTheme.EndAccordionSection(displayOpen);
@@ -2727,17 +2711,16 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (ImGui.InputTextWithHint("##atlasSearch", "Search map names, ids, or content (comma = OR)…", ref q, 256))
             {
                 s.AtlasSearchQuery = q;
-                SaveSettings();
             }
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
                 ImGui.SetTooltip("Like GameHelper: while search is active, non-matching atlas nodes are hidden and matches are routed from the accessible frontier.");
 
             bool hc = s.AtlasHideCompletedMaps;
-            if (ImGui.Checkbox("Hide completed maps", ref hc)) { s.AtlasHideCompletedMaps = hc; SaveSettings(); }
+            if (ImGui.Checkbox("Hide completed maps", ref hc)) { s.AtlasHideCompletedMaps = hc; }
             bool hna = s.AtlasHideNotAccessibleMaps;
-            if (ImGui.Checkbox("Hide not-accessible maps", ref hna)) { s.AtlasHideNotAccessibleMaps = hna; SaveSettings(); }
+            if (ImGui.Checkbox("Hide not-accessible maps", ref hna)) { s.AtlasHideNotAccessibleMaps = hna; }
             bool hav = s.AtlasHideAvailableMaps;
-            if (ImGui.Checkbox("Hide available maps", ref hav)) { s.AtlasHideAvailableMaps = hav; SaveSettings(); }
+            if (ImGui.Checkbox("Hide available maps", ref hav)) { s.AtlasHideAvailableMaps = hav; }
         }
         ImGuiTheme.EndAccordionSection(searchOpen);
 
@@ -2749,7 +2732,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             {
                 ImGui.PushID("atlasGroup_" + g.Name);
                 bool en = g.Enabled;
-                if (ImGui.Checkbox("##enabled", ref en)) { g.Enabled = en; SaveSettings(); }
+                if (ImGui.Checkbox("##enabled", ref en)) { g.Enabled = en; }
                 ImGui.SameLine();
                 ImGui.TextUnformatted(g.Name);
                 ImGui.SameLine();
@@ -2757,7 +2740,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 if (ImGui.ColorEdit3("Background", ref bg, ImGuiColorEditFlags.NoInputs))
                 {
                     g.Color = FormatHexColor3(bg);
-                    SaveSettings();
                 }
                 var key = g.Name;
                 if (!_atlasGroupMapBuffers.TryGetValue(key, out var maps))
@@ -2767,7 +2749,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 {
                     _atlasGroupMapBuffers[key] = maps;
                     g.Maps = maps.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-                    SaveSettings();
                 }
                 ImGui.PopID();
             }
@@ -2782,22 +2763,22 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             {
                 ImGui.PushID("atlasRouteGroup_" + group.Name);
                 bool draw = group.DrawPaths;
-                if (ImGui.Checkbox(group.Name, ref draw)) { group.DrawPaths = draw; SaveSettings(); }
+                if (ImGui.Checkbox(group.Name, ref draw)) { group.DrawPaths = draw; }
                 float thick = group.LineThickness;
                 ImGui.SetNextItemWidth(160f);
-                if (ImGui.SliderFloat("Line thickness", ref thick, 1f, 8f, "%.1f")) { group.LineThickness = Math.Clamp(thick, 1f, 8f); SaveSettings(); }
+                if (ImGui.SliderFloat("Line thickness", ref thick, 1f, 8f, "%.1f")) { group.LineThickness = Math.Clamp(thick, 1f, 8f); }
                 foreach (var e in group.Entries)
                 {
                     ImGui.PushID(e.Match);
                     bool on = e.DrawPath;
-                    if (ImGui.Checkbox(e.Name, ref on)) { e.DrawPath = on; SaveSettings(); }
+                    if (ImGui.Checkbox(e.Name, ref on)) { e.DrawPath = on; }
                     ImGui.SameLine();
                     int maxHops = e.MaxHops;
                     ImGui.SetNextItemWidth(80f);
-                    if (ImGui.InputInt("max hops", ref maxHops)) { e.MaxHops = Math.Clamp(maxHops, 0, 1000); SaveSettings(); }
+                    if (ImGui.InputInt("max hops", ref maxHops)) { e.MaxHops = Math.Clamp(maxHops, 0, 1000); }
                     ImGui.SameLine();
                     var col = ParseHexColor(e.Color);
-                    if (ImGui.ColorEdit3("color", ref col, ImGuiColorEditFlags.NoInputs)) { e.Color = FormatHexColor3(col); SaveSettings(); }
+                    if (ImGui.ColorEdit3("color", ref col, ImGuiColorEditFlags.NoInputs)) { e.Color = FormatHexColor3(col); }
                     ImGui.PopID();
                 }
                 ImGui.PopID();
@@ -2815,7 +2796,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             {
                 SeedAtlasCitadelDefaults(s);
                 s.AtlasRulesInitialized = true;
-                SaveSettings();
             }
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Track + arrow every Citadel map name (gold ring)");
             ImGui.SameLine();
@@ -2823,7 +2803,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             {
                 AtlasEndgameCatalog.ApplyEndgameDefaults(s, _ctx?.AtlasTagCatalog);
                 s.AtlasRulesInitialized = true;
-                SaveSettings();
             }
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
                 ImGui.SetTooltip("Highlight Patriarch/Matriarch Halls, Origin Tower, Citadels, Enigma Chambers, and boss content — for repeat Arbiter of Divinity runs");
@@ -2834,7 +2813,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 s.AtlasArrowTags.Clear();
                 s.AtlasHighlightColors.Clear();
                 s.AtlasRulesInitialized = true;
-                SaveSettings();
             }
 
             ImGui.SetNextItemWidth(-1f);
@@ -2879,7 +2857,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                             if (track && !s.AtlasHighlightColors.ContainsKey(e.Key))
                                 s.AtlasHighlightColors[e.Key] = "#58A6FF";
                             s.AtlasRulesInitialized = true;
-                            SaveSettings();
                         }
 
                         ImGui.TableSetColumnIndex(4);
@@ -2888,7 +2865,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                         {
                             AtlasToggleList(s.AtlasArrowTags, e.Key, arrow);
                             s.AtlasRulesInitialized = true;
-                            SaveSettings();
                         }
 
                         ImGui.TableSetColumnIndex(5);
@@ -2900,7 +2876,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                             if (ImGui.ColorEdit3("##col", ref col, ImGuiColorEditFlags.NoInputs))
                             {
                                 s.AtlasHighlightColors[e.Key] = FormatHexColor3(col);
-                                SaveSettings();
                             }
                             ImGui.PopID();
                         }
@@ -2946,24 +2921,18 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         lock (_settingsLock)
         {
             _settings.Save();
-            _settingsAutoSaveSnapshot = JsonSerializer.Serialize(_settings);
-            _settingsAutoSaveDueStamp = 0;
+            _settingsAutoSave.NoteSaved(JsonSerializer.Serialize(_settings));
         }
     }
 
-    private void TouchSettingsAutoSave(RadarSettings s)
-    {
-        var snap = JsonSerializer.Serialize(s);
-        if (snap == _settingsAutoSaveSnapshot) return;
-        _settingsAutoSaveSnapshot = snap;
-        _settingsAutoSaveDueStamp = Stopwatch.GetTimestamp();
-    }
+    private void MarkSettingsDirty(RadarSettings s)
+        => _settingsAutoSave.Touch(JsonSerializer.Serialize(s), Stopwatch.GetTimestamp());
+
+    private void FlushSettingsNow() => FlushSettingsAutoSave(force: true);
 
     private void FlushSettingsAutoSave(bool force = false)
     {
-        if (_settingsAutoSaveDueStamp == 0) return;
-        if (!force && Stopwatch.GetElapsedTime(_settingsAutoSaveDueStamp).TotalSeconds < SettingsAutoSaveDebounceSec)
-            return;
+        if (!_settingsAutoSave.ShouldFlush(Stopwatch.GetTimestamp(), force)) return;
         SaveSettings();
     }
 
@@ -3022,7 +2991,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         {
             SetHotkey(s, settingKey, 0);
             if (_hotkeyBindTarget == settingKey) _hotkeyBindTarget = null;
-            SaveSettings();
+            MarkSettingsDirty(s);
+            FlushSettingsNow();
         }
         ImGui.PopID();
     }
@@ -3081,7 +3051,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
         SetHotkey(s, _hotkeyBindTarget, code);
         _hotkeyBindTarget = null;
-        SaveSettings();
+        MarkSettingsDirty(s);
+        FlushSettingsNow();
     }
 
     private static bool TryPollPressedBinding(bool gamepadEnabled, out int code)
