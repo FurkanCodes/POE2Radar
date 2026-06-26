@@ -1,0 +1,49 @@
+---
+description: Branch big features off main; test; merge locally when green
+alwaysApply: true
+---
+
+# Git Workflow — Feature Branches
+
+## When to branch
+
+Create a **feature branch** off `main` for any **large or risky** change, including:
+
+- Multi-file features (new UI surfaces, atlas/nav rewrites, display-rule overhauls)
+- Cross-pillar work (Core + Overlay + tests)
+- Offset migrations or Research-validated rechains
+- Anything expected to take more than one session or break builds mid-way
+
+**Small fixes** (single bug, typo, one-file tweak) may commit directly on `main` if the user prefers — ask when unsure.
+
+## Branch workflow
+
+1. **Start:** `git checkout main` → pull if using remote → `git checkout -b feature/short-description`
+2. **Work:** commit in focused chunks on the branch only
+3. **Verify:** run full test suite before merge:
+   ```bash
+   dotnet test
+   dotnet build -c Release
+   ```
+4. **Merge locally:** when tests pass, merge into `main` on the **local** machine:
+   ```bash
+   git checkout main
+   git merge feature/short-description
+   ```
+5. **Push:** only when the user explicitly asks — never assume push to `origin/main`
+
+## Rules for agents
+
+- Before starting a **big feature**, create or switch to a feature branch; do not pile large diffs on `main` unasked.
+- Do **not** merge to `main` until `dotnet test` (and build) succeed — fix failures on the branch first.
+- Do **not** `git push --force` to `main` / `master`.
+- Do **not** amend or rewrite published commits unless the user asks and branch is unpushed.
+- After local merge, optionally delete the feature branch: `git branch -d feature/short-description`
+
+## Branch naming
+
+- `feature/imgui-theme-refresh`
+- `feature/atlas-graph-rechain`
+- `fix/world-reader-cadence`
+
+Use lowercase, hyphen-separated, prefixed with `feature/` or `fix/`.

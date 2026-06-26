@@ -5,7 +5,7 @@ alwaysApply: true
 
 # POE2Radar Rules Index
 
-Always-on rules: **dual-input**, **performance**, **project-layout**, **threading-data-flow**, **automation-safety**, **security-privacy**, **change-discipline**.
+Always-on rules: **dual-input**, **performance**, **project-layout**, **threading-data-flow**, **automation-safety**, **security-privacy**, **change-discipline**, **git-workflow**.
 
 | Rule file | When it applies |
 |-----------|-----------------|
@@ -29,6 +29,7 @@ Always-on rules: **dual-input**, **performance**, **project-layout**, **threadin
 | `diagnostics.mdc` | CrashLog, startup errors |
 | `dependencies-build.mdc` | csproj, NuGet, x64 |
 | `security-privacy.mdc` | Localhost, read-only |
+| `git-workflow.mdc` | Feature branches, test-before-merge |
 
 Architecture reference: `AGENTS.md` / `CLAUDE.md` (offsets, chain, probes). Rules govern **how we implement**; those docs govern **what the game layout is**.
 

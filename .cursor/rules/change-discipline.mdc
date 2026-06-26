@@ -13,6 +13,7 @@ alwaysApply: true
 
 ## While coding
 
+- **Big features:** use a feature branch → `dotnet test` → merge to `main` locally (see `git-workflow.mdc`).
 - **One concern per commit/PR** when possible.
 - Don't edit `AGENTS.md`, `CLAUDE.md`, or `README.md` unless asked.
 - Don't add dependencies without strong justification (keep publish size lean).

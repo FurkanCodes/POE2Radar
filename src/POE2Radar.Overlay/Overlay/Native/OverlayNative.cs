@@ -369,4 +369,10 @@ internal static partial class OverlayNative
 
     [DllImport("user32.dll")]
     public static extern bool SetForegroundWindow(nint hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern int GetSystemMetrics(int nIndex);
+
+    public const int SM_CXSCREEN = 0;
+    public const int SM_CYSCREEN = 1;
 }

@@ -260,8 +260,17 @@ public sealed class RadarSettings
     public bool GamepadHotkeysEnabled { get; set; } = false;
     public int GamepadUserIndex { get; set; } = 0;
 
+    // ── In-game ImGui chrome (GameHelper defaults: Microsoft YaHei 18px). ──
+    public string UiFontPath { get; set; } = @"C:\Windows\Fonts\msyh.ttc";
+    public int UiFontSize { get; set; } = 18;
+    public UiFontGlyphRange UiFontGlyphRange { get; set; } = UiFontGlyphRange.ChineseSimplifiedCommon;
+    public bool UiFontDefaultsMigrated { get; set; }
+
     // ── HTTP API. ──
     public int ApiPort { get; set; } = 7777;
+
+    /// <summary>Path to the PoE2 client executable (PathOfExile.exe / PathOfExileSteam.exe). Set via startup menu browse.</summary>
+    public string GameExePath { get; set; } = "";
 
     // ── Per-item icon styling (shape / color / opacity / size) + metadata-matched "mechanic"
     //    overrides. Defaults reproduce the original hardcoded look exactly. ──
@@ -402,6 +411,15 @@ public sealed class RadarSettings
             GpuMetricsRefreshSeconds = 5;
             ShowFpsOverlay = false;
             PerformanceDefaultsMigrated = true;
+            changed = true;
+        }
+
+        if (!UiFontDefaultsMigrated)
+        {
+            UiFontPath = @"C:\Windows\Fonts\msyh.ttc";
+            UiFontSize = 18;
+            UiFontGlyphRange = UiFontGlyphRange.ChineseSimplifiedCommon;
+            UiFontDefaultsMigrated = true;
             changed = true;
         }
 

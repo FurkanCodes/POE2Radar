@@ -97,6 +97,30 @@ public sealed class RadarSettingsMigrationTests
     }
 
     [Fact]
+    public void Migrate_AppliesUiFontDefaultsOnce()
+    {
+        var s = new RadarSettings
+        {
+            UiFontDefaultsMigrated = false,
+            UiFontSize = 13,
+            UiFontPath = @"C:\temp\missing.ttf",
+            UiFontGlyphRange = UiFontGlyphRange.English,
+        };
+
+        var changed = s.Migrate();
+
+        Assert.True(changed);
+        Assert.True(s.UiFontDefaultsMigrated);
+        Assert.Equal(18, s.UiFontSize);
+        Assert.Equal(@"C:\Windows\Fonts\msyh.ttc", s.UiFontPath);
+        Assert.Equal(UiFontGlyphRange.ChineseSimplifiedCommon, s.UiFontGlyphRange);
+
+        changed = s.Migrate();
+        Assert.False(changed);
+        Assert.Equal(18, s.UiFontSize);
+    }
+
+    [Fact]
     public void NewWorldPathSettings_DefaultToCurrentBehavior()
     {
         var s = new RadarSettings();
