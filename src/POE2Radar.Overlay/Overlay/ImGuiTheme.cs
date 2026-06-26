@@ -80,16 +80,33 @@ internal static class ImGuiTheme
         ImGui.Spacing();
     }
 
-    /// <summary>Lightweight group — no nested child windows (those broke tab scrolling).</summary>
-    internal static void BeginPanel(string id)
+    /// <summary>Collapsible settings section — ImGui accordion (state persists while the window is open).</summary>
+    internal static bool BeginAccordionSection(string id, string title, string? subtitle = null, bool defaultOpen = false)
     {
         ImGui.PushID(id);
-        ImGui.Indent(6f);
+        ImGui.Spacing();
+
+        var flags = ImGuiTreeNodeFlags.SpanAvailWidth | ImGuiTreeNodeFlags.FramePadding;
+        if (defaultOpen) flags |= ImGuiTreeNodeFlags.DefaultOpen;
+
+        bool open = ImGui.CollapsingHeader(title, flags);
+        if (open)
+        {
+            if (!string.IsNullOrEmpty(subtitle))
+            {
+                ImGui.PushStyleColor(ImGuiCol.Text, TextMuted);
+                ImGui.TextWrapped(subtitle);
+                ImGui.PopStyleColor();
+                ImGui.Spacing();
+            }
+            ImGui.Indent(6f);
+        }
+        return open;
     }
 
-    internal static void EndPanel()
+    internal static void EndAccordionSection(bool open)
     {
-        ImGui.Unindent(6f);
+        if (open) ImGui.Unindent(6f);
         ImGui.PopID();
         ImGui.Spacing();
     }

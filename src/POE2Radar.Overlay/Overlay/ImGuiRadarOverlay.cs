@@ -1816,7 +1816,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private void DrawEntitiesTab(RadarSettings s, RenderContext? ctx)
     {
-        if (ImGui.CollapsingHeader("Detection & Auto-path", ImGuiTreeNodeFlags.DefaultOpen))
+        bool detectOpen = ImGuiTheme.BeginAccordionSection("DetectAutoPath", "Detection & Auto-path",
+                "Entity range, auto-path, and clutter visibility.", defaultOpen: true);
+        if (detectOpen)
         {
             int radius = s.EntityDrawRadiusGrid;
             ImGui.SliderInt("Detection radius (grid)", ref radius, 0, 500, radius == 0 ? "Unlimited" : "%d");
@@ -1839,6 +1841,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
                 ImGui.SetTooltip("Show normal/magic grey monsters and other map clutter on the radar.");
         }
+        ImGuiTheme.EndAccordionSection(detectOpen);
 
         if (_displayRules is null)
         {
@@ -1848,7 +1851,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
         DrawTypesInZone(ctx, s);
 
-        if (ImGui.CollapsingHeader("Radar rules (all zones)", ImGuiTreeNodeFlags.DefaultOpen))
+        bool rulesOpen = ImGuiTheme.BeginAccordionSection("RadarRulesAllZones", "Radar rules (all zones)",
+            "First matching active rule applies. Paused rules are skipped.");
+        if (rulesOpen)
         {
             var gen = _displayRules.Generation;
             if (gen != _rulesUiGeneration)
@@ -1856,8 +1861,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 _rulesUiGeneration = gen;
                 _rulesUiCache = _displayRules.All.ToList();
             }
-
-            ImGuiTheme.SectionHeader("Global rules", "First matching active rule applies. Paused rules are skipped.");
 
             float iconScale = s.GlobalIconScale;
             ImGui.SetNextItemWidth(UiW());
@@ -1873,12 +1876,14 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             ImGui.EndChild();
             DrawSpritePickerWindow();
         }
+        ImGuiTheme.EndAccordionSection(rulesOpen);
 
         if (_hidden is null) return;
 
-        if (ImGui.CollapsingHeader("Never show (patterns)", ImGuiTreeNodeFlags.DefaultOpen))
+        bool hideOpen = ImGuiTheme.BeginAccordionSection("NeverShow", "Never show (patterns)",
+            "Always hidden — checked before radar rules (map, lists, paths).");
+        if (hideOpen)
         {
-            ImGui.TextDisabled("Always hidden — checked before radar rules (map, lists, paths).");
             ImGui.SetNextItemWidth(-80f);
             ImGui.InputTextWithHint("##hidepat", "e.g. AbyssCrack, *Daemon*", ref _hidePatternInput, 256);
             ImGui.SameLine();
@@ -1898,84 +1903,90 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     _hidden.Remove(p);
             }
         }
+        ImGuiTheme.EndAccordionSection(hideOpen);
     }
 
     /// <summary>Live inventory for the current zone type. Show/Nav toggles write per-area-code zone
     /// overrides — global semantic rules stay unchanged.</summary>
     private void DrawTypesInZone(RenderContext? ctx, RadarSettings s)
     {
-        if (!ImGui.CollapsingHeader("Types in this zone", ImGuiTreeNodeFlags.DefaultOpen)) return;
-
-        if (ctx is not { Entities.Length: > 0 })
+        bool typesOpen = ImGuiTheme.BeginAccordionSection("TypesInZone", "Types in this zone",
+            "Show on map · Path. Overrides apply to this zone type only.");
+        if (typesOpen)
         {
-            ImGui.TextDisabled("No entities in range (enter a zone / move closer).");
-            return;
-        }
-        var entities = ctx.Entities;
-        var areaCode = ctx.AreaCode;
-
-        ImGui.TextDisabled("Show on map · Path. Overrides apply to this zone type only.");
-        ImGui.SetNextItemWidth(-1f);
-        ImGui.InputTextWithHint("##typesearch", "search types…", ref _typeSearch, 128);
-
-        // tier → token → (label, count, sample)
-        var byTier = new Dictionary<EntityImportance, Dictionary<string, (string label, int count, Poe2Live.EntityDot sample)>>();
-        foreach (var e in entities)
-        {
-            var rule = _ruleEngine?.Resolve(e, areaCode, s.ImportantOnly, entities);
-            var tier = EntityImportanceHelper.Classify(e, ctx.Styles, rule);
-            if (s.ImportantOnly && EntityImportanceHelper.IsTrash(tier)) continue;
-
-            var token = TypeToken(e.Metadata);
-            if (token.Length == 0) continue;
-
-            if (!byTier.TryGetValue(tier, out var bucket))
-                byTier[tier] = bucket = new Dictionary<string, (string, int, Poe2Live.EntityDot)>(StringComparer.Ordinal);
-
-            var label = EntityDisplayHelper.FormatEntityLabel(e, rule, entities, areaCode);
-            if (label.Length == 0) label = token;
-
-            if (bucket.TryGetValue(token, out var g))
-                bucket[token] = (g.label, g.count + 1, g.sample);
-            else
-                bucket[token] = (label, 1, e);
-        }
-
-        var filter = _typeSearch.Trim();
-        ImGui.BeginChild("TypesInZone", new NumVec2(0, 380));
-
-        foreach (var tier in EntityImportanceHelper.DisplayOrder)
-        {
-            if (s.ImportantOnly && EntityImportanceHelper.IsTrash(tier)) continue;
-            if (!byTier.TryGetValue(tier, out var bucket) || bucket.Count == 0) continue;
-
-            var rows = bucket
-                .Where(kv => filter.Length == 0
-                             || kv.Value.label.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0
-                             || kv.Key.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0)
-                .OrderByDescending(kv => kv.Value.count)
-                .ThenBy(kv => kv.Value.label, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            if (rows.Count == 0) continue;
-
-            var tierCount = bucket.Values.Sum(v => v.count);
-            ImGui.PushID((int)tier);
-
-            if (ImGui.CollapsingHeader($"{EntityImportanceHelper.TierLabel(tier)} ({tierCount})", ImGuiTreeNodeFlags.DefaultOpen))
+            if (ctx is not { Entities.Length: > 0 })
             {
-                DrawTierGroupToggles(tier);
-
-                ImGui.TextDisabled("Show  Nav   Count  Type");
-                foreach (var (token, info) in rows)
-                    DrawTypeRow(ctx, token, info.label, info.count, info.sample);
-
-                ImGui.Spacing();
+                ImGui.TextDisabled("No entities in range (enter a zone / move closer).");
             }
+            else
+            {
+                var entities = ctx.Entities;
+                var areaCode = ctx.AreaCode;
 
-            ImGui.PopID();
+                ImGui.SetNextItemWidth(-1f);
+                ImGui.InputTextWithHint("##typesearch", "search types…", ref _typeSearch, 128);
+
+                // tier → token → (label, count, sample)
+                var byTier = new Dictionary<EntityImportance, Dictionary<string, (string label, int count, Poe2Live.EntityDot sample)>>();
+                foreach (var e in entities)
+                {
+                    var rule = _ruleEngine?.Resolve(e, areaCode, s.ImportantOnly, entities);
+                    var tier = EntityImportanceHelper.Classify(e, ctx.Styles, rule);
+                    if (s.ImportantOnly && EntityImportanceHelper.IsTrash(tier)) continue;
+
+                    var token = TypeToken(e.Metadata);
+                    if (token.Length == 0) continue;
+
+                    if (!byTier.TryGetValue(tier, out var bucket))
+                        byTier[tier] = bucket = new Dictionary<string, (string, int, Poe2Live.EntityDot)>(StringComparer.Ordinal);
+
+                    var label = EntityDisplayHelper.FormatEntityLabel(e, rule, entities, areaCode);
+                    if (label.Length == 0) label = token;
+
+                    if (bucket.TryGetValue(token, out var g))
+                        bucket[token] = (g.label, g.count + 1, g.sample);
+                    else
+                        bucket[token] = (label, 1, e);
+                }
+
+                var filter = _typeSearch.Trim();
+                ImGui.BeginChild("TypesInZone", new NumVec2(0, 380));
+
+                foreach (var tier in EntityImportanceHelper.DisplayOrder)
+                {
+                    if (s.ImportantOnly && EntityImportanceHelper.IsTrash(tier)) continue;
+                    if (!byTier.TryGetValue(tier, out var bucket) || bucket.Count == 0) continue;
+
+                    var rows = bucket
+                        .Where(kv => filter.Length == 0
+                                     || kv.Value.label.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0
+                                     || kv.Key.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0)
+                        .OrderByDescending(kv => kv.Value.count)
+                        .ThenBy(kv => kv.Value.label, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    if (rows.Count == 0) continue;
+
+                    var tierCount = bucket.Values.Sum(v => v.count);
+                    ImGui.PushID((int)tier);
+
+                    if (ImGui.CollapsingHeader($"{EntityImportanceHelper.TierLabel(tier)} ({tierCount})"))
+                    {
+                        DrawTierGroupToggles(tier);
+
+                        ImGui.TextDisabled("Show  Nav   Count  Type");
+                        foreach (var (token, info) in rows)
+                            DrawTypeRow(ctx, token, info.label, info.count, info.sample);
+
+                        ImGui.Spacing();
+                    }
+
+                    ImGui.PopID();
+                }
+
+                ImGui.EndChild();
+            }
         }
-
-        ImGui.EndChild();
+        ImGuiTheme.EndAccordionSection(typesOpen);
     }
 
     private void DrawTierGroupToggles(EntityImportance tier)
@@ -2077,111 +2088,122 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private void DrawRadarTab(RadarSettings s)
     {
-        ImGuiTheme.SectionHeader("Map display", "What appears on the radar overlay.");
-
-        ImGuiTheme.BeginPanel("MapDisplay");
-        bool sm = s.ShowMonsters; ImGui.Checkbox("Show Monsters", ref sm); s.ShowMonsters = sm;
-        ImGuiTheme.Tooltip("Draw entity dots (monsters, NPCs, chests) on the map overlay");
-
-        bool st = s.ShowTerrain; ImGui.Checkbox("Show Terrain", ref st); s.ShowTerrain = st;
-        ImGuiTheme.Tooltip("Draw walkable terrain boundary edges on the map overlay");
-
-        bool sb = s.ShowPlayerBlip; ImGui.Checkbox("Player Blip", ref sb); s.ShowPlayerBlip = sb;
-        ImGuiTheme.Tooltip("Show a cyan dot at your position on the map overlay");
-
-        bool spw = s.ShowPathWorld; ImGui.Checkbox("Paths on world view", ref spw); s.ShowPathWorld = spw;
-        bool sgw = s.ShowGroundWaypoints; ImGui.Checkbox("Ground waypoints", ref sgw); s.ShowGroundWaypoints = sgw;
-        ImGuiTheme.Tooltip("World-screen breadcrumbs when the Tab map is closed (requires Paths on world view)");
-        bool spm = s.ShowPathMap; ImGui.Checkbox("Paths on Tab map", ref spm); s.ShowPathMap = spm;
-        bool spmi = s.ShowPathMinimap; ImGui.Checkbox("Paths on minimap", ref spmi); s.ShowPathMinimap = spmi;
-        ImGuiTheme.Tooltip("Draw guidance route polylines between you and selected targets");
-
-        bool hj = s.HideJunk; ImGui.Checkbox("Hide map clutter", ref hj); s.HideJunk = hj;
-        ImGuiTheme.Tooltip("Hide cosmetic FX, daemons, and other noise dots on the map.");
-
-        bool cl = s.UseCuratedLandmarks; ImGui.Checkbox("Curated Landmarks", ref cl); s.UseCuratedLandmarks = cl;
-        ImGuiTheme.Tooltip("Use community-curated friendly names for landmarks instead of raw tile paths");
-
-        bool ao = s.AlwaysShowOverlay; ImGui.Checkbox("Always Show Overlay", ref ao); s.AlwaysShowOverlay = ao;
-        ImGuiTheme.Tooltip("Keep the overlay visible even when PoE2 is not the foreground window");
-
-        int lcg = s.LandmarkClusterGap;
-        ImGui.SetNextItemWidth(UiW());
-        if (ImGui.SliderInt("Cluster Gap", ref lcg, 0, 64)) s.LandmarkClusterGap = lcg;
-        ImGuiTheme.Tooltip("Max tile distance for merging nearby landmarks into one marker (0 = disable clustering)");
-
-        bool drawAllLm = s.DrawAllLandmarkPaths;
-        if (ImGui.Checkbox("Draw all landmark paths", ref drawAllLm)) s.DrawAllLandmarkPaths = drawAllLm;
-        ImGuiTheme.Tooltip("Draw path lines to every landmark tile (heavy; off by default)");
-
-        DrawNavMenuCornerSetting(s);
-        ImGuiTheme.EndPanel();
-
-        DrawPerformanceSettings(s);
-
-        ImGuiTheme.SectionHeader("Map calibration", "Fine-tune overlay alignment with the game minimap.");
-
-        ImGuiTheme.BeginPanel("MapCalibration");
-        ImGui.SetNextItemWidth(UiW());
-        float lmap = s.LargeMapScaleMultiplier;
-        if (ImGui.SliderFloat("Large map scale", ref lmap, 0.01f, 1f, "%.4f")) s.LargeMapScaleMultiplier = lmap;
-        ImGuiTheme.Tooltip("Tab-map overlay scale multiplier (fine-tune large map alignment)");
-
-        ImGui.SetNextItemWidth(UiW());
-        float smul = s.ScaleMul; if (ImGui.SliderFloat("Minimap scale", ref smul, 0.1f, 3f, "%.2f")) s.ScaleMul = smul;
-        ImGuiTheme.Tooltip("Adjust the map overlay zoom multiplier relative to the game's minimap");
-        ImGui.SetNextItemWidth(UiW());
-        float ox = s.OffX; if (ImGui.SliderFloat("Offset X", ref ox, -200f, 200f, "%.0f")) s.OffX = ox;
-        ImGuiTheme.Tooltip("Shift the entire map overlay horizontally in pixels");
-        ImGui.SetNextItemWidth(UiW());
-        float oy = s.OffY; if (ImGui.SliderFloat("Offset Y", ref oy, -200f, 200f, "%.0f")) s.OffY = oy;
-        ImGuiTheme.Tooltip("Shift the entire map overlay vertically in pixels");
-        ImGuiTheme.EndPanel();
-
-        ImGuiTheme.SectionHeader("Terrain", "Walkable grid colors on the map.");
-
-        ImGuiTheme.BeginPanel("Terrain");
-        var ti = s.Terrain.InteriorColor;
-        var te = s.Terrain.EdgeColor;
-        float tia = s.Terrain.InteriorOpacity;
-        float tea = s.Terrain.EdgeOpacity;
-        var iv = new Vector4(
-            int.TryParse(ti.AsSpan(1, 2), System.Globalization.NumberStyles.HexNumber, null, out var ir) ? ir / 255f : 1f,
-            int.TryParse(ti.AsSpan(3, 2), System.Globalization.NumberStyles.HexNumber, null, out var ig) ? ig / 255f : 1f,
-            int.TryParse(ti.AsSpan(5, 2), System.Globalization.NumberStyles.HexNumber, null, out var ib) ? ib / 255f : 1f,
-            tia);
-        if (ImGui.ColorEdit4("Interior", ref iv, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.AlphaBar))
+        bool mapOpen = ImGuiTheme.BeginAccordionSection("MapDisplay", "Map display",
+            "What appears on the radar overlay.", defaultOpen: true);
+        if (mapOpen)
         {
-            s.Terrain.InteriorColor = $"#{(int)(iv.X * 255):X2}{(int)(iv.Y * 255):X2}{(int)(iv.Z * 255):X2}";
-            s.Terrain.InteriorOpacity = iv.W;
-        }
-        ImGuiTheme.Tooltip("Color and opacity for the interior of walkable terrain cells");
+            bool sm = s.ShowMonsters; ImGui.Checkbox("Show Monsters", ref sm); s.ShowMonsters = sm;
+            ImGuiTheme.Tooltip("Draw entity dots (monsters, NPCs, chests) on the map overlay");
 
-        var ev = new Vector4(
-            int.TryParse(te.AsSpan(1, 2), System.Globalization.NumberStyles.HexNumber, null, out var er) ? er / 255f : 1f,
-            int.TryParse(te.AsSpan(3, 2), System.Globalization.NumberStyles.HexNumber, null, out var eg) ? eg / 255f : 1f,
-            int.TryParse(te.AsSpan(5, 2), System.Globalization.NumberStyles.HexNumber, null, out var eb) ? eb / 255f : 1f,
-            tea);
-        if (ImGui.ColorEdit4("Edge", ref ev, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.AlphaBar))
+            bool st = s.ShowTerrain; ImGui.Checkbox("Show Terrain", ref st); s.ShowTerrain = st;
+            ImGuiTheme.Tooltip("Draw walkable terrain boundary edges on the map overlay");
+
+            bool sb = s.ShowPlayerBlip; ImGui.Checkbox("Player Blip", ref sb); s.ShowPlayerBlip = sb;
+            ImGuiTheme.Tooltip("Show a cyan dot at your position on the map overlay");
+
+            bool spw = s.ShowPathWorld; ImGui.Checkbox("Paths on world view", ref spw); s.ShowPathWorld = spw;
+            bool sgw = s.ShowGroundWaypoints; ImGui.Checkbox("Ground waypoints", ref sgw); s.ShowGroundWaypoints = sgw;
+            ImGuiTheme.Tooltip("World-screen breadcrumbs when the Tab map is closed (requires Paths on world view)");
+            bool spm = s.ShowPathMap; ImGui.Checkbox("Paths on Tab map", ref spm); s.ShowPathMap = spm;
+            bool spmi = s.ShowPathMinimap; ImGui.Checkbox("Paths on minimap", ref spmi); s.ShowPathMinimap = spmi;
+            ImGuiTheme.Tooltip("Draw guidance route polylines between you and selected targets");
+
+            bool hj = s.HideJunk; ImGui.Checkbox("Hide map clutter", ref hj); s.HideJunk = hj;
+            ImGuiTheme.Tooltip("Hide cosmetic FX, daemons, and other noise dots on the map.");
+
+            bool cl = s.UseCuratedLandmarks; ImGui.Checkbox("Curated Landmarks", ref cl); s.UseCuratedLandmarks = cl;
+            ImGuiTheme.Tooltip("Use community-curated friendly names for landmarks instead of raw tile paths");
+
+            bool ao = s.AlwaysShowOverlay; ImGui.Checkbox("Always Show Overlay", ref ao); s.AlwaysShowOverlay = ao;
+            ImGuiTheme.Tooltip("Keep the overlay visible even when PoE2 is not the foreground window");
+
+            int lcg = s.LandmarkClusterGap;
+            ImGui.SetNextItemWidth(UiW());
+            if (ImGui.SliderInt("Cluster Gap", ref lcg, 0, 64)) s.LandmarkClusterGap = lcg;
+            ImGuiTheme.Tooltip("Max tile distance for merging nearby landmarks into one marker (0 = disable clustering)");
+
+            bool drawAllLm = s.DrawAllLandmarkPaths;
+            if (ImGui.Checkbox("Draw all landmark paths", ref drawAllLm)) s.DrawAllLandmarkPaths = drawAllLm;
+            ImGuiTheme.Tooltip("Draw path lines to every landmark tile (heavy; off by default)");
+
+            DrawNavMenuCornerSetting(s);
+        }
+        ImGuiTheme.EndAccordionSection(mapOpen);
+
+        DrawPerformanceSettings(s, openRefreshByDefault: false);
+
+        bool calOpen = ImGuiTheme.BeginAccordionSection("MapCalibration", "Map calibration",
+            "Fine-tune overlay alignment with the game minimap.");
+        if (calOpen)
         {
-            s.Terrain.EdgeColor = $"#{(int)(ev.X * 255):X2}{(int)(ev.Y * 255):X2}{(int)(ev.Z * 255):X2}";
-            s.Terrain.EdgeOpacity = ev.W;
+            ImGui.SetNextItemWidth(UiW());
+            float lmap = s.LargeMapScaleMultiplier;
+            if (ImGui.SliderFloat("Large map scale", ref lmap, 0.01f, 1f, "%.4f")) s.LargeMapScaleMultiplier = lmap;
+            ImGuiTheme.Tooltip("Tab-map overlay scale multiplier (fine-tune large map alignment)");
+
+            ImGui.SetNextItemWidth(UiW());
+            float smul = s.ScaleMul; if (ImGui.SliderFloat("Minimap scale", ref smul, 0.1f, 3f, "%.2f")) s.ScaleMul = smul;
+            ImGuiTheme.Tooltip("Adjust the map overlay zoom multiplier relative to the game's minimap");
+            ImGui.SetNextItemWidth(UiW());
+            float ox = s.OffX; if (ImGui.SliderFloat("Offset X", ref ox, -200f, 200f, "%.0f")) s.OffX = ox;
+            ImGuiTheme.Tooltip("Shift the entire map overlay horizontally in pixels");
+            ImGui.SetNextItemWidth(UiW());
+            float oy = s.OffY; if (ImGui.SliderFloat("Offset Y", ref oy, -200f, 200f, "%.0f")) s.OffY = oy;
+            ImGuiTheme.Tooltip("Shift the entire map overlay vertically in pixels");
         }
-        ImGuiTheme.Tooltip("Color and opacity for walkable terrain boundary edges");
+        ImGuiTheme.EndAccordionSection(calOpen);
 
-        ImGui.SetNextItemWidth(UiW());
-        int edgeDetail = s.Terrain.ImGuiEdgeDetail;
-        if (ImGui.SliderInt("Edge detail", ref edgeDetail, 1, 8)) s.Terrain.ImGuiEdgeDetail = edgeDetail;
-        ImGuiTheme.Tooltip("Terrain edge sampling detail — higher = smoother edges, more GPU work");
+        bool terrainOpen = ImGuiTheme.BeginAccordionSection("Terrain", "Terrain",
+            "Walkable grid colors on the map.");
+        if (terrainOpen)
+        {
+            var ti = s.Terrain.InteriorColor;
+            var te = s.Terrain.EdgeColor;
+            float tia = s.Terrain.InteriorOpacity;
+            float tea = s.Terrain.EdgeOpacity;
+            var iv = new Vector4(
+                int.TryParse(ti.AsSpan(1, 2), System.Globalization.NumberStyles.HexNumber, null, out var ir) ? ir / 255f : 1f,
+                int.TryParse(ti.AsSpan(3, 2), System.Globalization.NumberStyles.HexNumber, null, out var ig) ? ig / 255f : 1f,
+                int.TryParse(ti.AsSpan(5, 2), System.Globalization.NumberStyles.HexNumber, null, out var ib) ? ib / 255f : 1f,
+                tia);
+            if (ImGui.ColorEdit4("Interior", ref iv, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.AlphaBar))
+            {
+                s.Terrain.InteriorColor = $"#{(int)(iv.X * 255):X2}{(int)(iv.Y * 255):X2}{(int)(iv.Z * 255):X2}";
+                s.Terrain.InteriorOpacity = iv.W;
+            }
+            ImGuiTheme.Tooltip("Color and opacity for the interior of walkable terrain cells");
 
-        ImGui.SetNextItemWidth(UiW());
-        float edgeThick = s.Terrain.ImGuiEdgeThickness;
-        if (ImGui.SliderFloat("Edge thickness", ref edgeThick, 0.5f, 4f, "%.1f")) s.Terrain.ImGuiEdgeThickness = edgeThick;
-        ImGuiTheme.EndPanel();
+            var ev = new Vector4(
+                int.TryParse(te.AsSpan(1, 2), System.Globalization.NumberStyles.HexNumber, null, out var er) ? er / 255f : 1f,
+                int.TryParse(te.AsSpan(3, 2), System.Globalization.NumberStyles.HexNumber, null, out var eg) ? eg / 255f : 1f,
+                int.TryParse(te.AsSpan(5, 2), System.Globalization.NumberStyles.HexNumber, null, out var eb) ? eb / 255f : 1f,
+                tea);
+            if (ImGui.ColorEdit4("Edge", ref ev, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.AlphaBar))
+            {
+                s.Terrain.EdgeColor = $"#{(int)(ev.X * 255):X2}{(int)(ev.Y * 255):X2}{(int)(ev.Z * 255):X2}";
+                s.Terrain.EdgeOpacity = ev.W;
+            }
+            ImGuiTheme.Tooltip("Color and opacity for walkable terrain boundary edges");
 
-        ImGuiTheme.SectionHeader("Radar rules", "Deep rule editing lives in the web dashboard.");
-        ImGui.TextDisabled("Edit radar rules in the web dashboard or display_rules.json");
-        ImGuiTheme.Tooltip("Open the web dashboard to edit what shows on the map — icons, colors, hide, and paths.");
+            ImGui.SetNextItemWidth(UiW());
+            int edgeDetail = s.Terrain.ImGuiEdgeDetail;
+            if (ImGui.SliderInt("Edge detail", ref edgeDetail, 1, 8)) s.Terrain.ImGuiEdgeDetail = edgeDetail;
+            ImGuiTheme.Tooltip("Terrain edge sampling detail — higher = smoother edges, more GPU work");
+
+            ImGui.SetNextItemWidth(UiW());
+            float edgeThick = s.Terrain.ImGuiEdgeThickness;
+            if (ImGui.SliderFloat("Edge thickness", ref edgeThick, 0.5f, 4f, "%.1f")) s.Terrain.ImGuiEdgeThickness = edgeThick;
+        }
+        ImGuiTheme.EndAccordionSection(terrainOpen);
+
+        bool rulesOpen = ImGuiTheme.BeginAccordionSection("RadarRules", "Radar rules",
+            "Deep rule editing lives in the web dashboard.");
+        if (rulesOpen)
+        {
+            ImGui.TextDisabled("Edit radar rules in the web dashboard or display_rules.json");
+            ImGuiTheme.Tooltip("Open the web dashboard to edit what shows on the map — icons, colors, hide, and paths.");
+        }
+        ImGuiTheme.EndAccordionSection(rulesOpen);
 
         if (ImGui.Button("Save Settings"))
             SaveSettings();
@@ -2190,85 +2212,93 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private void DrawPerformanceTab(RadarSettings s)
     {
-        DrawPerformanceSettings(s);
+        DrawPerformanceSettings(s, openRefreshByDefault: true);
         if (ImGui.Button("Save Settings"))
             SaveSettings();
     }
 
-    private void DrawPerformanceSettings(RadarSettings s)
+    private void DrawPerformanceSettings(RadarSettings s, bool openRefreshByDefault = false)
     {
-        ImGuiTheme.SectionHeader("Refresh cadence", "How often POE2Radar reads memory and redraws.");
+        bool refreshOpen = ImGuiTheme.BeginAccordionSection("RefreshCadence", "Refresh cadence",
+            "How often POE2Radar reads memory and redraws.", openRefreshByDefault);
+        if (refreshOpen)
+        {
+            bool lowImpact = s.LowImpactMode; ImGui.Checkbox("Low impact mode", ref lowImpact); s.LowImpactMode = lowImpact;
+            ImGuiTheme.Tooltip("Favor lower memory-read cadence when idle or unfocused");
 
-        ImGuiTheme.BeginPanel("RefreshCadence");
-        bool lowImpact = s.LowImpactMode; ImGui.Checkbox("Low impact mode", ref lowImpact); s.LowImpactMode = lowImpact;
-        ImGuiTheme.Tooltip("Favor lower memory-read cadence when idle or unfocused");
+            ImGui.SetNextItemWidth(UiW());
+            int fps = s.FpsCap; if (ImGui.SliderInt("FPS cap", ref fps, 15, 360)) s.FpsCap = fps;
+            ImGuiTheme.Tooltip("Overlay present rate — lower = less GPU load");
 
-        ImGui.SetNextItemWidth(UiW());
-        int fps = s.FpsCap; if (ImGui.SliderInt("FPS cap", ref fps, 15, 360)) s.FpsCap = fps;
-        ImGuiTheme.Tooltip("Overlay present rate — lower = less GPU load");
+            ImGui.SetNextItemWidth(UiW());
+            int liveHz = s.LiveRefreshHz; if (ImGui.SliderInt("Live refresh Hz", ref liveHz, 5, 120)) s.LiveRefreshHz = liveHz;
+            ImGuiTheme.Tooltip("Player position, map UI, vitals, camera");
 
-        ImGui.SetNextItemWidth(UiW());
-        int liveHz = s.LiveRefreshHz; if (ImGui.SliderInt("Live refresh Hz", ref liveHz, 5, 120)) s.LiveRefreshHz = liveHz;
-        ImGuiTheme.Tooltip("Player position, map UI, vitals, camera");
+            ImGui.SetNextItemWidth(UiW());
+            int worldHz = s.WorldRefreshHz; if (ImGui.SliderInt("World refresh Hz", ref worldHz, 1, 60)) s.WorldRefreshHz = worldHz;
+            ImGuiTheme.Tooltip("Entities, terrain, landmarks, routes");
 
-        ImGui.SetNextItemWidth(UiW());
-        int worldHz = s.WorldRefreshHz; if (ImGui.SliderInt("World refresh Hz", ref worldHz, 1, 60)) s.WorldRefreshHz = worldHz;
-        ImGuiTheme.Tooltip("Entities, terrain, landmarks, routes");
+            ImGui.SetNextItemWidth(UiW());
+            int inactiveHz = s.InactiveRefreshHz; if (ImGui.SliderInt("Inactive refresh Hz", ref inactiveHz, 1, 10)) s.InactiveRefreshHz = inactiveHz;
+            ImGuiTheme.Tooltip("World reads while PoE2 is unfocused and overlay is hidden");
 
-        ImGui.SetNextItemWidth(UiW());
-        int inactiveHz = s.InactiveRefreshHz; if (ImGui.SliderInt("Inactive refresh Hz", ref inactiveHz, 1, 10)) s.InactiveRefreshHz = inactiveHz;
-        ImGuiTheme.Tooltip("World reads while PoE2 is unfocused and overlay is hidden");
+            ImGui.SetNextItemWidth(UiW());
+            int hpHz = s.HpBarRefreshHz; if (ImGui.SliderInt("HP bar refresh Hz", ref hpHz, 1, 30)) s.HpBarRefreshHz = hpHz;
 
-        ImGui.SetNextItemWidth(UiW());
-        int hpHz = s.HpBarRefreshHz; if (ImGui.SliderInt("HP bar refresh Hz", ref hpHz, 1, 30)) s.HpBarRefreshHz = hpHz;
+            ImGui.SetNextItemWidth(UiW());
+            int maxHp = s.MaxLiveHpBars; if (ImGui.SliderInt("Max live HP bars", ref maxHp, 0, 256)) s.MaxLiveHpBars = maxHp;
+        }
+        ImGuiTheme.EndAccordionSection(refreshOpen);
 
-        ImGui.SetNextItemWidth(UiW());
-        int maxHp = s.MaxLiveHpBars; if (ImGui.SliderInt("Max live HP bars", ref maxHp, 0, 256)) s.MaxLiveHpBars = maxHp;
-        ImGuiTheme.EndPanel();
+        bool smoothOpen = ImGuiTheme.BeginAccordionSection("Smoothing", "Smoothing",
+            "Visual interpolation between memory samples.");
+        if (smoothOpen)
+        {
+            bool smooth = s.SmoothOverlayMotion; ImGui.Checkbox("Smooth overlay motion", ref smooth); s.SmoothOverlayMotion = smooth;
+            ImGuiTheme.Tooltip("Smooth paths, map transform, and label movement");
 
-        ImGuiTheme.SectionHeader("Smoothing", "Visual interpolation between memory samples.");
+            ImGui.SetNextItemWidth(UiW());
+            int smoothMs = s.OverlaySmoothingMs; if (ImGui.SliderInt("Overlay smoothing ms", ref smoothMs, 0, 150)) s.OverlaySmoothingMs = smoothMs;
 
-        ImGuiTheme.BeginPanel("Smoothing");
-        bool smooth = s.SmoothOverlayMotion; ImGui.Checkbox("Smooth overlay motion", ref smooth); s.SmoothOverlayMotion = smooth;
-        ImGuiTheme.Tooltip("Smooth paths, map transform, and label movement");
+            ImGui.SetNextItemWidth(UiW());
+            int chipMs = s.ChipSmoothingMs; if (ImGui.SliderInt("Chip smoothing ms", ref chipMs, 0, 250)) s.ChipSmoothingMs = chipMs;
 
-        ImGui.SetNextItemWidth(UiW());
-        int smoothMs = s.OverlaySmoothingMs; if (ImGui.SliderInt("Overlay smoothing ms", ref smoothMs, 0, 150)) s.OverlaySmoothingMs = smoothMs;
+            bool snapLabels = s.PixelSnapLabels; ImGui.Checkbox("Pixel snap labels", ref snapLabels); s.PixelSnapLabels = snapLabels;
+            bool vsync = s.OverlayVSync; ImGui.Checkbox("Overlay VSync", ref vsync); s.OverlayVSync = vsync;
+        }
+        ImGuiTheme.EndAccordionSection(smoothOpen);
 
-        ImGui.SetNextItemWidth(UiW());
-        int chipMs = s.ChipSmoothingMs; if (ImGui.SliderInt("Chip smoothing ms", ref chipMs, 0, 250)) s.ChipSmoothingMs = chipMs;
+        bool metricsOpen = ImGuiTheme.BeginAccordionSection("MetricsHud", "On-screen metrics",
+            "FPS / CPU / GPU HUD under the nav menu.");
+        if (metricsOpen)
+        {
+            bool fpsHud = s.ShowFpsOverlay; ImGui.Checkbox("FPS / resource overlay", ref fpsHud); s.ShowFpsOverlay = fpsHud;
+            ImGuiTheme.Tooltip("Tick + render FPS and app CPU/GPU/RAM under the POE2Radar nav button");
 
-        bool snapLabels = s.PixelSnapLabels; ImGui.Checkbox("Pixel snap labels", ref snapLabels); s.PixelSnapLabels = snapLabels;
-        bool vsync = s.OverlayVSync; ImGui.Checkbox("Overlay VSync", ref vsync); s.OverlayVSync = vsync;
-        ImGuiTheme.EndPanel();
+            bool pf = s.ShowPerfStats; ImGui.Checkbox("Extended perf stats", ref pf); s.ShowPerfStats = pf;
+            ImGuiTheme.Tooltip("Extra timing and memory-read lines under the nav menu");
 
-        ImGuiTheme.SectionHeader("On-screen metrics", "FPS / CPU / GPU HUD under the nav menu.");
+            ImGui.SetNextItemWidth(UiW());
+            int metricsHz = s.MetricsRefreshHz; if (ImGui.SliderInt("Metrics refresh Hz", ref metricsHz, 1, 10)) s.MetricsRefreshHz = metricsHz;
 
-        ImGuiTheme.BeginPanel("MetricsHud");
-        bool fpsHud = s.ShowFpsOverlay; ImGui.Checkbox("FPS / resource overlay", ref fpsHud); s.ShowFpsOverlay = fpsHud;
-        ImGuiTheme.Tooltip("Tick + render FPS and app CPU/GPU/RAM under the POE2Radar nav button");
+            ImGui.SetNextItemWidth(UiW());
+            int gpuSeconds = s.GpuMetricsRefreshSeconds; if (ImGui.SliderInt("GPU metrics seconds", ref gpuSeconds, 1, 30)) s.GpuMetricsRefreshSeconds = gpuSeconds;
+        }
+        ImGuiTheme.EndAccordionSection(metricsOpen);
 
-        bool pf = s.ShowPerfStats; ImGui.Checkbox("Extended perf stats", ref pf); s.ShowPerfStats = pf;
-        ImGuiTheme.Tooltip("Extra timing and memory-read lines under the nav menu");
-
-        ImGui.SetNextItemWidth(UiW());
-        int metricsHz = s.MetricsRefreshHz; if (ImGui.SliderInt("Metrics refresh Hz", ref metricsHz, 1, 10)) s.MetricsRefreshHz = metricsHz;
-
-        ImGui.SetNextItemWidth(UiW());
-        int gpuSeconds = s.GpuMetricsRefreshSeconds; if (ImGui.SliderInt("GPU metrics seconds", ref gpuSeconds, 1, 30)) s.GpuMetricsRefreshSeconds = gpuSeconds;
-        ImGuiTheme.EndPanel();
-
-        ImGuiTheme.SectionHeader("Settings UI", "In-game panel font (GameHelper defaults).");
-
-        ImGuiTheme.BeginPanel("SettingsUi");
-        ImGui.TextDisabled($"Active font: {OverlayFonts.LastResolvedLabel}");
-        ImGui.TextWrapped(OverlayFonts.LastResolvedPath);
-        ImGui.SetNextItemWidth(UiW());
-        int uiSize = s.UiFontSize;
-        if (ImGui.SliderInt("UI font size", ref uiSize, 13, 40))
-            s.UiFontSize = uiSize;
-        ImGuiTheme.Tooltip("Applies automatically when you release the slider.");
-        ImGuiTheme.EndPanel();
+        bool uiOpen = ImGuiTheme.BeginAccordionSection("SettingsUi", "Settings UI",
+            "In-game panel font (GameHelper defaults).");
+        if (uiOpen)
+        {
+            ImGui.TextDisabled($"Active font: {OverlayFonts.LastResolvedLabel}");
+            ImGui.TextWrapped(OverlayFonts.LastResolvedPath);
+            ImGui.SetNextItemWidth(UiW());
+            int uiSize = s.UiFontSize;
+            if (ImGui.SliderInt("UI font size", ref uiSize, 13, 40))
+                s.UiFontSize = uiSize;
+            ImGuiTheme.Tooltip("Applies automatically when you release the slider.");
+        }
+        ImGuiTheme.EndAccordionSection(uiOpen);
     }
 
     private void DrawNavMenuCornerSetting(RadarSettings s)
@@ -2294,17 +2324,16 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private void DrawHotkeysTab(RadarSettings s)
     {
-        ImGuiTheme.SectionHeader("Hotkeys", "Keyboard + Xbox (when gamepad hotkeys enabled).");
-        DrawHotkeysSection(s);
+        DrawHotkeysSection(s, defaultOpen: true);
         if (ImGui.Button("Save Settings"))
             SaveSettings();
     }
 
     private void DrawHpBarsTab(RadarSettings s)
     {
-        ImGuiTheme.SectionHeader("HP bars", "World-space monster health bars by rarity.");
-
-        if (ImGui.CollapsingHeader("Rarity Toggles", ImGuiTreeNodeFlags.DefaultOpen))
+        bool rarityOpen = ImGuiTheme.BeginAccordionSection("HpRarity", "Rarity toggles",
+            "World-space monster health bars by rarity.", defaultOpen: true);
+        if (rarityOpen)
         {
             bool bn = s.HpBarNormal; ImGui.Checkbox("Normal", ref bn); s.HpBarNormal = bn;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Show HP bars on normal (white name) monsters");
@@ -2318,8 +2347,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             ImGui.SameLine(); bool bu = s.HpBarUnique; ImGui.Checkbox("Unique", ref bu); s.HpBarUnique = bu;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Show HP bars on unique (orange name) bosses and monsters");
         }
+        ImGuiTheme.EndAccordionSection(rarityOpen);
 
-        if (ImGui.CollapsingHeader("Textures", ImGuiTreeNodeFlags.DefaultOpen))
+        bool texOpen = ImGuiTheme.BeginAccordionSection("HpTextures", "Textures",
+            "Gradient bar textures from Overlay/Textures.");
+        if (texOpen)
         {
             var hb = s.HpBars;
             bool textures = hb.UseTextures;
@@ -2328,8 +2360,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
                 ImGui.SetTooltip("Draw gradient HP/ES bars from Overlay/Textures/full_bar.png and hollow_bar.png");
         }
+        ImGuiTheme.EndAccordionSection(texOpen);
 
-        if (ImGui.CollapsingHeader("Bar Geometry", ImGuiTreeNodeFlags.DefaultOpen))
+        bool geomOpen = ImGuiTheme.BeginAccordionSection("HpGeometry", "Bar geometry",
+            "Width, height, and screen offset per rarity.");
+        if (geomOpen)
         {
             var hb = s.HpBars;
             float w = hb.WidthNormal;
@@ -2356,13 +2391,14 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             float oy = hb.OffsetY; ImGui.SliderFloat("Offset Y", ref oy, -100f, 50f); hb.OffsetY = oy;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Vertical offset from the monster's world position — negative = above, positive = below");
         }
+        ImGuiTheme.EndAccordionSection(geomOpen);
     }
 
     private void DrawFlaskTab(RadarSettings s)
     {
-        ImGuiTheme.SectionHeader("Auto-flask", "Opt-in keyboard flask automation when PoE2 is focused.");
-
-        if (ImGui.CollapsingHeader("Life Flask", ImGuiTreeNodeFlags.DefaultOpen))
+        bool lifeOpen = ImGuiTheme.BeginAccordionSection("LifeFlask", "Life flask",
+            "Opt-in keyboard flask automation when PoE2 is focused.", defaultOpen: true);
+        if (lifeOpen)
         {
             int mode = s.LifeFlaskMode switch { "EnergyShield" => 1, "Either" => 2, _ => 0 };
             ImGui.Combo("Trigger Pool", ref mode, "Health\0Energy Shield\0Either\0");
@@ -2381,8 +2417,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             int lk = s.LifeKey; ImGui.InputInt("Key code (hex)", ref lk, 1, 16); if (lk > 0) s.LifeKey = lk;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Win32 virtual-key code for the life flask key — 0x31 = '1', 0x32 = '2', 0x33 = '3'");
         }
+        ImGuiTheme.EndAccordionSection(lifeOpen);
 
-        if (ImGui.CollapsingHeader("Mana Flask", ImGuiTreeNodeFlags.DefaultOpen))
+        bool manaOpen = ImGuiTheme.BeginAccordionSection("ManaFlask", "Mana flask",
+            "Mana pool threshold and cooldown.");
+        if (manaOpen)
         {
             float mt = s.ManaThresholdPct; ImGui.SliderFloat("Mana Threshold %", ref mt, 0f, 100f, "%.0f"); s.ManaThresholdPct = mt;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Use mana flask when mana falls below this percentage");
@@ -2393,19 +2432,23 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             int mk = s.ManaKey; ImGui.InputInt("Key code (hex)", ref mk, 1, 16); if (mk > 0) s.ManaKey = mk;
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort)) ImGui.SetTooltip("Win32 virtual-key code for the mana flask key — 0x31 = '1', 0x32 = '2', 0x33 = '3'");
         }
+        ImGuiTheme.EndAccordionSection(manaOpen);
 
-        if (ImGui.CollapsingHeader("Status"))
+        bool statusOpen = ImGuiTheme.BeginAccordionSection("FlaskStatus", "Status",
+            "F8 master kill-switch and key code notes.");
+        if (statusOpen)
         {
             ImGui.BulletText("F8 toggles auto-flask on/off. Settings apply immediately.");
             ImGui.BulletText("Keys are Win32 virtual-key codes (0x31 = '1', 0x32 = '2').");
         }
+        ImGuiTheme.EndAccordionSection(statusOpen);
     }
 
     private void DrawAtlasTab(RadarSettings s)
     {
-        ImGuiTheme.SectionHeader("Atlas overlay", "In-game atlas map highlights and routing.");
-
-        if (ImGui.CollapsingHeader("Display", ImGuiTreeNodeFlags.DefaultOpen))
+        bool displayOpen = ImGuiTheme.BeginAccordionSection("AtlasDisplay", "Display",
+            "In-game atlas map highlights and routing.", defaultOpen: true);
+        if (displayOpen)
         {
             var langs = new[] { "english", "french", "german", "japanese", "korean", "portuguese", "russian", "spanish", "thai", "traditional chinese" };
             var lang = string.IsNullOrWhiteSpace(s.AtlasLanguage) ? "english" : s.AtlasLanguage;
@@ -2496,8 +2539,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 SaveSettings();
             }
         }
+        ImGuiTheme.EndAccordionSection(displayOpen);
 
-        if (ImGui.CollapsingHeader("Search and filters", ImGuiTreeNodeFlags.DefaultOpen))
+        bool searchOpen = ImGuiTheme.BeginAccordionSection("AtlasSearch", "Search and filters",
+            "Hide nodes by completion state; comma-separated search.");
+        if (searchOpen)
         {
             var q = s.AtlasSearchQuery ?? "";
             ImGui.SetNextItemWidth(-1f);
@@ -2516,8 +2562,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             bool hav = s.AtlasHideAvailableMaps;
             if (ImGui.Checkbox("Hide available maps", ref hav)) { s.AtlasHideAvailableMaps = hav; SaveSettings(); }
         }
+        ImGuiTheme.EndAccordionSection(searchOpen);
 
-        if (ImGui.CollapsingHeader("Map styles"))
+        bool stylesOpen = ImGuiTheme.BeginAccordionSection("AtlasMapStyles", "Map styles",
+            "Per-group colors and map name lists.");
+        if (stylesOpen)
         {
             foreach (var g in s.AtlasMapGroups)
             {
@@ -2546,8 +2595,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 ImGui.PopID();
             }
         }
+        ImGuiTheme.EndAccordionSection(stylesOpen);
 
-        if (ImGui.CollapsingHeader("Target farming", ImGuiTreeNodeFlags.DefaultOpen))
+        bool farmingOpen = ImGuiTheme.BeginAccordionSection("AtlasFarming", "Target farming",
+            "Per-content route groups and hop limits.");
+        if (farmingOpen)
         {
             foreach (var group in s.AtlasRouteGroups)
             {
@@ -2574,8 +2626,11 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 ImGui.PopID();
             }
         }
+        ImGuiTheme.EndAccordionSection(farmingOpen);
 
-        if (ImGui.CollapsingHeader("Highlights", ImGuiTreeNodeFlags.DefaultOpen))
+        bool hlOpen = ImGuiTheme.BeginAccordionSection("AtlasHighlights", "Highlights",
+            "Track filters, citadel defaults, and tag catalog.");
+        if (hlOpen)
         {
             if (s.AtlasHighlightTags is { Count: > 0 })
                 ImGui.TextDisabled("Tracked-only mode — only nodes matching Track filters are drawn.");
@@ -2677,6 +2732,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 }
             }
         }
+        ImGuiTheme.EndAccordionSection(hlOpen);
     }
 
     private void SeedAtlasCitadelDefaults(RadarSettings s)
@@ -2734,33 +2790,37 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         SaveSettings();
     }
 
-    private void DrawHotkeysSection(RadarSettings s)
+    private void DrawHotkeysSection(RadarSettings s, bool defaultOpen = false)
     {
-        ImGuiTheme.BeginPanel("Hotkeys");
-        bool gp = s.GamepadHotkeysEnabled;
-        if (ImGui.Checkbox("Gamepad hotkeys", ref gp)) s.GamepadHotkeysEnabled = gp;
-        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
-            ImGui.SetTooltip("Xbox / XInput controllers on player slot 0–3.");
+        bool open = ImGuiTheme.BeginAccordionSection("Hotkeys", "Hotkeys",
+            "Keyboard + Xbox (when gamepad hotkeys enabled).", defaultOpen);
+        if (open)
+        {
+            bool gp = s.GamepadHotkeysEnabled;
+            if (ImGui.Checkbox("Gamepad hotkeys", ref gp)) s.GamepadHotkeysEnabled = gp;
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                ImGui.SetTooltip("Xbox / XInput controllers on player slot 0–3.");
 
-        int gi = s.GamepadUserIndex;
-        ImGui.SetNextItemWidth(120f);
-        if (ImGui.SliderInt("Pad slot", ref gi, 0, 3)) s.GamepadUserIndex = gi;
+            int gi = s.GamepadUserIndex;
+            ImGui.SetNextItemWidth(120f);
+            if (ImGui.SliderInt("Pad slot", ref gi, 0, 3)) s.GamepadUserIndex = gi;
 
-        ImGui.TextDisabled("Bind: click Bind, then press a key or controller button.");
+            ImGui.TextDisabled("Bind: click Bind, then press a key or controller button.");
 
-        DrawHotkeyRow(s, "hideEntityHotkey", "Never show under cursor",
-            "Hover an entity and press to add its type to Never show.");
-        DrawHotkeyRow(s, "trackEntityHotkey", "Inspect under cursor",
-            "Print entity metadata to the console.");
-        DrawHotkeyRow(s, "autoPathToggleHotkey", "Auto-path toggle", "Toggle continuous auto-pathing.");
-        DrawHotkeyRow(s, "addNearestPathHotkey", "Add nearest path", "Add nearest nav target.");
-        DrawHotkeyRow(s, "clearPathsHotkey", "Clear paths", "Clear all path targets.");
-        DrawHotkeyRow(s, "autoFlaskToggleHotkey", "Auto-flask toggle", "Master kill-switch for auto-flask.");
-        DrawHotkeyRow(s, "atlasPickHotkey", "Atlas tile pick", "Pick atlas tile under cursor for routing.");
-        DrawHotkeyRow(s, "toggleSettingsHotkey", "Overlay settings", "Toggle this settings panel.");
-        DrawHotkeyRow(s, "openDashboardHotkey", "Open dashboard", "Open web dashboard (PoE2 focused).");
-        DrawHotkeyRow(s, "quitHotkey", "Quit overlay", "Exit POE2Radar.");
-        ImGuiTheme.EndPanel();
+            DrawHotkeyRow(s, "hideEntityHotkey", "Never show under cursor",
+                "Hover an entity and press to add its type to Never show.");
+            DrawHotkeyRow(s, "trackEntityHotkey", "Inspect under cursor",
+                "Print entity metadata to the console.");
+            DrawHotkeyRow(s, "autoPathToggleHotkey", "Auto-path toggle", "Toggle continuous auto-pathing.");
+            DrawHotkeyRow(s, "addNearestPathHotkey", "Add nearest path", "Add nearest nav target.");
+            DrawHotkeyRow(s, "clearPathsHotkey", "Clear paths", "Clear all path targets.");
+            DrawHotkeyRow(s, "autoFlaskToggleHotkey", "Auto-flask toggle", "Master kill-switch for auto-flask.");
+            DrawHotkeyRow(s, "atlasPickHotkey", "Atlas tile pick", "Pick atlas tile under cursor for routing.");
+            DrawHotkeyRow(s, "toggleSettingsHotkey", "Overlay settings", "Toggle this settings panel.");
+            DrawHotkeyRow(s, "openDashboardHotkey", "Open dashboard", "Open web dashboard (PoE2 focused).");
+            DrawHotkeyRow(s, "quitHotkey", "Quit overlay", "Exit POE2Radar.");
+        }
+        ImGuiTheme.EndAccordionSection(open);
     }
 
     private void DrawHotkeyRow(RadarSettings s, string settingKey, string label, string tooltip)

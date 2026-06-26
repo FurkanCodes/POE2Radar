@@ -21,7 +21,7 @@ alwaysApply: false
 
 1. Property on `RadarSettings` with sensible default + XML doc if non-obvious.
 2. `Migrate()` if changing defaults for existing users.
-3. Expose in **ImGui** settings tab (`ImGuiRadarOverlay`).
+3. Expose in **ImGui** settings tab (`ImGuiRadarOverlay`) as an **accordion section** (`ImGuiTheme.BeginAccordionSection` — see `overlay-render.mdc`).
 4. Expose in **dashboard** GET + PATCH via `ApiServer` (camelCase JSON keys).
 5. If perf-related: wire cadence/HZ; if input: `*Hotkey` + dual binding UI.
 

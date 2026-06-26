@@ -16,7 +16,7 @@ Always-on rules: **dual-input**, **performance**, **project-layout**, **threadin
 | `automation-safety.mdc` | Auto-flask, `SendInput` |
 | `config-settings.mdc` | `RadarSettings`, migration, JSON |
 | `api-dashboard.mdc` | `ApiServer`, `DashboardHtml` |
-| `overlay-render.mdc` | ImGui, draw, assets |
+| `overlay-render.mdc` | ImGui, draw, assets, **settings accordion UI** |
 | `threading-data-flow.mdc` | Snapshots, threads, shutdown |
 | `testing.mdc` | xUnit, migrations |
 | `csharp-style.mdc` | Naming, types, errors |
