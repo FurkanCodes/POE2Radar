@@ -2085,6 +2085,15 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (ImGui.Checkbox("Auto-path to nearest targets", ref ap))
                 s.AutoPathNavigable = ap;
             ImGuiTheme.Tooltip(SettingHints.Entities.AutoPathNearest);
+
+            ImGui.BeginDisabled(!s.AutoPathNavigable);
+            bool scp = s.ShowCuratedPaths;
+            if (ImGui.Checkbox("Curated terrain POI paths", ref scp)) s.ShowCuratedPaths = scp;
+            ImGuiTheme.Tooltip(SettingHints.Radar.ShowCuratedPaths);
+            bool sep = s.ShowEntityPaths;
+            if (ImGui.Checkbox("Entity mechanic paths", ref sep)) s.ShowEntityPaths = sep;
+            ImGuiTheme.Tooltip(SettingHints.Radar.ShowEntityPaths);
+            ImGui.EndDisabled();
             ImGui.TextDisabled("Target picking only — use Path display for where routes draw.");
 
             bool showAll = !s.ImportantOnly;
@@ -2365,6 +2374,17 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             bool spm = s.ShowPathMap;
             if (ImGui.Checkbox("Paths on Tab map", ref spm)) s.ShowPathMap = spm;
             ImGuiTheme.Tooltip(SettingHints.Radar.ShowPathMap);
+
+            bool hrp = s.HideReachedPaths;
+            if (ImGui.Checkbox("Hide reached paths", ref hrp)) s.HideReachedPaths = hrp;
+            ImGuiTheme.Tooltip(SettingHints.Radar.HideReachedPaths);
+
+            ImGui.BeginDisabled(!s.HideReachedPaths);
+            ImGui.SetNextItemWidth(UiW());
+            float rpd = s.ReachedPathDistance;
+            if (ImGui.SliderFloat("Reached distance (grid)", ref rpd, 10f, 120f, "%.0f")) s.ReachedPathDistance = rpd;
+            ImGuiTheme.Tooltip(SettingHints.Radar.ReachedPathDistance);
+            ImGui.EndDisabled();
         }
         ImGuiTheme.EndAccordionSection(pathOpen);
 

@@ -161,6 +161,7 @@ public sealed partial class RadarApp : IDisposable
     private readonly ConcurrentQueue<Action> _commandQueue = new();
     private readonly BackgroundReplanner _replanner = new();
     private readonly Dictionary<string, RouteTracker> _trackers = new(); // one per selected id; OWNED by the tick thread
+    private readonly HashSet<string> _reachedPathKeys = new(StringComparer.Ordinal);
     private List<NavTarget> _navTargets = new();                         // unified targets, rebuilt each world tick
     private PathCell[] _worldDoorOverrides = Array.Empty<PathCell>();
     private readonly record struct TargetSnapshot(
@@ -504,6 +505,16 @@ public sealed partial class RadarApp : IDisposable
             _settings.ServerIconPortalMigrated = true;
             _settings.Save();
             Console.WriteLine("Added server-icon portal rule.");
+        }
+        if (!_settings.ConservativeNavDefaultsMigrated)
+        {
+            var rules = _displayRules.All.ToList();
+            var changed = EndgameMechanicCatalog.MigrateDisplayRules(rules);
+            if (ConservativeNavDefaults.MigrateDisplayRules(rules)) changed = true;
+            if (changed) _displayRules.Replace(rules);
+            _settings.ConservativeNavDefaultsMigrated = true;
+            _settings.Save();
+            Console.WriteLine("Migrated display rules to conservative auto-path defaults (GameHelper parity).");
         }
         LogMissingHpBarTextures();
         _displayRulesGen = _ruleEngine.Generation;
@@ -1454,12 +1465,15 @@ public sealed partial class RadarApp : IDisposable
         var targets = new List<NavTarget>(_landmarks.Count + 16);
         var seen = new HashSet<string>();
 
-        // (a) Tile landmarks — id "t:<key>" (per-cluster). Auto-path when a Tile rule opts in.
+        // (a) Tile landmarks — id "t:<key>" (per-cluster). Auto-path when curated for this area or a Tile rule opts in.
         foreach (var lm in _landmarks)
         {
             var id = "t:" + lm.Key;
             if (!seen.Add(id)) continue;
-            var autoPath = _displayRules.ResolveTile(lm.Path, requireMatch: false)?.Navigable ?? false;
+            var curated = _settings.UseCuratedLandmarks
+                && _landmarkStore.Lookup(_areaCode, lm.Path) is not null;
+            var tileRuleNav = _displayRules.ResolveTile(lm.Path, requireMatch: false)?.Navigable ?? false;
+            var autoPath = (_settings.ShowCuratedPaths && curated) || tileRuleNav;
             var radius = LandmarkGoalSearchRadius(lm.TileCount);
             targets.Add(new NavTarget(
                 id,
@@ -1491,7 +1505,7 @@ public sealed partial class RadarApp : IDisposable
                 e.Grid,
                 e.Metadata,
                 IsEntity: true,
-                AutoPath: true,
+                AutoPath: _settings.ShowEntityPaths,
                 TileCount: 1,
                 GoalSearchRadius: 24,
                 RouteAnchors: Array.Empty<PathCell>()));
@@ -1513,7 +1527,7 @@ public sealed partial class RadarApp : IDisposable
                 icon.Grid,
                 icon.Name,
                 IsEntity: false,
-                AutoPath: true,
+                AutoPath: _settings.ShowEntityPaths,
                 TileCount: 1,
                 GoalSearchRadius: 24,
                 RouteAnchors: Array.Empty<PathCell>()));
@@ -1619,6 +1633,7 @@ public sealed partial class RadarApp : IDisposable
             _autoSelectedIds.Clear();
             _selectionCapWarned = false;
             _selectionAreaHash = _areaHash;
+            _reachedPathKeys.Clear();
 
             // Returning to a remembered instance → restore its selection verbatim (the user's explicit
             // choices win, including an intentionally-empty one, so a zone they cleared stays cleared).
@@ -1634,11 +1649,7 @@ public sealed partial class RadarApp : IDisposable
             }
             else if (_settings.AutoPathNavigable)
             {
-                // First visit to this instance with auto-path on: seed the nearest navigation targets so
-                // routes appear immediately (the per-tick AutoSelectNavigable keeps them reconciled after).
-                foreach (var id in _navTargets
-                             .OrderBy(t => NumVec2.DistanceSquared(t.Grid, player))
-                             .Select(t => t.Id))
+                foreach (var id in OrderedAutoPathCandidateIds(player))
                 {
                     if (_selectedIds.Count >= MaxSelectedTargets) break;
                     if (!_selectedIds.Contains(id))
@@ -1657,11 +1668,8 @@ public sealed partial class RadarApp : IDisposable
     }
 
     /// <summary>When <see cref="RadarSettings.AutoPathNavigable"/> is on, keep the selection filled with
-    /// the NEAREST navigation targets (up to the cap). The candidate set is every nav target — which by
-    /// construction is already the "navigation-worthy" set: game POIs, tile landmarks/transitions, unique
-    /// monsters, and any entity type a display rule flags Auto-path (which is what lets those extra types
-    /// enter <see cref="BuildNavTargets"/> at all). Manual selections (F6/legend/API) are preserved; ids
-    /// the user removed stay out until they leave and re-enter the navigable set.</summary>
+    /// auto-path targets (curated terrain first, then conservative entity mechanics), up to the cap.
+    /// Manual selections (F6/legend/API) are preserved.</summary>
     private void AutoSelectNavigable(NumVec2 player)
     {
         if (!_settings.AutoPathNavigable)
@@ -1676,10 +1684,9 @@ public sealed partial class RadarApp : IDisposable
             return;
         }
 
-        var candidates = _navTargets
-            .OrderBy(t => NumVec2.DistanceSquared(t.Grid, player))
-            .Select(t => t.Id)
-            .ToList();
+        MarkReachedPaths(player);
+
+        var candidates = OrderedAutoPathCandidateIds(player);
 
         lock (_navLock)
         {
@@ -1688,6 +1695,7 @@ public sealed partial class RadarApp : IDisposable
             foreach (var id in candidates)
             {
                 if (manual.Contains(id)) continue;
+                if (_settings.HideReachedPaths && _reachedPathKeys.Contains(id)) continue;
                 if (manual.Count + desiredAuto.Count >= MaxSelectedTargets) break;
                 desiredAuto.Add(id);
             }
@@ -1715,6 +1723,50 @@ public sealed partial class RadarApp : IDisposable
             }
         }
     }
+
+    /// <summary>Curated terrain landmarks first (GameHelper important_tgt parity), then other auto-path
+    /// targets by distance.</summary>
+    private IEnumerable<string> OrderedAutoPathCandidateIds(NumVec2 player)
+    {
+        var auto = _navTargets.Where(t => t.AutoPath).ToList();
+        if (auto.Count == 0) yield break;
+
+        foreach (var t in auto.Where(IsCuratedLandmarkTarget)
+                     .OrderBy(t => NumVec2.DistanceSquared(t.Grid, player)))
+            yield return t.Id;
+
+        foreach (var t in auto.Where(t => !IsCuratedLandmarkTarget(t))
+                     .OrderBy(t => NumVec2.DistanceSquared(t.Grid, player)))
+            yield return t.Id;
+    }
+
+    private bool IsCuratedLandmarkTarget(NavTarget t)
+        => !t.IsEntity
+           && _settings.UseCuratedLandmarks
+           && _landmarkStore.Lookup(_areaCode, t.MatchKey) is not null;
+
+    private void MarkReachedPaths(NumVec2 player)
+    {
+        if (!_settings.HideReachedPaths) return;
+
+        var threshold = _settings.ReachedPathDistance;
+        if (threshold <= 0f) return;
+        var r2 = threshold * threshold;
+
+        var selected = SnapshotSelection();
+        if (selected.Count == 0) return;
+
+        var selectedSet = new HashSet<string>(selected, StringComparer.Ordinal);
+        foreach (var t in _navTargets)
+        {
+            if (!selectedSet.Contains(t.Id)) continue;
+            if (NumVec2.DistanceSquared(t.Grid, player) <= r2)
+                _reachedPathKeys.Add(t.Id);
+        }
+    }
+
+    private bool IsPathTargetReached(string id)
+        => _settings.HideReachedPaths && _reachedPathKeys.Contains(id);
 
     /// <summary>Store a copy of <paramref name="ids"/> under <paramref name="hash"/>, evicting the
     /// oldest remembered zone when the table is full. Call under <see cref="_navLock"/>.</summary>

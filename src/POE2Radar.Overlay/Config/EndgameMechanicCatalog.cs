@@ -188,6 +188,12 @@ public static class EndgameMechanicCatalog
 
             existing.Sprite ??= def.Sprite.Clone();
             if (existing.Size < def.Size) { existing.Size = def.Size; changed = true; }
+
+            if (existing.Navigable != def.Navigable)
+            {
+                existing.Navigable = def.Navigable;
+                changed = true;
+            }
         }
 
         var mechanicBlock = rules.Where(r => catalogNames.Contains(r.Name)).ToList();
@@ -247,46 +253,60 @@ public static class EndgameMechanicCatalog
             ["Expedition2/Expedition2Encounter"],
             ["Other"],
             ["Expedition2EncounterCrack"],
-            "Plus", "#26E6D9", 1f, 12f, SpriteCatalog.Expedition()),
+            "Plus", "#26E6D9", 1f, 12f, SpriteCatalog.Expedition(),
+            Navigable: true),
         new EndgameMechanicDef(
             "Ritual",
             ["LeagueRitual", "RitualAltar", "Leagues/Ritual", "/Ritual/"],
             ["Object", "Other"],
             null,
-            "Star", "#FF3355", 1f, 12f, SpriteCatalog.Ritual()),
+            "Star", "#FF3355", 1f, 12f, SpriteCatalog.Ritual(),
+            Navigable: true),
         new EndgameMechanicDef(
             "Breach",
             ["Leagues/Breach", "LeagueBreach", "BreachHand", "/Breach/"],
             null,
             null,
-            "Diamond", "#A64DFF", 1f, 12f, SpriteCatalog.Breach()),
+            "Diamond", "#A64DFF", 1f, 12f, SpriteCatalog.Breach(),
+            Navigable: true),
+        new EndgameMechanicDef(
+            "Abyss · Pit",
+            ["AbyssPit", "AbyssHole", "AbyssJumpInteractable"],
+            ["Object", "Other"],
+            null,
+            "Diamond", "#33CCCC", 1f, 12f, SpriteCatalog.Abyss(),
+            Navigable: true),
         new EndgameMechanicDef(
             "Abyss",
             [
-                "Leagues/Abyss", "/Abyss/", "AbyssJumpInteractable", "AbyssPit", "AbyssHole",
-                "AbyssTrove", "AbyssalTrove", "AbyssGate", "AbyssFissure", "AbyssStart",
+                "Leagues/Abyss", "/Abyss/", "AbyssTrove", "AbyssalTrove", "AbyssGate",
+                "AbyssFissure", "AbyssStart",
             ],
             ["Object", "Other"],
-            ["AbyssCrack", "EssenceOfTheAbyss"],
-            "Diamond", "#33CCCC", 1f, 12f, SpriteCatalog.Abyss()),
+            ["AbyssCrack", "EssenceOfTheAbyss", "AbyssPit", "AbyssHole", "AbyssJumpInteractable"],
+            "Diamond", "#33CCCC", 1f, 12f, SpriteCatalog.Abyss(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Delirium",
             ["Delirium", "Simulacrum", "LeagueDelirium", "Leagues/Delirium"],
             null,
             null,
-            "Triangle", "#9B59B6", 1f, 12f, SpriteCatalog.Delirium()),
+            "Triangle", "#9B59B6", 1f, 12f, SpriteCatalog.Delirium(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Ultimatum",
             ["LeagueUltimatum", "/Ultimatum/", "UltimatumAltar"],
             ["Object", "Other"],
             ["ultimatumboss"],
-            "Hexagon", "#FF5533", 1f, 12f, SpriteCatalog.Ritual()),
+            "Hexagon", "#FF5533", 1f, 12f, SpriteCatalog.Ritual(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Corruption",
             ["precursorcorruption", "VaalCorruption", "CorruptionAltar", "TrailOfCorruption"],
             ["Object", "Other"],
             null,
-            "Triangle", "#66CC33", 1f, 12f, SpriteCatalog.Delirium()),
+            "Triangle", "#66CC33", 1f, 12f, SpriteCatalog.Delirium(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Strongbox · Unique",
             [
@@ -295,49 +315,57 @@ public static class EndgameMechanicCatalog
             ],
             ["Chest"],
             null,
-            "Star", "#FFD700", 1f, 12f, SpriteCatalog.ChestUnique()),
+            "Star", "#FFD700", 1f, 12f, SpriteCatalog.ChestUnique(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Strongbox · Landmark",
             ["landmarkstrongbox"],
             ["Chest"],
             null,
-            "Triangle", "#FF7043", 1f, 12f, SpriteCatalog.Landmark()),
+            "Triangle", "#FF7043", 1f, 12f, SpriteCatalog.Landmark(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Strongbox · Cartographer",
             ["cartographer"],
             ["Chest"],
             null,
-            "Exclamation", "#5C9EFF", 1f, 12f, SpriteCatalog.MapMarker()),
+            "Exclamation", "#5C9EFF", 1f, 12f, SpriteCatalog.MapMarker(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Strongbox · Arcane",
             ["arcanist"],
             ["Chest"],
             null,
-            "Diamond", "#A64DFF", 1f, 11f, SpriteCatalog.ChestRare()),
+            "Diamond", "#A64DFF", 1f, 11f, SpriteCatalog.ChestRare(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Strongbox · Armourer",
             ["armory"],
             ["Chest"],
             null,
-            "Shield", "#8899AA", 1f, 11f, SpriteCatalog.Strongbox()),
+            "Shield", "#8899AA", 1f, 11f, SpriteCatalog.Strongbox(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Strongbox · Jeweller",
             ["gemcutter", "gemstrongbox"],
             ["Chest"],
             null,
-            "Gem", "#FF66CC", 1f, 11f, SpriteCatalog.ChestRare()),
+            "Gem", "#FF66CC", 1f, 11f, SpriteCatalog.ChestRare(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Strongbox · Divination",
             ["strongboxdivination", "strongboxdivinationshaper"],
             ["Chest"],
             null,
-            "Exclamation", "#CC9966", 1f, 11f, SpriteCatalog.MapMarker()),
+            "Exclamation", "#CC9966", 1f, 11f, SpriteCatalog.MapMarker(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Strongbox · Expedition",
             ["strongboxexpedition"],
             ["Chest"],
             null,
-            "Square", "#1FA89A", 1f, 11f, SpriteCatalog.Expedition()),
+            "Square", "#1FA89A", 1f, 11f, SpriteCatalog.Expedition(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Strongbox · Researcher",
             ["strongboxes/strongbox"],
@@ -347,19 +375,22 @@ public static class EndgameMechanicCatalog
                 "ventorstrongbox", "abyssstrongbox", "arcanist", "armory",
                 "gemcutter", "gemstrongbox", "strongboxdivination", "strongboxexpedition",
             ],
-            "Gem", "#7DFF7D", 1f, 11f, SpriteCatalog.ChestRare()),
+            "Gem", "#7DFF7D", 1f, 11f, SpriteCatalog.ChestRare(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Strongbox · Abyss",
             ["abyssstrongbox"],
             ["Chest"],
             null,
-            "Diamond", "#33CCCC", 1f, 11f, SpriteCatalog.Strongbox()),
+            "Diamond", "#33CCCC", 1f, 11f, SpriteCatalog.Strongbox(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Strongbox",
             ["StrongBoxes"],
             ["Chest"],
             null,
-            "Square", "#FFB300", 1f, 10f, SpriteCatalog.Strongbox()),
+            "Square", "#FFB300", 1f, 10f, SpriteCatalog.Strongbox(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Essence",
             [
@@ -385,30 +416,35 @@ public static class EndgameMechanicCatalog
                 "hysteriaorbdaemon",
                 "breachessencedaemon",
             ],
-            "Triangle", "#33E0FF", 1f, 12f, SpriteCatalog.Essence()),
+            "Triangle", "#33E0FF", 1f, 12f, SpriteCatalog.Essence(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Shrine",
             ["Shrine"],
             null,
             ["/daemon/shrines/"],
-            "Star", "#7DFF7D", 1f, 10f, SpriteCatalog.Shrine()),
+            "Star", "#7DFF7D", 1f, 10f, SpriteCatalog.Shrine(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Summoning Circle",
             ["SummoningCircle"],
             null,
             null,
-            "Diamond", "#E0B341", 1f, 10f, SpriteCatalog.SummoningCircle()),
+            "Diamond", "#E0B341", 1f, 10f, SpriteCatalog.SummoningCircle(),
+            Navigable: true),
         new EndgameMechanicDef(
             "Wisp",
             ["AzmeriSpirit", "AzmeriWisp"],
             null,
             null,
-            "Star", "#A06CFF", 1f, 10f, SpriteCatalog.Wisp()),
+            "Star", "#A06CFF", 1f, 10f, SpriteCatalog.Wisp(),
+            Navigable: false),
         new EndgameMechanicDef(
             "Rogue Exile",
             ["RogueExile"],
             ["Monster"],
             null,
-            "Diamond", "#FF8866", 1f, 10f, SpriteCatalog.RogueExile()),
+            "Diamond", "#FF8866", 1f, 10f, SpriteCatalog.RogueExile(),
+            Navigable: false),
     };
 }

@@ -559,6 +559,10 @@ public sealed class ApiServer : IDisposable
         showPathWorld = _settings.ShowPathWorld,
         showGroundWaypoints = _settings.ShowGroundWaypoints,
         showPathMap = _settings.ShowPathMap,
+        showCuratedPaths = _settings.ShowCuratedPaths,
+        showEntityPaths = _settings.ShowEntityPaths,
+        hideReachedPaths = _settings.HideReachedPaths,
+        reachedPathDistance = _settings.ReachedPathDistance,
         autoPathNavigable = _settings.AutoPathNavigable,
         importantOnly = _settings.ImportantOnly,
         entityDrawRadiusGrid = _settings.EntityDrawRadiusGrid,
@@ -685,6 +689,13 @@ public sealed class ApiServer : IDisposable
                 case "showPathWorld" when TryBool(p.Value, out var b): _settings.ShowPathWorld = b; applied.Add(p.Name); break;
                 case "showGroundWaypoints" when TryBool(p.Value, out var b): _settings.ShowGroundWaypoints = b; applied.Add(p.Name); break;
                 case "showPathMap" when TryBool(p.Value, out var b): _settings.ShowPathMap = b; applied.Add(p.Name); break;
+                case "showCuratedPaths" when TryBool(p.Value, out var b): _settings.ShowCuratedPaths = b; applied.Add(p.Name); break;
+                case "showEntityPaths" when TryBool(p.Value, out var b): _settings.ShowEntityPaths = b; applied.Add(p.Name); break;
+                case "hideReachedPaths" when TryBool(p.Value, out var b): _settings.HideReachedPaths = b; applied.Add(p.Name); break;
+                case "reachedPathDistance" when TryFloat(p.Value, out var rpd):
+                    _settings.ReachedPathDistance = Math.Clamp(rpd, 5f, 200f);
+                    applied.Add(p.Name);
+                    break;
             case "autoPathNavigable" when TryBool(p.Value, out var b):
                     _settings.AutoPathNavigable = b;
                     applied.Add(p.Name);

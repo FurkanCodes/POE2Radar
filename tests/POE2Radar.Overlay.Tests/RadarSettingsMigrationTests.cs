@@ -118,11 +118,14 @@ public sealed class RadarSettingsMigrationTests
     }
 
     [Fact]
-    public void NewWorldPathSettings_DefaultToCurrentBehavior()
+    public void NewWorldPathSettings_DefaultToMapOverlayFirst()
     {
         var s = new RadarSettings();
 
+        Assert.False(s.ShowPathWorld);
+        Assert.True(s.ShowPathMap);
         Assert.True(s.ShowGroundWaypoints);
+        Assert.True(s.HideReachedPaths);
     }
 
     [Fact]

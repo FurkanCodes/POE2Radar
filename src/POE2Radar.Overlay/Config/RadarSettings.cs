@@ -16,8 +16,16 @@ public sealed class RadarSettings
     /// <summary>Legacy master flag — read on first migrate only. Rendering uses per-layer toggles below.</summary>
     public bool ShowPath { get; set; } = false;
     public bool PathTogglesMigrated { get; set; }
-    public bool ShowPathWorld { get; set; } = true;
+    public bool ShowPathWorld { get; set; } = false;
     public bool ShowPathMap { get; set; } = true;
+    /// <summary>When auto-path is on, draw routes to curated terrain POIs from CustomLandmarks.json.</summary>
+    public bool ShowCuratedPaths { get; set; } = true;
+    /// <summary>When auto-path is on, draw routes to entities whose display rule is Navigable.</summary>
+    public bool ShowEntityPaths { get; set; } = true;
+    /// <summary>Stop drawing (and replanning) a path once the player walks within <see cref="ReachedPathDistance"/> grid units.</summary>
+    public bool HideReachedPaths { get; set; } = true;
+    /// <summary>Grid-distance threshold for <see cref="HideReachedPaths"/>.</summary>
+    public float ReachedPathDistance { get; set; } = 50f;
     /// <summary>True when any path draw layer is enabled (API backward compat for legacy <c>showPath</c>).</summary>
     [JsonIgnore]
     public bool ShowPathAnyLayer => ShowPathWorld || ShowPathMap;
@@ -105,6 +113,12 @@ public sealed class RadarSettings
 
     // One-time: add server-icon portal rule.
     public bool ServerIconPortalMigrated { get; set; } = false;
+
+    // One-time: tighten Navigable defaults to GameHelper-style conservative auto-path qualification.
+    public bool ConservativeNavDefaultsMigrated { get; set; } = false;
+
+    // One-time: fresh installs default ShowPathWorld=false; existing configs are not changed.
+    public bool PathGroundDefaultMigrated { get; set; } = false;
 
     // One-time: expand ground-item category defaults (poe.ninja group keys).
     public bool GroundItemCategoriesMigrated { get; set; } = false;
@@ -398,6 +412,12 @@ public sealed class RadarSettings
         {
             ShowPathWorld = ShowPathMap = ShowPath;
             PathTogglesMigrated = true;
+            changed = true;
+        }
+
+        if (!PathGroundDefaultMigrated)
+        {
+            PathGroundDefaultMigrated = true;
             changed = true;
         }
 

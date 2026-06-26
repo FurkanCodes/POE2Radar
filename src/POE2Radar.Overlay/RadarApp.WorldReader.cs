@@ -182,6 +182,7 @@ public sealed partial class RadarApp
 
             foreach (var id in selected)
             {
+                if (IsPathTargetReached(id)) continue;
                 if (!_trackers.TryGetValue(id, out var tracker)) continue;
                 if (TryResolveTargetInfo(id, _navTargets, landmarks, entities, _areaHash, out var info))
                 {
@@ -251,6 +252,7 @@ public sealed partial class RadarApp
             for (var i = 0; i < selected.Count; i++)
             {
                 var id = selected[i];
+                if (IsPathTargetReached(id)) continue;
                 if (!_trackers.TryGetValue(id, out var tracker)) continue;
                 tracker.Maintain(player);
                 var pts = tracker.CurrentPoints;

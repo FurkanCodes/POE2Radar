@@ -121,7 +121,7 @@ public sealed class DisplayRuleEngine
         foreach (var def in EndgameMechanicCatalog.All)
             if (string.Equals(def.Name, "Essence", StringComparison.OrdinalIgnoreCase))
                 return EndgameMechanicCatalog.ToDisplayRule(def);
-        return new DisplayRule { Name = "Essence", Label = "Essence", Enabled = true, Navigable = true };
+        return new DisplayRule { Name = "Essence", Label = "Essence", Enabled = true, Navigable = false };
     }
 
     private static DisplayRule? ApplyOpenedChestExemption(Poe2Live.EntityDot e, DisplayRule? state)

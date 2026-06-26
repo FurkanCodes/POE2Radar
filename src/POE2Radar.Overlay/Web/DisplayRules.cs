@@ -256,8 +256,8 @@ public sealed class DisplayRules
             Shape = s.Shape, Color = s.Color, Opacity = s.Opacity, Size = s.Size, Sprite = s.Sprite?.Clone(),
             Navigable = navigable,
         });
-        Mon("Boss", "Unique", st.MonsterUnique, "Boss", navigable: true);
-        Mon("Monster · Rare", "Rare", st.MonsterRare, "Rare", navigable: true);
+        Mon("Boss", "Unique", st.MonsterUnique, "Boss", navigable: false);
+        Mon("Monster · Rare", "Rare", st.MonsterRare, "Rare", navigable: false);
         Mon("Monster · Magic", "Magic", st.MonsterMagic, "Magic");
         Mon("Monster · Normal", "Normal", st.MonsterNormal, "Normal");
 
@@ -276,32 +276,32 @@ public sealed class DisplayRules
         Cat("NPC", "Npc", null, st.Npc, "NPC");
         Cat("Chest · Unique", "Chest", "Unique", st.ChestUnique);
         Cat("Chest · Rare", "Chest", "Rare", st.ChestRare);
-        CatNav("Transition", "Transition", null, st.Transition, "Transition", navigable: true);
+        CatNav("Transition", "Transition", null, st.Transition, "Transition", navigable: false);
 
         // Server-authoritative minimap icons (sent by the server; visible before local entities spawn).
         rules.Add(new DisplayRule
         {
-            Name = "ServerIcon · Waypoint", Label = "Waypoint", Enabled = st.ServerIcon.Enabled, Navigable = true,
+            Name = "ServerIcon · Waypoint", Label = "Waypoint", Enabled = st.ServerIcon.Enabled, Navigable = false,
             Categories = new() { "ServerIcon" }, Match = new() { "Waypoint" },
             Shape = st.ServerIcon.Shape, Color = "#00CCFF", Opacity = st.ServerIcon.Opacity, Size = 11f,
             Sprite = SpriteCatalog.Waypoint().Clone(),
         });
         rules.Add(new DisplayRule
         {
-            Name = "ServerIcon · Entrance", Label = "Entrance", Enabled = st.ServerIcon.Enabled, Navigable = true,
+            Name = "ServerIcon · Entrance", Label = "Entrance", Enabled = st.ServerIcon.Enabled, Navigable = false,
             Categories = new() { "ServerIcon" }, Match = new() { "Entrance" },
             Shape = st.ServerIcon.Shape, Color = "#66FF99", Opacity = st.ServerIcon.Opacity, Size = 10f,
         });
         rules.Add(new DisplayRule
         {
-            Name = "ServerIcon · Checkpoint", Label = "Checkpoint", Enabled = st.ServerIcon.Enabled, Navigable = true,
+            Name = "ServerIcon · Checkpoint", Label = "Checkpoint", Enabled = st.ServerIcon.Enabled, Navigable = false,
             Categories = new() { "ServerIcon" }, Match = new() { "Checkpoint" },
             Shape = st.ServerIcon.Shape, Color = "#FFD966", Opacity = st.ServerIcon.Opacity, Size = 10f,
             Sprite = SpriteCatalog.Checkpoint().Clone(),
         });
         rules.Add(new DisplayRule
         {
-            Name = "ServerIcon · Portal", Label = "Portal", Enabled = st.ServerIcon.Enabled, Navigable = true,
+            Name = "ServerIcon · Portal", Label = "Portal", Enabled = st.ServerIcon.Enabled, Navigable = false,
             Categories = new() { "ServerIcon" }, Match = new() { "Portal" },
             Shape = "Diamond", Color = "#B38CFF", Opacity = st.ServerIcon.Opacity, Size = 10f,
             Sprite = SpriteCatalog.Portal().Clone(),
@@ -321,7 +321,7 @@ public sealed class DisplayRules
         });
         rules.Add(new DisplayRule
         {
-            Name = "ServerIcon · Strongbox", Label = "Strongbox", Enabled = true, Navigable = true,
+            Name = "ServerIcon · Strongbox", Label = "Strongbox", Enabled = true, Navigable = false,
             Categories = new() { "ServerIcon" }, Match = new() { "Strongbox" },
             Shape = "Square", Color = "#FFB300", Opacity = 1f, Size = 11f, Sprite = SpriteCatalog.Strongbox().Clone(),
         });
@@ -339,7 +339,7 @@ public sealed class DisplayRules
         });
         rules.Add(new DisplayRule
         {
-            Name = "ServerIcon · Chest", Label = "Chest", Enabled = true, Navigable = true,
+            Name = "ServerIcon · Chest", Label = "Chest", Enabled = true, Navigable = false,
             Categories = new() { "ServerIcon" }, Match = new() { "Chest" },
             Shape = "Square", Color = "#FFD926", Opacity = 0.95f, Size = 10f, Sprite = SpriteCatalog.ChestRare().Clone(),
         });
@@ -355,28 +355,28 @@ public sealed class DisplayRules
         // Endgame mechanics are inserted earlier via EndgameMechanicCatalog in BuildDefault / migration.
         rules.Add(new DisplayRule
         {
-            Name = "Quest object", Label = "Quest", Enabled = true, Navigable = true,
+            Name = "Quest object", Label = "Quest", Enabled = true, Navigable = false,
             Categories = new() { "Object", "Other" },
             Match = new() { "QuestObjects", "QuestChests", "QuestObject" },
             Shape = "Diamond", Color = "#FFD966", Opacity = 0.95f, Size = 10f, Sprite = SpriteCatalog.QuestObject().Clone(),
         });
         rules.Add(new DisplayRule
         {
-            Name = "Quest marker", Label = "Quest marker", Enabled = true, Navigable = true,
+            Name = "Quest marker", Label = "Quest marker", Enabled = true, Navigable = false,
             Categories = new() { "Object", "Other" }, Poi = "Yes",
             Match = new() { "Quest", "EinharQuestMarker" },
             Shape = "Diamond", Color = "#FFD966", Opacity = 1f, Size = 10f, Sprite = SpriteCatalog.QuestMarker().Clone(),
         });
         rules.Add(new DisplayRule
         {
-            Name = "Waypoint", Label = "Waypoint", Enabled = st.Poi.Enabled, Navigable = true,
+            Name = "Waypoint", Label = "Waypoint", Enabled = st.Poi.Enabled, Navigable = false,
             Categories = new() { "Object", "Other" }, Match = new() { "Waypoint" },
             Shape = st.Poi.Shape, Color = st.Poi.Color, Opacity = st.Poi.Opacity, Size = 10f,
             Sprite = SpriteCatalog.Waypoint().Clone(),
         });
         rules.Add(new DisplayRule
         {
-            Name = "Checkpoint", Label = "Checkpoint", Enabled = st.Poi.Enabled, Navigable = true,
+            Name = "Checkpoint", Label = "Checkpoint", Enabled = st.Poi.Enabled, Navigable = false,
             Categories = new() { "Object", "Other" }, Match = new() { "Checkpoint" },
             Shape = st.Poi.Shape, Color = "#00CCFF", Opacity = 0.95f, Size = 10f, Sprite = SpriteCatalog.Checkpoint().Clone(),
         });
@@ -411,7 +411,7 @@ public sealed class DisplayRules
         // Remaining minimap POIs not caught by rules above.
         rules.Add(new DisplayRule
         {
-            Name = "Map marker", Label = "Map marker", Enabled = st.Poi.Enabled, Navigable = true,
+            Name = "Map marker", Label = "Map marker", Enabled = st.Poi.Enabled, Navigable = false,
             Categories = new() { "Object", "Other" }, Poi = "Yes",
             Shape = st.Poi.Shape, Color = st.Poi.Color, Opacity = st.Poi.Opacity, Size = 10f,
             Sprite = SpriteCatalog.MapMarker().Clone(),
