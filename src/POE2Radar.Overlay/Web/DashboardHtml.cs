@@ -814,9 +814,9 @@ internal static class DashboardHtml
               <input class="numin" type="number" step="1" min="0" max="64" data-set="landmarkClusterGap"></div>
             <div class="row"><div class="rl" title="{{H.LowImpactMode}}">Low impact mode<small>favor lower memory-read cadence when idle or unfocused</small></div>
               <label class="sw"><input type="checkbox" data-set="lowImpactMode"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.FpsCap}}">Overlay FPS cap<small>15&ndash;360; lower = less GPU load</small></div>
+            <div class="row"><div class="rl" title="{{H.FpsCap}}">Overlay FPS cap<small>15&ndash;360 draw/present rate; VSync overrides when on</small></div>
               <input class="numin" type="number" step="1" min="15" max="360" data-set="fpsCap"></div>
-            <div class="row"><div class="rl" title="{{H.LiveRefreshHz}}">Live refresh Hz<small>player position, map UI, vitals, camera: 5&ndash;120</small></div>
+            <div class="row"><div class="rl" title="{{H.LiveRefreshHz}}">Live refresh Hz<small>vitals, camera, full map discovery: 5&ndash;120; pan lock every app tick</small></div>
               <input class="numin" type="number" step="1" min="5" max="120" data-set="liveRefreshHz"></div>
             <div class="row"><div class="rl" title="{{H.WorldRefreshHz}}">World refresh Hz<small>entities, terrain, landmarks, routes: 1&ndash;60</small></div>
               <input class="numin" type="number" step="1" min="1" max="60" data-set="worldRefreshHz"></div>
@@ -836,7 +836,7 @@ internal static class DashboardHtml
               <label class="sw"><input type="checkbox" data-set="pixelSnapLabels"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.OverlayVSync}}">Overlay VSync<small>present overlay frames on the display cadence</small></div>
               <label class="sw"><input type="checkbox" data-set="overlayVSync"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.FpsResourceOverlay}}">FPS / resource overlay<small>tick/render FPS + App CPU/GPU/RAM under POE2Radar nav</small></div>
+            <div class="row"><div class="rl" title="{{H.FpsResourceOverlay}}">FPS / resource overlay<small>app tick + draw FPS + POE2Radar CPU/GPU/RAM under nav</small></div>
               <label class="sw"><input type="checkbox" data-set="showFpsOverlay"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.ExtendedPerfStats}}">Extended perf stats<small>extra timing/read lines under the nav menu</small></div>
               <label class="sw"><input type="checkbox" data-set="showPerfStats"><span class="track"></span><span class="knob"></span></label></div>

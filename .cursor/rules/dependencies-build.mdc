@@ -32,4 +32,10 @@ Tests ──► respective project
 
 ## Build note
 
-Remind users: quit overlay before rebuild — running exe locks `bin\`.
+- **Feature completion:** always rebuild **both** configurations before merge or handoff:
+  ```bash
+  dotnet build -c Debug
+  dotnet build -c Release
+  ```
+  Run `dotnet test` as well. Report Debug + Release results explicitly in the summary.
+- Quit overlay before rebuild — running exe locks `bin\`.

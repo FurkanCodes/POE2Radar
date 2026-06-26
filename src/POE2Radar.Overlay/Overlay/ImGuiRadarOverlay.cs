@@ -38,6 +38,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private readonly TextureRegistry _textures = new();
     private readonly TerrainTextureCache _terrainTextures = new();
     private readonly OverlayRenderMetrics _renderMetrics = new();
+    private Func<RenderContext, MapFrame, MapPanLockSample?>? _readMapPanLock;
 
     private bool _navMenuExpanded;
     private bool _settingsOpen;
@@ -111,6 +112,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         _settingsLock = new object();
         _navMenuCorner = settings.NavMenuCorner;
         VSync = settings.OverlayVSync;
+        FPSLimit = Math.Clamp(settings.FpsCap, 15, 360);
     }
 
     public int OverlayWidth => _width;
@@ -120,6 +122,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     public OverlayRenderMetrics GetRenderMetrics() => _renderMetrics;
 
     public void UpdateContext(RenderContext ctx) => _ctx = ctx;
+
+    public void SetMapPanLockReader(Func<RenderContext, MapFrame, MapPanLockSample?>? reader)
+        => _readMapPanLock = reader;
 
     public void AttachEntityStores(DisplayRules displayRules, ZoneEntityOverrides zoneOverrides,
         DisplayRuleEngine ruleEngine, HiddenEntities hidden)
@@ -137,6 +142,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     {
         lock (_settingsLock) _settings = settings;
         VSync = settings.OverlayVSync;
+        FPSLimit = Math.Clamp(settings.FpsCap, 15, 360);
     }
 
     protected override Task PostInitialized()
@@ -232,6 +238,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             var io = ImGui.GetIO();
             io.ConfigFlags |= ImGuiConfigFlags.NoMouseCursorChange;
             VSync = _settings.OverlayVSync;
+            FPSLimit = Math.Clamp(_settings.FpsCap, 15, 360);
 
             var ctx = _ctx;
             var inGame = ctx is not null && ctx.InGame;
@@ -611,9 +618,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     {
         var W = ctx.WindowWidth;
         var H = ctx.WindowHeight;
-        var center = frame.Center;
-        var scale = MathF.Max(0.01f, frame.Scale);
-        var player = ctx.RawPlayerGrid;
+        var (player, center, scale) = ResolveMapDrawState(ctx, frame);
+        scale = MathF.Max(0.01f, scale);
 
         var clipped = frame.IsMinimap && frame.Width > 1f && frame.Height > 1f;
         if (clipped)
@@ -626,12 +632,12 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         {
             if (ctx.ShowTerrain && ctx.Terrain is { } terrain)
             {
-                if (!DrawTerrainTexture(dl, ctx, terrain, frame, center, scale))
-                    DrawTerrainEdges(dl, ctx, terrain, frame, center, scale);
+                if (!DrawTerrainTexture(dl, ctx, terrain, player, center, scale))
+                    DrawTerrainEdges(dl, ctx, terrain, player, center, scale);
             }
 
             if (frame.IsMinimap ? ctx.ShowPathMinimap : ctx.ShowPathMap)
-                DrawPathsMap(dl, ctx, frame, center, scale);
+                DrawPathsMap(dl, ctx, frame, player, center, scale);
 
             var mapLabels = new List<MapLabelCandidate>();
             var clipL = frame.Position.X;
@@ -708,12 +714,54 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
     }
 
-    private bool DrawTerrainTexture(ImDrawListPtr dl, RenderContext ctx, Poe2Live.TerrainData terrain, MapFrame frame, NumVec2 center, float scale)
+    private (NumVec2 Player, NumVec2 Center, float Scale) ResolveMapDrawState(RenderContext ctx, MapFrame frame)
+    {
+        var player = ctx.RawPlayerGrid;
+        var center = frame.Center;
+        var scale = frame.Scale;
+        if (_readMapPanLock?.Invoke(ctx, frame) is not { } live)
+            return (player, center, scale);
+
+        player = live.PlayerGrid;
+        if (frame.IsMinimap)
+        {
+            var clipL = frame.Position.X;
+            var clipT = frame.Position.Y;
+            var clipR = clipL + frame.Width;
+            var clipB = clipT + frame.Height;
+            (center, scale) = MapFrameBuilder.MiniMapProjection(
+                ctx.WindowWidth,
+                ctx.WindowHeight,
+                live.ShiftX,
+                live.ShiftY,
+                live.Zoom,
+                ctx.ScaleMul,
+                clipL,
+                clipT,
+                clipR,
+                clipB);
+        }
+        else
+        {
+            (center, scale) = MapFrameBuilder.LargeMapProjection(
+                ctx.WindowWidth,
+                ctx.WindowHeight,
+                live.ShiftX,
+                live.ShiftY,
+                live.Zoom,
+                ctx.OffsetX,
+                ctx.OffsetY,
+                ctx.ScaleMul);
+        }
+
+        return (player, center, scale);
+    }
+
+    private bool DrawTerrainTexture(ImDrawListPtr dl, RenderContext ctx, Poe2Live.TerrainData terrain, NumVec2 player, NumVec2 center, float scale)
     {
         if (!_terrainTextures.TryGet(this, _textures, terrain, ctx.AreaHash, ctx.TerrainStyle, out var tex))
             return false;
 
-        var player = ctx.RawPlayerGrid;
         var p0 = Project(new NumVec2(0, 0), player, center, scale);
         var p1 = Project(new NumVec2(terrain.Width, 0), player, center, scale);
         var p2 = Project(new NumVec2(terrain.Width, terrain.Height), player, center, scale);
@@ -785,7 +833,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         dl.AddCircleFilled(center, MathF.Max(1f, size), color, 16);
     }
 
-    private static void DrawTerrainEdges(ImDrawListPtr dl, RenderContext ctx, Poe2Live.TerrainData terrain, MapFrame frame, NumVec2 center, float scale)
+    private static void DrawTerrainEdges(ImDrawListPtr dl, RenderContext ctx, Poe2Live.TerrainData terrain, NumVec2 player, NumVec2 center, float scale)
     {
         var data = terrain.Walkable;
         var bytesPerRow = terrain.Width;
@@ -814,7 +862,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 var isEdge = data[idx - 1] == 0 || data[idx + 1] == 0
                           || data[idx - bytesPerRow] == 0 || data[idx + bytesPerRow] == 0;
 
-                var p = Project(new NumVec2(x, y), ctx.RawPlayerGrid, center, scale);
+                var p = Project(new NumVec2(x, y), player, center, scale);
                 if (p.X < -8 || p.Y < -8 || p.X > W + 8 || p.Y > H + 8) continue;
 
                 if (isEdge)
@@ -824,7 +872,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                         var rightIdx = row + x + edgeStride;
                         if (rightIdx < data.Length && data[rightIdx] != 0)
                         {
-                            var pr = Project(new NumVec2(x + edgeStride, y), ctx.RawPlayerGrid, center, scale);
+                            var pr = Project(new NumVec2(x + edgeStride, y), player, center, scale);
                             if (MathF.Abs(pr.X - p.X) < 80f && MathF.Abs(pr.Y - p.Y) < 80f)
                                 dl.AddLine(p, pr, edgeCol, thickness);
                         }
@@ -835,7 +883,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                         var bottomIdx = (y + edgeStride) * bytesPerRow + x;
                         if (bottomIdx < data.Length && data[bottomIdx] != 0)
                         {
-                            var pb = Project(new NumVec2(x, y + edgeStride), ctx.RawPlayerGrid, center, scale);
+                            var pb = Project(new NumVec2(x, y + edgeStride), player, center, scale);
                             if (MathF.Abs(pb.X - p.X) < 80f && MathF.Abs(pb.Y - p.Y) < 80f)
                                 dl.AddLine(p, pb, edgeCol, thickness);
                         }
@@ -850,10 +898,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
     }
 
-    private void DrawPathsMap(ImDrawListPtr dl, RenderContext ctx, MapFrame frame, NumVec2 center, float scale)
+    private void DrawPathsMap(ImDrawListPtr dl, RenderContext ctx, MapFrame frame, NumVec2 player, NumVec2 center, float scale)
     {
-        var player = ctx.RawPlayerGrid;
-        var smoothPaths = !frame.IsMinimap && ctx.SmoothOverlayMotion;
+        var smoothPaths = frame.IsMinimap && ctx.SmoothOverlayMotion;
         foreach (var path in ctx.SelectedPaths)
         {
             var poly = NavigationPathBuilder.BuildDrawPolyline(player, path.Points, path.LiveGoal);
@@ -1587,7 +1634,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         ImGui.Spacing();
 
         TextColoredUnformatted(new Vector4(0.55f, 0.92f, 1f, 1f),
-            $"tick {p.Fps:F0} fps   render {p.RenderFps:F0} fps   ({p.TickMs:F1} ms)");
+            $"app tick {p.Fps:F0} fps   draw {p.RenderFps:F0} fps   ({p.TickMs:F1} ms)");
         var gpu = FormatGpuPercent(p.GpuPercent);
         var vram = p.GpuMemoryMb >= 0 ? $"{p.GpuMemoryMb:F0} MB VRAM" : "VRAM n/a";
         TextColoredUnformatted(new Vector4(0.75f, 1f, 0.82f, 1f),

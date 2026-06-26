@@ -1,49 +1,63 @@
 ---
-description: Branch big features off main; test; merge locally when green
+description: Always branch for changes; merge to local main; push only when asked
 alwaysApply: true
 ---
 
-# Git Workflow — Feature Branches
+# Git Workflow — Branch First, Merge, Then Push
 
-## When to branch
+## Non-negotiable flow
 
-Create a **feature branch** off `main` for any **large or risky** change, including:
+**Every change** (feature, fix, refactor, docs, rules) follows this sequence:
 
-- Multi-file features (new UI surfaces, atlas/nav rewrites, display-rule overhauls)
-- Cross-pillar work (Core + Overlay + tests)
-- Offset migrations or Research-validated rechains
-- Anything expected to take more than one session or break builds mid-way
+1. **Branch** — create a new branch off up-to-date `main` before editing code
+2. **Work** — commit on that branch only
+3. **Verify** — tests + **Debug and Release** builds green on the branch
+4. **Merge locally** — merge the branch into **local** `main`
+5. **Push** — push `main` to remote **only when the user explicitly asks**
 
-**Small fixes** (single bug, typo, one-file tweak) may commit directly on `main` if the user prefers — ask when unsure.
+Never commit directly on `main` while implementing work. Never push a feature branch to remote unless the user asks for a PR workflow.
 
-## Branch workflow
+```bash
+git checkout main
+git pull origin main          # when remote exists and is in use
+git checkout -b feature/short-description
 
-1. **Start:** `git checkout main` → pull if using remote → `git checkout -b feature/short-description`
-2. **Work:** commit in focused chunks on the branch only
-3. **Verify:** run full test suite before merge:
-   ```bash
-   dotnet test
-   dotnet build -c Release
-   ```
-4. **Merge locally:** when tests pass, merge into `main` on the **local** machine:
-   ```bash
-   git checkout main
-   git merge feature/short-description
-   ```
-5. **Push:** only when the user explicitly asks — never assume push to `origin/main`
+# … work, commit on branch …
+
+dotnet test
+dotnet build -c Debug
+dotnet build -c Release
+
+git checkout main
+git merge feature/short-description
+git branch -d feature/short-description   # after successful merge
+
+# push only when user asks:
+git push origin main
+```
+
+## When to start a branch
+
+- **Always** — before the first file edit for a task, including small one-file fixes
+- If already on `main` with uncommitted work, create a branch now and continue there (do not leave WIP on `main`)
 
 ## Rules for agents
 
-- Before starting a **big feature**, create or switch to a feature branch; do not pile large diffs on `main` unasked.
-- Do **not** merge to `main` until `dotnet test` (and build) succeed — fix failures on the branch first.
-- Do **not** `git push --force` to `main` / `master`.
-- Do **not** amend or rewrite published commits unless the user asks and branch is unpushed.
-- After local merge, optionally delete the feature branch: `git branch -d feature/short-description`
+- **Do not** pile commits on `main` during implementation — that includes “quick” UI tweaks, rule updates, and single-file fixes
+- **Do not** merge to `main` until `dotnet test` and **both** `dotnet build -c Debug` and `dotnet build -c Release` pass — fix on the branch first
+- **Do not** push to `origin/main` unless the user explicitly requests it
+- **Do not** `git push --force` to `main` / `master`
+- **Do not** amend or rewrite published commits unless the user asks and the commit is unpushed
+- After local merge, delete the feature branch when it is fully merged
 
 ## Branch naming
 
-- `feature/imgui-theme-refresh`
+- `feature/imgui-auto-save`
 - `feature/atlas-graph-rechain`
-- `fix/world-reader-cadence`
+- `fix/settings-debounce`
 
 Use lowercase, hyphen-separated, prefixed with `feature/` or `fix/`.
+
+## User override
+
+If the user explicitly says “commit directly on main” or “skip the branch,” follow their instruction for that task only.

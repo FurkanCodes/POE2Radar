@@ -79,18 +79,18 @@ internal static class SettingHints
     internal static class Performance
     {
         public const string LowImpactMode = "Favor lower memory-read cadence when idle or unfocused.";
-        public const string FpsCap = "Overlay present rate — lower = less GPU load.";
-        public const string LiveRefreshHz = "How often player position, map UI, vitals, and camera update.";
+        public const string FpsCap = "Overlay draw (present) rate — lower = less GPU load. VSync overrides when enabled.";
+        public const string LiveRefreshHz = "How often vitals, camera, and full map UI discovery update. Pan/zoom lock every app tick while the map overlay is shown.";
         public const string WorldRefreshHz = "How often entities, terrain, landmarks, and routes update.";
         public const string InactiveRefreshHz = "World reads while PoE2 is unfocused and overlay is hidden.";
         public const string HpBarRefreshHz = "How often live HP bar positions and values update.";
         public const string MaxLiveHpBars = "Cap how many HP nameplates are read each tick (0 = unlimited).";
-        public const string SmoothOverlayMotion = "Smooth paths, map transform, and label movement between reads.";
-        public const string OverlaySmoothingMs = "Smoothing time for paths, player, and map transform (milliseconds).";
+        public const string SmoothOverlayMotion = "Smooth minimap/world paths and label chips. Tab map terrain stays HUD-locked (no pan smoothing).";
+        public const string OverlaySmoothingMs = "Smoothing time for minimap/world paths and player motion between reads (milliseconds).";
         public const string ChipSmoothingMs = "Smoothing time for label chip rectangles (milliseconds).";
         public const string PixelSnapLabels = "Round final text and chip positions to whole pixels.";
         public const string OverlayVSync = "Present overlay frames on the display refresh cadence.";
-        public const string FpsResourceOverlay = "Tick + render FPS and app CPU/GPU/RAM under the POE2Radar nav button.";
+        public const string FpsResourceOverlay = "App tick + draw FPS and POE2Radar CPU/GPU/RAM under the nav button.";
         public const string ExtendedPerfStats = "Extra timing and memory-read lines under the nav menu.";
         public const string MetricsRefreshHz = "How often CPU/RAM metrics sample when the metrics HUD is on.";
         public const string GpuMetricsSeconds = "How often GPU/VRAM metrics sample when the metrics HUD is on.";

@@ -569,7 +569,8 @@ public sealed partial class RadarApp : IDisposable
     }
 
     private ImGuiRadarOverlay CreateImGuiOverlay()
-        => new ImGuiRadarOverlay(
+    {
+        var overlay = new ImGuiRadarOverlay(
             cmd => _commandQueue.Enqueue(cmd),
             id => TogglePathTarget(id),
             corner =>
@@ -580,6 +581,34 @@ public sealed partial class RadarApp : IDisposable
             () => AddNearestPathTarget(),
             () => ClearPathTargets(),
             _settings);
+        overlay.SetMapPanLockReader(ReadMapPanLockForRender);
+        return overlay;
+    }
+
+    private MapPanLockSample? ReadMapPanLockForRender(RenderContext ctx, MapFrame frame)
+    {
+        if (!ctx.InGame || !ctx.Active || ctx.AtlasOpen || ctx.MapLockLocalPlayer == 0)
+            return null;
+        if (frame.IsMinimap)
+        {
+            if (!MapOverlayDrawPolicy.ShouldDrawMinimap(ctx.Map, ctx.MiniMap))
+                return null;
+        }
+        else if (!MapOverlayDrawPolicy.ShouldDrawLargeMap(ctx.Map))
+        {
+            return null;
+        }
+
+        return _live.TryReadMapPanLock(
+            ctx.MapLockLocalPlayer,
+            ctx.MapLockMiniElement,
+            ctx.MapLockLargeElement,
+            new Poe2Live.MapViews(ctx.Map, ctx.MiniMap),
+            frame.IsMinimap,
+            out var sample)
+            ? sample
+            : null;
+    }
 
     private void RestartImGuiOverlay()
     {
@@ -613,8 +642,8 @@ public sealed partial class RadarApp : IDisposable
             if (_gameHwnd != 0)
                 TrackImGuiGameWindow(_gameHwnd);
             Tick();
-            // Configurable frame budget (read live so dashboard edits apply immediately). World,
-            // live, HP, and metrics reads are independently throttled by their own cadences.
+            // Configurable frame budget (read live so dashboard edits apply immediately). Caps the app
+            // tick loop; overlay draw is capped separately via ImGui FPSLimit on the render thread.
             var hz = Math.Clamp(_settings.FpsCap, 15, 360);
             var budgetMs = 1000.0 / hz;
             var elapsedMs = Stopwatch.GetElapsedTime(frameStart).TotalMilliseconds;
@@ -662,7 +691,7 @@ public sealed partial class RadarApp : IDisposable
 
         var live = _liveFrame;
         if (live.InGame)
-            live = RefreshMapLock(live, windowWidth, windowHeight);
+            live = RefreshMapLock(live, drawActive);
 
         if (live.InGame)
         {
@@ -835,7 +864,10 @@ public sealed partial class RadarApp : IDisposable
             LootTags: lootPayload.lootTags,
             Monoliths: lootPayload.monoliths,
             ShowMonolithPanel: _settings.Monoliths.ShowPanel,
-            ShowMonolithMapLabel: _settings.Monoliths.ShowMapLabel);
+            ShowMonolithMapLabel: _settings.Monoliths.ShowMapLabel,
+            MapLockLocalPlayer: live.InGame ? live.LocalPlayer : 0,
+            MapLockMiniElement: miniMap.Element,
+            MapLockLargeElement: largeMap.Element);
         _imguiOverlay?.UpdateContext(ctx);
 
         var overlayMetrics = _imguiOverlay?.GetRenderMetrics().Snapshot() ?? default;
@@ -937,9 +969,9 @@ public sealed partial class RadarApp : IDisposable
             maps, _areaHash, _cameraMatrix);
     }
 
-    /// <summary>Fast player lock between live refreshes. Map UI/controller branch reads stay on
-    /// LiveRefreshHz via <see cref="RefreshLiveFrame"/> so render FPS does not multiply map reads.</summary>
-    private LiveFrameState RefreshMapLock(LiveFrameState live, int windowWidth, int windowHeight)
+    /// <summary>Fast player + map pan/zoom lock every app tick. Full map discovery/rect reads stay on
+    /// <see cref="RefreshLiveFrame"/> at LiveRefreshHz; shift/zoom here keep the overlay HUD-locked while moving.</summary>
+    private LiveFrameState RefreshMapLock(LiveFrameState live, bool drawActive)
     {
         if (!live.InGame || live.LocalPlayer == 0 || live.InGameState == 0 || live.AreaInstance == 0)
             return live;
@@ -947,6 +979,15 @@ public sealed partial class RadarApp : IDisposable
         var player = _live.PlayerGrid(live.LocalPlayer) ?? live.PlayerGrid;
         var playerTerrainHeight = _live.PlayerTerrainHeight(live.LocalPlayer);
         var maps = live.Maps;
+        if (drawActive && !_atlasOpen)
+        {
+            var refreshed = _live.RefreshMapPanZoom(maps, live.AreaInstance);
+            if (!refreshed.Equals(maps))
+            {
+                maps = refreshed;
+                _cachedMaps = maps;
+            }
+        }
 
         if (player == live.PlayerGrid && maps.Equals(live.Maps) && playerTerrainHeight.Equals(live.PlayerTerrainHeight))
             return live;
@@ -1003,8 +1044,6 @@ public sealed partial class RadarApp : IDisposable
         return copy;
     }
 
-    private const float MapScaleDivisor = 677f;
-
     private MapFrame BuildLargeMapFrame(Poe2Live.MapUi map, int windowWidth, int windowHeight, float playerTerrainHeight)
     {
         // Sikaka/v1.3.0 parity — fullscreen Tab overlay only (draw gated on Map.IsVisible):
@@ -1012,20 +1051,15 @@ public sealed partial class RadarApp : IDisposable
         //   scale  = Zoom × (WindowHeight / 677) × ScaleMul
         var w = MathF.Max(1f, windowWidth);
         var h = MathF.Max(1f, windowHeight);
-        var (cx, cy) = MapViewportLogic.MapProjectionCenter(
+        var (center, scale) = MapFrameBuilder.LargeMapProjection(
             windowWidth,
             windowHeight,
             map.ShiftX,
             map.ShiftY,
+            map.Zoom,
             _settings.OffX,
             _settings.OffY,
-            minimapClip: false,
-            clipLeft: 0,
-            clipTop: 0,
-            clipRight: 0,
-            clipBottom: 0);
-        var center = new NumVec2(cx, cy);
-        var scale = (map.Zoom > 0f ? map.Zoom : 1f) * (h / MapScaleDivisor) * _settings.ScaleMul;
+            _settings.ScaleMul);
         return new MapFrame(center, scale, w, h, map.Element, playerTerrainHeight, NumVec2.Zero, IsMinimap: false);
     }
 
@@ -1052,22 +1086,17 @@ public sealed partial class RadarApp : IDisposable
             y = 18f;
         }
 
-        var (cx, cy) = MapViewportLogic.MapProjectionCenter(
+        var (center, scale) = MapFrameBuilder.MiniMapProjection(
             windowWidth,
             windowHeight,
             map.ShiftX,
             map.ShiftY,
-            offsetX: 0f,
-            offsetY: 0f,
-            minimapClip: true,
-            clipLeft: x,
-            clipTop: y,
-            clipRight: x + width,
-            clipBottom: y + height);
-        var center = new NumVec2(cx, cy);
-        // v1.3.0 parity: minimap scale = Zoom × (clipSide / 677) × ScaleMul — NOT diagonal/240.
-        var referenceSide = MathF.Max(1f, MathF.Min(width, height));
-        var scale = (map.Zoom > 0f ? map.Zoom : 1f) * (referenceSide / MapScaleDivisor) * _settings.ScaleMul;
+            map.Zoom,
+            _settings.ScaleMul,
+            x,
+            y,
+            x + width,
+            y + height);
         return new MapFrame(center, scale, width, height, map.Element, playerTerrainHeight, new NumVec2(x, y), IsMinimap: true);
     }
 

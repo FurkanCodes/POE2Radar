@@ -451,4 +451,74 @@ public sealed partial class Poe2Live
             MapViewportToMapUi(state.Large, _classifiedLargeEl),
             MapViewportToMapUi(state.Mini, _classifiedMiniEl));
     }
+
+    /// <summary>
+    /// Tick-rate pan/zoom lock between full <see cref="ReadMaps"/> calls. Re-reads Shift/Zoom +
+    /// Tab visibility only — keeps screen rects and element pointers from <paramref name="current"/>.
+    /// </summary>
+    public MapViews RefreshMapPanZoom(MapViews current, nint areaInstance)
+    {
+        _ = areaInstance;
+        if (_classifiedMiniEl == 0 && _classifiedLargeEl == 0)
+            return current;
+        return ApplyMapPanFromElements(current, _classifiedMiniEl, _classifiedLargeEl);
+    }
+
+    /// <summary>
+    /// Per-draw pan/zoom + player lock (render thread). Keeps overlay terrain aligned with the game
+    /// map when app tick cadence is lower than overlay present rate.
+    /// </summary>
+    public bool TryReadMapPanLock(
+        nint localPlayer,
+        nint miniElement,
+        nint largeElement,
+        MapViews baseline,
+        bool forMinimap,
+        out MapPanLockSample sample)
+    {
+        sample = default;
+        if (localPlayer == 0 || (miniElement == 0 && largeElement == 0))
+            return false;
+
+        var player = PlayerGrid(localPlayer);
+        if (player is not { } pg)
+            return false;
+
+        var maps = ApplyMapPanFromElements(baseline, miniElement, largeElement);
+        var map = forMinimap ? maps.MiniMap : maps.LargeMap;
+        if (!forMinimap && !map.IsVisible)
+            map = maps.LargeMap;
+
+        sample = new MapPanLockSample(pg, map.ShiftX, map.ShiftY, map.Zoom > 0f ? map.Zoom : 1f);
+        return true;
+    }
+
+    private MapViews ApplyMapPanFromElements(MapViews current, nint miniEl, nint largeEl)
+    {
+        var large = current.LargeMap;
+        var mini = current.MiniMap;
+
+        if (miniEl != 0
+            && TryReadMapElement(miniEl, out var cornerLocal, out _, out var csx, out var csy, out var czoom))
+        {
+            var tabOpen = MapViewportLogic.IsTabMapOpen(cornerLocal);
+            if (!tabOpen && largeEl != 0
+                && TryReadMapElement(largeEl, out _, out _, out var fsx, out var fsy, out var fzoom))
+            {
+                large = large with { IsVisible = false, ShiftX = fsx, ShiftY = fsy, Zoom = fzoom };
+            }
+            else
+                large = large with { IsVisible = tabOpen, ShiftX = csx, ShiftY = csy, Zoom = czoom };
+        }
+
+        if (large.IsVisible)
+            mini = mini with { IsVisible = false };
+        else if (miniEl != 0
+                 && TryReadActiveMapProjection(miniEl, largeEl, out var msx, out var msy, out var mzoom))
+        {
+            mini = mini with { ShiftX = msx, ShiftY = msy, Zoom = mzoom, IsVisible = mzoom > 0.05f };
+        }
+
+        return new MapViews(large, mini);
+    }
 }

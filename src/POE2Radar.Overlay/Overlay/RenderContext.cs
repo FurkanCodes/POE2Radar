@@ -307,4 +307,8 @@ public sealed record RenderContext(
     IReadOnlyList<LootTagLabel>? LootTags = null,
     IReadOnlyList<MonolithMarker>? Monoliths = null,
     bool ShowMonolithPanel = true,
-    bool ShowMonolithMapLabel = true);
+    bool ShowMonolithMapLabel = true,
+    // Handles for render-thread map pan lock (shift/zoom + player read every draw frame).
+    nint MapLockLocalPlayer = 0,
+    nint MapLockMiniElement = 0,
+    nint MapLockLargeElement = 0);

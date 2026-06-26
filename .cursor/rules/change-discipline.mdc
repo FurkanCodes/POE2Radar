@@ -13,7 +13,7 @@ alwaysApply: true
 
 ## While coding
 
-- **Big features:** use a feature branch → `dotnet test` → merge to `main` locally (see `git-workflow.mdc`).
+- **Big features:** use a feature branch → `dotnet test` → **Debug + Release builds** → merge to `main` locally (see `git-workflow.mdc`).
 - **One concern per commit/PR** when possible.
 - Don't edit `AGENTS.md`, `CLAUDE.md`, or `README.md` unless asked.
 - Don't add dependencies without strong justification (keep publish size lean).
@@ -27,7 +27,7 @@ alwaysApply: true
 - [ ] Keyboard + gamepad (if bindable)
 - [ ] Perf: cadence/sleep, no hot-path LINQ
 - [ ] Unit test for pure logic / migration
-- [ ] `dotnet build` succeeds (x64)
+- [ ] **`dotnet build -c Debug` and `dotnet build -c Release` both succeed** (x64) — always run both at feature completion; call out results in the summary
 
 ## Refactors
 
