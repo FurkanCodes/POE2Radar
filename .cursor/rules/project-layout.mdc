@@ -1,0 +1,39 @@
+---
+description: Three-pillar project layout — Core, Overlay, Research boundaries
+alwaysApply: true
+---
+
+# Project Layout — Three Pillars
+
+Exactly three source projects. Respect boundaries; do not blur them.
+
+| Project | Role | Ships? |
+|---------|------|--------|
+| `POE2Radar.Core` | Memory plumbing, `Poe2Offsets`, `Poe2Live`, pathfinding math | DLL dep |
+| `POE2Radar.Overlay` | Tick loop, ImGui overlay, HTTP API, config, input | **The `.exe`** |
+| `POE2Radar.Research` | Offset discovery, probes, DevTree | Dev-only |
+
+## Dependency rules
+
+- **Overlay → Core** only. **Research → Core** only.
+- **Never** reference Overlay or Research from Core.
+- **Never** link Research into Overlay (no `ProjectReference`, no shared copy-paste of probe code into overlay).
+- Tests: `POE2Radar.Core.Tests` → Core; `POE2Radar.Overlay.Tests` → Overlay.
+
+## Where code belongs
+
+| Concern | Location |
+|---------|----------|
+| `ReadProcessMemory`, structs, offsets, live reads | `Core/Game/`, `Core/Pathfinding/` |
+| Drawing, ImGui, hotkeys, settings JSON, dashboard | `Overlay/` |
+| AOB scan, `--hp`, `--devtree`, atlas probes | `Research/` |
+
+## Platform
+
+- `net10.0-windows`, **x64 only**, Windows-only Win32/XInput.
+- PoE2 client — **not PoE1**. Do not port PoE1 offsets or assumptions.
+
+## File organization
+
+- Split large types with `partial class` by concern (`RadarApp`, `Poe2Live`) — one file per domain (`RadarApp.WorldReader.cs`, `Poe2Live.MapViewport.cs`).
+- Persisted user data under `config/` next to the exe; built-in assets materialized on first run (`icons/`).

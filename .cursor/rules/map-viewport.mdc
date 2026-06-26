@@ -1,0 +1,32 @@
+---
+description: Large map / minimap viewport, map UI offsets, and draw policy
+globs: src/POE2Radar.Core/Game/*Map*,src/POE2Radar.Overlay/Overlay/Map*.cs
+alwaysApply: false
+---
+
+# Map UI & Viewport
+
+## UI element chain
+
+- `InGameState.UiRoot` → children walk to `MapUiElement`.
+- Visibility: `UiElement.Flags` bit `0x0B`. Shift `+0x368`, default shift `+0x370`, zoom `+0x3A8`.
+
+## Viewport logic
+
+- `MapViewportLogic` / `Poe2Live.MapViewport` (Core) — shared math for large map vs minimap rects.
+- `MapViewsMerger` — combine map read paths; test changes in `MapViewportLogicTests`.
+
+## Draw policy (Overlay)
+
+- `MapOverlayDrawPolicy` decides when to draw on large map vs minimap vs world.
+- Respect `ShowTerrain`, map visibility, and path layer toggles (`ShowPathMap`, `ShowPathMinimap`).
+- Player blip optional (`ShowPlayerBlip`).
+
+## Alignment
+
+- Overlay anchors to game client area; UI scale from window height (`winH/1600`).
+- Map lock / shift / zoom read live each tick — don't cache across frames incorrectly.
+
+## Diagnostics
+
+- `_mapDiag` / `MapDiag` fields in `RadarState` for dashboard troubleshooting — extend when adding map features.

@@ -1,0 +1,33 @@
+---
+description: Research tooling — discovery only, never shipped in overlay
+globs: src/POE2Radar.Research/**/*.cs
+alwaysApply: false
+---
+
+# Research Probes
+
+## Purpose
+
+Dev-time reverse engineering and validation. Outputs go to console or DevTree browser — not production overlay.
+
+## Adding a probe
+
+- New flag in `Research/Program.cs` (e.g. `--my-probe`).
+- Read via `MemoryReader` + `Poe2Offsets`; print PASS/FAIL/DRIFT clearly.
+- Paste-ready offset blocks for copying into `Poe2Offsets.cs` when validated.
+
+## DevTree (`--devtree`)
+
+- `DevTreeServer` + `DevTreeHtml` at `localhost:7778`.
+- PoE2 stand-in for ExileApi DevTree — memory/UI/entity explorer.
+
+## Atlas recovery
+
+- `--atlas-probe`: one-shot projection recovery when atlas is open.
+- `--atlas-graph`: node graph + connection vector validation.
+
+## Rules
+
+- **Never** add Research as a dependency of Overlay.
+- Probes may be messy; overlay code may not. Validate here, integrate cleanly in Core/Overlay.
+- Document probe usage in `AGENTS.md` when adding significant new commands.

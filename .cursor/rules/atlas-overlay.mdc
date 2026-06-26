@@ -1,0 +1,37 @@
+---
+description: Atlas map overlay — projection, calibration, node graph
+globs: src/POE2Radar.Core/Game/*Atlas*,src/POE2Radar.Overlay/**/*Atlas*
+alwaysApply: false
+---
+
+# Atlas Overlay
+
+## Projection model (solved — don't reinvent)
+
+```
+screen = (UIscale × zoom) × relPos + offset
+```
+
+- `relPos` @ `+0x118` (pan baked in), `zoom` @ `+0x130`, `UIscale = winH/1600`.
+- **Not** a perspective homography for live draw. `AtlasHomography` is scale+translate RANSAC for calibration only.
+
+## Calibration
+
+- F10/F11 hotkeys (or web) for offset calibration; rescale linear part by `liveZoom/calibZoom` each frame.
+- Validate via Research `--atlas-probe` after patches.
+
+## Node graph
+
+- Grid coords: `AtlasNode.GridPos +0x320`.
+- Edges: `AtlasGraph.ConnectionsVec` on canvas `+0x5A8`.
+- `--atlas-graph` probe self-heals drift — basis for atlas pathfinding.
+
+## Session lifecycle
+
+- Open atlas in-game → `AtlasPanelResolver` locates canvas/nodes.
+- Close on zone change or when atlas UI closes — `CloseAtlasSession()` in tick.
+
+## Draw
+
+- Rings, labels, route polylines via `AtlasRoutePolylineBuilder`.
+- Group colors from `AtlasMapGroups` / `AtlasRouteGroups` in settings.

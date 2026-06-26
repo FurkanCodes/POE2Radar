@@ -1,0 +1,35 @@
+---
+description: Thread boundaries, snapshots, and cross-thread communication
+alwaysApply: true
+---
+
+# Threading & Data Flow
+
+```
+WorldReaderLoop ──► WorldSnapshot ──┐
+                                    ├──► RadarApp.Tick ──► RenderContext ──► ImGuiRadarOverlay
+Main loop (Tick)  ──► LiveFrame  ───┘
+```
+
+## Rules
+
+- **One writer per mutable store** per thread; publish snapshots for readers.
+- Use `_commandQueue` (or equivalent) to marshal UI/API actions onto the main tick thread.
+- Lock only for small shared fields (e.g. overlay bounds); never hold locks across memory reads.
+- `volatile` / interlocked for shutdown flags and published context pointers.
+
+## Cadence separation
+
+| Thread | Rate | Work |
+|--------|------|------|
+| Main | `FpsCap` | Hotkeys, live player, map lock, publish render ctx |
+| World | `WorldRefreshHz` | Entity walk, terrain, nav replan inputs |
+| ImGui | VSync / overlay | Draw only |
+
+## Zone transitions
+
+On `AreaInstance` change: invalidate entity caches, rebuild terrain bitmap, reset loot/atlas session state, clear stale paths. Don't carry pointers across zones.
+
+## Shutdown
+
+`RequestShutdown()` → drain loops; dispose `MemoryReader`/`ProcessHandle` via `using`; join background threads before exit.

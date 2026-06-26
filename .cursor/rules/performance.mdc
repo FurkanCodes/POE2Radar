@@ -1,0 +1,42 @@
+---
+description: Keep overlay CPU near 0–2% — throttled loops, no busy-wait, lazy work
+alwaysApply: true
+---
+
+# Performance — Minimal CPU Budget
+
+Target: overlay process **~0–2% CPU** in normal play (Task Manager / `ProcessMetricsSampler` normalization). Performance is a product requirement, not an afterthought.
+
+## Loop discipline
+
+- **Main tick** (`RadarApp.Run`): cap with `FpsCap` + `Thread.Sleep` for remaining frame budget. Never spin.
+- **World reader** (`WorldReaderLoop`): separate thread, `WorldRefreshHz`; drop to `InactiveRefreshHz` when `LowImpactMode` and game unfocused.
+- **Overlay render** (`ImGuiRadarOverlay`): respect `OverlayVSync`; skip drawing when game unfocused unless `AlwaysShowOverlay`.
+
+## Cadence — not every tick
+
+Use `PerformanceCadence.IsDue` + `PerformanceCadence.ClampHz` for work that does not need main-loop rate:
+
+| Work | Setting | Typical default |
+|------|---------|-----------------|
+| Player / map lock | `LiveRefreshHz` | 30 Hz |
+| Entity walk / terrain | `WorldRefreshHz` | 12 Hz |
+| HP bars | `HpBarRefreshHz` | 8 Hz |
+| Process/GPU metrics | `MetricsRefreshHz` / `GpuMetricsRefreshSeconds` | 1 Hz / 5 s |
+| Unfocused world reads | `InactiveRefreshHz` | 1 Hz |
+
+Do **not** add per-frame memory walks, LINQ over large collections, or JSON rebuilds on the hot path.
+
+## Lazy / conditional work
+
+- `ProcessMetricsSampler.Sample` only when `ShowFpsOverlay` or `ShowPerfStats`.
+- `GamepadInput.Poll` only when pad hotkeys are enabled or bound (see `HotkeyPoll`).
+- Invalidate caches on zone change (`AreaInstance` key), not every frame.
+- Prefer `Array.Empty`, reuse buffers, and avoid allocations in `Tick` / `Render`.
+
+## Before merging perf-sensitive changes
+
+1. Confirm new loops sleep or use `PerformanceCadence`.
+2. Confirm unfocused / `LowImpactMode` path stays cheap.
+3. If adding a new periodic task, give it its own Hz setting — do not piggyback on `FpsCap`.
+4. Defaults should favor low impact (`LowImpactMode = true`, conservative Hz values).

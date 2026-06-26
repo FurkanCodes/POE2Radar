@@ -1,0 +1,34 @@
+---
+description: Entity classification, display rules, and style overrides
+globs: src/POE2Radar.Overlay/Web/Display*.cs,src/POE2Radar.Overlay/Config/*Catalog*.cs,src/POE2Radar.Overlay/Config/EntityDisplayHelper.cs
+alwaysApply: false
+---
+
+# Entity Display & Rules
+
+## Pipeline
+
+1. `Poe2Live` emits raw `EntityDot` (metadata, rarity, reaction, grid, HP).
+2. `DisplayRuleEngine` + `DisplayRules` JSON apply match patterns → category, icon, navigable flag.
+3. `RadarSettings.Styles` / `HpBars` override shape, color, opacity, size.
+4. `EntityDisplayHelper` centralizes classification logic — don't duplicate metadata checks in render code.
+
+## Rules authoring
+
+- Match patterns: case-insensitive `Contains` on metadata paths unless documented otherwise.
+- `Migrate()` on rule stores when renaming default patterns (see strongbox/expedition migrations).
+- Dashboard + API expose CRUD for display rules; changes apply without restart where possible.
+
+## Rarity & hostility
+
+- Rarity: `ObjectMagicProperties` offset in `Poe2Offsets`.
+- Friendly/hostile: `Positioned.Reaction` bit pattern `(b&0x7F)==1` for friendly.
+
+## Landmarks vs entities
+
+- Tile landmarks: clustered by `LandmarkClusterGap`; curated via `LandmarkStore` / `UseCuratedLandmarks`.
+- Server minimap icons: separate read path (`ServerMinimapIcon`), own style bucket.
+
+## POI / mechanics
+
+- `EndgameMechanicCatalog`, `StrongboxHidePolicy`, etc. — keep mechanic-specific logic in Config catalogs, not scattered in `Poe2Live`.

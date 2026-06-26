@@ -1,0 +1,36 @@
+---
+description: How to make changes — minimal scope, no drive-by edits, verify build
+alwaysApply: true
+---
+
+# Change Discipline
+
+## Before coding
+
+1. Identify which pillar(s) are affected (Core / Overlay / Research).
+2. Check existing patterns — extend before inventing.
+3. If touching offsets: Research probe first, then `Poe2Offsets`, then readers.
+
+## While coding
+
+- **One concern per commit/PR** when possible.
+- Don't edit `AGENTS.md`, `CLAUDE.md`, or `README.md` unless asked.
+- Don't add dependencies without strong justification (keep publish size lean).
+- Don't remove gamepad or perf safeguards when adding features.
+
+## Feature completion checklist
+
+- [ ] Core/Overlay/Research boundary respected
+- [ ] Settings + migration + API + ImGui (if user-facing)
+- [ ] Keyboard + gamepad (if bindable)
+- [ ] Perf: cadence/sleep, no hot-path LINQ
+- [ ] Unit test for pure logic / migration
+- [ ] `dotnet build` succeeds (x64)
+
+## Refactors
+
+Only when they directly enable the task. No "cleanup" sweeps across unrelated files.
+
+## Versioning
+
+`UpdateChecker` / assembly version for release builds — bump when user-visible release ships (don't bump casually on every commit).

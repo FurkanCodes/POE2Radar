@@ -1,0 +1,37 @@
+---
+description: A* pathfinding, nav targets, and atlas routing split
+globs: src/POE2Radar.Core/Pathfinding/**/*.cs,src/POE2Radar.Overlay/Overlay/Navigation/**/*.cs
+alwaysApply: false
+---
+
+# Pathfinding & Navigation
+
+## Layer split
+
+| Layer | Project | Responsibility |
+|-------|---------|----------------|
+| Grid math, A*, smoothing | `Core/Pathfinding/` | `AStar`, `PathPlanner`, `TerrainCellReader`, `MapProjection` |
+| Targets, replan, UI paths | `Overlay/Navigation/` | `NavigationPathBuilder`, `BackgroundReplanner`, `RouteTracker`, `AtlasRoutePolylineBuilder` |
+
+Core must not reference Overlay types.
+
+## Coordinates
+
+- Grid ↔ world scale: `Poe2.WorldToGridRatio` (250/23 ≈ 10.87).
+- Map projection: isometric `MapProjection` — not atlas UI projection (`UiElementProjection` / `AtlasHomography` are separate).
+
+## Nav targets
+
+- Stable string ids: `t:<path>` tiles, `e:<entityId>` entities.
+- `MatchKey` for auto-nav pattern matching (`AutoNavPatterns`).
+- Max 8 color slots for selected paths — respect cap in UI and auto-path filler.
+
+## Planning cadence
+
+- Heavy replans on world thread or `BackgroundReplanner` — not every render frame.
+- Cache paths per target; invalidate on zone change or large player movement per existing replan policy.
+
+## Atlas routes
+
+- Node graph from validated offsets (`AtlasGraph.ConnectionsVec`, `AtlasNode.GridPos`).
+- Screen positions via live zoom/pan model — not perspective homography.

@@ -1,0 +1,38 @@
+---
+description: ImGui overlay, render thread, and draw policy
+globs: src/POE2Radar.Overlay/Overlay/**/*.cs
+alwaysApply: false
+---
+
+# Overlay & Rendering
+
+## Thread model
+
+- **Main tick** (`RadarApp`): memory reads, hotkeys, builds `RenderContext`, publishes via volatile/ref swap.
+- **ImGui thread** (STA, `ImGuiRadarOverlay`): consumes `RenderContext`, draws only — **no** `MemoryReader` calls in `Render()`.
+- **World thread** (`WorldReaderLoop`): heavy entity/terrain walk → `WorldSnapshot`.
+
+Never block the render thread on memory I/O or pathfinding.
+
+## RenderContext / WorldSnapshot
+
+- Immutable-ish snapshots passed to render; use `Array.Empty<T>()` for cleared state.
+- World-rate data (entities, terrain, paths) from `WorldSnapshot`; frame-rate data (player, map lock) from live frame.
+- Item labels / HP bars: spec from world tick; overlay may re-read **live position only** for smooth follow.
+
+## Draw policy
+
+- Skip overlay when game unfocused unless `AlwaysShowOverlay`.
+- Respect per-layer toggles (`ShowPathWorld`, `ShowPathMap`, `MapOverlayDrawPolicy`, etc.).
+- Style from `RadarSettings` — colors, sizes, opacity, shapes via `IconAtlas` / `SpriteIconRef`.
+- Anchor to game **client rect** (`GetClientRect` + `ClientToScreen`), not outer window rect.
+
+## ImGui conventions
+
+- `ImGuiConfigFlags.NoMouseCursorChange` — don't steal cursor from game.
+- `OverlayVSync` user-tunable; record segment timings in `OverlayRenderMetrics` when adding heavy draw passes.
+
+## Assets
+
+- Built-in SVG icons → `IconLibrary.MaterializeTo` on first run; user overrides in `icons/`.
+- Texture atlas via `IconAtlas` / `TextureRegistry` — don't load per-frame.

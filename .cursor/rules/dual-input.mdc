@@ -1,0 +1,35 @@
+---
+description: Keyboard/mouse and Xbox controller input parity for all user actions
+alwaysApply: true
+---
+
+# Dual Input — Keyboard/Mouse + Xbox Controller
+
+POE2Radar must work equally well with **keyboard/mouse** and **Xbox / XInput controllers**. This is a core differentiator vs heavier competitors that lack gamepad support.
+
+## Binding model
+
+- Encode every hotkey as an `int` via `HotkeyCodes`: keyboard VK (1–0xFF) or gamepad `0x10000 | XINPUT button mask`.
+- Store bindings on `RadarSettings` (`*Hotkey` properties). Never hardcode VK-only checks in feature code.
+- Display names via `HotkeyCodes.DisplayName` — never assume keyboard labels.
+
+## Polling
+
+- **Always** route hotkey checks through `HotkeyPoll.BeginTick` + `HotkeyPoll.IsDown`. Do not call `GetAsyncKeyState` or `GamepadInput` directly from feature code.
+- `GamepadInput.Poll()` runs only when `GamepadHotkeysEnabled` or a binding already uses a gamepad code (`HotkeyPoll` handles this).
+- Use `GamepadInput.ArmBindCapture` / `TryGetBindPress` in binding UIs (ImGui settings + dashboard).
+
+## Feature parity checklist
+
+When adding or changing any user-triggered action (hotkey, toggle, pick, nav, settings):
+
+1. Expose a `RadarSettings` binding (or reuse an existing one).
+2. Wire it in `RadarApp.HandleHotkeys` / `HandleCursorPickHotkeys` via `HotkeyPressed` + `HotkeyPoll`.
+3. Expose it in **both** binding UIs (ImGui settings tab + web dashboard).
+4. Document the default in config migration if defaults change.
+
+Never ship a feature that only works with keyboard or only with gamepad unless the action is inherently input-specific (e.g. cursor-pick under mouse — still allow an alternate pad binding where feasible).
+
+## Automation
+
+- Auto-flask sends **keyboard scancodes** via `SendInputNative` (game cannot receive virtual pad buttons). Pad users bind flask *toggle* to a pad button; the flask key itself stays a VK in settings.

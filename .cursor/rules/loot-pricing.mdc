@@ -1,0 +1,28 @@
+---
+description: Ground loot labels and poe.ninja pricing integration
+globs: src/POE2Radar.Overlay/Pricing/**/*.cs,src/POE2Radar.*/**/*Loot*
+alwaysApply: false
+---
+
+# Loot Values & Pricing
+
+## Split
+
+- **Read**: `Poe2Live.LootValues` (Core) — ground item entities, filter state.
+- **Price book**: `PoeNinjaPriceBook` (Overlay) — async fetch, cache, league-aware.
+- **Logic**: `LootValueLogic` — threshold comparisons, highlight rules (testable).
+
+## Performance
+
+- Price fetch is **async** and **cached** — never block tick loop on HTTP.
+- Item label specs built on world cadence; render thread uses specs + live position only.
+- Respect user filter/threshold settings in `RadarSettings`.
+
+## Display
+
+- `ItemLabelSpec` in `WorldSnapshot` — name, value string, highlight flag.
+- Don't spam labels — cap/count governed by settings and distance.
+
+## Tests
+
+`LootValueLogicTests`, `PoeNinjaPriceBookTests` — extend when changing valuation rules.

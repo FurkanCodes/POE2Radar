@@ -1,0 +1,35 @@
+---
+description: Localhost HTTP API and dashboard — read-mostly, camelCase JSON
+globs: src/POE2Radar.Overlay/Web/**/*.cs
+alwaysApply: false
+---
+
+# HTTP API & Dashboard
+
+## Server
+
+- `ApiServer` on `localhost:7777` — read-only state + settings PATCH. No remote bind.
+- Research DevTree is separate (`localhost:7778`, Research project only).
+
+## JSON conventions
+
+- `JsonSerializerOptions` with `PropertyNamingPolicy = JsonNamingPolicy.CamelCase`.
+- Return structured errors: `{ "error": "..." }` with appropriate HTTP status.
+- Wrap handlers in try/catch; never leak stack traces to clients in production paths.
+
+## State endpoints
+
+Publish snapshots from `RadarApp` (`/state`, `/entities`, `/landmarks`) — **do not** trigger heavy reads from API handlers. API reads cached `_state` / stores.
+
+## Settings PATCH
+
+- Apply known fields via switch/case; collect `applied` list; call `_settings.Save()` only when something changed.
+- Validate/clamp numeric inputs (`Math.Clamp`) server-side — same bounds as ImGui sliders.
+
+## Dashboard HTML
+
+`DashboardHtml.cs` is large but intentional — keep JS/CSS inline consistent with existing patterns. New settings need matching form controls + hotkey capture (keyboard + pad).
+
+## Icons API
+
+`/api/icons` serves shape library for dashboard pickers; built-ins from `IconLibrary`, overrides from `icons/*.svg` next to exe.

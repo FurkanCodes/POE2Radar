@@ -1,0 +1,36 @@
+---
+description: Crash logging, startup failures, and operator-facing messages
+globs: src/POE2Radar.Overlay/Diagnostics/**/*.cs,src/POE2Radar.Overlay/Program.cs
+alwaysApply: false
+---
+
+# Diagnostics & Crash Handling
+
+## CrashLog
+
+- `CrashLog.InstallGlobalHandlers()` in `Program.cs` before any work.
+- Writes to `logs/poe2radar-crash.log` next to exe.
+- Log startup context (`BaseDirectory`, attach result) for support debugging.
+
+## Startup failures
+
+Use `Fail(code, message)` — clear, actionable text:
+
+1. PoE2 not running → start game first.
+2. GameState slot not found → in zone, try admin.
+3. Wait for Enter before exit on fatal errors (console UX).
+
+## Runtime errors
+
+- World/main loops: catch per-iteration, log message, continue.
+- API: JSON error response, no process crash.
+- Overlay render: try/catch around draw passes; one bad entity must not kill overlay.
+
+## Perf HUD
+
+- `ShowPerfStats` / `ShowFpsOverlay` — opt-in; drives `ProcessMetricsSampler` (see performance rule).
+- Segment timings: tick, world, render subdivisions (`mapMs`, `pathsMs`, etc.).
+
+## Console output
+
+- User-facing toggles log to console (`Auto-flask: ON/OFF`). Keep concise; no spam per frame.

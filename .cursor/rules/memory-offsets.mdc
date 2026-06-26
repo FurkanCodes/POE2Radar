@@ -1,0 +1,35 @@
+---
+description: PoE2 offsets, memory reads, and patch-drift workflow
+globs: src/POE2Radar.Core/**/*.cs,src/POE2Radar.Research/**/*.cs
+alwaysApply: false
+---
+
+# Memory & Offsets
+
+## Single source of truth
+
+All PoE2 offsets live in `Game/Poe2Offsets.cs` (`Poe2` nested static classes). Never scatter magic `+0x` literals in read paths — add a named const and reference it.
+
+## Markers (required on new offsets)
+
+- `✓` — confirmed live this patch
+- `(GH2)` — GameHelper2-sourced, not yet live-checked
+- `✗` — unvalidated; **do not wire into overlay reads** until Research proves it
+
+## Reading discipline
+
+- Use `MemoryReader` (`ReadStruct`, `ReadPointer`, `ReadPointerChain`, `TryRead`). `ReadStruct<T>` requires **blittable/unmanaged** `T`.
+- Batch reads: prefer one struct read over many byte-sized peeks on hot paths.
+- Treat `0` mid-chain as normal during zone transitions — fail soft, don't throw in tick loops.
+- Entity component cache key = `AreaInstance` address; invalidate on zone change.
+
+## When a patch breaks reads
+
+1. Run `POE2Radar.Research` probes (`--chain`, `--vitals`, `--find-*`, `--atlas-probe`, etc.).
+2. Update `Poe2Offsets.cs` with validated values + marker.
+3. Rechain `Poe2Live` / overlay consumers.
+4. **Never** guess offsets from third-party dumps without live validation.
+
+## Stay external
+
+`OpenProcess` + `ReadProcessMemory` only. **No** DLL injection, hooking, or packet manipulation — ever.

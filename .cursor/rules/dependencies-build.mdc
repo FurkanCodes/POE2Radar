@@ -1,0 +1,35 @@
+---
+description: NuGet packages, target framework, and publish constraints
+globs: "**/*.csproj"
+alwaysApply: false
+---
+
+# Dependencies & Build
+
+## Target
+
+- `net10.0-windows`, `PlatformTarget=x64`, `SupportedOSPlatformVersion` for Windows 10+.
+- Windows-only: Win32 P/Invoke, XInput, DXGI/D2D/ImGui overlay stack.
+
+## Package policy
+
+- Prefer BCL + existing deps over new packages.
+- Overlay rendering: ImGuiNET + ClickableTransparentOverlay (see `ImGuiRadarOverlay`); Vortice where D3D needed.
+- **No** heavy UI frameworks, no Electron, no embedded browser in overlay exe.
+
+## Project references
+
+```
+Overlay ──► Core
+Research ──► Core
+Tests ──► respective project
+```
+
+## Release assets
+
+- `IconLibrary.MaterializeTo` for shipped `icons/`.
+- `--export-release-assets` CLI in `Program.cs` for packaging.
+
+## Build note
+
+Remind users: quit overlay before rebuild — running exe locks `bin\`.

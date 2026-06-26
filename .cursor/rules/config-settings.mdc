@@ -1,0 +1,34 @@
+---
+description: RadarSettings persistence, migration, and dashboard parity
+globs: src/POE2Radar.Overlay/Config/**/*.cs,src/POE2Radar.Overlay/Web/ApiServer.cs
+alwaysApply: false
+---
+
+# Config & Settings
+
+## Persistence
+
+- User settings: `config/radar_settings.json` via `RadarSettings.Save()`.
+- Defaults must reproduce prior behavior for missing keys (additive JSON, no breaking renames without migration).
+
+## Migration pattern
+
+- One-shot flags: `*Migrated` bools on `RadarSettings`.
+- Implement transforms in `RadarSettings.Migrate()`; return `true` if file should be rewritten.
+- **Always** add a unit test in `RadarSettingsMigrationTests` for new migrations.
+
+## New setting checklist
+
+1. Property on `RadarSettings` with sensible default + XML doc if non-obvious.
+2. `Migrate()` if changing defaults for existing users.
+3. Expose in **ImGui** settings tab (`ImGuiRadarOverlay`).
+4. Expose in **dashboard** GET + PATCH via `ApiServer` (camelCase JSON keys).
+5. If perf-related: wire cadence/HZ; if input: `*Hotkey` + dual binding UI.
+
+## Style catalog
+
+Display/icon/HP rules live in `RadarSettings.Styles`, `HpBars`, `DisplayRules` — not hardcoded colors in render code. Use `DisplayRuleEngine` + `EntityDisplayHelper` for entity classification.
+
+## Other persisted stores
+
+`WatchedEntities`, `HiddenEntities`, `LandmarkStore`, `LandmarkPatterns` — each owns load/save/migrate; mirror CRUD in API where applicable.

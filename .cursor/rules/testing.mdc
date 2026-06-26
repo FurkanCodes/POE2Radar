@@ -1,0 +1,35 @@
+---
+description: Unit test conventions — xUnit, pure logic, migration coverage
+globs: tests/**/*.cs
+alwaysApply: false
+---
+
+# Testing
+
+## Framework
+
+- xUnit (`[Fact]`, `[Theory]` + `[InlineData]`).
+- Test projects mirror source: `POE2Radar.Core.Tests`, `POE2Radar.Overlay.Tests`.
+
+## What to test (required)
+
+- **Pure logic**: pathfinding, projection math, hotkey encoding, migration transforms, display policy, parsers (`SvgPath`, `HotkeyCodes`).
+- **Settings migrations**: every new `Migrate()` branch gets a test in `RadarSettingsMigrationTests`.
+- **Regression bugs**: add a test when fixing logic that can break silently.
+
+## What not to unit test
+
+- Live memory reads (use Research probes in-game).
+- Full ImGui/DirectX render pipeline.
+- Windows API integration beyond thin wrappers with test doubles.
+
+## Style
+
+- `public sealed class XxxTests` naming.
+- Arrange / Act / Assert; one behavior per test method.
+- Prefer deterministic inputs — no `DateTime.Now` without injection.
+- No test-only code in production unless behind `#if` (avoid).
+
+## Running
+
+`dotnet test` from repo root before merging logic changes.

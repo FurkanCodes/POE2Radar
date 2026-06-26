@@ -1,0 +1,40 @@
+---
+description: C# conventions for this repo — naming, types, minimal diffs
+globs: "**/*.cs"
+alwaysApply: false
+---
+
+# C# Style
+
+## Naming
+
+- Types/methods: `PascalCase`. Locals/params: `camelCase`. Private fields: `_camelCase`.
+- PoE2 offset nests: `Poe2.AreaInstance.AwakeEntities` — match game structure names.
+- Acronyms in names: `HpBar`, `UiRoot`, `Aob` (not `HPBar` unless established).
+
+## Types
+
+- Blittable game structs in `GameStructs.cs` (`StdVector`, `Vector2`, `VitalStruct`).
+- Immutable snapshots: `readonly record struct` / `sealed record` (`WorldSnapshot`, `NavTarget`).
+- Use `nint` for process pointers; `uint` for game hashes/colors.
+
+## Collections
+
+- Hot paths: arrays + spans; avoid LINQ in `Tick`, `Render`, `Poe2Live` entity walks.
+- Expose `Array.Empty<T>()` for empty snapshot fields.
+
+## Errors
+
+- Startup failures: `Fail(code, message)` in `Program.cs` with user-readable text.
+- Tick/world loops: catch, log `Console.Error`, continue — don't crash the overlay on transient read failure.
+- `CrashLog` for unhandled exceptions.
+
+## Documentation
+
+- XML `///` on public API and non-obvious game-memory fields.
+- Don't comment obvious code; do comment PoE2-specific invariants (grid ratio, flag bits).
+
+## Scope discipline
+
+- Smallest correct diff. No drive-by refactors, no new abstractions for one call site.
+- Match surrounding file style (usings, namespace, partial layout).

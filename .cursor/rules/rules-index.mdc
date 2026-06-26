@@ -1,0 +1,35 @@
+---
+description: Master index — POE2Radar rule set overview
+alwaysApply: true
+---
+
+# POE2Radar Rules Index
+
+Always-on rules: **dual-input**, **performance**, **project-layout**, **threading-data-flow**, **automation-safety**, **security-privacy**, **change-discipline**.
+
+| Rule file | When it applies |
+|-----------|-----------------|
+| `dual-input.mdc` | Hotkeys, gamepad, binding UIs |
+| `performance.mdc` | Loops, cadence, CPU budget |
+| `project-layout.mdc` | Core / Overlay / Research boundaries |
+| `memory-offsets.mdc` | `Poe2Offsets`, `MemoryReader`, reads |
+| `automation-safety.mdc` | Auto-flask, `SendInput` |
+| `config-settings.mdc` | `RadarSettings`, migration, JSON |
+| `api-dashboard.mdc` | `ApiServer`, `DashboardHtml` |
+| `overlay-render.mdc` | ImGui, draw, assets |
+| `threading-data-flow.mdc` | Snapshots, threads, shutdown |
+| `testing.mdc` | xUnit, migrations |
+| `csharp-style.mdc` | Naming, types, errors |
+| `research-probes.mdc` | Research CLI, DevTree |
+| `pathfinding-navigation.mdc` | A*, nav, atlas routes |
+| `entity-display.mdc` | Display rules, styles |
+| `loot-pricing.mdc` | Ground loot, poe.ninja |
+| `atlas-overlay.mdc` | Atlas projection, graph |
+| `map-viewport.mdc` | Map UI, minimap, viewport |
+| `diagnostics.mdc` | CrashLog, startup errors |
+| `dependencies-build.mdc` | csproj, NuGet, x64 |
+| `security-privacy.mdc` | Localhost, read-only |
+
+Architecture reference: `AGENTS.md` / `CLAUDE.md` (offsets, chain, probes). Rules govern **how we implement**; those docs govern **what the game layout is**.
+
+**Product priorities:** (1) keyboard + Xbox parity, (2) ~0–2% CPU, (3) clean three-pillar structure.

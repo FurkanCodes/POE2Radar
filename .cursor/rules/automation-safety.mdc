@@ -1,0 +1,32 @@
+---
+description: Opt-in input automation — foreground-gated, minimal, kill-switch
+alwaysApply: true
+---
+
+# Automation Safety (Auto-Flask)
+
+Automation is **opt-in QoL**, not a bot. Keep it minimal and heavily gated.
+
+## Allowed automation
+
+- **Only** auto-flask: `SendInputNative.Tap` (scancode `SendInput`) for configured flask keys.
+- **No** movement, skills, loot pickup, or repeated combat macros.
+
+## Hard gates (all required before `SendInput`)
+
+1. `_autoFlask` enabled (user toggle; default hotkey area includes F8-style kill-switch).
+2. `IsGameFocused()` — PoE2 process owns foreground (any HWND in process counts — controller-safe).
+3. In-game (`TryResolve` / vitals valid).
+4. Per-pool cooldown (`HealthCooldownMs`, `ManaCooldownMs`, etc.).
+
+`AlwaysShowOverlay` does **not** bypass flask focus gating.
+
+## Input implementation
+
+- Flask keys = VK in `RadarSettings`; sent via scancode path in `SendInputNative`.
+- Hotkey **toggle** for auto-flask uses `HotkeyPoll` (keyboard or gamepad bind).
+- Never add new `SendInput` call sites without the same gating pattern.
+
+## User visibility
+
+Surface flask state in HUD (`_flaskNote`: ON / OFF / paused). Document toggles in settings UI.

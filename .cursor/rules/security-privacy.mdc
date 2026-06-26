@@ -1,0 +1,30 @@
+---
+description: External-read security model — localhost, no injection, minimal data exposure
+alwaysApply: true
+---
+
+# Security & Privacy
+
+## Threat model
+
+Personal local overlay — not a hosted service. Still: don't expand attack surface unnecessarily.
+
+## Memory access
+
+- Read-only external process memory. No writes to game process. No code injection.
+- Require user to run overlay alongside game; admin only when Windows blocks cross-process read.
+
+## Network
+
+- API binds `localhost` only (`127.0.0.1`). No telemetry, no cloud upload of game state by default.
+- Optional price APIs (e.g. poe.ninja) fetch **public** price data — never send account credentials.
+
+## Data exposure
+
+- `/state` exposes in-game positions/entities to local browser — expected for dashboard.
+- Don't log player names, passwords, or full memory dumps to disk in release paths.
+- Crash logs: minimal context in `logs/poe2radar-crash.log`.
+
+## Input
+
+- `SendInput` only for gated auto-flask. Don't add keyloggers or global hooks beyond hotkey poll.
