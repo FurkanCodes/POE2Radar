@@ -686,7 +686,7 @@ public sealed partial class RadarApp : IDisposable
         }
 
         RefreshLootRenderFrames(snap, windowWidth, windowHeight, live.InGame);
-        var lootPayload = BuildLootRenderPayload(snap.AreaHash, live.InGame);
+        var lootPayload = BuildLootRenderPayload(live.InGame);
 
         var largeMap = live.Maps.LargeMap;
         var miniMap = live.Maps.MiniMap;
@@ -830,12 +830,7 @@ public sealed partial class RadarApp : IDisposable
             CursorInspectTitle: _cursorInspectTitle,
             CursorInspectMeta: _cursorInspectMeta,
             ItemLabels: lootPayload.items.Count > 0 ? lootPayload.items : null,
-            RuneforgePanel: lootPayload.runeforge,
-            RitualRewards: lootPayload.ritual,
-            LootTags: lootPayload.lootTags,
-            Monoliths: lootPayload.monoliths,
-            ShowMonolithPanel: _settings.Monoliths.ShowPanel,
-            ShowMonolithMapLabel: _settings.Monoliths.ShowMapLabel);
+            LootTags: lootPayload.lootTags);
         _imguiOverlay?.UpdateContext(ctx);
 
         var overlayMetrics = _imguiOverlay?.GetRenderMetrics().Snapshot() ?? default;

@@ -152,9 +152,8 @@ public sealed partial class RadarApp
         var serverIconArray = _serverIcons as Poe2Live.ServerMinimapIcon[] ?? _serverIcons.ToArray();
         var mapServerIcons = BuildMapServerIconRenderItems(serverIconArray, entityArray, landmarkArray, _areaCode);
 
-        ResolveGameClientSize(out var winW, out var winH);
         if (!_atlasOpen)
-            UpdateLootWorld(inGameState, areaInstance, areaLevel, areaHash, entityArray, winW, winH);
+            UpdateLootWorld(inGameState, areaInstance);
         var itemLabels = _atlasOpen ? Array.Empty<ItemLabelSpec>() : BuildItemLabels(entityArray).ToArray();
 
         _snapshot = new WorldSnapshot(

@@ -44,11 +44,4 @@ public sealed class LootValueLogicTests
         Assert.Contains("Uncut Spirit Gem", keys);
     }
 
-    [Fact]
-    public void MonolithColor_tiers_by_threshold()
-    {
-        Assert.Equal(0xFF66E066u, LootValueLogic.MonolithColor(30, 30));
-        Assert.Equal(0xFFE6C84Du, LootValueLogic.MonolithColor(20, 30));
-        Assert.Equal(0xFFFFFFFFu, LootValueLogic.MonolithColor(5, 30));
-    }
 }

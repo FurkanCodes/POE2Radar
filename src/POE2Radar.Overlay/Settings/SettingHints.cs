@@ -210,17 +210,6 @@ internal static class SettingHints
         public const string AnchorToTags = "Place value text on the game's loot label tags.";
     }
 
-    internal static class Monoliths
-    {
-        public const string Enabled = "Show Runeshape monolith value hints on the map.";
-        public const string HighlightMin = "Minimum exalt value to highlight a monolith.";
-        public const string MinReward = "Minimum expected reward value to show a monolith.";
-        public const string MinValue = "Minimum total monolith value to show on the map.";
-        public const string HideCollected = "Hide monoliths you have already collected.";
-        public const string ShowMapLabel = "Draw the monolith value label on the map.";
-        public const string ShowPanel = "Show the detailed reward panel in-game.";
-    }
-
     internal static class Dashboard
     {
         public const string LiveColName = "Entity display name in the zone.";

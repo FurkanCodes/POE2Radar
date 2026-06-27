@@ -17,7 +17,6 @@
     <EmbeddedResource Include="Game\boss_display_names.json" />
     <EmbeddedResource Include="Game\world_areas.json" />
     <EmbeddedResource Include="Game\zone_notes.json" />
-    <EmbeddedResource Include="Game\expedition2_recipes.json" />
   </ItemGroup>
 
 </Project>

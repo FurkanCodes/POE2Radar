@@ -127,14 +127,7 @@ internal static class DashboardHtml
         .Replace("{{H.LootCurrencyFloor}}", H(SettingHints.Loot.CurrencyFloor))
         .Replace("{{H.LootOtherFloor}}", H(SettingHints.Loot.OtherFloor))
         .Replace("{{H.LootMinQty}}", H(SettingHints.Loot.MinListingQty))
-        .Replace("{{H.LootAnchorTags}}", H(SettingHints.Loot.AnchorToTags))
-        .Replace("{{H.MonolithEnabled}}", H(SettingHints.Monoliths.Enabled))
-        .Replace("{{H.MonolithHighlightMin}}", H(SettingHints.Monoliths.HighlightMin))
-        .Replace("{{H.MonolithMinReward}}", H(SettingHints.Monoliths.MinReward))
-        .Replace("{{H.MonolithMinValue}}", H(SettingHints.Monoliths.MinValue))
-        .Replace("{{H.MonolithHideCollected}}", H(SettingHints.Monoliths.HideCollected))
-        .Replace("{{H.MonolithShowMapLabel}}", H(SettingHints.Monoliths.ShowMapLabel))
-        .Replace("{{H.MonolithShowPanel}}", H(SettingHints.Monoliths.ShowPanel));
+        .Replace("{{H.LootAnchorTags}}", H(SettingHints.Loot.AnchorToTags));
 
     private const string PageTemplate = """
 <!DOCTYPE html>
@@ -868,23 +861,6 @@ internal static class DashboardHtml
             <div class="row"><div class="rl">Price cache</div>
               <span id="priceStatus" class="muted">loading…</span>
               <button type="button" id="priceRefreshBtn" class="btn sm">Refresh</button></div>
-          </div>
-          <div class="card">
-            <h3>Runeshape monoliths</h3>
-            <div class="row"><div class="rl" title="{{H.MonolithEnabled}}">Enabled</div>
-              <label class="sw"><input type="checkbox" data-set="monolithsEnabled"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.MonolithHighlightMin}}">Highlight min (ex)</div>
-              <input class="numin" type="number" step="0.1" min="0" data-set="monolithsHighlightMinEx"></div>
-            <div class="row"><div class="rl" title="{{H.MonolithMinReward}}">Min reward (ex)</div>
-              <input class="numin" type="number" step="0.1" min="0" data-set="monolithsMinRewardEx"></div>
-            <div class="row"><div class="rl" title="{{H.MonolithMinValue}}">Min monolith value (ex)</div>
-              <input class="numin" type="number" step="0.1" min="0" data-set="monolithsMinValueEx"></div>
-            <div class="row"><div class="rl" title="{{H.MonolithHideCollected}}">Hide collected</div>
-              <label class="sw"><input type="checkbox" data-set="monolithsHideCollected"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.MonolithShowMapLabel}}">Show map label</div>
-              <label class="sw"><input type="checkbox" data-set="monolithsShowMapLabel"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.MonolithShowPanel}}">Show reward panel</div>
-              <label class="sw"><input type="checkbox" data-set="monolithsShowPanel"><span class="track"></span><span class="knob"></span></label></div>
           </div>
           </div>
           <div class="settings-section panel-grid" id="setNav" hidden>

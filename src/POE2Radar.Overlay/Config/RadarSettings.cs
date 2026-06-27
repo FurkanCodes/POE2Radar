@@ -108,7 +108,6 @@ public sealed class RadarSettings
 
     // ── Ground loot + league reward pricing (poe.ninja). ──
     public GroundItemSettings GroundItems { get; set; } = new();
-    public MonolithSettings Monoliths { get; set; } = new();
 
     // ── Global multiplier on map icon sprite scale (PNG from icons.png). ──
     public float GlobalIconScale { get; set; } = 1.25f;
@@ -649,19 +648,6 @@ public sealed class GroundItemSettings
         "Uniques", "Currency", "Runes", "SoulCores", "Essences", "Fragments",
         "UncutGems", "Delirium", "Tablets", "Idols", "Abyss", "Ritual",
     };
-}
-
-/// <summary>Runeshape monolith reward preview settings.</summary>
-public sealed class MonolithSettings
-{
-    public bool Enabled { get; set; } = true;
-    public double HighlightMinEx { get; set; } = 30.0;
-    public double MinRewardEx { get; set; } = 1.0;
-    public double MinValueEx { get; set; } = 0.0;
-    public bool HideCollected { get; set; } = true;
-    public bool ShowPanel { get; set; } = true;
-    public bool ShowMapLabel { get; set; } = true;
-    public float PanelMaxDistance { get; set; } = 0f;
 }
 
 /// <summary>

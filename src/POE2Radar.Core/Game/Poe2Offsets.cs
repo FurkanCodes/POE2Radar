@@ -357,23 +357,6 @@ public static class Poe2
         public const int Rarity = 0x94;
     }
 
-    /// <summary>Runeshape Combinations panel (rune-crafting UI). Validated 2026-06-14.</summary>
-    public static class Runeforge
-    {
-        public static readonly uint[] PanelFlagFingerprints =
-            { 0x00462EF1, 0x00502EF3, 0x00502EF7, 0x00542EF1, 0x00502EF1 };
-        public const int GateStep = 0;
-        public const int ViewportStep = 2;
-        public const int ScrollOffset = 0x120;
-        public const int NameWString = 0x390;
-    }
-
-    /// <summary>Ritual tribute-shop reward tiles (item-slot UiElements).</summary>
-    public static class Ritual
-    {
-        public const int TileSlotItem = 0x4F8;
-    }
-
     /// <summary>ServerData league name for price auto-detect. ✓ validated 2026-06-22.</summary>
     public static class ServerData
     {
@@ -396,7 +379,7 @@ public static class Poe2
         public const int LocalScaleMul = 0x130; // screen-rect path scale multiplier
         public const int ScaleIndex      = 0x130; // atlas zoom on node elements (map path)
         public const int UiScaleIndex = 0x18A; // byte selecting UI scale row (screen-rect path)
-        public const int Text = 0x390; // std::wstring displayed text (loot tags, runeforge rows, ritual UI)
+        public const int Text = 0x390; // std::wstring displayed text (loot tags)
         public const int Flags          = 0x180; // ✓ uint; IsVisibleLocal = bit 0x0B (toggle-diff: 0x2EF1↔0x26F1)
         public const int FlagModifyPositionBit = 0x0A; // (GH2) add parent PositionModifier while resolving position
         public const int FlagModifyPosBit = 0x0A;

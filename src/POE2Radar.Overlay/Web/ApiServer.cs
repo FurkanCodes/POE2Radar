@@ -647,7 +647,6 @@ public sealed class ApiServer : IDisposable
         hpBars = _settings.HpBars,   // monster HP-bar geometry (width/height/offset)
         terrain = _settings.Terrain, // walkable-terrain bitmap colors/transparency
         groundItems = _settings.GroundItems,
-        monoliths = _settings.Monoliths,
         groundItemsEnabled = _settings.GroundItems.Enabled,
         groundItemsLeague = _settings.GroundItems.League,
         groundItemsHighlightMinEx = _settings.GroundItems.HighlightMinEx,
@@ -656,13 +655,6 @@ public sealed class ApiServer : IDisposable
         groundItemsOtherMinEx = _settings.GroundItems.OtherMinEx,
         groundItemsMinQuantity = _settings.GroundItems.MinQuantity,
         groundItemsAnchorValuesToTags = _settings.GroundItems.AnchorValuesToTags,
-        monolithsEnabled = _settings.Monoliths.Enabled,
-        monolithsHighlightMinEx = _settings.Monoliths.HighlightMinEx,
-        monolithsMinRewardEx = _settings.Monoliths.MinRewardEx,
-        monolithsMinValueEx = _settings.Monoliths.MinValueEx,
-        monolithsHideCollected = _settings.Monoliths.HideCollected,
-        monolithsShowPanel = _settings.Monoliths.ShowPanel,
-        monolithsShowMapLabel = _settings.Monoliths.ShowMapLabel,
     };
 
     /// <summary>Apply only whitelisted radar/visual keys from a posted JSON object; persists on change.</summary>
@@ -824,20 +816,6 @@ public sealed class ApiServer : IDisposable
                     _settings.GroundItems.MinQuantity = Math.Clamp(gq, 0, 1000); applied.Add(p.Name); break;
                 case "groundItemsAnchorValuesToTags" when TryBool(p.Value, out var ga):
                     _settings.GroundItems.AnchorValuesToTags = ga; applied.Add(p.Name); break;
-                case "monolithsEnabled" when TryBool(p.Value, out var me):
-                    _settings.Monoliths.Enabled = me; applied.Add(p.Name); break;
-                case "monolithsHighlightMinEx" when TryFloat(p.Value, out var mh):
-                    _settings.Monoliths.HighlightMinEx = Math.Max(0, mh); applied.Add(p.Name); break;
-                case "monolithsMinRewardEx" when TryFloat(p.Value, out var mr):
-                    _settings.Monoliths.MinRewardEx = Math.Max(0, mr); applied.Add(p.Name); break;
-                case "monolithsMinValueEx" when TryFloat(p.Value, out var mv):
-                    _settings.Monoliths.MinValueEx = Math.Max(0, mv); applied.Add(p.Name); break;
-                case "monolithsHideCollected" when TryBool(p.Value, out var mhc):
-                    _settings.Monoliths.HideCollected = mhc; applied.Add(p.Name); break;
-                case "monolithsShowPanel" when TryBool(p.Value, out var msp):
-                    _settings.Monoliths.ShowPanel = msp; applied.Add(p.Name); break;
-                case "monolithsShowMapLabel" when TryBool(p.Value, out var msm):
-                    _settings.Monoliths.ShowMapLabel = msm; applied.Add(p.Name); break;
                 case "gamepadHotkeysEnabled" when TryBool(p.Value, out var gpe):
                     _settings.GamepadHotkeysEnabled = gpe;
                     applied.Add(p.Name);

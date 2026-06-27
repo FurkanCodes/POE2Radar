@@ -1,4 +1,3 @@
-using NumVec2 = System.Numerics.Vector2;
 using POE2Radar.Core.Game;
 using POE2Radar.Overlay.Config;
 using POE2Radar.Overlay.Pricing;
@@ -7,22 +6,7 @@ namespace POE2Radar.Overlay;
 
 public sealed partial class RadarApp
 {
-    private Poe2Runeforge _runeforge = null!;
-    private Poe2Runeforge _runeforgeLive = null!;
     private PoeNinjaPriceBook _priceBook = null!;
-    private readonly RuneMonolithCatalog _monoCatalog = RuneMonolithCatalog.Instance;
-
-    private sealed record RuneRender(bool Open, RuneforgePanelData? Panel)
-    {
-        public static readonly RuneRender Closed = new(false, null);
-    }
-    private volatile RuneRender _runeRender = RuneRender.Closed;
-
-    private sealed record RitualRender(bool Open, IReadOnlyList<RitualLabel> Labels)
-    {
-        public static readonly RitualRender Closed = new(false, Array.Empty<RitualLabel>());
-    }
-    private volatile RitualRender _ritualRender = RitualRender.Closed;
 
     private readonly record struct LootTagSpec(nint El, string TagText, string Value, bool Highlight);
     private sealed record LootTagRender(IReadOnlyList<LootTagSpec> Specs)
@@ -33,21 +17,11 @@ public sealed partial class RadarApp
     private readonly List<LootTagLabel> _lootTagFrame = new();
     private readonly List<ItemLabel> _itemFrame = new();
 
-    private sealed record MonolithRender(uint AreaHash, IReadOnlyList<MonolithMarker> Markers)
-    {
-        public static readonly MonolithRender Empty = new(0, Array.Empty<MonolithMarker>());
-    }
-    private volatile MonolithRender _monoRender = MonolithRender.Empty;
-
     private DateTime _nextLootScanUtc = DateTime.MinValue;
     private const int LootScanThrottleMs = 400;
-    private int _windowWidth = 1920;
-    private int _windowHeight = 1080;
 
     private void InitLootValues()
     {
-        _runeforge = new Poe2Runeforge(_worldReader);
-        _runeforgeLive = new Poe2Runeforge(_reader);
         _priceBook = new PoeNinjaPriceBook(
             Path.Combine(ConfigDir, "poe_ninja_prices.json"),
             string.IsNullOrWhiteSpace(_settings.GroundItems.League) ? null : _settings.GroundItems.League);
@@ -84,24 +58,10 @@ public sealed partial class RadarApp
         _priceBook.RefreshIfDue();
     }
 
-    private void UpdateLootWorld(nint inGameState, nint areaInstance, int areaLevel, uint areaHash,
-        IReadOnlyList<Poe2Live.EntityDot> entities, int winW, int winH)
+    private void UpdateLootWorld(nint inGameState, nint areaInstance)
     {
-        _windowWidth = winW;
-        _windowHeight = winH;
         SyncPriceBookLeague(areaInstance);
-        UpdateRuneforge(inGameState, _runeforge);
         UpdateLootTags(inGameState);
-        UpdateMonoliths(areaInstance, areaLevel, areaHash, entities);
-    }
-
-    /// <summary>Runeforge + ritual panels: read at live cadence on the main reader so rects track the open UI.</summary>
-    private void UpdatePanelValuesLive(nint inGameState, int winW, int winH)
-    {
-        _windowWidth = winW;
-        _windowHeight = winH;
-        UpdateRuneforge(inGameState, _runeforgeLive);
-        UpdateRitualRewards(inGameState, _live);
     }
 
     private List<ItemLabelSpec> BuildItemLabels(IReadOnlyList<Poe2Live.EntityDot> entities)
@@ -134,87 +94,12 @@ public sealed partial class RadarApp
         return labels;
     }
 
-    private bool LeagueValueOverlaysEnabled()
-        => (_settings.GroundItems.Enabled || _settings.Monoliths.Enabled) && _priceBook.IsLoaded;
-
-    private void UpdateRuneforge(nint inGameState, Poe2Runeforge forge)
-    {
-        if (!LeagueValueOverlaysEnabled())
-        {
-            if (!ReferenceEquals(_runeRender, RuneRender.Closed)) _runeRender = RuneRender.Closed;
-            return;
-        }
-        var rewards = forge.ReadRewards(inGameState, _windowWidth, _windowHeight);
-        if (!forge.PanelOpen || rewards.Count == 0)
-        {
-            if (!ReferenceEquals(_runeRender, RuneRender.Closed)) _runeRender = RuneRender.Closed;
-            return;
-        }
-        var rows = new List<RuneforgeRewardRow>(rewards.Count);
-        double bestEx = 0;
-        var bestLabel = "";
-        foreach (var r in rewards)
-        {
-            var label = r.Count > 1 ? $"{r.Count}x {r.Name}" : r.Name;
-            if (LootValueLogic.TryResolvePrice(_priceBook, r.Name, r.Count) is not { } pr) continue;
-            var ex = pr.Exalted;
-            rows.Add(new RuneforgeRewardRow(label, ex, LootValueLogic.ValueTierColor(ex)));
-            if (ex > bestEx) { bestEx = ex; bestLabel = label; }
-        }
-        if (rows.Count == 0)
-        {
-            if (!ReferenceEquals(_runeRender, RuneRender.Closed)) _runeRender = RuneRender.Closed;
-            return;
-        }
-        rows.Sort((a, b) => b.Ex.CompareTo(a.Ex));
-        var headerColor = LootValueLogic.MonolithColor(bestEx, _settings.GroundItems.HighlightMinEx);
-        _runeRender = new RuneRender(true, new RuneforgePanelData(bestEx, bestLabel, headerColor, rows));
-    }
-
-    private void UpdateRitualRewards(nint inGameState, Poe2Live live)
-    {
-        var cfg = _settings.GroundItems;
-        if (!LeagueValueOverlaysEnabled())
-        {
-            if (!ReferenceEquals(_ritualRender, RitualRender.Closed)) _ritualRender = RitualRender.Closed;
-            return;
-        }
-        var rewards = live.ReadRitualRewards(inGameState, _windowWidth, _windowHeight);
-        if (rewards.Count == 0)
-        {
-            if (!ReferenceEquals(_ritualRender, RitualRender.Closed)) _ritualRender = RitualRender.Closed;
-            return;
-        }
-        var labels = new List<RitualLabel>(rewards.Count);
-        foreach (var r in rewards)
-        {
-            var pr = r.Rarity == Poe2Live.Rarity.Unique
-                ? _priceBook.TryByArt(r.Art)
-                : (r.Name is { Length: > 0 } nm ? _priceBook.TryByName(nm) : null);
-            if (pr is not { } p) continue;
-            labels.Add(new RitualLabel(r.X, r.Y, r.W, r.H, _priceBook.Format(p.Exalted),
-                LootValueLogic.ValueTierColor(p.Exalted), p.Exalted >= cfg.HighlightMinEx));
-        }
-        _ritualRender = new RitualRender(labels.Count > 0, labels);
-    }
-
     private void UpdateLootTags(nint inGameState)
     {
         var cfg = _settings.GroundItems;
         var enabled = cfg.Categories is { Count: > 0 }
             ? new HashSet<string>(cfg.Categories, StringComparer.OrdinalIgnoreCase) : null;
         if (!cfg.Enabled || !cfg.AnchorValuesToTags || !_priceBook.IsLoaded || enabled is null)
-        {
-            if (!ReferenceEquals(_lootTags, LootTagRender.Empty)) _lootTags = LootTagRender.Empty;
-            return;
-        }
-
-        // ScanLootLabels grabs EVERY visible UI text element, including the open "Runeshape Combinations"
-        // (monolith) reward panel rows ("3x Glassblower's Bauble"). Those would be priced at the UNIT value
-        // (StripCount drops the "3x") and chipped on top of the runeforge stack-total chip — two overlapping
-        // labels. While that panel is open you're interacting with it, not the ground, so suppress ground
-        // tags (UpdateRuneforge ran earlier this tick, so PanelOpen is current).
-        if (_runeforge.PanelOpen)
         {
             if (!ReferenceEquals(_lootTags, LootTagRender.Empty)) _lootTags = LootTagRender.Empty;
             return;
@@ -247,51 +132,9 @@ public sealed partial class RadarApp
         _lootTags = specs.Count > 0 ? new LootTagRender(specs) : LootTagRender.Empty;
     }
 
-    private void UpdateMonoliths(nint areaInstance, int areaLevel, uint areaHash, IReadOnlyList<Poe2Live.EntityDot> entities)
-    {
-        var cfg = _settings.Monoliths;
-        if (!cfg.Enabled || !_priceBook.IsLoaded || !_monoCatalog.IsLoaded)
-        {
-            if (_monoRender.Markers.Count > 0) _monoRender = MonolithRender.Empty;
-            return;
-        }
-
-        var markers = new List<MonolithMarker>();
-        foreach (var e in entities)
-        {
-            if (e.Metadata.IndexOf("Expedition2Encounter", StringComparison.OrdinalIgnoreCase) < 0) continue;
-            var m = _worldLive.ReadMonolith(e.Address);
-            if (!m.Resolved) continue;
-            if (cfg.HideCollected && m.Collected) continue;
-
-            var offers = _monoCatalog.Offers(m.AnchorIdx, m.AnchorPos, m.HoleCount, m.IsUnique, areaLevel);
-            var rewards = new List<MonolithReward>(offers.Count);
-            double best = 0; var bestName = "";
-            foreach (var o in offers)
-            {
-                var ex = o.Name.Length > 0 && _priceBook.TryByName(o.Name) is { } pr ? pr.Exalted * Math.Max(1, o.Count) : 0;
-                if (ex < cfg.MinRewardEx) continue;
-                rewards.Add(new MonolithReward(o.Name.Length > 0 ? o.Name : o.Description, o.Count, ex, o.Size, o.Runes));
-                if (ex > best) { best = ex; bestName = o.Name; }
-            }
-            if (cfg.MinValueEx > 0 && best < cfg.MinValueEx) continue;
-            rewards.Sort((a, b) => b.Ex.CompareTo(a.Ex));
-
-            var anchor = m.IsUnique ? "Unique" : m.AnchorIdx >= 0 ? _monoCatalog.RuneName(m.AnchorIdx) : "?";
-            markers.Add(new MonolithMarker(
-                e.Grid, m.HoleCount, m.IsUnique, m.Collected, anchor, best, bestName,
-                LootValueLogic.MonolithColor(best, cfg.HighlightMinEx), rewards));
-        }
-        _monoRender = new MonolithRender(areaHash, markers);
-    }
-
     private void RefreshLootRenderFrames(WorldSnapshot snap, int windowWidth, int windowHeight, bool inGame)
     {
-        _windowWidth = windowWidth;
-        _windowHeight = windowHeight;
         _itemFrame.Clear();
-        if (inGame && _live.TryResolve(out var inGameState, out _, out _))
-            UpdatePanelValuesLive(inGameState, windowWidth, windowHeight);
 
         if (inGame)
         {
@@ -315,32 +158,19 @@ public sealed partial class RadarApp
         }
     }
 
-    private (IReadOnlyList<ItemLabel> items, RuneforgePanelData? runeforge, IReadOnlyList<RitualLabel>? ritual,
-        IReadOnlyList<LootTagLabel>? lootTags, IReadOnlyList<MonolithMarker>? monoliths) BuildLootRenderPayload(uint areaHash, bool inGame)
+    private (IReadOnlyList<ItemLabel> items, IReadOnlyList<LootTagLabel>? lootTags) BuildLootRenderPayload(bool inGame)
     {
         if (!inGame)
-            return (Array.Empty<ItemLabel>(), null, null, null, null);
+            return (Array.Empty<ItemLabel>(), null);
 
-        var rr = _runeRender;
-        var rit = _ritualRender;
-        var mr = _monoRender;
         var items = _itemFrame.Count > 0 ? (IReadOnlyList<ItemLabel>)_itemFrame.ToArray() : Array.Empty<ItemLabel>();
         var lootTags = _lootTagFrame.Count > 0 ? (IReadOnlyList<LootTagLabel>)_lootTagFrame.ToArray() : null;
-        var monoliths = mr.AreaHash == areaHash && mr.Markers.Count > 0 ? mr.Markers : null;
-        return (
-            items,
-            rr.Open ? rr.Panel : null,
-            rit.Open ? rit.Labels : null,
-            lootTags,
-            monoliths);
+        return (items, lootTags);
     }
 
     private void ResetLootSession()
     {
-        if (!ReferenceEquals(_runeRender, RuneRender.Closed)) _runeRender = RuneRender.Closed;
-        if (!ReferenceEquals(_ritualRender, RitualRender.Closed)) _ritualRender = RitualRender.Closed;
         if (!ReferenceEquals(_lootTags, LootTagRender.Empty)) _lootTags = LootTagRender.Empty;
-        if (_monoRender.Markers.Count > 0) _monoRender = MonolithRender.Empty;
         _itemFrame.Clear();
         _lootTagFrame.Clear();
     }

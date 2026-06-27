@@ -1,6 +1,6 @@
 namespace POE2Radar.Overlay.Pricing;
 
-/// <summary>Pure helpers for ground-loot filtering and monolith value tiers (unit-testable).</summary>
+/// <summary>Pure helpers for ground-loot filtering (unit-testable).</summary>
 public static class LootValueLogic
 {
     public static string CategoryGroup(string category)
@@ -77,14 +77,6 @@ public static class LootValueLogic
                 return pr with { Exalted = pr.Exalted * Math.Max(1, count) };
         }
         return null;
-    }
-
-    public static uint MonolithColor(double bestEx, double threshold)
-    {
-        if (bestEx <= 0 || threshold <= 0) return 0xFFFFFFFFu;
-        if (bestEx >= threshold) return 0xFF66E066u;
-        if (bestEx >= 0.6 * threshold) return 0xFFE6C84Du;
-        return 0xFFFFFFFFu;
     }
 
     public static uint ValueTierColor(double ex)
