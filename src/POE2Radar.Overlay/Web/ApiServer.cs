@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using System.Reflection;
 using System.Text;
@@ -6,7 +5,6 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using POE2Radar.Core.Game;
 using POE2Radar.Overlay.Config;
-using POE2Radar.Overlay.Input;
 
 namespace POE2Radar.Overlay.Web;
 
@@ -66,7 +64,6 @@ public sealed class ApiServer : IDisposable
     private readonly Func<object>? _prices;
     private readonly Action? _priceRefresh;
     private readonly Action<string?>? _priceLeague;
-    private readonly Action<double>? _recordApiSerialize;
     private volatile bool _running;
 
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
@@ -90,11 +87,9 @@ public sealed class ApiServer : IDisposable
         int port = 7777,
         Func<object>? priceProvider = null,
         Action? priceRefresh = null,
-        Action<string?>? priceLeague = null,
-        Action<double>? recordApiSerialize = null)
+        Action<string?>? priceLeague = null)
     {
         _state = state;
-        _recordApiSerialize = recordApiSerialize;
         _atlas = atlasProvider;
         _atlasSelect = atlasSelect;
         _atlasHighlight = atlasHighlight;
@@ -148,14 +143,14 @@ public sealed class ApiServer : IDisposable
                 break;
 
             case "/health":
-                WriteJson(ctx, 200, new { ok = true, inGame = s.InGame });
+                Write(ctx, 200, JsonSerializer.Serialize(new { ok = true, inGame = s.InGame }, Json));
                 break;
 
             case "/state":
             {
                 var counts = s.Entities.GroupBy(e => e.Category)
                     .ToDictionary(g => g.Key.ToString(), g => g.Count());
-                WriteJson(ctx, 200, new
+                Write(ctx, 200, JsonSerializer.Serialize(new
                 {
                     // Character name + level intentionally omitted (privacy: this endpoint is local
                     // but unauthenticated, and screenshots/streams shouldn't leak the character).
@@ -175,9 +170,8 @@ public sealed class ApiServer : IDisposable
                     poiCount = s.Entities.Count(e => e.Poi),
                     landmarkCount = s.Landmarks.Count,
                     perf = s.Perf,
-                    featurePerf = s.FeaturePerf,
                     counts,
-                });
+                }, Json));
                 break;
             }
 
@@ -263,21 +257,6 @@ public sealed class ApiServer : IDisposable
                         dist = (int)Dist(e.Grid, s.Player),
                     });
                 Write(ctx, 200, JsonSerializer.Serialize(list, Json));
-                break;
-            }
-
-            case "/api/input-actions":
-            {
-                var actions = InputActionCatalog.All.Select(a => new
-                {
-                    id = a.Id,
-                    label = a.Label,
-                    hint = a.Hint,
-                    defaultBinding = a.DefaultBinding,
-                    binding = a.GetBinding(_settings),
-                    display = HotkeyCodes.DisplayName(a.GetBinding(_settings)),
-                });
-                Write(ctx, 200, JsonSerializer.Serialize(actions, Json));
                 break;
             }
 
@@ -684,19 +663,6 @@ public sealed class ApiServer : IDisposable
         monolithsHideCollected = _settings.Monoliths.HideCollected,
         monolithsShowPanel = _settings.Monoliths.ShowPanel,
         monolithsShowMapLabel = _settings.Monoliths.ShowMapLabel,
-        ritualHelper = _settings.RitualHelper,
-        ritualHelperEnabled = _settings.RitualHelper.Enabled,
-        ritualHelperShowPrices = _settings.RitualHelper.ShowPrices,
-        ritualHelperDisplayCurrency = _settings.RitualHelper.DisplayCurrency,
-        ritualHelperMinDisplayExalted = _settings.RitualHelper.MinDisplayExalted,
-        ritualHelperPriceSource = _settings.RitualHelper.PriceSource,
-        ritualHelperLeague = _settings.RitualHelper.League,
-        ritualHelperRefreshIntervalMin = _settings.RitualHelper.RefreshIntervalMin,
-        ritualHelperReadHz = _settings.RitualHelper.ReadHz,
-        ritualHelperDiagnosePricing = _settings.RitualHelper.DiagnosePricing,
-        ritualHelperPlayValueAlert = _settings.RitualHelper.PlayValueAlert,
-        ritualHelperAlertMinDivine = _settings.RitualHelper.AlertMinDivine,
-        ritualHelperForceBfsFallback = _settings.RitualHelper.ForceBfsFallback,
     };
 
     /// <summary>Apply only whitelisted radar/visual keys from a posted JSON object; persists on change.</summary>
@@ -872,31 +838,6 @@ public sealed class ApiServer : IDisposable
                     _settings.Monoliths.ShowPanel = msp; applied.Add(p.Name); break;
                 case "monolithsShowMapLabel" when TryBool(p.Value, out var msm):
                     _settings.Monoliths.ShowMapLabel = msm; applied.Add(p.Name); break;
-                case "ritualHelperEnabled" when TryBool(p.Value, out var rhe):
-                    _settings.RitualHelper.Enabled = rhe; applied.Add(p.Name); break;
-                case "ritualHelperShowPrices" when TryBool(p.Value, out var rhsp):
-                    _settings.RitualHelper.ShowPrices = rhsp; applied.Add(p.Name); break;
-                case "ritualHelperDisplayCurrency" when TryInt(p.Value, out var rhdc):
-                    _settings.RitualHelper.DisplayCurrency = Math.Clamp(rhdc, 0, 2); applied.Add(p.Name); break;
-                case "ritualHelperMinDisplayExalted" when TryFloat(p.Value, out var rhme):
-                    _settings.RitualHelper.MinDisplayExalted = Math.Max(0, rhme); applied.Add(p.Name); break;
-                case "ritualHelperPriceSource" when TryInt(p.Value, out var rhps):
-                    _settings.RitualHelper.PriceSource = rhps is 0 or 1 ? rhps : 1; applied.Add(p.Name); break;
-                case "ritualHelperLeague":
-                    _settings.RitualHelper.League = p.Value.GetString() ?? "";
-                    applied.Add(p.Name); break;
-                case "ritualHelperRefreshIntervalMin" when TryInt(p.Value, out var rhri):
-                    _settings.RitualHelper.RefreshIntervalMin = Math.Clamp(rhri, 1, 120); applied.Add(p.Name); break;
-                case "ritualHelperReadHz" when TryInt(p.Value, out var rhrh):
-                    _settings.RitualHelper.ReadHz = Math.Clamp(rhrh, 1, 20); applied.Add(p.Name); break;
-                case "ritualHelperDiagnosePricing" when TryBool(p.Value, out var rhdp):
-                    _settings.RitualHelper.DiagnosePricing = rhdp; applied.Add(p.Name); break;
-                case "ritualHelperPlayValueAlert" when TryBool(p.Value, out var rhpa):
-                    _settings.RitualHelper.PlayValueAlert = rhpa; applied.Add(p.Name); break;
-                case "ritualHelperAlertMinDivine" when TryFloat(p.Value, out var rham):
-                    _settings.RitualHelper.AlertMinDivine = Math.Max(0.1, rham); applied.Add(p.Name); break;
-                case "ritualHelperForceBfsFallback" when TryBool(p.Value, out var rhfb):
-                    _settings.RitualHelper.ForceBfsFallback = rhfb; applied.Add(p.Name); break;
                 case "gamepadHotkeysEnabled" when TryBool(p.Value, out var gpe):
                     _settings.GamepadHotkeysEnabled = gpe;
                     applied.Add(p.Name);
@@ -1451,14 +1392,6 @@ public sealed class ApiServer : IDisposable
     private static float Dist(System.Numerics.Vector2 a, System.Numerics.Vector2 b)
         => (a - b).Length();
 
-    private void WriteJson(HttpListenerContext ctx, int status, object payload)
-    {
-        var start = Stopwatch.GetTimestamp();
-        var body = JsonSerializer.Serialize(payload, Json);
-        _recordApiSerialize?.Invoke(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
-        Write(ctx, status, body);
-    }
-
     private static void Write(HttpListenerContext ctx, int status, string body)
     {
         var bytes = Encoding.UTF8.GetBytes(body);
@@ -1542,7 +1475,6 @@ public sealed record RadarState(
     string CharName,
     int CharLevel,
     PerfSnapshot Perf,
-    FeaturePerfSnapshot FeaturePerf = default,
     string MapDiag = "",
     bool MiniMapVisible = false,
     bool MiniMapRect = false,
@@ -1557,5 +1489,5 @@ public sealed record RadarState(
     public static readonly RadarState Empty =
         new(false, 0, 0, false, 0, System.Numerics.Vector2.Zero,
             Array.Empty<Poe2Live.EntityDot>(), Array.Empty<Poe2Live.Landmark>(), 100, 100, 100, false, "", "", "", 0,
-            PerfSnapshot.Empty, FeaturePerfSnapshot.Empty);
+            PerfSnapshot.Empty);
 }

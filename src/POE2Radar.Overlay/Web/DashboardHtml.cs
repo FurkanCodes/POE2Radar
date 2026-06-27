@@ -2,7 +2,6 @@ namespace POE2Radar.Overlay.Web;
 
 using System.Net;
 using POE2Radar.Overlay.Settings;
-using POE2Radar.Overlay.Input;
 
 /// <summary>
 /// Self-contained web dashboard served at <c>GET /</c> by <see cref="ApiServer"/>. One inlined
@@ -97,7 +96,7 @@ internal static class DashboardHtml
         .Replace("{{H.HkAtlasPick}}", H(SettingHints.Hotkeys.AtlasPick))
         .Replace("{{H.HkToggleSettings}}", H(SettingHints.Hotkeys.ToggleSettings))
         .Replace("{{H.HkOpenDashboard}}", H(SettingHints.Hotkeys.OpenDashboard))
-        .Replace("{{HOTKEY_BIND_ROWS}}", InputActionCatalog.RenderDashboardRows())
+        .Replace("{{H.HkQuit}}", H(SettingHints.Hotkeys.Quit))
         .Replace("{{H.HpNormal}}", H(SettingHints.HpBars.Normal))
         .Replace("{{H.HpMagic}}", H(SettingHints.HpBars.Magic))
         .Replace("{{H.HpRare}}", H(SettingHints.HpBars.Rare))
@@ -135,17 +134,7 @@ internal static class DashboardHtml
         .Replace("{{H.MonolithMinValue}}", H(SettingHints.Monoliths.MinValue))
         .Replace("{{H.MonolithHideCollected}}", H(SettingHints.Monoliths.HideCollected))
         .Replace("{{H.MonolithShowMapLabel}}", H(SettingHints.Monoliths.ShowMapLabel))
-        .Replace("{{H.MonolithShowPanel}}", H(SettingHints.Monoliths.ShowPanel))
-        .Replace("{{H.RitualEnabled}}", H(SettingHints.RitualHelper.Enabled))
-        .Replace("{{H.RitualShowPrices}}", H(SettingHints.RitualHelper.ShowPrices))
-        .Replace("{{H.RitualMinDisplay}}", H(SettingHints.RitualHelper.MinDisplayExalted))
-        .Replace("{{H.RitualPriceSource}}", H(SettingHints.RitualHelper.PriceSource))
-        .Replace("{{H.RitualLeague}}", H(SettingHints.RitualHelper.League))
-        .Replace("{{H.RitualRefresh}}", H(SettingHints.RitualHelper.RefreshIntervalMin))
-        .Replace("{{H.RitualReadHz}}", H(SettingHints.RitualHelper.ReadHz))
-        .Replace("{{H.RitualDiagnose}}", H(SettingHints.RitualHelper.DiagnosePricing))
-        .Replace("{{H.RitualAlert}}", H(SettingHints.RitualHelper.PlayValueAlert))
-        .Replace("{{H.RitualAlertDiv}}", H(SettingHints.RitualHelper.AlertMinDivine));
+        .Replace("{{H.MonolithShowPanel}}", H(SettingHints.Monoliths.ShowPanel));
 
     private const string PageTemplate = """
 <!DOCTYPE html>
@@ -897,32 +886,6 @@ internal static class DashboardHtml
             <div class="row"><div class="rl" title="{{H.MonolithShowPanel}}">Show reward panel</div>
               <label class="sw"><input type="checkbox" data-set="monolithsShowPanel"><span class="track"></span><span class="knob"></span></label></div>
           </div>
-          <div class="card">
-            <h3>Ritual Helper</h3>
-            <div class="row"><div class="rl" title="{{H.RitualEnabled}}">Enabled</div>
-              <label class="sw"><input type="checkbox" data-set="ritualHelperEnabled"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.RitualShowPrices}}">Show prices</div>
-              <label class="sw"><input type="checkbox" data-set="ritualHelperShowPrices"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.RitualMinDisplay}}">Min display (ex)</div>
-              <input class="numin" type="number" step="1" min="0" data-set="ritualHelperMinDisplayExalted"></div>
-            <div class="row"><div class="rl" title="{{H.RitualPriceSource}}">Price source</div>
-              <select class="numin selin" data-set="ritualHelperPriceSource">
-                <option value="0">poe.ninja</option>
-                <option value="1">poe2scout</option>
-              </select></div>
-            <div class="row"><div class="rl" title="{{H.RitualLeague}}">League override</div>
-              <input class="numin" type="text" data-set="ritualHelperLeague" style="width:220px"></div>
-            <div class="row"><div class="rl" title="{{H.RitualRefresh}}">Refresh interval (min)</div>
-              <input class="numin" type="number" step="1" min="1" max="120" data-set="ritualHelperRefreshIntervalMin"></div>
-            <div class="row"><div class="rl" title="{{H.RitualReadHz}}">Read rate (Hz)</div>
-              <input class="numin" type="number" step="1" min="1" max="20" data-set="ritualHelperReadHz"></div>
-            <div class="row"><div class="rl" title="{{H.RitualDiagnose}}">Diagnose pricing</div>
-              <label class="sw"><input type="checkbox" data-set="ritualHelperDiagnosePricing"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.RitualAlert}}">Value alert</div>
-              <label class="sw"><input type="checkbox" data-set="ritualHelperPlayValueAlert"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.RitualAlertDiv}}">Alert from (div)</div>
-              <input class="numin" type="number" step="0.1" min="0.1" data-set="ritualHelperAlertMinDivine"></div>
-          </div>
           </div>
           <div class="settings-section panel-grid" id="setNav" hidden>
           <div class="card">
@@ -1112,7 +1075,56 @@ internal static class DashboardHtml
               <label class="sw"><input type="checkbox" data-set="gamepadHotkeysEnabled"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.PadSlot}}">Pad player slot<small>0 = first controller</small></div>
               <input class="numin" type="number" step="1" min="0" max="3" data-set="gamepadUserIndex"></div>
-            {{HOTKEY_BIND_ROWS}}
+            <div class="row"><div class="rl" title="{{H.HkHideEntity}}">Never show under cursor<small>hover entity → hide type globally</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="hideEntityHotkey">F5</span>
+                <button type="button" class="chip" data-hk-bind="hideEntityHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="hideEntityHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="hideEntityHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl" title="{{H.HkTrackEntity}}">Inspect under cursor<small>print entity info to console</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="trackEntityHotkey">F4</span>
+                <button type="button" class="chip" data-hk-bind="trackEntityHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="trackEntityHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="trackEntityHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl" title="{{H.HkAutoPath}}">Auto-path toggle<small>continuous auto-pathing (default F3)</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="autoPathToggleHotkey">F3</span>
+                <button type="button" class="chip" data-hk-bind="autoPathToggleHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="autoPathToggleHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="autoPathToggleHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl" title="{{H.HkAddNearest}}">Add nearest path<small>F6 default</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="addNearestPathHotkey">F6</span>
+                <button type="button" class="chip" data-hk-bind="addNearestPathHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="addNearestPathHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="addNearestPathHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl" title="{{H.HkClearPaths}}">Clear paths<small>F7 default</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="clearPathsHotkey">F7</span>
+                <button type="button" class="chip" data-hk-bind="clearPathsHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="clearPathsHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="clearPathsHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl" title="{{H.HkAutoFlask}}">Auto-flask toggle<small>F8 default</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="autoFlaskToggleHotkey">F8</span>
+                <button type="button" class="chip" data-hk-bind="autoFlaskToggleHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="autoFlaskToggleHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="autoFlaskToggleHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl" title="{{H.HkAtlasPick}}">Atlas tile pick<small>F10 default — atlas routing</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="atlasPickHotkey">F10</span>
+                <button type="button" class="chip" data-hk-bind="atlasPickHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="atlasPickHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="atlasPickHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl" title="{{H.HkToggleSettings}}">Overlay settings<small>F11 default</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="toggleSettingsHotkey">F11</span>
+                <button type="button" class="chip" data-hk-bind="toggleSettingsHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="toggleSettingsHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="toggleSettingsHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl" title="{{H.HkOpenDashboard}}">Open dashboard<small>F12 default (PoE2 focused)</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="openDashboardHotkey">F12</span>
+                <button type="button" class="chip" data-hk-bind="openDashboardHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="openDashboardHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="openDashboardHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl" title="{{H.HkQuit}}">Quit overlay<small>F9 default</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="quitHotkey">F9</span>
+                <button type="button" class="chip" data-hk-bind="quitHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="quitHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="quitHotkey">Clear</button></span></div>
           </div>
           </div>
           </div>

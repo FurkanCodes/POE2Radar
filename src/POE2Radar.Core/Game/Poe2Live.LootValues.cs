@@ -130,129 +130,154 @@ public sealed partial class Poe2Live
     }
 
     public bool TryUiElementRect(nint el, float winW, float winH, out float x, out float y, out float w, out float h,
-        string? requireFirstLine = null, bool requireVisible = true)
-        => UiProjector.TryRect(_reader, el, winW, winH, out x, out y, out w, out h, requireFirstLine, requireVisible);
+        string? requireFirstLine = null)
+    {
+        x = y = w = h = 0f;
+        if (el == 0) return false;
+        if (!_reader.TryReadStruct<uint>(el + Poe2.UiElement.Flags, out var flags)) return false;
+        if ((flags & (1u << Poe2.UiElement.FlagVisibleBit)) == 0) return false;
+        if (requireFirstLine is { Length: > 0 })
+        {
+            var t = ReadStdWString(el + Poe2.UiElement.Text);
+            var nl = t.IndexOf('\n');
+            if (!string.Equals((nl >= 0 ? t[..nl] : t).Trim(), requireFirstLine, StringComparison.Ordinal)) return false;
+        }
+        if (!_reader.TryReadStruct<byte>(el + Poe2.UiElement.UiScaleIndex, out var idx)) return false;
+        _reader.TryReadStruct<float>(el + Poe2.UiElement.LocalScaleMul, out var mul);
+        _reader.TryReadStruct<System.Numerics.Vector2>(el + Poe2.UiElement.SizeW, out var sz);
+        var (sw, sh) = UiScaleValue(idx, mul, winW, winH);
+        if (sw <= 0f || sh <= 0f) return false;
+        var (px, py) = UiUnscaledPos(el, 0, winW, winH);
+        if (!float.IsFinite(px) || !float.IsFinite(py)) return false;
+        x = px * sw; y = py * sh; w = sz.X * sw; h = sz.Y * sh;
+        return w > 1f && h > 1f;
+    }
+
+    private static (float w, float h) UiScaleValue(byte idx, float mul, float winW, float winH)
+    {
+        if (mul == 0f) mul = 1f;
+        var v1 = winW / (float)Poe2.UiElement.BaseResW;
+        var v2 = winH / (float)Poe2.UiElement.BaseResH;
+        float w = mul, h = mul;
+        switch (idx)
+        {
+            case 1: w *= v1; h *= v1; break;
+            case 2: w *= v2; h *= v2; break;
+            case 3: w *= v1; h *= v2; break;
+        }
+        return (w, h);
+    }
+
+    private (float x, float y) UiUnscaledPos(nint el, int depth, float winW, float winH)
+    {
+        _reader.TryReadStruct<System.Numerics.Vector2>(el + Poe2.UiElement.RelativePos, out var rel);
+        var parent = Ptr(el + Poe2.UiElement.Parent);
+        if (parent == 0 || depth >= 64) return (rel.X, rel.Y);
+
+        var (ppx, ppy) = UiUnscaledPos(parent, depth + 1, winW, winH);
+
+        if (_reader.TryReadStruct<uint>(el + Poe2.UiElement.Flags, out var flags)
+            && (flags & (1u << Poe2.UiElement.FlagModifyPosBit)) != 0)
+        {
+            _reader.TryReadStruct<System.Numerics.Vector2>(el + Poe2.UiElement.UiPositionModifier, out var mod);
+            ppx += mod.X; ppy += mod.Y;
+        }
+        return (ppx + rel.X, ppy + rel.Y);
+    }
 
     public readonly record struct RitualReward(
         Rarity Rarity, string? Art, string? Name, bool Identified, float X, float Y, float W, float H);
 
-    public bool HasRenderItemComponent(nint item)
-        => ResolveComponent(item, "RenderItem") != 0;
-
-    public bool TryReadRitualRewardTile(nint tile, float winW, float winH, out RitualReward reward)
-        => TryReadRitualRewardTile(tile, 0, winW, winH, out reward);
-
-    public bool TryReadRitualRewardTile(nint tile, nint itemEntity, float winW, float winH, out RitualReward reward)
+    public List<RitualReward> ReadRitualRewards(nint inGameState, float winW, float winH)
     {
-        reward = default;
-        if (tile == 0) return false;
+        var result = new List<RitualReward>();
+        var uiRoot = Ptr(inGameState + Poe2.InGameState.UiRoot);
+        if (uiRoot == 0) return result;
+        const uint visBit = 1u << Poe2.UiElement.FlagVisibleBit;
 
-        var item = itemEntity != 0 ? itemEntity : Ptr(tile + Poe2.Ritual.TileSlotItem);
-        if (item == 0 || !IsPlausibleItemEntity(item)) return false;
-
-        var (rarity, art, identified, name) = ReadIdentityFromItem(item);
-        if (string.IsNullOrEmpty(art) && string.IsNullOrEmpty(name))
+        nint sigEl = 0;
+        var queue = new Queue<nint>(); queue.Enqueue(uiRoot);
+        var visited = new HashSet<nint>();
+        while (queue.Count > 0 && visited.Count < 20000)
         {
-            var meta = ItemMetadataPath(item);
-            if (meta.Length > 0)
+            var el = queue.Dequeue();
+            if (el == 0 || !visited.Add(el)) continue;
+            var visible = _reader.TryReadStruct<uint>(el + Poe2.UiElement.Flags, out var flags) && (flags & visBit) != 0;
+            if (!visible && el != uiRoot) continue;
+            if (ChildSpan(el, out var f, out var nn))
+                for (long k = 0; k < nn; k++) queue.Enqueue(Ptr(f + (nint)(k * 8)));
+            if (sigEl == 0)
             {
-                var slash = meta.LastIndexOf('/');
-                name = slash >= 0 ? meta[(slash + 1)..] : meta;
+                var t = ReadStdWString(el + Poe2.UiElement.Text);
+                if (t.Length >= 6 && (t.Contains("Rituals Remaining", StringComparison.OrdinalIgnoreCase)
+                                      || t.Contains("tribute to the king", StringComparison.OrdinalIgnoreCase)))
+                    sigEl = el;
             }
         }
+        if (sigEl == 0) return result;
 
-        if (!TryUiElementRect(tile, winW, winH, out var x, out var y, out var w, out var h, requireVisible: false)
-            && !TryFirstChildRect(tile, winW, winH, out x, out y, out w, out h)
-            && !TryDescendantRect(tile, winW, winH, 6, out x, out y, out w, out h))
+        var cur = sigEl;
+        nint grid = 0;
+        for (var up = 0; up < 8 && grid == 0; up++)
         {
-            x = y = 0f;
-            w = h = 48f;
+            grid = FindRewardGrid(cur);
+            var parent = Ptr(cur + Poe2.UiElement.Parent);
+            if (parent == 0) break;
+            cur = parent;
         }
+        if (grid == 0 || !ChildSpan(grid, out var gf, out var gn)) return result;
 
-        reward = new RitualReward(rarity, art, name, identified, x, y, w, h);
-        return true;
+        for (long i = 0; i < gn; i++)
+        {
+            var tile = Ptr(gf + (nint)(i * 8));
+            var item = TileItem(tile);
+            if (item == 0) continue;
+            var (rarity, art, identified, name) = ReadIdentityFromItem(item);
+            if (!TryUiElementRect(tile, winW, winH, out var x, out var y, out var w, out var h)) continue;
+            result.Add(new RitualReward(rarity, art, name, identified, x, y, w, h));
+        }
+        return result;
     }
 
-    private bool TryDescendantRect(nint root, float winW, float winH, int maxDepth, out float x, out float y, out float w, out float h)
+    private nint FindRewardGrid(nint parent)
     {
-        x = y = w = h = 0f;
-        if (root == 0 || maxDepth < 0) return false;
-        if (TryUiElementRect(root, winW, winH, out x, out y, out w, out h, requireVisible: false))
-            return true;
-        var first = Ptr(root + Poe2.UiElement.Children);
-        if (first == 0 || !_reader.TryReadStruct<nint>(root + Poe2.UiElement.ChildrenEnd, out var last)) return false;
-        var n = ((long)last - (long)first) / 8;
-        if (n is <= 0 or > 16) return false;
+        if (!ChildSpan(parent, out var first, out var n)) return 0;
+        nint best = 0; var bestItems = 0;
         for (long i = 0; i < n; i++)
         {
-            if (TryDescendantRect(Ptr(first + (nint)(i * 8)), winW, winH, maxDepth - 1, out x, out y, out w, out h))
-                return true;
+            var c = Ptr(first + (nint)(i * 8));
+            if (!ChildSpan(c, out var cf, out var cn) || cn is < 1 or > 16) continue;
+            var items = 0;
+            for (long k = 0; k < cn; k++) if (TileItem(Ptr(cf + (nint)(k * 8))) != 0) items++;
+            if (items >= 2 && items > bestItems && items * 2 >= cn) { best = c; bestItems = items; }
         }
-        return false;
+        return best;
     }
 
-    private bool TryFirstChildRect(nint parent, float winW, float winH, out float x, out float y, out float w, out float h)
+    private nint TileItem(nint tile)
     {
-        x = y = w = h = 0f;
-        var first = Ptr(parent + Poe2.UiElement.Children);
-        if (first == 0 || !_reader.TryReadStruct<nint>(parent + Poe2.UiElement.ChildrenEnd, out var last)) return false;
-        var n = ((long)last - (long)first) / 8;
-        if (n is <= 0 or > 32) return false;
-        for (long i = 0; i < n; i++)
-        {
-            var child = Ptr(first + (nint)(i * 8));
-            if (TryUiElementRect(child, winW, winH, out x, out y, out w, out h, requireVisible: false))
-                return true;
-        }
-        return false;
+        if (tile == 0) return 0;
+        var item = Ptr(tile + Poe2.Ritual.TileSlotItem);
+        return item != 0 && ResolveComponent(item, "RenderItem") != 0 ? item : 0;
     }
 
-    public List<RitualReward> ReadRitualRewards(nint inGameState, float winW, float winH)
-        => new Poe2RitualShop(_reader, this).ReadRewards(inGameState, winW, winH);
+    private bool ChildSpan(nint el, out nint first, out long n)
+    {
+        first = Ptr(el + Poe2.UiElement.Children); n = 0;
+        if (first == 0) return false;
+        if (!_reader.TryReadStruct<nint>(el + Poe2.UiElement.ChildrenEnd, out var last)) return false;
+        n = ((long)last - (long)first) / 8;
+        return n is > 0 and <= 4000;
+    }
 
     public List<(nint El, string Text)> ScanLootLabels(nint inGameState, int maxNodes = 20000)
     {
         var result = new List<(nint, string)>();
-        var elementSeen = new HashSet<nint>();
-        DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
-        var uiRoot = GetUiRoot(inGameState);
-        var fixedRoot = Ptr(inGameState + Poe2.InGameState.UiRoot);
-        Span<nint> roots = stackalloc nint[6];
-        var rootCount = UiBranchCandidates.Fill(
-            roots, gameUi, controllerGameUi, uiRoot, fixedRoot, _lootProbeHint);
-        var bestRoot = (nint)0;
-        var bestCount = 0;
-        for (var i = 0; i < rootCount; i++)
-        {
-            var before = result.Count;
-            ScanLootLabelsFromRoot(roots[i], maxNodes, result, elementSeen);
-            var found = result.Count - before;
-            if (found <= bestCount) continue;
-            bestCount = found;
-            bestRoot = roots[i];
-        }
-
-        if (bestRoot != 0)
-        {
-            var kind = UiBranchCandidates.BranchForRoot(bestRoot, gameUi, controllerGameUi);
-            if (kind != Poe2UiAnchors.BranchKind.None)
-                _lootProbeHint = kind;
-        }
-
-        return result;
-    }
-
-    private void ScanLootLabelsFromRoot(
-        nint uiRoot,
-        int maxNodes,
-        List<(nint El, string Text)> result,
-        HashSet<nint> elementSeen)
-    {
-        if (uiRoot == 0) return;
+        var uiRoot = PreferredUiScanRoot(inGameState);
+        if (uiRoot == 0) return result;
         const uint visBit = 1u << Poe2.UiElement.FlagVisibleBit;
 
-        var queue = new Queue<nint>();
-        queue.Enqueue(uiRoot);
+        var queue = new Queue<nint>(); queue.Enqueue(uiRoot);
         var visited = new HashSet<nint>();
         while (queue.Count > 0 && visited.Count < maxNodes)
         {
@@ -273,8 +298,8 @@ public sealed partial class Poe2Live
             if (text.Length < 2) continue;
             var nl = text.IndexOf('\n');
             var firstLine = (nl >= 0 ? text[..nl] : text).Trim();
-            if (firstLine.Length < 2 || !elementSeen.Add(el)) continue;
-            result.Add((el, firstLine));
+            if (firstLine.Length >= 2) result.Add((el, firstLine));
         }
+        return result;
     }
 }

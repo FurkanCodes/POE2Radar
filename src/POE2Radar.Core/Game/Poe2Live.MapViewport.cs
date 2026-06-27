@@ -27,8 +27,6 @@ public sealed partial class Poe2Live
             _mapCacheKey = areaInstance;
             _preferredUiAnchor = 0;
             _preferredUiAnchorIgs = 0;
-            _mapProbeHint = Poe2UiAnchors.BranchKind.None;
-            _lootProbeHint = Poe2UiAnchors.BranchKind.None;
             _mapEls.Clear();
             _everHidden.Clear();
             _everVisible.Clear();
@@ -293,12 +291,13 @@ public sealed partial class Poe2Live
         SyncPreferredUiAnchor(inGameState);
         DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
         var uiRoot = GetUiRoot(inGameState);
-        var fixedRoot = Ptr(inGameState + Poe2.InGameState.UiRoot);
 
-        Span<nint> anchors = stackalloc nint[6];
-        var anchorCount = UiBranchCandidates.Fill(
-            anchors, gameUi, controllerGameUi, uiRoot, fixedRoot, _mapProbeHint,
-            _preferredUiAnchorIgs == inGameState ? _preferredUiAnchor : 0);
+        Span<nint> anchors = stackalloc nint[4];
+        var anchorCount = 0;
+        if (_preferredUiAnchorIgs == inGameState) TryAddUniqueAnchor(anchors, ref anchorCount, _preferredUiAnchor);
+        TryAddUniqueAnchor(anchors, ref anchorCount, controllerGameUi);
+        TryAddUniqueAnchor(anchors, ref anchorCount, gameUi);
+        TryAddUniqueAnchor(anchors, ref anchorCount, uiRoot);
 
         var uiScale = windowHeight > 0 ? windowHeight / 1600f : 1f;
         var scratch = new List<nint>();

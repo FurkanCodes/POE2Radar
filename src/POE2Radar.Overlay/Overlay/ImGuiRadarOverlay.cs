@@ -1003,8 +1003,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private void DrawLootValueOverlays(ImDrawListPtr dl, RenderContext ctx)
     {
         DrawItemLabels(dl, ctx);
-        DrawLootTagLabels(dl, ctx);
+        DrawRuneforgePanel(dl, ctx);
         DrawRitualLabels(dl, ctx);
+        DrawLootTagLabels(dl, ctx);
         DrawMonolithPanel(dl, ctx);
     }
 
@@ -1045,6 +1046,60 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
     }
 
+    private static void DrawRuneforgePanel(ImDrawListPtr dl, RenderContext ctx)
+    {
+        if (ctx.RuneforgePanel is not { Rows.Count: > 0 } panel) return;
+        const float w = 268f, pad = 6f, lineH = 15f, headH = 17f, titleH = 18f;
+        var rows = panel.Rows;
+        float h = pad * 2f + titleH + headH + lineH * rows.Count;
+        float x = ctx.WindowWidth - w - 10f;
+        float y = 90f + EstimateMonolithPanelHeight(ctx);
+        dl.AddRectFilled(new NumVec2(x, y), new NumVec2(x + w, y + h), ColPanelBg);
+        var font = ImGui.GetFont();
+        var fs = font.FontSize;
+        float cy = y + pad;
+        dl.AddText(font, fs, new NumVec2(x + pad, cy), ColItemText, $"Combinations ({rows.Count})");
+        cy += titleH;
+        var hdr = panel.BestEx > 0 ? $"{panel.BestEx:F0}ex · {panel.BestLabel}" : panel.BestLabel;
+        dl.AddText(font, fs, new NumVec2(x + pad, cy), ColorFromU(panel.HeaderColor), hdr);
+        cy += headH;
+        foreach (var r in rows)
+        {
+            dl.AddText(font, fs, new NumVec2(x + pad, cy), ColorFromU(r.Color), $"  {r.Ex,4:F0}  {r.Label}");
+            cy += lineH;
+        }
+    }
+
+    private static float EstimateMonolithPanelHeight(RenderContext ctx)
+    {
+        if (!ctx.ShowMonolithPanel || ctx.Monoliths is not { Count: > 0 } monos) return 0f;
+        const float pad = 6f, lineH = 15f, headH = 17f, titleH = 18f;
+        var list = monos.OrderByDescending(m => m.BestEx).Take(6).ToList();
+        float h = pad * 2f + titleH;
+        foreach (var m in list)
+        {
+            var rowCount = 0;
+            foreach (var r in m.Rewards) if (r.Ex > 0 && rowCount < 3) rowCount++;
+            h += headH + lineH * rowCount;
+        }
+        return h + 8f;
+    }
+
+    private static void DrawRitualLabels(ImDrawListPtr dl, RenderContext ctx)
+    {
+        if (ctx.RitualRewards is not { Count: > 0 } labels) return;
+        const float boxH = 20f;
+        foreach (var r in labels)
+        {
+            var boxW = MathF.Max(44f, 7.5f * (r.Text.Length + 1));
+            var cx = r.X + r.W * 0.5f;
+            var top = r.Y + r.H - boxH;
+            dl.AddRectFilled(new NumVec2(cx - boxW * 0.5f, top), new NumVec2(cx + boxW * 0.5f, top + boxH), ColPanelBg);
+            if (r.Highlight) dl.AddRect(new NumVec2(cx - boxW * 0.5f, top), new NumVec2(cx + boxW * 0.5f, top + boxH), ColItemHi, 0, 0, 2f);
+            dl.AddText(ImGui.GetFont(), ImGui.GetFontSize(), new NumVec2(cx - boxW * 0.5f + 3f, top + 1f), ColorFromU(r.Color), r.Text);
+        }
+    }
+
     private static void DrawLootTagLabels(ImDrawListPtr dl, RenderContext ctx)
     {
         if (ctx.LootTags is not { Count: > 0 } labels) return;
@@ -1058,30 +1113,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (t.Highlight) dl.AddRect(new NumVec2(lx, cy - boxH * 0.5f), new NumVec2(lx + boxW, cy + boxH * 0.5f), ColItemHi, 0, 0, 2f);
             dl.AddText(ImGui.GetFont(), ImGui.GetFontSize(), new NumVec2(lx + 4f, cy - boxH * 0.5f + 1f),
                 t.Highlight ? ColItemHi : ColItemText, t.Value);
-        }
-    }
-
-    private static void DrawRitualLabels(ImDrawListPtr dl, RenderContext ctx)
-    {
-        if (ctx.RitualLabels is not { Count: > 0 } labels) return;
-        var font = ImGui.GetFont();
-        const uint shadow = 0xCC000000;
-        foreach (var label in labels)
-        {
-            if (!string.IsNullOrEmpty(label.DebugText))
-            {
-                var diagColor = label.DiagnoseNoPrice ? 0xFF4040FFu : 0xFF40FF40u;
-                var dbgPos = new NumVec2(label.X + 2f, label.Y + 2f);
-                var dbgFs = font.FontSize * 0.8f;
-                dl.AddText(font, dbgFs, dbgPos + new NumVec2(1f, 1f), shadow, label.DebugText);
-                dl.AddText(font, dbgFs, dbgPos, diagColor, label.DebugText);
-            }
-
-            if (string.IsNullOrEmpty(label.Value)) continue;
-            var fs = font.FontSize;
-            var textPos = new NumVec2(label.X + label.W * 0.5f - label.Value.Length * fs * 0.28f, label.Y + label.H - fs);
-            dl.AddText(font, fs, textPos + new NumVec2(1f, 1f), shadow, label.Value);
-            dl.AddText(font, fs, textPos, ColItemText, label.Value);
         }
     }
 
@@ -1566,9 +1597,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         {
             TextColoredUnformatted(new Vector4(0.92f, 0.92f, 0.55f, 1f),
                 $"world {p.WorldMs:F1} ms   draw {p.RenderMs:F1} ms   map {p.MapMs:F1}   paths {p.PathsMs:F1}   hp {p.HpBarsMs:F1}");
-            var fp = ctx.FeaturePerf;
-            TextColoredUnformatted(new Vector4(0.78f, 0.88f, 1f, 1f),
-                $"ctx game {fp.GameContextMs:F2} ui {fp.UiContextMs:F2}   ritual {fp.RitualMs:F2} loot {fp.LootTagsMs:F2} mapUi {fp.MapUiMs:F2} atlas {fp.AtlasMs:F2} api {fp.ApiSerializeMs:F2}");
             TextColoredUnformatted(new Vector4(0.85f, 0.85f, 0.85f, 1f),
                 $"reads total {p.TotalReadsPerSec / 1000f:F1}k/s   main {p.MainReadsPerSec / 1000f:F1}k/s   world {p.WorldReadsPerSec / 1000f:F1}k/s   {p.TotalMibPerSec:F2} MiB/s");
             TextColoredUnformatted(new Vector4(0.85f, 0.85f, 0.85f, 1f),
@@ -1642,7 +1670,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             BeginSettingsTab("HP Bars", () => DrawHpBarsTab(s));
             BeginSettingsTab("Flask", () => DrawFlaskTab(s));
             BeginSettingsTab("Atlas", () => DrawAtlasTab(s));
-            BeginSettingsTab("Ritual", () => DrawRitualTab(s));
             BeginSettingsTab("Hotkeys", () => DrawHotkeysTab(s));
             ImGui.EndTabBar();
         }
@@ -2583,74 +2610,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         ImGuiTheme.EndAccordionSection(geomOpen);
     }
 
-    private void DrawRitualTab(RadarSettings s)
-    {
-        var r = s.RitualHelper;
-        bool generalOpen = ImGuiTheme.BeginAccordionSection("RitualGeneral", "General",
-            "Price labels on Ritual Favours reward tiles.");
-        if (generalOpen)
-        {
-            bool en = r.Enabled; if (ImGui.Checkbox("Enabled", ref en)) r.Enabled = en;
-            ImGuiTheme.Tooltip(SettingHints.RitualHelper.Enabled);
-            bool sp = r.ShowPrices; if (ImGui.Checkbox("Show prices", ref sp)) r.ShowPrices = sp;
-            ImGuiTheme.Tooltip(SettingHints.RitualHelper.ShowPrices);
-
-            int dc = r.DisplayCurrency;
-            if (ImGui.RadioButton("Divine", dc == 0)) r.DisplayCurrency = 0;
-            ImGui.SameLine();
-            if (ImGui.RadioButton("Exalted", dc == 1)) r.DisplayCurrency = 1;
-            ImGui.SameLine();
-            if (ImGui.RadioButton("Chaos", dc == 2)) r.DisplayCurrency = 2;
-            ImGuiTheme.Tooltip(SettingHints.RitualHelper.DisplayCurrency);
-
-            float minEx = (float)r.MinDisplayExalted;
-            if (ImGui.SliderFloat("Min display (Ex)", ref minEx, 0f, 500f, "%.0f Ex")) r.MinDisplayExalted = minEx;
-            ImGuiTheme.Tooltip(SettingHints.RitualHelper.MinDisplayExalted);
-
-            int hz = r.ReadHz;
-            if (ImGui.SliderInt("Read rate (Hz)", ref hz, 1, 20)) r.ReadHz = hz;
-            ImGuiTheme.Tooltip(SettingHints.RitualHelper.ReadHz);
-        }
-        ImGuiTheme.EndAccordionSection(generalOpen);
-
-        bool dataOpen = ImGuiTheme.BeginAccordionSection("RitualData", "Data source",
-            "poe2scout or poe.ninja price feeds.");
-        if (dataOpen)
-        {
-            int ps = r.PriceSource;
-            if (ImGui.RadioButton("poe.ninja", ps == 0)) r.PriceSource = 0;
-            ImGui.SameLine();
-            if (ImGui.RadioButton("poe2scout", ps == 1)) r.PriceSource = 1;
-            ImGuiTheme.Tooltip(SettingHints.RitualHelper.PriceSource);
-
-            var league = r.League ?? "";
-            ImGui.SetNextItemWidth(UiW());
-            if (ImGui.InputText("League override", ref league, 64)) r.League = league;
-            ImGuiTheme.Tooltip(SettingHints.RitualHelper.League);
-
-            int refresh = r.RefreshIntervalMin;
-            if (ImGui.SliderInt("Refresh interval (min)", ref refresh, 1, 120)) r.RefreshIntervalMin = refresh;
-            ImGuiTheme.Tooltip(SettingHints.RitualHelper.RefreshIntervalMin);
-        }
-        ImGuiTheme.EndAccordionSection(dataOpen);
-
-        bool advOpen = ImGuiTheme.BeginAccordionSection("RitualAdvanced", "Advanced",
-            "Diagnostics and fallback scanning.");
-        if (advOpen)
-        {
-            bool diag = r.DiagnosePricing; if (ImGui.Checkbox("Diagnose pricing", ref diag)) r.DiagnosePricing = diag;
-            ImGuiTheme.Tooltip(SettingHints.RitualHelper.DiagnosePricing);
-            bool bfs = r.ForceBfsFallback; if (ImGui.Checkbox("Force BFS fallback", ref bfs)) r.ForceBfsFallback = bfs;
-            ImGuiTheme.Tooltip(SettingHints.RitualHelper.ForceBfsFallback);
-            bool alert = r.PlayValueAlert; if (ImGui.Checkbox("Value alert", ref alert)) r.PlayValueAlert = alert;
-            ImGuiTheme.Tooltip(SettingHints.RitualHelper.PlayValueAlert);
-            float alertDiv = (float)r.AlertMinDivine;
-            if (ImGui.SliderFloat("Alert from (Div)", ref alertDiv, 0.1f, 50f, "%.2f")) r.AlertMinDivine = alertDiv;
-            ImGuiTheme.Tooltip(SettingHints.RitualHelper.AlertMinDivine);
-        }
-        ImGuiTheme.EndAccordionSection(advOpen);
-    }
-
     private void DrawFlaskTab(RadarSettings s)
     {
         bool lifeOpen = ImGuiTheme.BeginAccordionSection("LifeFlask", "Life flask",
@@ -3071,8 +3030,16 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
             ImGui.TextDisabled("Bind: click Bind, then press a key or controller button.");
 
-            foreach (var action in InputActionCatalog.All)
-                DrawHotkeyRow(s, action.Id, action.Label, action.Hint);
+            DrawHotkeyRow(s, "hideEntityHotkey", "Never show under cursor", SettingHints.Hotkeys.HideEntity);
+            DrawHotkeyRow(s, "trackEntityHotkey", "Inspect under cursor", SettingHints.Hotkeys.TrackEntity);
+            DrawHotkeyRow(s, "autoPathToggleHotkey", "Auto-path toggle", SettingHints.Hotkeys.AutoPathToggle);
+            DrawHotkeyRow(s, "addNearestPathHotkey", "Add nearest path", SettingHints.Hotkeys.AddNearestPath);
+            DrawHotkeyRow(s, "clearPathsHotkey", "Clear paths", SettingHints.Hotkeys.ClearPaths);
+            DrawHotkeyRow(s, "autoFlaskToggleHotkey", "Auto-flask toggle", SettingHints.Hotkeys.AutoFlaskToggle);
+            DrawHotkeyRow(s, "atlasPickHotkey", "Atlas tile pick", SettingHints.Hotkeys.AtlasPick);
+            DrawHotkeyRow(s, "toggleSettingsHotkey", "Overlay settings", SettingHints.Hotkeys.ToggleSettings);
+            DrawHotkeyRow(s, "openDashboardHotkey", "Open dashboard", SettingHints.Hotkeys.OpenDashboard);
+            DrawHotkeyRow(s, "quitHotkey", "Quit overlay", SettingHints.Hotkeys.Quit);
         }
         ImGuiTheme.EndAccordionSection(open);
     }
@@ -3107,13 +3074,36 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         ImGui.PopID();
     }
 
-    private static int GetHotkey(RadarSettings s, string key)
-        => InputActionCatalog.TryGet(key)?.GetBinding(s) ?? 0;
+    private static int GetHotkey(RadarSettings s, string key) => key switch
+    {
+        "hideEntityHotkey" => s.HideEntityHotkey,
+        "trackEntityHotkey" => s.TrackEntityHotkey,
+        "autoPathToggleHotkey" => s.AutoPathToggleHotkey,
+        "addNearestPathHotkey" => s.AddNearestPathHotkey,
+        "clearPathsHotkey" => s.ClearPathsHotkey,
+        "autoFlaskToggleHotkey" => s.AutoFlaskToggleHotkey,
+        "atlasPickHotkey" => s.AtlasPickHotkey,
+        "toggleSettingsHotkey" => s.ToggleSettingsHotkey,
+        "openDashboardHotkey" => s.OpenDashboardHotkey,
+        "quitHotkey" => s.QuitHotkey,
+        _ => 0,
+    };
 
     private static void SetHotkey(RadarSettings s, string key, int value)
     {
-        var action = InputActionCatalog.TryGet(key);
-        action?.SetBinding(s, value);
+        switch (key)
+        {
+            case "hideEntityHotkey": s.HideEntityHotkey = value; break;
+            case "trackEntityHotkey": s.TrackEntityHotkey = value; break;
+            case "autoPathToggleHotkey": s.AutoPathToggleHotkey = value; break;
+            case "addNearestPathHotkey": s.AddNearestPathHotkey = value; break;
+            case "clearPathsHotkey": s.ClearPathsHotkey = value; break;
+            case "autoFlaskToggleHotkey": s.AutoFlaskToggleHotkey = value; break;
+            case "atlasPickHotkey": s.AtlasPickHotkey = value; break;
+            case "toggleSettingsHotkey": s.ToggleSettingsHotkey = value; break;
+            case "openDashboardHotkey": s.OpenDashboardHotkey = value; break;
+            case "quitHotkey": s.QuitHotkey = value; break;
+        }
     }
 
     private void PollHotkeyCapture(RadarSettings s)

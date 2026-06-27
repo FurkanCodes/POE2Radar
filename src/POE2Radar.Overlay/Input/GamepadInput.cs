@@ -94,13 +94,6 @@ public static class GamepadInput
         return true;
     }
 
-    public static bool IsConnected(int userIndex = -1)
-    {
-        var idx = userIndex < 0 ? (int)_userIndex : Math.Clamp(userIndex, 0, 3);
-        var state = new XINPUT_STATE();
-        return XInputGetState((uint)idx, ref state) == 0;
-    }
-
     private static bool TryReadButtons(out ushort buttons)
     {
         var state = new XINPUT_STATE();

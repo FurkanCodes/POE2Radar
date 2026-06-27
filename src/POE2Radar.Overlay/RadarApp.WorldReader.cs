@@ -5,7 +5,6 @@ using POE2Radar.Core.Pathfinding;
 using POE2Radar.Overlay.Navigation;
 using POE2Radar.Overlay.Web;
 using POE2Radar.Overlay.Config;
-using POE2Radar.Overlay.Input;
 
 namespace POE2Radar.Overlay;
 
@@ -28,26 +27,16 @@ public sealed partial class RadarApp
     private void RunWorldTick()
     {
         var worldStart = System.Diagnostics.Stopwatch.GetTimestamp();
-        var priorGame = _worldGameContext;
-        if (!_worldLive.TryCaptureGameContext(out _worldGameContext))
+        var inGame = _worldLive.TryResolve(out var inGameState, out var areaInstance, out var localPlayer);
+        if (!inGame)
         {
             _snapshot = WorldSnapshot.Empty;
             _state = RadarState.Empty;
             _worldTickMs = 0;
-            _entityContext = EntityContextSnapshot.Invalid;
             if (_atlasOpen) CloseAtlasSession();
             ResetLootSession();
             return;
         }
-
-        var game = _worldGameContext;
-        if (game.AreaChanged(priorGame))
-            _worldLive.OnAreaInstanceChanged(priorGame.AreaInstance, game.AreaInstance);
-
-        var inGameState = game.InGameState;
-        var areaInstance = game.AreaInstance;
-        var localPlayer = game.LocalPlayer;
-        var inGame = true;
 
         if (areaInstance != _lastAreaInstance)
         {
@@ -58,13 +47,13 @@ public sealed partial class RadarApp
         }
         _areaInstanceForApi = areaInstance;
         _inGameStateForApi = inGameState;
-        _areaHash = game.AreaHash;
+        _areaHash = _worldLive.AreaHash(areaInstance);
         var areaHash = _areaHash;
-        var areaLevel = game.AreaLevel;
-        _areaCode = game.AreaCode;
+        var areaLevel = _worldLive.AreaLevel(areaInstance);
+        _areaCode = _worldLive.AreaCode(areaInstance);
         var charLevel = _worldLive.PlayerLevel(localPlayer);
         _charLevel = charLevel;
-        var player = game.PlayerGrid ?? NumVec2.Zero;
+        var player = _worldLive.PlayerGrid(localPlayer) ?? NumVec2.Zero;
 
         if (!_atlasWarmupDone)
         {
@@ -73,12 +62,7 @@ public sealed partial class RadarApp
         }
 
         var atlasStart = System.Diagnostics.Stopwatch.GetTimestamp();
-        ResolveGameClientSize(out var winW, out var winH);
-        _worldUiContext = UiContextSnapshot.Capture(
-            _worldReader, _worldLive, game, winW, winH,
-            probeHint: _worldLive.LootProbeHint,
-            allowAnchorScan: false);
-        UpdateAtlas(game, _worldUiContext);
+        UpdateAtlas(inGameState);
         _atlasUpdateMs = (float)System.Diagnostics.Stopwatch.GetElapsedTime(atlasStart).TotalMilliseconds;
 
         var entities = new List<Poe2Live.EntityDot>();
@@ -168,12 +152,9 @@ public sealed partial class RadarApp
         var serverIconArray = _serverIcons as Poe2Live.ServerMinimapIcon[] ?? _serverIcons.ToArray();
         var mapServerIcons = BuildMapServerIconRenderItems(serverIconArray, entityArray, landmarkArray, _areaCode);
 
-        ResolveGameClientSize(out winW, out winH);
+        ResolveGameClientSize(out var winW, out var winH);
         if (!_atlasOpen)
-        {
-            var entityCtx = BuildEntityContext(areaInstance, areaHash, areaLevel, entityArray);
-            UpdateLootWorld(game, entityCtx, winW, winH);
-        }
+            UpdateLootWorld(inGameState, areaInstance, areaLevel, areaHash, entityArray, winW, winH);
         var itemLabels = _atlasOpen ? Array.Empty<ItemLabelSpec>() : BuildItemLabels(entityArray).ToArray();
 
         _snapshot = new WorldSnapshot(
@@ -526,15 +507,5 @@ public sealed partial class RadarApp
         return metadata.Contains("Door", StringComparison.OrdinalIgnoreCase)
             || metadata.Contains("Blockage", StringComparison.OrdinalIgnoreCase)
             || metadata.Contains("Barricade", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private EntityContextSnapshot BuildEntityContext(nint areaInstance, uint areaHash, int areaLevel,
-        IReadOnlyList<Poe2Live.EntityDot> entities)
-    {
-        _entityContextGeneration++;
-        _entityContext = EntityContextSnapshot.FromWorld(
-            new WorldEntitySource(true, areaInstance, areaHash, areaLevel, entities),
-            _entityContextGeneration);
-        return _entityContext;
     }
 }
