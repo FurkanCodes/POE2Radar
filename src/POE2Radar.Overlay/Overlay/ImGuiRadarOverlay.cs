@@ -1608,7 +1608,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 $"world {p.WorldMs:F1} ms   draw {p.RenderMs:F1} ms   map {p.MapMs:F1}   paths {p.PathsMs:F1}   hp {p.HpBarsMs:F1}");
             var fp = ctx.FeaturePerf;
             TextColoredUnformatted(new Vector4(0.78f, 0.88f, 1f, 1f),
-                $"ctx game {fp.GameContextMs:F2} ui {fp.UiContextMs:F2}   ritual {fp.RitualMs:F2} loot {fp.LootTagsMs:F2} mapUi {fp.MapUiMs:F2} atlas {fp.AtlasMs:F2}");
+                $"ctx game {fp.GameContextMs:F2} ui {fp.UiContextMs:F2}   ritual {fp.RitualMs:F2} loot {fp.LootTagsMs:F2} mapUi {fp.MapUiMs:F2} atlas {fp.AtlasMs:F2} api {fp.ApiSerializeMs:F2}");
             TextColoredUnformatted(new Vector4(0.85f, 0.85f, 0.85f, 1f),
                 $"reads total {p.TotalReadsPerSec / 1000f:F1}k/s   main {p.MainReadsPerSec / 1000f:F1}k/s   world {p.WorldReadsPerSec / 1000f:F1}k/s   {p.TotalMibPerSec:F2} MiB/s");
             TextColoredUnformatted(new Vector4(0.85f, 0.85f, 0.85f, 1f),

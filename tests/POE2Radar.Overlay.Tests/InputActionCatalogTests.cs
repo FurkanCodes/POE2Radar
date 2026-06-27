@@ -42,4 +42,11 @@ public sealed class InputActionCatalogTests
         Assert.True(InputActionCatalog.UsesGamepadBindings(settings));
         Assert.True(HotkeyPoll.UsesGamepadBindings(settings));
     }
+
+    [Fact]
+    public void DashboardRows_MatchCatalogCount()
+    {
+        var html = InputActionCatalog.RenderDashboardRows();
+        Assert.Equal(InputActionCatalog.All.Count, html.Split("data-hk-bind=", StringSplitOptions.None).Length - 1);
+    }
 }

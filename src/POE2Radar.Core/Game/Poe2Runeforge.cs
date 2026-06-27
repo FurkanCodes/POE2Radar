@@ -22,10 +22,70 @@ public sealed class Poe2Runeforge
 
     public bool PanelOpen { get; private set; }
 
-    public List<RuneReward> ReadRewards(nint inGameState, float winW, float winH)
+    public readonly record struct RuneforgeWindowState(bool Open, nint PanelRoot, int RewardCount);
+
+    /// <summary>Cheap open probe — does not read reward rows unless the panel was already cached open.</summary>
+    public RuneforgeWindowState ReadWindowState(nint inGameState, UiContextSnapshot ui, float winW, float winH)
+    {
+        var scanRoot = ResolveScanRoot(inGameState, ui);
+        if (scanRoot == 0)
+        {
+            PanelOpen = false;
+            _panel = 0;
+            return new RuneforgeWindowState(false, 0, 0);
+        }
+
+        if (_panel != 0 && PanelOpen)
+            return new RuneforgeWindowState(true, _panel, 0);
+
+        var now = DateTime.UtcNow;
+        if (_panel == 0 && now < _nextResolveUtc)
+            return new RuneforgeWindowState(false, 0, 0);
+
+        var titleEl = FindTitleElement(scanRoot);
+        if (titleEl == 0)
+        {
+            PanelOpen = false;
+            _panel = 0;
+            _nextResolveUtc = now.AddMilliseconds(ColdResolveThrottleMs);
+            return new RuneforgeWindowState(false, 0, 0);
+        }
+
+        _panel = Walk(scanRoot, 0);
+        if (_panel == 0) _panel = FindPanelByTitle(scanRoot, titleEl);
+        _nextResolveUtc = now.AddMilliseconds(_panel == 0 ? ColdResolveThrottleMs : HotResolveThrottleMs);
+        PanelOpen = _panel != 0;
+        return new RuneforgeWindowState(PanelOpen, _panel, 0);
+    }
+
+    public void ResetSession()
     {
         PanelOpen = false;
-        var gameUi = Ptr(inGameState + Poe2.InGameState.UiRoot);
+        _panel = 0;
+        _viewport = 0;
+        _nextResolveUtc = DateTime.MinValue;
+    }
+
+    private nint ResolveScanRoot(nint inGameState, UiContextSnapshot ui)
+    {
+        if (ui.Valid)
+        {
+            if (ui.GameUi != 0) return ui.GameUi;
+            if (ui.GameUiController != 0) return ui.GameUiController;
+            if (ui.FixedUiRoot != 0) return ui.FixedUiRoot;
+            foreach (var branch in ui.Branches)
+                if (branch != 0) return branch;
+        }
+        return inGameState != 0 ? Ptr(inGameState + Poe2.InGameState.UiRoot) : 0;
+    }
+
+    public List<RuneReward> ReadRewards(nint inGameState, float winW, float winH)
+        => ReadRewards(inGameState, UiContextSnapshot.Invalid, winW, winH);
+
+    public List<RuneReward> ReadRewards(nint inGameState, UiContextSnapshot ui, float winW, float winH)
+    {
+        PanelOpen = false;
+        var gameUi = ResolveScanRoot(inGameState, ui);
         if (gameUi == 0) { _panel = 0; return new List<RuneReward>(); }
 
         var now = DateTime.UtcNow;
@@ -272,6 +332,21 @@ public sealed class Poe2Runeforge
         return best;
     }
 
+    private static (float w, float h) ScaleValue(byte idx, float mul, float winW, float winH)
+    {
+        if (mul == 0f) mul = 1f;
+        var v1 = winW / (float)Poe2.UiElement.BaseResW;
+        var v2 = winH / (float)Poe2.UiElement.BaseResH;
+        float w = mul, h = mul;
+        switch (idx)
+        {
+            case 1: w *= v1; h *= v1; break;
+            case 2: w *= v2; h *= v2; break;
+            case 3: w *= v1; h *= v2; break;
+        }
+        return (w, h);
+    }
+
     private bool TryScreenRect(nint row, NumVec2 scroll, float winW, float winH, out NumVec2 pos, out NumVec2 size)
     {
         pos = default; size = default;
@@ -288,55 +363,9 @@ public sealed class Poe2Runeforge
         return size.X > 1f && size.Y > 1f;
     }
 
-    /// <summary>Loot-tag style rect (no viewport scroll) — matches Poe2Live.TryUiElementRect.</summary>
+    /// <summary>Loot-tag style rect (no viewport scroll) — delegates to <see cref="UiProjector"/>.</summary>
     private bool TryUiRect(nint el, float winW, float winH, out float x, out float y, out float w, out float h)
-    {
-        x = y = w = h = 0f;
-        if (el == 0 || !Visible(el)) return false;
-        if (!_reader.TryReadStruct<byte>(el + Poe2.UiElement.UiScaleIndex, out var idx)) return false;
-        _reader.TryReadStruct<float>(el + Poe2.UiElement.LocalScaleMul, out var mul);
-        _reader.TryReadStruct<float>(el + Poe2.UiElement.SizeW, out var uw);
-        _reader.TryReadStruct<float>(el + Poe2.UiElement.SizeH, out var uh);
-        var (sw, sh) = ScaleValue(idx, mul, winW, winH);
-        if (sw <= 0f || sh <= 0f) return false;
-        var (px, py) = UiUnscaledPos(el, 0, winW, winH);
-        if (!float.IsFinite(px) || !float.IsFinite(py)) return false;
-        x = px * sw; y = py * sh; w = uw * sw; h = uh * sh;
-        return w > 1f && h > 1f;
-    }
-
-    private static (float w, float h) ScaleValue(byte idx, float mul, float winW, float winH)
-    {
-        if (mul == 0f) mul = 1f;
-        var v1 = winW / (float)Poe2.UiElement.BaseResW;
-        var v2 = winH / (float)Poe2.UiElement.BaseResH;
-        float w = mul, h = mul;
-        switch (idx)
-        {
-            case 1: w *= v1; h *= v1; break;
-            case 2: w *= v2; h *= v2; break;
-            case 3: w *= v1; h *= v2; break;
-        }
-        return (w, h);
-    }
-
-    private (float x, float y) UiUnscaledPos(nint el, int depth, float winW, float winH)
-    {
-        _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos, out var lx);
-        _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos + 4, out var ly);
-        var parent = Ptr(el + Poe2.UiElement.Parent);
-        if (parent == 0 || depth >= 64) return (lx, ly);
-
-        var (ppx, ppy) = UiUnscaledPos(parent, depth + 1, winW, winH);
-        if (_reader.TryReadStruct<uint>(el + Poe2.UiElement.Flags, out var flags)
-            && (flags & (1u << Poe2.UiElement.FlagModifyPosBit)) != 0)
-        {
-            _reader.TryReadStruct<float>(el + Poe2.UiElement.UiPositionModifier, out var mx);
-            _reader.TryReadStruct<float>(el + Poe2.UiElement.UiPositionModifier + 4, out var my);
-            ppx += mx; ppy += my;
-        }
-        return (ppx + lx, ppy + ly);
-    }
+        => UiProjector.TryRect(_reader, el, winW, winH, out x, out y, out w, out h);
 
     private NumVec2 UnscaledPos(nint el, int depth, NumVec2 scroll, float winW, float winH)
     {

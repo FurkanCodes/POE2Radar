@@ -37,7 +37,7 @@ public sealed partial class RadarApp
     private void InitRitualHelper()
     {
         _ritualShop = new Poe2RitualShop(_reader, _live);
-        _panelCatalog = new Poe2PanelCatalog(_ritualShop);
+        _panelCatalog = new Poe2PanelCatalog(_ritualShop, _runeforgeLive, _atlas);
         var cfg = _settings.RitualHelper;
         _ritualPriceBook = new RitualPriceBook(
             Path.Combine(ConfigDir, "ritual_prices.json"),
@@ -88,7 +88,7 @@ public sealed partial class RadarApp
 
         var allowLocate = cfg.ForceBfsFallback || _ritualShop.PanelOpen || _ritualShop.LastIdleProbeFastPathHit;
         var preferController = ui.Valid && ui.PreferController;
-        var panels = _panelCatalog.CaptureRitualWindow(game, ui, allowLocate, preferController);
+        var panels = _panelCatalog.Capture(game, ui, allowLocate, preferController);
         var ritual = panels.Ritual;
         var open = ritual.Open;
         var pathKind = $"{_ritualShop.LastIdleProbeKind} fast={ritual.FastPathHit}";

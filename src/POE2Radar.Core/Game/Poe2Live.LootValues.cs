@@ -131,59 +131,7 @@ public sealed partial class Poe2Live
 
     public bool TryUiElementRect(nint el, float winW, float winH, out float x, out float y, out float w, out float h,
         string? requireFirstLine = null, bool requireVisible = true)
-    {
-        x = y = w = h = 0f;
-        if (el == 0) return false;
-        if (!_reader.TryReadStruct<uint>(el + Poe2.UiElement.Flags, out var flags)) return false;
-        if (requireVisible && (flags & (1u << Poe2.UiElement.FlagVisibleBit)) == 0) return false;
-        if (requireFirstLine is { Length: > 0 })
-        {
-            var t = ReadStdWString(el + Poe2.UiElement.Text);
-            var nl = t.IndexOf('\n');
-            if (!string.Equals((nl >= 0 ? t[..nl] : t).Trim(), requireFirstLine, StringComparison.Ordinal)) return false;
-        }
-        if (!_reader.TryReadStruct<byte>(el + Poe2.UiElement.UiScaleIndex, out var idx)) return false;
-        _reader.TryReadStruct<float>(el + Poe2.UiElement.LocalScaleMul, out var mul);
-        _reader.TryReadStruct<System.Numerics.Vector2>(el + Poe2.UiElement.SizeW, out var sz);
-        var (sw, sh) = UiScaleValue(idx, mul, winW, winH);
-        if (sw <= 0f || sh <= 0f) return false;
-        var (px, py) = UiUnscaledPos(el, 0, winW, winH);
-        if (!float.IsFinite(px) || !float.IsFinite(py)) return false;
-        x = px * sw; y = py * sh; w = sz.X * sw; h = sz.Y * sh;
-        return w > 1f && h > 1f;
-    }
-
-    private static (float w, float h) UiScaleValue(byte idx, float mul, float winW, float winH)
-    {
-        if (mul == 0f) mul = 1f;
-        var v1 = winW / (float)Poe2.UiElement.BaseResW;
-        var v2 = winH / (float)Poe2.UiElement.BaseResH;
-        float w = mul, h = mul;
-        switch (idx)
-        {
-            case 1: w *= v1; h *= v1; break;
-            case 2: w *= v2; h *= v2; break;
-            case 3: w *= v1; h *= v2; break;
-        }
-        return (w, h);
-    }
-
-    private (float x, float y) UiUnscaledPos(nint el, int depth, float winW, float winH)
-    {
-        _reader.TryReadStruct<System.Numerics.Vector2>(el + Poe2.UiElement.RelativePos, out var rel);
-        var parent = Ptr(el + Poe2.UiElement.Parent);
-        if (parent == 0 || depth >= 64) return (rel.X, rel.Y);
-
-        var (ppx, ppy) = UiUnscaledPos(parent, depth + 1, winW, winH);
-
-        if (_reader.TryReadStruct<uint>(el + Poe2.UiElement.Flags, out var flags)
-            && (flags & (1u << Poe2.UiElement.FlagModifyPosBit)) != 0)
-        {
-            _reader.TryReadStruct<System.Numerics.Vector2>(el + Poe2.UiElement.UiPositionModifier, out var mod);
-            ppx += mod.X; ppy += mod.Y;
-        }
-        return (ppx + rel.X, ppy + rel.Y);
-    }
+        => UiProjector.TryRect(_reader, el, winW, winH, out x, out y, out w, out h, requireFirstLine, requireVisible);
 
     public readonly record struct RitualReward(
         Rarity Rarity, string? Art, string? Name, bool Identified, float X, float Y, float W, float H);

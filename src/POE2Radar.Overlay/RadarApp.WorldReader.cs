@@ -72,7 +72,12 @@ public sealed partial class RadarApp
         }
 
         var atlasStart = System.Diagnostics.Stopwatch.GetTimestamp();
-        UpdateAtlas(inGameState);
+        ResolveGameClientSize(out var winW, out var winH);
+        var preferController = _settings.GamepadHotkeysEnabled
+            || Input.GamepadInput.IsConnected(_settings.GamepadUserIndex);
+        _worldUiContext = UiContextSnapshot.Capture(
+            _worldReader, _worldLive, game, winW, winH, preferController, allowAnchorScan: false);
+        UpdateAtlas(game, _worldUiContext);
         _atlasUpdateMs = (float)System.Diagnostics.Stopwatch.GetElapsedTime(atlasStart).TotalMilliseconds;
 
         var entities = new List<Poe2Live.EntityDot>();
@@ -162,9 +167,12 @@ public sealed partial class RadarApp
         var serverIconArray = _serverIcons as Poe2Live.ServerMinimapIcon[] ?? _serverIcons.ToArray();
         var mapServerIcons = BuildMapServerIconRenderItems(serverIconArray, entityArray, landmarkArray, _areaCode);
 
-        ResolveGameClientSize(out var winW, out var winH);
+        ResolveGameClientSize(out winW, out winH);
         if (!_atlasOpen)
-            UpdateLootWorld(game, snapEntityContext: BuildEntityContext(areaInstance, areaHash, areaLevel, entityArray), winW, winH);
+        {
+            var entityCtx = BuildEntityContext(areaInstance, areaHash, areaLevel, entityArray);
+            UpdateLootWorld(game, entityCtx, _worldUiContext, winW, winH);
+        }
         var itemLabels = _atlasOpen ? Array.Empty<ItemLabelSpec>() : BuildItemLabels(entityArray).ToArray();
 
         _snapshot = new WorldSnapshot(

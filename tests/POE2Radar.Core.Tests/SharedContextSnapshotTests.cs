@@ -40,5 +40,6 @@ public sealed class SharedContextSnapshotTests
     public void PanelCatalog_Invalid_Default()
     {
         Assert.False(PanelCatalogSnapshot.Invalid.Valid);
+        Assert.False(PanelCatalogSnapshot.Invalid.Atlas.Open);
     }
 }

@@ -793,7 +793,7 @@ public sealed class Poe2RitualShop
             if (MatchesSignature(el))
             {
                 sigHits++;
-                if (_live.TryUiElementRect(el, winW, winH, out var x, out var y, out var w, out var h, requireVisible: false))
+                if (UiProjector.TryRect(_reader, el, winW, winH, out var x, out var y, out var w, out var h, requireVisible: false))
                 {
                     minX = MathF.Min(minX, x);
                     minY = MathF.Min(minY, y);
@@ -1065,7 +1065,7 @@ public sealed class Poe2RitualShop
             var nl = text.IndexOf('\n');
             var line = (nl >= 0 ? text[..nl] : text).Trim();
             if (!LooksLikeItemLabel(line) || !seenText.Add(line)) continue;
-            if (!_live.TryUiElementRect(el, winW, winH, out var x, out var y, out var w, out var h, requireVisible: false))
+            if (!UiProjector.TryRect(_reader, el, winW, winH, out var x, out var y, out var w, out var h, requireVisible: false))
                 continue;
 
             result.Add(new Poe2Live.RitualReward(

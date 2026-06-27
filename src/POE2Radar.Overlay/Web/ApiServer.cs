@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Reflection;
 using System.Text;
@@ -65,6 +66,7 @@ public sealed class ApiServer : IDisposable
     private readonly Func<object>? _prices;
     private readonly Action? _priceRefresh;
     private readonly Action<string?>? _priceLeague;
+    private readonly Action<double>? _recordApiSerialize;
     private volatile bool _running;
 
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
@@ -88,9 +90,11 @@ public sealed class ApiServer : IDisposable
         int port = 7777,
         Func<object>? priceProvider = null,
         Action? priceRefresh = null,
-        Action<string?>? priceLeague = null)
+        Action<string?>? priceLeague = null,
+        Action<double>? recordApiSerialize = null)
     {
         _state = state;
+        _recordApiSerialize = recordApiSerialize;
         _atlas = atlasProvider;
         _atlasSelect = atlasSelect;
         _atlasHighlight = atlasHighlight;
@@ -144,14 +148,14 @@ public sealed class ApiServer : IDisposable
                 break;
 
             case "/health":
-                Write(ctx, 200, JsonSerializer.Serialize(new { ok = true, inGame = s.InGame }, Json));
+                WriteJson(ctx, 200, new { ok = true, inGame = s.InGame });
                 break;
 
             case "/state":
             {
                 var counts = s.Entities.GroupBy(e => e.Category)
                     .ToDictionary(g => g.Key.ToString(), g => g.Count());
-                Write(ctx, 200, JsonSerializer.Serialize(new
+                WriteJson(ctx, 200, new
                 {
                     // Character name + level intentionally omitted (privacy: this endpoint is local
                     // but unauthenticated, and screenshots/streams shouldn't leak the character).
@@ -173,7 +177,7 @@ public sealed class ApiServer : IDisposable
                     perf = s.Perf,
                     featurePerf = s.FeaturePerf,
                     counts,
-                }, Json));
+                });
                 break;
             }
 
@@ -1446,6 +1450,14 @@ public sealed class ApiServer : IDisposable
 
     private static float Dist(System.Numerics.Vector2 a, System.Numerics.Vector2 b)
         => (a - b).Length();
+
+    private void WriteJson(HttpListenerContext ctx, int status, object payload)
+    {
+        var start = Stopwatch.GetTimestamp();
+        var body = JsonSerializer.Serialize(payload, Json);
+        _recordApiSerialize?.Invoke(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+        Write(ctx, status, body);
+    }
 
     private static void Write(HttpListenerContext ctx, int status, string body)
     {

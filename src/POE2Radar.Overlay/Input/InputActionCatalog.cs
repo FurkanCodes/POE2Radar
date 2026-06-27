@@ -12,7 +12,7 @@ public sealed record InputAction(
     Action<RadarSettings, int> SetBinding,
     string Hint);
 
-public static class InputActionCatalog
+public static partial class InputActionCatalog
 {
     public static IReadOnlyList<InputAction> All { get; } = BuildAll();
 

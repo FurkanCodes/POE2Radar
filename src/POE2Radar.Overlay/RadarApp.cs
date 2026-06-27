@@ -58,6 +58,7 @@ public sealed partial class RadarApp : IDisposable
     private GameContextSnapshot _mainGameContext = GameContextSnapshot.Invalid;
     private GameContextSnapshot _worldGameContext = GameContextSnapshot.Invalid;
     private UiContextSnapshot _mainUiContext = UiContextSnapshot.Invalid;
+    private UiContextSnapshot _worldUiContext = UiContextSnapshot.Invalid;
     private EntityContextSnapshot _entityContext = EntityContextSnapshot.Invalid;
     private long _entityContextGeneration;
     private Poe2PanelCatalog _panelCatalog = null!;
@@ -531,7 +532,8 @@ public sealed partial class RadarApp : IDisposable
         _api = new ApiServer(() => _state, _settings, GetNavSelection, ToggleNavTarget, ClearNavSelection,
                              _hidden, _displayRules, _zoneOverrides, _ruleEngine, _landmarkStore, CurrentTilePaths,
                              AtlasJson, SetAtlasSelection, SetAtlasHighlight, VersionJson, _settings.ApiPort,
-                             PriceBookStatus, RefreshPriceBook, SetPriceLeague);
+                             PriceBookStatus, RefreshPriceBook, SetPriceLeague,
+                             recordApiSerialize: ms => _featurePerf.RecordApiSerialize(ms));
         try { _api.Start(); Console.WriteLine($"API on http://localhost:{_settings.ApiPort} (dashboard at /)"); }
         catch (Exception ex) { Console.Error.WriteLine($"API server disabled: {ex.Message}"); }
         Console.WriteLine("Hotkeys: configurable in dashboard (Settings → Hotkeys) or overlay settings. "
@@ -942,17 +944,17 @@ public sealed partial class RadarApp : IDisposable
                 0f);
         var playerTerrainHeight = _live.PlayerTerrainHeight(localPlayer);
 
-        if (_atlasOpen && (!_atlas.IsAtlasOpen(inGameState) || !_atlas.IsCanvasLive()))
+        if (_atlasOpen && (!_atlas.IsAtlasOpen(game.InGameState) || !_atlas.IsCanvasLive()))
             CloseAtlasSession();
 
         var maps = _cachedMaps;
         if (!_atlasOpen && drawActive)
         {
             var mapStart = Stopwatch.GetTimestamp();
-            maps = _live.ReadMaps(inGameState, areaInstance, windowWidth, windowHeight);
+            maps = _live.ReadMaps(game.InGameState, game.AreaInstance, windowWidth, windowHeight);
             _cachedMaps = maps;
             if (_settings.ShowPerfStats)
-                _mapDiag = _live.MapDiagnostics(inGameState, windowWidth, windowHeight);
+                _mapDiag = _live.MapDiagnostics(game.InGameState, windowWidth, windowHeight);
             _featurePerf.RecordMapUi(FeaturePerfAccumulator.ElapsedMs(mapStart));
         }
 
@@ -977,7 +979,7 @@ public sealed partial class RadarApp : IDisposable
             _flaskNote = _autoFlask ? "paused (PoE2 not focused)" : "OFF (F8)";
 
         return new LiveFrameState(
-            true, inGameState, areaInstance, localPlayer, player, playerWorld, playerTerrainHeight,
+            true, game.InGameState, game.AreaInstance, game.LocalPlayer, player, playerWorld, playerTerrainHeight,
             maps, _areaHash, _cameraMatrix);
     }
 
@@ -2448,8 +2450,15 @@ public sealed partial class RadarApp : IDisposable
         _atlasPanelOpenSince = DateTime.MinValue;
     }
 
-    private void UpdateAtlas(nint inGameState)
+    private void UpdateAtlas(GameContextSnapshot game, UiContextSnapshot ui)
     {
+        if (!game.Valid) return;
+        var inGameState = game.InGameState;
+        var overlayW = ui.Valid ? ui.WindowWidth : OverlayWidth;
+        var overlayH = ui.Valid ? ui.WindowHeight : OverlayHeight;
+        if (overlayW <= 0 || overlayH <= 0)
+            ResolveGameClientSize(out overlayW, out overlayH);
+
         if (!_atlas.IsAtlasOpen(inGameState))
         {
             _atlasPanelOpenSince = DateTime.MinValue;
@@ -2480,7 +2489,7 @@ public sealed partial class RadarApp : IDisposable
         var readMode = _builtAtlasOnce && _atlas.AllTagsResolved
             ? AtlasNodeReadMode.Positions
             : AtlasNodeReadMode.Full;
-        var nodes = _atlas.ReadNodes(inGameState, readMode, OverlayWidth, OverlayHeight);
+        var nodes = _atlas.ReadNodes(inGameState, readMode, overlayW, overlayH);
         if (nodes.Count == 0)
         {
             var panelOpen = _atlas.IsAtlasOpen(inGameState);

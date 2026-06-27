@@ -57,7 +57,15 @@ public sealed class FeaturePerfAccumulator
     public void RecordLootTags(double ms) { _lootTagsTicks++; _lootTagsMs = Smooth(_lootTagsMs, ms); }
     public void RecordMapUi(double ms) => _mapUiMs = Smooth(_mapUiMs, ms);
     public void RecordAtlas(double ms) => _atlasMs = Smooth(_atlasMs, ms);
-    public void RecordApiSerialize(double ms) => _apiSerializeMs = Smooth(_apiSerializeMs, ms);
+    public void RecordApiSerialize(double ms)
+    {
+        lock (_apiLock)
+        {
+            _apiSerializeMs = Smooth(_apiSerializeMs, ms);
+        }
+    }
+
+    private readonly object _apiLock = new();
     public void RecordRenderBuild(double ms) => _renderBuildMs = Smooth(_renderBuildMs, ms);
 
     public static double ElapsedMs(long start)
