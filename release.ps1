@@ -123,8 +123,16 @@ Stage-OverlayAssets $outDir
 
 Write-Host "Materializing built-in SVG icon library..."
 $exe = Join-Path $outDir "POE2Radar.Overlay.exe"
-& $exe --export-release-assets $outDir
-if ($LASTEXITCODE -ne 0) { throw "Icon export failed with exit code $LASTEXITCODE" }
+$iconMarker = Join-Path $outDir "icons\Circle.svg"
+for ($attempt = 1; $attempt -le 3; $attempt++) {
+    & $exe --export-release-assets $outDir
+    if ($LASTEXITCODE -ne 0) { throw "Icon export failed with exit code $LASTEXITCODE" }
+    if (Test-Path $iconMarker) { break }
+    Start-Sleep -Milliseconds 500
+}
+if (-not (Test-Path $iconMarker)) {
+    throw "Icon export did not produce icons\Circle.svg"
+}
 
 Copy-Item (Join-Path $root "README.md"), (Join-Path $root "LICENSE") $outDir -Force
 @"
