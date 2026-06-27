@@ -528,6 +528,14 @@ public sealed partial class RadarApp : IDisposable
             _settings.Save();
             Console.WriteLine("Strongbox defaults restored: labels + auto-path enabled.");
         }
+        if (!_settings.RareChestDisplayMigrated)
+        {
+            var rules = _displayRules.All.ToList();
+            if (DisplayRules.MigrateRareChestDisplay(rules, _settings.Styles)) _displayRules.Replace(rules);
+            _settings.RareChestDisplayMigrated = true;
+            _settings.Save();
+            Console.WriteLine("Rare chests: triangle icon, yellow Rare label; normal/magic chests hidden.");
+        }
         LogMissingHpBarTextures();
         _displayRulesGen = _ruleEngine.Generation;
         // User-editable overlay on the baked curated landmark table (the "Landmarks" tab). Inject its

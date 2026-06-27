@@ -412,11 +412,14 @@ public sealed partial class Poe2Live
             var terrainHeight = EntityTerrainHeight(entity) ?? 0f;
 
             var cat = Categorize(entity);
+            var meta = _meta.GetValueOrDefault(entity, "");
             int hpCur = 0, hpMax = 0;
             var rarity = Rarity.NonMonster;
             var opened = false;
             if (cat is EntityCategory.Monster or EntityCategory.Player) (hpCur, hpMax) = ReadHp(entity);
-            if (cat is EntityCategory.Monster or EntityCategory.Chest) rarity = ReadRarity(entity);
+            if (cat is EntityCategory.Monster or EntityCategory.Chest
+                || (IsChestMetadata(meta) && !IsBreakableProp(meta)))
+                rarity = ReadRarity(entity);
             // Chest component open state applies to chests, POIs, shrines, quest objects, etc. — not combat monsters.
             if (cat is not (EntityCategory.Monster or EntityCategory.Player))
                 opened = ReadChestOpened(entity);
@@ -428,7 +431,7 @@ public sealed partial class Poe2Live
             {
                 (rarity, itemArt, itemIdentified, itemName) = ReadItemIdentity(entity);
             }
-            byId[id] = new EntityDot(id, entity, g, wv, terrainHeight, cat, _meta.GetValueOrDefault(entity, ""), hpCur, hpMax,
+            byId[id] = new EntityDot(id, entity, g, wv, terrainHeight, cat, meta, hpCur, hpMax,
                 poi, ReadReaction(entity), rarity, opened, iconComplete, isSleeping, itemArt, itemIdentified, itemName);
             count++;
         }

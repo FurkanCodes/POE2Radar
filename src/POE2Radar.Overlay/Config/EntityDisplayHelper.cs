@@ -73,13 +73,17 @@ public static class EntityDisplayHelper
         if (rule is { HideLabel: true })
             return "";
 
+        if (ChestDisplayPolicy.ShouldShowPlainChestLabel(e, rule))
+            return RuleLabel(rule);
+
         if (ChestDisplayPolicy.IsPlainChestEntity(e)
             && (rule is null
                 || ChestDisplayPolicy.IsChestLootRule(rule.Name)
                 || ChestDisplayPolicy.IsChestLootPatternRule(rule)))
             return "";
 
-        if (rule is { Name: { Length: > 0 } rn } && ChestDisplayPolicy.IsChestLootRule(rn))
+        if (rule is { Name: { Length: > 0 } rn } && ChestDisplayPolicy.IsChestLootRule(rn)
+            && !ChestDisplayPolicy.IsRareChestRule(rn))
             return "";
 
         if (rule is { Name: { Length: > 0 } rn2 } && IsMechanicRuleName(rn2))

@@ -24,16 +24,46 @@ public sealed class ChestDisplayPolicyTests
     [Fact]
     public void ApplyIconOnlyDefaults_OnlyAffectsPlainChests()
     {
-        var chest = new DisplayRule { Name = "Chest · Rare", Label = "Chest · Rare", Navigable = true };
+        var chest = new DisplayRule { Name = "Chest · Unique", Label = "Chest · Unique", Navigable = true };
+        var rare = new DisplayRule { Name = "Chest · Rare", Label = "Rare", Navigable = true };
         var box = new DisplayRule { Name = "Strongbox · Jeweller", Label = "Strongbox · Jeweller", Navigable = true };
 
         Assert.True(ChestDisplayPolicy.ApplyIconOnlyDefaults(chest));
         Assert.False(chest.Navigable);
         Assert.Null(chest.Label);
 
+        Assert.False(ChestDisplayPolicy.ApplyIconOnlyDefaults(rare));
+        Assert.True(rare.Navigable);
+        Assert.Equal("Rare", rare.Label);
+
         Assert.False(ChestDisplayPolicy.ApplyIconOnlyDefaults(box));
         Assert.True(box.Navigable);
         Assert.Equal("Strongbox · Jeweller", box.Label);
+    }
+
+    [Theory]
+    [InlineData(Poe2Live.Rarity.Normal, true)]
+    [InlineData(Poe2Live.Rarity.Magic, true)]
+    [InlineData(Poe2Live.Rarity.Rare, false)]
+    [InlineData(Poe2Live.Rarity.Unique, false)]
+    public void ShouldHideNonRarePlainChest_onlyHidesNormalAndMagic(Poe2Live.Rarity rarity, bool hidden)
+    {
+        var e = new Poe2Live.EntityDot(
+            Id: 1,
+            Address: 0,
+            Grid: default,
+            World: default,
+            TerrainHeight: 0f,
+            Category: Poe2Live.EntityCategory.Chest,
+            Metadata: "Metadata/Chests/Leagues/Petrosphere/PetrosphereCluster01A",
+            HpCur: 0,
+            HpMax: 0,
+            Poi: false,
+            Reaction: 0,
+            Rarity: rarity,
+            Opened: false);
+
+        Assert.Equal(hidden, ChestDisplayPolicy.ShouldHideNonRarePlainChest(e));
     }
 
     [Fact]

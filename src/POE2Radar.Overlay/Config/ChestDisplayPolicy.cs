@@ -53,6 +53,24 @@ public static class ChestDisplayPolicy
 
     public static bool IsChestLootRule(string? name) => IsPlainChestRule(name);
 
+    public static bool IsRareChestRule(string? name)
+        => string.Equals(name, "Chest · Rare", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Plain chests that are not rare (or unique) should not draw on the map overlay.</summary>
+    public static bool ShouldHideNonRarePlainChest(Poe2Live.EntityDot e)
+        => IsPlainChestEntity(e)
+           && e.Rarity is not Poe2Live.Rarity.Rare
+           && e.Rarity is not Poe2Live.Rarity.Unique;
+
+    /// <summary>Rare loot chests show a yellow map chip; other plain chest rules stay icon-only.</summary>
+    public static bool ShouldShowPlainChestLabel(Poe2Live.EntityDot e, DisplayRule? rule)
+    {
+        if (!IsPlainChestEntity(e) || e.Rarity != Poe2Live.Rarity.Rare) return false;
+        if (rule is { HideLabel: true }) return false;
+        if (IsRareChestRule(rule?.Name)) return true;
+        return rule?.Label is { Length: > 0 };
+    }
+
     /// <summary>Watched / legacy rules for generic chest metadata (not StrongBoxes).</summary>
     public static bool IsChestLootPatternRule(DisplayRule rule)
     {
@@ -83,6 +101,7 @@ public static class ChestDisplayPolicy
     /// <summary>Apply icon-only defaults to plain chest rules. Returns true when changed.</summary>
     public static bool ApplyIconOnlyDefaults(DisplayRule rule)
     {
+        if (IsRareChestRule(rule.Name)) return false;
         if (!IsChestLootRule(rule.Name) && !IsChestLootPatternRule(rule)) return false;
 
         var changed = false;

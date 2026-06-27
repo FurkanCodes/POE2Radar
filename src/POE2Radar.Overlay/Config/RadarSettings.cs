@@ -291,6 +291,9 @@ public sealed class RadarSettings
     /// <summary>One-time: restore strongbox labels + auto-path after chest-only icon pass.</summary>
     public bool StrongboxDefaultsRestoredMigrated { get; set; }
 
+    /// <summary>One-time: rare chests use triangle icon + yellow Rare label; hide normal/magic chests.</summary>
+    public bool RareChestDisplayMigrated { get; set; }
+
     // ── HTTP API. ──
     public int ApiPort { get; set; } = 7777;
 
@@ -703,7 +706,7 @@ public sealed class RadarStyles
     // Other entity categories.
     public IconStyle Player        { get; set; } = new("Circle",  "#4DF2FF", 1.00f, 9.0f, SpriteIconRef.Cell(2, 0, 1.25f));
     public IconStyle Npc           { get; set; } = new("Plus",    "#FFD933", 0.95f, 9.0f, SpriteIconRef.Cell(3, 0, 1.25f));
-    public IconStyle ChestRare     { get; set; } = new("Square",  "#FFD926", 0.95f, 10.0f, SpriteIconRef.Cell(4, 48, 1.25f));
+    public IconStyle ChestRare     { get; set; } = new("Triangle", "#FFFF77", 1.00f, 10.0f, SpriteIconRef.Cell(4, 57, 1.25f));
     public IconStyle ChestUnique   { get; set; } = new("Square",  "#FF7300", 0.95f, 10.0f, SpriteIconRef.Cell(8, 38, 1.25f));
     public IconStyle Transition    { get; set; } = new("Diamond", "#66FF99", 0.95f, 10.0f, SpriteIconRef.Cell(1, 37, 1.25f));
     public IconStyle Poi           { get; set; } = new("Circle",  "#8CBFFF", 0.70f, 10.0f, SpriteIconRef.Cell(12, 44, 1.25f));

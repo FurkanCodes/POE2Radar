@@ -300,13 +300,32 @@ public sealed partial class RadarApp
         {
             var rule = _ruleEngine.Resolve(e, areaCode, _settings.ImportantOnly, entities);
             if (rule is { Hide: true }) continue;
+            if (ChestDisplayPolicy.ShouldHideNonRarePlainChest(e)) continue;
             if (_settings.ImportantOnly && EntityImportanceHelper.IsTrash(EntityImportanceHelper.Classify(e, _settings.Styles, rule)))
                 continue;
 
-            var (sprite, shape, size, color, opacity) = rule is not null
-                ? (rule.Sprite, rule.Shape, rule.Size, rule.Color, rule.Opacity)
-                : EntityDrawStyleFor(e, _settings.Styles);
-            var label = EntityDisplayHelper.FormatEntityLabel(e, rule, entities, areaCode);
+            string label;
+            SpriteIconRef? sprite;
+            string? shape;
+            float size;
+            string color;
+            float opacity;
+            if (rule is not null)
+            {
+                (sprite, shape, size, color, opacity) = (rule.Sprite, rule.Shape, rule.Size, rule.Color, rule.Opacity);
+                label = EntityDisplayHelper.FormatEntityLabel(e, rule, entities, areaCode);
+            }
+            else if (ChestDisplayPolicy.IsPlainChestEntity(e) && e.Rarity == Poe2Live.Rarity.Rare)
+            {
+                var st = _settings.Styles.ChestRare;
+                (sprite, shape, size, color, opacity) = (st.Sprite, st.Shape, st.Size, st.Color, st.Opacity);
+                label = "Rare";
+            }
+            else
+            {
+                (sprite, shape, size, color, opacity) = EntityDrawStyleFor(e, _settings.Styles);
+                label = EntityDisplayHelper.FormatEntityLabel(e, rule, entities, areaCode);
+            }
             items.Add(new MapEntityRenderItem(
                 "e:" + e.Id,
                 e.Grid,
@@ -441,6 +460,7 @@ public sealed partial class RadarApp
         var s = e.Category switch
         {
             Poe2Live.EntityCategory.Chest when e.Rarity == Poe2Live.Rarity.Unique => styles.ChestUnique,
+            Poe2Live.EntityCategory.Chest when e.Rarity == Poe2Live.Rarity.Rare => styles.ChestRare,
             Poe2Live.EntityCategory.Chest => styles.ChestRare,
             Poe2Live.EntityCategory.Npc => styles.Npc,
             Poe2Live.EntityCategory.Transition => styles.Transition,

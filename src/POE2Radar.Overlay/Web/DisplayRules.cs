@@ -115,7 +115,9 @@ public sealed class DisplayRules
     }
 
     public static bool IsStateHideRule(DisplayRule r)
-        => r.Hide && (r.Life == "Dead" || r.Chest == "Opened");
+        => r.Hide && (r.Life == "Dead" || r.Chest == "Opened"
+            || string.Equals(r.Name, "Hide normal chests", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(r.Name, "Hide magic chests", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Resolve a terrain TILE path to its first matching enabled rule of the special "Tile" category,
@@ -284,11 +286,13 @@ public sealed class DisplayRules
         });
         rules.Add(new DisplayRule
         {
-            Name = "Chest · Rare", Label = null, Navigable = false,
+            Name = "Chest · Rare", Label = "Rare", Navigable = false,
             Enabled = st.ChestRare.Enabled, Categories = new() { "Chest" }, Rarity = "Rare",
             Shape = st.ChestRare.Shape, Color = st.ChestRare.Color, Opacity = st.ChestRare.Opacity,
             Size = st.ChestRare.Size, Sprite = st.ChestRare.Sprite?.Clone(),
         });
+        rules.Add(new DisplayRule { Name = "Hide normal chests", Categories = new() { "Chest" }, Rarity = "Normal", Hide = true });
+        rules.Add(new DisplayRule { Name = "Hide magic chests", Categories = new() { "Chest" }, Rarity = "Magic", Hide = true });
         CatNav("Transition", "Transition", null, st.Transition, "Transition", navigable: true);
 
         // Server-authoritative minimap icons (sent by the server; visible before local entities spawn).
@@ -431,6 +435,54 @@ public sealed class DisplayRules
         });
     }
 
+    /// <summary>One-time: rare chest triangle icon + yellow label; hide normal/magic chest rows.</summary>
+    public static bool MigrateRareChestDisplay(List<DisplayRule> rules, RadarStyles styles)
+    {
+        var changed = false;
+        foreach (var r in rules)
+        {
+            if (!string.Equals(r.Name, "Chest · Rare", StringComparison.OrdinalIgnoreCase)) continue;
+            if (r.Label is not { Length: > 0 }) { r.Label = "Rare"; changed = true; }
+            if (!string.Equals(r.Shape, styles.ChestRare.Shape, StringComparison.OrdinalIgnoreCase))
+            {
+                r.Shape = styles.ChestRare.Shape;
+                changed = true;
+            }
+            if (!string.Equals(r.Color, styles.ChestRare.Color, StringComparison.OrdinalIgnoreCase))
+            {
+                r.Color = styles.ChestRare.Color;
+                changed = true;
+            }
+            r.Sprite ??= styles.ChestRare.Sprite?.Clone();
+            if (r.Sprite is null) { r.Sprite = SpriteCatalog.RareMonster().Clone(); changed = true; }
+            if (r.Size < 10f) { r.Size = 10f; changed = true; }
+        }
+
+        var names = new HashSet<string>(rules.Select(r => r.Name), StringComparer.OrdinalIgnoreCase);
+        var insertAt = rules.FindIndex(r => string.Equals(r.Name, "Hide opened chests", StringComparison.OrdinalIgnoreCase));
+        if (insertAt < 0) insertAt = 0;
+        else insertAt++;
+
+        if (!names.Contains("Hide normal chests"))
+        {
+            rules.Insert(insertAt++, new DisplayRule
+            {
+                Name = "Hide normal chests", Categories = new() { "Chest" }, Rarity = "Normal", Hide = true,
+            });
+            changed = true;
+        }
+        if (!names.Contains("Hide magic chests"))
+        {
+            rules.Insert(insertAt, new DisplayRule
+            {
+                Name = "Hide magic chests", Categories = new() { "Chest" }, Rarity = "Magic", Hide = true,
+            });
+            changed = true;
+        }
+
+        return changed;
+    }
+
     /// <summary>Apply default PNG sprites and minimum sizes to semantic rules (one-time migration).</summary>
     public static void ApplyIconDefaults(List<DisplayRule> rules)
     {
@@ -440,6 +492,7 @@ public sealed class DisplayRules
             {
                 case "Boss": r.Sprite ??= SpriteCatalog.Boss().Clone(); r.Size = Math.Max(r.Size, 12f); break;
                 case "Monster · Rare": r.Sprite ??= SpriteCatalog.RareMonster().Clone(); r.Size = Math.Max(r.Size, 10f); break;
+                case "Chest · Rare": r.Sprite ??= SpriteCatalog.RareMonster().Clone(); r.Size = Math.Max(r.Size, 10f); break;
                 case "Monster · Magic": r.Sprite ??= SpriteCatalog.MagicMonster().Clone(); r.Size = Math.Max(r.Size, 9f); break;
                 case "Monster · Normal": r.Sprite ??= SpriteCatalog.NormalMonster().Clone(); r.Size = Math.Max(r.Size, 9f); break;
                 case "Waypoint": r.Sprite ??= SpriteCatalog.Waypoint().Clone(); r.Size = Math.Max(r.Size, 10f); break;

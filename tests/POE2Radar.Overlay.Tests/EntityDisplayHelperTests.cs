@@ -42,4 +42,32 @@ public sealed class EntityDisplayHelperTests
 
         Assert.Equal("", EntityDisplayHelper.FormatEntityLabel(entity, rule));
     }
+
+    [Fact]
+    public void FormatEntityLabel_returns_rare_for_rare_chest_rule()
+    {
+        var entity = new Poe2Live.EntityDot(
+            Id: 1,
+            Address: 0,
+            Grid: default,
+            World: default,
+            TerrainHeight: 0f,
+            Category: Poe2Live.EntityCategory.Chest,
+            Metadata: "Metadata/Chests/Leagues/Petrosphere/PetrosphereCluster01A",
+            HpCur: 0,
+            HpMax: 0,
+            Poi: false,
+            Reaction: 0,
+            Rarity: Poe2Live.Rarity.Rare,
+            Opened: false);
+
+        var rule = new DisplayRule
+        {
+            Name = "Chest · Rare",
+            Label = "Rare",
+            Match = ["PetrosphereCluster"],
+        };
+
+        Assert.Equal("Rare", EntityDisplayHelper.FormatEntityLabel(entity, rule));
+    }
 }
