@@ -25,6 +25,7 @@ alwaysApply: true
 - [ ] Settings + migration + API + ImGui (if user-facing)
 - [ ] Tooltip/hint in `SettingHints` + ImGui + dashboard (if user-facing control)
 - [ ] Keyboard + gamepad (if bindable)
+- [ ] Dual UI branch probe via `GetUiBranches` (if HUD/panel UI read — see `ui-branch-probing.mdc`)
 - [ ] Perf: cadence/sleep, no hot-path LINQ
 - [ ] Unit test for pure logic / migration
 - [ ] `dotnet build` succeeds (x64)

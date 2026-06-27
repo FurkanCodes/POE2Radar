@@ -5,11 +5,12 @@ alwaysApply: true
 
 # POE2Radar Rules Index
 
-Always-on rules: **dual-input**, **performance**, **project-layout**, **threading-data-flow**, **automation-safety**, **security-privacy**, **change-discipline**, **git-workflow**, **settings-tooltips**.
+Always-on rules: **dual-input**, **ui-branch-probing**, **performance**, **project-layout**, **threading-data-flow**, **automation-safety**, **security-privacy**, **change-discipline**, **git-workflow**, **settings-tooltips**.
 
 | Rule file | When it applies |
 |-----------|-----------------|
 | `dual-input.mdc` | Hotkeys, gamepad, binding UIs |
+| `ui-branch-probing.mdc` | HUD/panel UI reads — `GameUi` vs `GameUiController` |
 | `performance.mdc` | Loops, cadence, CPU budget |
 | `project-layout.mdc` | Core / Overlay / Research boundaries |
 | `memory-offsets.mdc` | `Poe2Offsets`, `MemoryReader`, reads |

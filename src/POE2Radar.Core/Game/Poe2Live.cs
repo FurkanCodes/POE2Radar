@@ -874,7 +874,12 @@ public sealed partial class Poe2Live
     private nint _classifiedMiniEl;
     private nint _preferredUiAnchor;
     private nint _preferredUiAnchorIgs;
+    private Poe2UiAnchors.BranchKind _mapProbeHint;
+    private Poe2UiAnchors.BranchKind _lootProbeHint;
     private const int PreferredMapScoreThreshold = 4;
+
+    public Poe2UiAnchors.BranchKind MapProbeHint => _mapProbeHint;
+    public Poe2UiAnchors.BranchKind LootProbeHint => _lootProbeHint;
 
     /// <summary>
     /// Map UI state. The MapUiElements (DefaultShift=(0,-20), Zoom=0.5) are discovered once per area
@@ -900,6 +905,22 @@ public sealed partial class Poe2Live
     }
 
     private nint GetUiRoot(nint inGameState) => UiRootResolver.Resolve(_reader, inGameState);
+
+    private readonly nint[] _uiBranchBuf = new nint[6];
+
+    /// <summary>Parallel UI trees — panel readers must probe every branch (KBM vs controller).</summary>
+    public ReadOnlySpan<nint> GetUiBranches(nint inGameState)
+        => GetUiBranches(inGameState, Poe2UiAnchors.BranchKind.None);
+
+    public ReadOnlySpan<nint> GetUiBranches(nint inGameState, Poe2UiAnchors.BranchKind probeHint, nint lastSuccessRoot = 0)
+    {
+        var uiRoot = GetUiRoot(inGameState);
+        DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
+        var fixedRoot = Ptr(inGameState + Poe2.InGameState.UiRoot);
+        var n = UiBranchCandidates.Fill(
+            _uiBranchBuf, gameUi, controllerGameUi, uiRoot, fixedRoot, probeHint, lastSuccessRoot);
+        return _uiBranchBuf.AsSpan(0, n);
+    }
 
     /// <summary>Live UiRoot for dev tools; auto-scans InGameState when the hardcoded offset reads 0.</summary>
     public nint ResolveUiRoot()
@@ -935,19 +956,22 @@ public sealed partial class Poe2Live
         if (anchor == 0 || score < PreferredMapScoreThreshold) return;
         _preferredUiAnchor = anchor;
         _preferredUiAnchorIgs = inGameState;
+        DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
+        var kind = UiBranchCandidates.BranchForRoot(anchor, gameUi, controllerGameUi);
+        if (kind != Poe2UiAnchors.BranchKind.None)
+            _mapProbeHint = kind;
     }
 
     /// <summary>Active GameUi / GameUiController branch — much smaller than the full InGameState UiRoot on KBM.</summary>
-    internal nint PreferredUiScanRoot(nint inGameState, bool preferController = false)
+    internal nint PreferredUiScanRoot(nint inGameState)
     {
         SyncPreferredUiAnchor(inGameState);
         if (_preferredUiAnchor != 0) return _preferredUiAnchor;
-        DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
-        if (preferController && controllerGameUi != 0) return controllerGameUi;
-        if (gameUi != 0) return gameUi;
-        if (controllerGameUi != 0) return controllerGameUi;
-        var uiRoot = GetUiRoot(inGameState);
-        return uiRoot != 0 ? uiRoot : Ptr(inGameState + Poe2.InGameState.UiRoot);
+        foreach (var root in GetUiBranches(inGameState, _mapProbeHint))
+        {
+            if (root != 0) return root;
+        }
+        return 0;
     }
 
     private static bool TryAddUniqueAnchor(Span<nint> anchors, ref int count, nint anchor)
@@ -1007,14 +1031,14 @@ public sealed partial class Poe2Live
             return true;
         }
 
-        var uiRoot = GetUiRoot(inGameState);
         DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
+        var uiRoot = GetUiRoot(inGameState);
+        var fixedRoot = Ptr(inGameState + Poe2.InGameState.UiRoot);
 
-        Span<nint> bases = stackalloc nint[4];
-        var baseCount = 0;
-        TryAddUniqueAnchor(bases, ref baseCount, controllerGameUi);
-        TryAddUniqueAnchor(bases, ref baseCount, gameUi);
-        TryAddUniqueAnchor(bases, ref baseCount, uiRoot);
+        Span<nint> bases = stackalloc nint[6];
+        var baseCount = UiBranchCandidates.Fill(
+            bases, gameUi, controllerGameUi, uiRoot, fixedRoot, _mapProbeHint,
+            _preferredUiAnchorIgs == inGameState ? _preferredUiAnchor : 0);
         TryAddUniqueAnchor(bases, ref baseCount, inGameState);
 
         MapViews best = default;
@@ -1083,14 +1107,20 @@ public sealed partial class Poe2Live
         DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
 
         sb.Append($"igs=0x{inGameState:X} uiRoot=0x{uiRoot:X}(+0x{UiRootResolver.CachedOffset:X},fixed=0x{uiRootFixed:X}) "
-                + $"uiRootStruct=0x{uiRootStruct:X} gameUi=0x{gameUi:X} ctrlUi=0x{controllerGameUi:X}; ");
+                + $"uiRootStruct=0x{uiRootStruct:X} gameUi=0x{gameUi:X} ctrlUi=0x{controllerGameUi:X} "
+                + $"mapProbeHint={_mapProbeHint}; ");
 
-        (string Name, nint Base)[] branches =
+        var probeRoots = GetUiBranches(inGameState, _mapProbeHint,
+            _preferredUiAnchorIgs == inGameState ? _preferredUiAnchor : 0);
+        for (var i = 0; i < probeRoots.Length; i++)
         {
-            ("ctrl", controllerGameUi), ("kbm", gameUi), ("root", uiRoot), ("igs", inGameState),
-        };
-        foreach (var (name, b) in branches)
-        {
+            var b = probeRoots[i];
+            var name = b == controllerGameUi ? "ctrl"
+                : b == gameUi ? "kbm"
+                : b == uiRoot ? "root"
+                : b == uiRootFixed ? "fixed"
+                : b == inGameState ? "igs"
+                : $"b{i}";
             if (b == 0) { sb.Append($"[{name}:null] "); continue; }
             var mapParent = Ptr(b + Poe2.ImportantUi.MapParentPtr);
             if (mapParent == 0) { sb.Append($"[{name}:noMapParent] "); continue; }
@@ -1102,7 +1132,7 @@ public sealed partial class Poe2Live
             sb.Append($"[{name}: L{(lOk ? $"(vis={large.IsVisible},rect={large.HasScreenRect},{large.Width:F0}x{large.Height:F0})" : "x")} "
                     + $"M{(mOk ? $"(vis={mini.IsVisible},rect={mini.HasScreenRect},{mini.Width:F0}x{mini.Height:F0})" : "x")}] ");
         }
-        sb.Append($"discoveredEls={_mapEls.Count} largeEl=0x{_classifiedLargeEl:X} miniEl=0x{_classifiedMiniEl:X}");
+        sb.Append($"preferred=0x{_preferredUiAnchor:X} discoveredEls={_mapEls.Count} largeEl=0x{_classifiedLargeEl:X} miniEl=0x{_classifiedMiniEl:X}");
         return sb.ToString();
     }
 

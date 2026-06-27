@@ -1,0 +1,51 @@
+---
+description: Input-agnostic dual UI tree probing (GameUi vs GameUiController) for HUD/panel readers
+alwaysApply: true
+---
+
+# UI Branch Probing — Input-Agnostic
+
+PoE2 keeps **parallel HUD UI trees**: `GameUi` (keyboard/mouse) and `GameUiController` (pad). Features must work on **both** — never assume which tree is live based on hotkey bindings or pad connection.
+
+## Core seam (use this — do not reinvent)
+
+| Piece | Location |
+|-------|----------|
+| Branch enum | `Poe2UiAnchors.BranchKind` (`None`, `KeyboardMouse`, `Controller`) |
+| Probe order | `UiBranchCandidates.Fill(...)` — last-success, hinted KBM/Controller, `uiRoot`, `fixedRoot` |
+| Shared API | `Poe2Live.GetUiBranches(inGameState, probeHint, lastSuccessRoot)` |
+| Anchor discovery | `DiscoverGameUiAnchors` inside `Poe2Live` — do not duplicate |
+
+**Hints affect order only.** Every caller must still try/score **all** candidates before reporting failure.
+
+## When this rule applies
+
+Any code that walks the **in-game HUD UI tree** (panels, shop grids, ground loot labels, map UI):
+
+- **In scope:** new panel readers, BFS/text scans under `GameUi` branches, map-related UI reads.
+- **Out of scope (for now):** entity memory walks, terrain, vitals, server minimap icons, hotkey polling. Atlas (`Poe2Atlas` / `UiRootResolver`) is scheduled for a separate rework — do not copy single-root atlas patterns into HUD features.
+
+## Required pattern for new UI features
+
+1. Loop `live.GetUiBranches(inGameState, probeHint, lastSuccessRoot)` (or `UiBranchCandidates.Fill` with the same anchors).
+2. Run locate/read on **each** non-zero root; pick the best result (open panel, highest tile count, best map score, etc.).
+3. On success: cache the winning root pointer; set `probeHint = UiBranchCandidates.BranchForRoot(root, gameUi, controllerGameUi)`.
+4. On `AreaInstance` change: clear cached root + reset hint to `BranchKind.None`.
+5. Keep a **fast path** when a cached root still validates (map: `TryReadDirectMaps` preferred-anchor path) — full multi-branch scan only on miss or stale cache.
+
+## Forbidden
+
+- Gating probe order on `GamepadHotkeysEnabled`, `GamepadInput.IsConnected`, or `preferController` flags.
+- Hardcoding controller-first or KBM-first lists outside `UiBranchCandidates`.
+- Single-root `PreferredUiScanRoot`-only scans for features that must work on both trees (research probes included).
+- Per-frame full UI BFS on the main tick — use cadence, throttling, and area/session caches (`performance.mdc`).
+
+## Reference implementations
+
+- Map overlay: `Poe2Live.TryReadDirectMaps`, `Poe2Live.MapViewport.DiscoverMapElements` (`_mapProbeHint`)
+- Loot labels (research / future loot UI): `Poe2Live.LootValues.ScanLootLabels` (`_lootProbeHint`)
+- Tests: `UiBranchCandidatesTests`
+
+## Feature checklist add-on
+
+When adding a HUD/panel UI reader: **dual-branch probe via `GetUiBranches`?** Hint cached on success? Reset on zone change?
