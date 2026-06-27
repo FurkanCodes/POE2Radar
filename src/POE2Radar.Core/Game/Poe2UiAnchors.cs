@@ -5,17 +5,51 @@ public static class Poe2UiAnchors
 {
     public enum BranchKind { None, KeyboardMouse, Controller }
 
-    public static bool TryDiscover(MemoryReader reader, nint inGameState, out nint gameUi, out nint controllerGameUi)
+    private static nint _cachedInGameState;
+    private static nint _cachedGameUi;
+    private static nint _cachedControllerGameUi;
+
+    public static bool TryDiscoverCached(MemoryReader reader, nint inGameState, bool allowScan,
+        out nint gameUi, out nint controllerGameUi)
     {
         gameUi = controllerGameUi = 0;
-        var uiRootStruct = Ptr(reader, inGameState + Poe2.InGameState.UiRootStructPtr);
-        if (uiRootStruct != 0)
+        if (inGameState == 0) return false;
+
+        if (_cachedInGameState == inGameState
+            && (HasMapParentChain(reader, _cachedGameUi) || HasMapParentChain(reader, _cachedControllerGameUi)))
         {
-            gameUi = Ptr(reader, uiRootStruct + Poe2.UiRootStruct.GameUiPtr);
-            controllerGameUi = Ptr(reader, uiRootStruct + Poe2.UiRootStruct.GameUiControllerPtr);
-            if (HasMapParentChain(reader, gameUi) || HasMapParentChain(reader, controllerGameUi))
-                return gameUi != 0 || controllerGameUi != 0;
+            gameUi = _cachedGameUi;
+            controllerGameUi = _cachedControllerGameUi;
+            return gameUi != 0 || controllerGameUi != 0;
         }
+
+        if (TryReadDirect(reader, inGameState, out gameUi, out controllerGameUi))
+        {
+            Remember(inGameState, gameUi, controllerGameUi);
+            return true;
+        }
+
+        if (!allowScan)
+            return false;
+
+        var found = TryDiscoverCore(reader, inGameState, allowScan: true, out gameUi, out controllerGameUi);
+        if (found)
+            Remember(inGameState, gameUi, controllerGameUi);
+        return found;
+    }
+
+    public static bool TryDiscover(MemoryReader reader, nint inGameState, out nint gameUi, out nint controllerGameUi)
+        => TryDiscoverCached(reader, inGameState, allowScan: true, out gameUi, out controllerGameUi);
+
+    private static bool TryDiscoverCore(MemoryReader reader, nint inGameState, bool allowScan,
+        out nint gameUi, out nint controllerGameUi)
+    {
+        gameUi = controllerGameUi = 0;
+        if (TryReadDirect(reader, inGameState, out gameUi, out controllerGameUi))
+            return true;
+
+        if (!allowScan)
+            return false;
 
         for (var o = 0; o < 0x2000; o += 8)
         {
@@ -38,6 +72,24 @@ public static class Poe2UiAnchors
         }
 
         return gameUi != 0 || controllerGameUi != 0;
+    }
+
+    private static bool TryReadDirect(MemoryReader reader, nint inGameState, out nint gameUi, out nint controllerGameUi)
+    {
+        gameUi = controllerGameUi = 0;
+        var uiRootStruct = Ptr(reader, inGameState + Poe2.InGameState.UiRootStructPtr);
+        if (uiRootStruct == 0) return false;
+
+        gameUi = Ptr(reader, uiRootStruct + Poe2.UiRootStruct.GameUiPtr);
+        controllerGameUi = Ptr(reader, uiRootStruct + Poe2.UiRootStruct.GameUiControllerPtr);
+        return HasMapParentChain(reader, gameUi) || HasMapParentChain(reader, controllerGameUi);
+    }
+
+    private static void Remember(nint inGameState, nint gameUi, nint controllerGameUi)
+    {
+        _cachedInGameState = inGameState;
+        _cachedGameUi = gameUi;
+        _cachedControllerGameUi = controllerGameUi;
     }
 
     private static bool HasMapParentChain(MemoryReader reader, nint importantUi)

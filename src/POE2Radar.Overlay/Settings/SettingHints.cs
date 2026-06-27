@@ -230,7 +230,7 @@ internal static class SettingHints
         public const string PriceSource = "Fetch prices from poe2scout or poe.ninja.";
         public const string League = "League name for ritual prices. Blank uses auto-detect from the game.";
         public const string RefreshIntervalMin = "How often to refresh ritual price data from the web.";
-        public const string ReadHz = "How often to read the ritual shop UI while it is open.";
+        public const string ReadHz = "How often to check the ritual shop. Cheap pointer chain while open; throttled while closed.";
         public const string DiagnosePricing = "Label every tile with memory names and lookup results for debugging.";
         public const string ForceBfsFallback = "Skip the fast UI chain and always scan for the ritual window.";
         public const string PlayValueAlert = "Play a sound when a reward exceeds the alert threshold.";

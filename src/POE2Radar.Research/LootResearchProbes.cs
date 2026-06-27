@@ -91,8 +91,13 @@ internal static class LootResearchProbes
         var shop = new Poe2RitualShop(reader, live);
         var preferController = Array.IndexOf(cliArgs, "--controller") >= 0;
         var read = shop.ReadPanelState(igs, w, h, allowFullLocate: true, preferControllerBranch: preferController);
+        var perf = shop.PerfSnapshot;
         Console.WriteLine($"preferController={preferController} signature={read.SignatureDetected} panelOpen={read.PanelOpen} inBounds={read.InBoundsTiles} branch=0x{read.Branch:X}");
         Console.WriteLine($"probe={shop.LastIdleProbeKind} fastPath={shop.LastIdleProbeFastPathHit} rewards={read.Rewards.Count}");
+        Console.WriteLine($"perf: elapsed={perf.LastElapsedMs:F3}ms avg={perf.AverageElapsedMs:F3}ms sig=0x{perf.LastItemSignature:X} fast={perf.FastChainHits} cached={perf.CachedGridHits} bfs={perf.BfsRuns} fullReads={perf.FullRewardReads} labelScans={perf.LabelMergeScans} anchors={perf.AnchorDiscoveries}");
+        var cachedRead = shop.ReadWindowState(igs, w, h, allowFullLocate: true, preferControllerBranch: preferController);
+        var cachedPerf = shop.PerfSnapshot;
+        Console.WriteLine($"cached-pass: panelOpen={cachedRead.PanelOpen} inBounds={cachedRead.InBoundsTiles} sig=0x{cachedRead.ItemSignature:X} elapsed={cachedPerf.LastElapsedMs:F3}ms avg={cachedPerf.AverageElapsedMs:F3}ms cached={cachedPerf.CachedGridHits} bfs={cachedPerf.BfsRuns} fullReads={cachedPerf.FullRewardReads} labelScans={cachedPerf.LabelMergeScans}");
 
         foreach (var (i, r) in read.Rewards.Select((t, idx) => (idx, t)))
         {

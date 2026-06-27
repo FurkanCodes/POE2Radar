@@ -249,6 +249,11 @@ public sealed partial class RadarApp
 
     private void RefreshLootRenderFrames(WorldSnapshot snap, int windowWidth, int windowHeight, bool inGame)
     {
+        var profileStart = System.Diagnostics.Stopwatch.GetTimestamp();
+        var itemLabelCount = 0;
+        var lootTagSpecs = 0;
+        var lootTagHits = 0;
+
         _windowWidth = windowWidth;
         _windowHeight = windowHeight;
         _itemFrame.Clear();
@@ -265,20 +270,30 @@ public sealed partial class RadarApp
             {
                 if (!_live.TryLiveBar(s.Entity, out var w, out _, out _, out _, out _)) continue;
                 _itemFrame.Add(new ItemLabel(w, s.Name, s.Value, s.Highlight, s.ShowName));
+                itemLabelCount++;
             }
 
             _lootTagFrame.Clear();
             var lt = _lootTags;
             foreach (var s in lt.Specs)
             {
+                lootTagSpecs++;
                 if (!_live.TryUiElementRect(s.El, windowWidth, windowHeight, out var rx, out var ry, out var rw, out var rh, requireFirstLine: s.TagText)) continue;
                 _lootTagFrame.Add(new LootTagLabel(rx, ry, rw, rh, s.Value, s.Highlight));
+                lootTagHits++;
             }
         }
         else
         {
             _lootTagFrame.Clear();
         }
+
+        _lootFrameTicks++;
+        _lootFrameItemLabels = itemLabelCount;
+        _lootFrameLootTagSpecs = lootTagSpecs;
+        _lootFrameLootTagHits = lootTagHits;
+        _lootFrameLastMs = (System.Diagnostics.Stopwatch.GetTimestamp() - profileStart) * 1000.0
+            / System.Diagnostics.Stopwatch.Frequency;
     }
 
     private (IReadOnlyList<ItemLabel> items, RuneforgePanelData? runeforge,

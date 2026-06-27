@@ -24,6 +24,11 @@ public sealed class Poe2RitualShop
     /// <summary>Last branch that hosted an open tribute shop — probed first on idle to save CPU.</summary>
     private nint _branchHint;
     private bool _preferControllerBranch;
+    private DateTime _nextClosedUtc = DateTime.MinValue;
+    private DateTime _nextBfsUtc = DateTime.MinValue;
+    private DateTime _nextGridProbeUtc = DateTime.MinValue;
+    private long _lastItemSignature;
+    private readonly RitualPerfCounters _perf = new();
 
     public void ConfigureUiPreference(bool preferControllerBranch)
     {
@@ -33,11 +38,7 @@ public sealed class Poe2RitualShop
         if (PanelOpen) ClearSession();
     }
 
-    private static readonly string[] SignatureTexts =
-    [
-        "Rituals Remaining", "tribute to the king",
-        "Spend Tribute", "Tribute", "Favours", "Favors", "Reverence",
-    ];
+    private static readonly string[] SignatureTexts = Poe2.Ritual.SignatureTexts;
 
     private const int BranchScanMaxNodes = 6000;
     private const int IdleScanMaxNodes = 800;
@@ -68,6 +69,46 @@ public sealed class Poe2RitualShop
 
     public enum IdleProbeKind { None, FastPath, ShallowScan }
 
+    public readonly record struct RitualPerfSnapshot(
+        long UpdateTicks,
+        bool LastOpen,
+        double LastElapsedMs,
+        double AverageElapsedMs,
+        long FastChainHits,
+        long CachedGridHits,
+        long BfsRuns,
+        long FullRewardReads,
+        long LabelMergeScans,
+        long AnchorDiscoveries,
+        long LastItemSignature);
+
+    private sealed class RitualPerfCounters
+    {
+        public long UpdateTicks;
+        public bool LastOpen;
+        public double LastElapsedMs;
+        public double TotalElapsedMs;
+        public long FastChainHits;
+        public long CachedGridHits;
+        public long BfsRuns;
+        public long FullRewardReads;
+        public long LabelMergeScans;
+        public long AnchorDiscoveries;
+
+        public RitualPerfSnapshot Snapshot(long lastItemSignature) => new(
+            UpdateTicks,
+            LastOpen,
+            LastElapsedMs,
+            UpdateTicks > 0 ? TotalElapsedMs / UpdateTicks : 0,
+            FastChainHits,
+            CachedGridHits,
+            BfsRuns,
+            FullRewardReads,
+            LabelMergeScans,
+            AnchorDiscoveries,
+            lastItemSignature);
+    }
+
     /// <summary>Complete ritual panel read ΓÇö same contract as Research --ritual-probe reader step.</summary>
     public readonly record struct RitualPanelRead(
         bool SignatureDetected,
@@ -76,39 +117,100 @@ public sealed class Poe2RitualShop
         nint Branch,
         IReadOnlyList<Poe2Live.RitualReward> Rewards);
 
-    /// <summary>Overlay only: after a failed full locate while closed, suppress 6k BFS until cooldown elapses.</summary>
-    public bool IsLocateDue => PanelOpen || DateTime.UtcNow >= _nextLocateUtc;
+    public readonly record struct RitualWindowState(
+        bool SignatureDetected,
+        bool PanelOpen,
+        int InBoundsTiles,
+        nint Branch,
+        long ItemSignature,
+        IdleProbeKind ProbeKind,
+        bool FastPathHit);
 
-    /// <summary>True when the visible ritual window fast-path fired ΓÇö shop is open or opening; bypass locate cooldown.</summary>
-    public bool ShouldAllowFullLocate => PanelOpen || IsLocateDue || LastIdleProbeFastPathHit;
+    /// <summary>True when a full grid locate is warranted (fast-path hit or shop already open).</summary>
+    public bool ShouldAllowFullLocate => PanelOpen || LastIdleProbeFastPathHit;
 
-    /// <summary>
-    /// Probe flow: signature hint ΓåÆ tile gate ΓåÆ reward read.
-    /// Set <paramref name="allowFullLocate"/> false while closed to skip expensive BFS (overlay cooldown path).
-    /// </summary>
+    public long LastItemSignature => _lastItemSignature;
+
+    public RitualPerfSnapshot PerfSnapshot => _perf.Snapshot(_lastItemSignature);
+
     public RitualPanelRead ReadPanelState(nint inGameState, float winW, float winH, bool allowFullLocate,
         bool preferControllerBranch = false)
     {
-        ConfigureUiPreference(preferControllerBranch);
+        var state = ReadWindowState(inGameState, winW, winH, allowFullLocate, preferControllerBranch);
+        if (!state.PanelOpen)
+            return new RitualPanelRead(state.SignatureDetected, false, state.InBoundsTiles, state.Branch, []);
 
-        var signatureDetected = PanelOpen || TryIdleProbe(inGameState, winW, winH);
-        if (!signatureDetected && preferControllerBranch)
+        var rewards = ReadRewardsFromCachedWindow(winW, winH, forceRefresh: true);
+        return new RitualPanelRead(state.SignatureDetected, rewards.Count > 0, state.InBoundsTiles, state.Branch, rewards);
+    }
+
+    /// <summary>
+    /// Cheap GameHelper-style window pass: panel/grid/signature only, no reward identity or price work.
+    /// </summary>
+    public RitualWindowState ReadWindowState(nint inGameState, float winW, float winH, bool allowFullLocate,
+        bool preferControllerBranch = false)
+    {
+        _perf.UpdateTicks++;
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        RitualWindowState Finish(RitualWindowState state)
+        {
+            var elapsed = (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000.0
+                / System.Diagnostics.Stopwatch.Frequency;
+            _perf.LastElapsedMs = elapsed;
+            _perf.TotalElapsedMs += elapsed;
+            _perf.LastOpen = state.PanelOpen;
+            return state;
+        }
+
+        ConfigureUiPreference(preferControllerBranch);
+        var now = DateTime.UtcNow;
+
+        // Hot path: shop open — recount cached grids only (no BFS).
+        if (PanelOpen && _cachedUiRoot != 0 && _cachedGrids.Count > 0)
+        {
+            var state = ReadWindowFromCache();
+            return Finish(state);
+        }
+
+        // GameHelper fast chain: GameUi.child[76].child[13] — O(1) pointer chase every tick.
+        if (TryReadFastChainWindow(inGameState, winW, winH, preferControllerBranch, out var fastState))
+        {
+            return Finish(fastState);
+        }
+
+        // Closed: skip signature/BFS walks until cold throttle elapses (GameHelper ColdClosedThrottleMs).
+        if (!PanelOpen && now < _nextClosedUtc)
+        {
+            return Finish(new RitualWindowState(false, false, 0, 0, 0, LastIdleProbeKind, LastIdleProbeFastPathHit));
+        }
+
+        var signatureDetected = TryIdleProbe(inGameState, winW, winH);
+        if (!signatureDetected && preferControllerBranch && now >= _nextGridProbeUtc)
+        {
+            _nextGridProbeUtc = now.AddMilliseconds(Poe2.Ritual.BfsThrottleMs);
             signatureDetected = TryIdleGridProbe(inGameState, winW, winH);
+        }
+
         if (!signatureDetected)
         {
+            _nextClosedUtc = now.AddMilliseconds(Poe2.Ritual.ColdClosedThrottleMs);
             ClearSession();
-            return new RitualPanelRead(false, false, 0, 0, []);
+            return Finish(new RitualWindowState(false, false, 0, 0, 0, LastIdleProbeKind, LastIdleProbeFastPathHit));
         }
 
-        var branch = PanelOpen && _cachedUiRoot != 0 ? _cachedUiRoot : LastUiBranch;
+        var branch = LastUiBranch;
         if (branch == 0)
         {
-            ClearSession();
-            return new RitualPanelRead(true, false, 0, 0, []);
+            _nextClosedUtc = now.AddMilliseconds(Poe2.Ritual.ColdClosedThrottleMs);
+            return Finish(new RitualWindowState(true, false, 0, 0, 0, LastIdleProbeKind, LastIdleProbeFastPathHit));
         }
 
-        var tileCount = EnsureGridsAndCountTiles(branch, winW, winH, allowFullLocate, out var tileSig);
-        if (tileCount <= 0 && allowFullLocate)
+        var mayLocate = allowFullLocate && (LastIdleProbeFastPathHit || now >= _nextBfsUtc);
+        if (mayLocate && now >= _nextBfsUtc)
+            _nextBfsUtc = now.AddMilliseconds(Poe2.Ritual.BfsThrottleMs);
+
+        var tileCount = EnsureGridsAndCountTiles(branch, winW, winH, mayLocate, out var tileSig);
+        if (tileCount <= 0 && mayLocate)
         {
             _branchHint = 0;
             _cachedUiRoot = 0;
@@ -127,33 +229,150 @@ public sealed class Poe2RitualShop
 
         if (tileCount <= 0)
         {
+            _nextClosedUtc = now.AddMilliseconds(Poe2.Ritual.ColdClosedThrottleMs);
             if (PanelOpen)
             {
                 if (++_openMissStreak >= OpenMissCloseThreshold)
                     ClearSession();
             }
-            else if (allowFullLocate)
-                NoteLocateCooldown();
-            return new RitualPanelRead(true, false, 0, branch, []);
+            return Finish(new RitualWindowState(true, false, 0, branch, 0, LastIdleProbeKind, LastIdleProbeFastPathHit));
         }
 
         _openMissStreak = 0;
 
-        var rewards = ReadCachedGridRewards(winW, winH, tileSig);
-        if (rewards.Count == 0)
-        {
-            if (PanelOpen)
-                ClearSession();
-            else if (allowFullLocate)
-                NoteLocateCooldown();
-            return new RitualPanelRead(true, false, tileCount, branch, []);
-        }
-
         PanelOpen = true;
         _nextLocateUtc = DateTime.MinValue;
+        _nextClosedUtc = DateTime.MinValue;
         LastUiBranch = branch;
         _branchHint = branch;
-        return new RitualPanelRead(true, true, tileCount, branch, rewards);
+        _lastItemSignature = tileSig;
+        return Finish(new RitualWindowState(true, true, tileCount, branch, tileSig, LastIdleProbeKind, LastIdleProbeFastPathHit));
+    }
+
+    private RitualWindowState ReadWindowFromCache()
+    {
+        var branch = _cachedUiRoot;
+        var tileCount = EnsureGridsAndCountTiles(branch, 0, 0, allowFullLocate: false, out var tileSig);
+        if (tileCount <= 0)
+        {
+            if (++_openMissStreak >= OpenMissCloseThreshold)
+                ClearSession();
+            _perf.LastOpen = false;
+            return new RitualWindowState(true, false, 0, branch, 0, LastIdleProbeKind, LastIdleProbeFastPathHit);
+        }
+
+        _openMissStreak = 0;
+        _perf.CachedGridHits++;
+        LastUiBranch = branch;
+        _branchHint = branch;
+        _perf.LastOpen = true;
+        _lastItemSignature = tileSig;
+        return new RitualWindowState(true, true, tileCount, branch, tileSig, LastIdleProbeKind, LastIdleProbeFastPathHit);
+    }
+
+    /// <summary>GameHelper-style O(1) chain on GameUi / GameUiController.</summary>
+    private bool TryReadFastChainWindow(nint inGameState, float winW, float winH, bool preferController,
+        out RitualWindowState state)
+    {
+        state = default;
+        if (!Poe2UiAnchors.TryDiscoverCached(_reader, inGameState, allowScan: false, out var gameUi, out var controllerUi))
+            return false;
+
+        if (preferController)
+        {
+            if (TryReadFastChainWindowOnRoot(controllerUi, winW, winH, out state)) return true;
+            if (TryReadFastChainWindowOnRoot(gameUi, winW, winH, out state)) return true;
+        }
+        else
+        {
+            if (TryReadFastChainWindowOnRoot(gameUi, winW, winH, out state)) return true;
+            if (TryReadFastChainWindowOnRoot(controllerUi, winW, winH, out state)) return true;
+        }
+
+        return false;
+    }
+
+    private bool TryReadFastChainWindowOnRoot(nint root, float winW, float winH, out RitualWindowState state)
+    {
+        state = default;
+        if (root == 0) return false;
+        if (!TryChildAtIndex(root, Poe2.Ritual.FastChainChildA, out var ritualRoot)) return false;
+        if (!TryChildAtIndex(ritualRoot, Poe2.Ritual.FastChainChildB, out var windowEl)) return false;
+        if (!UiCountsVisible(windowEl)) return false;
+
+        var grid = ResolveFastChainGrid(windowEl);
+        if (grid == 0 || !IsValidRewardGrid(grid)) return false;
+
+        _cachedUiRoot = root;
+        _cachedGrids.Clear();
+        _cachedGrids.Add(grid);
+        _boundsMinX = float.MaxValue;
+        _boundsMinY = float.MaxValue;
+        _boundsMaxX = float.MinValue;
+        _boundsMaxY = float.MinValue;
+        ExpandBoundsFromGridTiles(_cachedGrids, winW, winH,
+            winW * (_preferControllerBranch ? RewardColumnMaxScreenXWide : RewardColumnMaxScreenX),
+            ref _boundsMinX, ref _boundsMinY, ref _boundsMaxX, ref _boundsMaxY);
+        if (_boundsMinX >= _boundsMaxX)
+        {
+            _boundsMinX = 0f;
+            _boundsMinY = 0f;
+            _boundsMaxX = winW * 0.55f;
+            _boundsMaxY = winH;
+        }
+
+        var tileCount = CountCachedGridItems(_cachedGrids, out var tileSig);
+        if (tileCount <= 0) return false;
+
+        PanelOpen = true;
+        LastUiBranch = root;
+        _branchHint = root;
+        _nextClosedUtc = DateTime.MinValue;
+        LastIdleProbeKind = IdleProbeKind.FastPath;
+        LastIdleProbeFastPathHit = true;
+        _lastItemSignature = tileSig;
+        _perf.FastChainHits++;
+        state = new RitualWindowState(true, true, tileCount, root, tileSig, LastIdleProbeKind, LastIdleProbeFastPathHit);
+        return true;
+    }
+
+    private nint ResolveFastChainGrid(nint windowEl)
+    {
+        if (IsValidRewardGrid(windowEl)) return windowEl;
+        var nested = FindRewardGridChild(windowEl);
+        return nested != 0 ? nested : windowEl;
+    }
+
+    private bool IsValidRewardGrid(nint gridAddr)
+    {
+        if (gridAddr == 0 || !UiCountsVisible(gridAddr)) return false;
+        if (!Children(gridAddr, out var first, out var n)) return false;
+        if (n is < 1 or > Poe2.Ritual.MaxRewardTiles) return false;
+        for (long i = 0; i < n; i++)
+        {
+            var tile = Ptr(first + (nint)(i * 8));
+            if (tile != 0 && TryReadTileItem(tile) != 0) return true;
+        }
+        return false;
+    }
+
+    private nint FindRewardGridChild(nint parent)
+    {
+        if (!Children(parent, out var first, out var n)) return 0;
+        nint best = 0;
+        var bestItems = 0;
+        for (long i = 0; i < n; i++)
+        {
+            var c = Ptr(first + (nint)(i * 8));
+            if (c == 0) continue;
+            var items = CountRewardTiles(c);
+            if (items >= 2 && items > bestItems)
+            {
+                bestItems = items;
+                best = c;
+            }
+        }
+        return best;
     }
 
     /// <summary>Cheap recount from cached grids, or full locate when allowed and cache is empty.</summary>
@@ -162,8 +381,7 @@ public sealed class Poe2RitualShop
         tileSignature = 0;
         if (_cachedUiRoot == branch && _cachedGrids.Count > 0)
         {
-            _cachedInBoundsTileCount = CountVisibleInBoundsTiles(_cachedGrids, winW, winH,
-                _boundsMinX, _boundsMinY, _boundsMaxX, _boundsMaxY, out tileSignature);
+            _cachedInBoundsTileCount = CountCachedGridItems(_cachedGrids, out tileSignature);
             return _cachedInBoundsTileCount;
         }
 
@@ -184,7 +402,7 @@ public sealed class Poe2RitualShop
         _boundsMinY = bMinY;
         _boundsMaxX = bMaxX;
         _boundsMaxY = bMaxY;
-        _cachedInBoundsTileCount = CountVisibleInBoundsTiles(grids, winW, winH, bMinX, bMinY, bMaxX, bMaxY, out tileSignature);
+        _cachedInBoundsTileCount = CountCachedGridItems(grids, out tileSignature);
         _branchHint = branch;
         return _cachedInBoundsTileCount;
     }
@@ -204,6 +422,7 @@ public sealed class Poe2RitualShop
         LastIdleProbeFastPathHit = false;
         LastUiBranch = 0;
 
+        _perf.AnchorDiscoveries++;
         var branches = _live.GetUiBranches(inGameState, _preferControllerBranch);
         if (branches.Length == 0)
         {
@@ -253,31 +472,6 @@ public sealed class Poe2RitualShop
             return true;
         }
 
-        if (TryDeepSignatureScan(branch))
-        {
-            kind = IdleProbeKind.ShallowScan;
-            return true;
-        }
-
-        return false;
-    }
-
-    private bool TryDeepSignatureScan(nint branch)
-    {
-        if (branch == 0) return false;
-        var queue = new Queue<nint>();
-        queue.Enqueue(branch);
-        var visited = new HashSet<nint>();
-        var maxNodes = _preferControllerBranch ? BranchScanMaxNodes / 2 : IdleScanMaxNodes * 2;
-
-        while (queue.Count > 0 && visited.Count < maxNodes)
-        {
-            var el = queue.Dequeue();
-            if (el == 0 || !visited.Add(el)) continue;
-            if (MatchesSignature(el)) return true;
-            if (Children(el, out var first, out var n))
-                for (long k = 0; k < n; k++) queue.Enqueue(Ptr(first + (nint)(k * 8)));
-        }
         return false;
     }
 
@@ -303,6 +497,7 @@ public sealed class Poe2RitualShop
     {
         _cachedRewards.Clear();
         _rewardSignature = 0;
+        _lastItemSignature = 0;
     }
 
     /// <summary>Backward-compatible entry: signature probe then open read.</summary>
@@ -340,6 +535,7 @@ public sealed class Poe2RitualShop
         _boundsMinY = float.MaxValue;
         _boundsMaxX = float.MinValue;
         _boundsMaxY = float.MinValue;
+        LastIdleProbeFastPathHit = false;
     }
 
     private bool UiCountsVisible(nint el) => _preferControllerBranch || IsVisible(el);
@@ -379,6 +575,7 @@ public sealed class Poe2RitualShop
     /// <summary>Controller UI may omit tribute header text — detect open shop by reward item grids.</summary>
     private bool TryIdleGridProbe(nint inGameState, float winW, float winH)
     {
+        _perf.AnchorDiscoveries++;
         foreach (var branch in _live.GetUiBranches(inGameState, preferController: true))
         {
             if (branch == 0) continue;
@@ -393,13 +590,24 @@ public sealed class Poe2RitualShop
     }
 
     /// <summary>Read only item slots on cached tribute grids — excludes ground-loot UI on the same branch.</summary>
-    private List<Poe2Live.RitualReward> ReadCachedGridRewards(float winW, float winH, long tileSig)
+    public IReadOnlyList<Poe2Live.RitualReward> ReadRewardsFromCachedWindow(float winW, float winH, bool forceRefresh = false)
+    {
+        if (_cachedUiRoot == 0 || _cachedGrids.Count == 0) return Array.Empty<Poe2Live.RitualReward>();
+        var tileCount = CountCachedGridItems(_cachedGrids, out var tileSig);
+        if (tileCount <= 0) return Array.Empty<Poe2Live.RitualReward>();
+        _cachedInBoundsTileCount = tileCount;
+        return ReadCachedGridRewards(winW, winH, tileSig, forceRefresh);
+    }
+
+    private List<Poe2Live.RitualReward> ReadCachedGridRewards(float winW, float winH, long tileSig, bool forceRefresh = false)
     {
         if (_cachedGrids.Count == 0) return [];
 
-        if (tileSig != 0 && tileSig == _rewardSignature && _cachedRewards.Count > 0)
+        _lastItemSignature = tileSig;
+        if (!forceRefresh && tileSig != 0 && tileSig == _rewardSignature && _cachedRewards.Count > 0)
             return _cachedRewards;
 
+        _perf.FullRewardReads++;
         var result = ReadBranchRewardsOpen(LastUiBranch, winW, winH);
 
         _rewardSignature = tileSig;
@@ -408,9 +616,8 @@ public sealed class Poe2RitualShop
         return _cachedRewards;
     }
 
-    /// <summary>Single pass: visible in-bounds tile count + item-pointer signature for reward cache.</summary>
-    private int CountVisibleInBoundsTiles(IReadOnlyList<nint> grids, float winW, float winH,
-        float minX, float minY, float maxX, float maxY, out long signature)
+    /// <summary>Cheap open-state validation: only item pointers, no identity or rect reads.</summary>
+    private int CountCachedGridItems(IReadOnlyList<nint> grids, out long signature)
     {
         signature = 0;
         var total = 0;
@@ -422,10 +629,8 @@ public sealed class Poe2RitualShop
             {
                 var tile = Ptr(first + (nint)(i * 8));
                 if (!UiCountsVisible(tile)) continue;
-                var item = TryReadTileItem(tile);
+                var item = TryReadTileItemFast(tile);
                 if (item == 0) continue;
-                if (!_live.TryReadRitualRewardTile(tile, item, winW, winH, out var reward)) continue;
-                if (!InPanelBounds(reward, minX, minY, maxX, maxY)) continue;
                 signature = unchecked((signature * 31) ^ (long)item);
                 total++;
             }
@@ -531,6 +736,7 @@ public sealed class Poe2RitualShop
     private void MergeLabelsIntoRewards(nint scanRoot, List<Poe2Live.RitualReward> rewards, float winW, float winH,
         float minX, float minY, float maxX, float maxY)
     {
+        _perf.LabelMergeScans++;
         var labels = FilterToPanelBounds(CollectItemLabelRewards(scanRoot, winW, winH), minX, minY, maxX, maxY);
         var usedLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -558,14 +764,14 @@ public sealed class Poe2RitualShop
                 break;
             }
 
-            if (!matched && !IsRitualChrome(name))
-                rewards.Add(label);
+            _ = matched;
         }
     }
 
     private bool TryLocateRitualBranch(nint uiRoot, float winW, float winH, out List<nint> ritualGrids, out int sigHits,
         out float minX, out float minY, out float maxX, out float maxY)
     {
+        _perf.BfsRuns++;
         ritualGrids = new List<nint>();
         sigHits = 0;
         minX = minY = float.MaxValue;
@@ -957,6 +1163,13 @@ public sealed class Poe2RitualShop
             return item;
         }
         return 0;
+    }
+
+    private nint TryReadTileItemFast(nint tile)
+    {
+        if (tile == 0) return 0;
+        var cached = _cachedTileOffset != 0 ? Ptr(tile + _cachedTileOffset) : 0;
+        return cached != 0 ? cached : TryReadTileItem(tile);
     }
 
     private void CollectTilesFromGrid(nint grid, List<Poe2Live.RitualReward> result, HashSet<nint> seenItems,
