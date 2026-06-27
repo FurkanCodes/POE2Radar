@@ -72,6 +72,77 @@ internal static class LootResearchProbes
         return 0;
     }
 
+    public static int RunRitualHelper(ProcessHandle process, MemoryReader reader, nint gameStateSlot)
+    {
+        var live = new Poe2Live(reader, gameStateSlot);
+        if (!live.TryResolve(out var igs, out _, out _)) { Console.Error.WriteLine("Not in game."); return 1; }
+        GetClientSize(process, out var w, out var h);
+
+        Console.WriteLine("=== Ritual Helper probe ===");
+        Console.WriteLine($"Fast chain: GameUi.children[{Poe2.Ritual.FastChainChildA}].children[{Poe2.Ritual.FastChainChildB}]");
+        Console.WriteLine($"Tile item ptr: UiElement + 0x{Poe2.Ritual.TileItemEntityPtr:X}");
+        Console.WriteLine($"Signatures: {string.Join(", ", Poe2.Ritual.SignatureTexts.Select(s => $"\"{s}\""))}");
+
+        if (!Poe2UiAnchors.TryDiscover(reader, igs, out var gameUi, out var controllerUi))
+            Console.WriteLine("WARN: Could not discover GameUi / GameUiController anchors.");
+        else
+            Console.WriteLine($"Anchors: GameUi=0x{gameUi:X} Controller=0x{controllerUi:X}");
+
+        var ritual = new Poe2RitualRewards(reader);
+        var rewards = ritual.ReadRewards(igs, w, h);
+        Console.WriteLine($"Panel open={ritual.PanelOpen} path={ritual.LastPathKind} tiles={rewards.Count}");
+
+        foreach (var (i, r) in rewards.Select((t, idx) => (idx, t)))
+        {
+            var item = r.Item;
+            Console.WriteLine($"  [{i}] rect=({r.X:F0},{r.Y:F0}) {r.W:F0}x{r.H:F0}");
+            Console.WriteLine($"       rarity={item.Rarity} base=\"{item.BaseName ?? "-"}\" art=\"{item.ArtBasename ?? "-"}\"");
+            Console.WriteLine($"       display=\"{item.DisplayName}\" internal=\"{item.InternalBasename}\"");
+            Console.WriteLine($"       path=\"{item.FullPath}\"");
+        }
+
+        if (gameUi != 0)
+        {
+            var a = ChildAt(reader, gameUi, Poe2.Ritual.FastChainChildA);
+            var b = a != 0 ? ChildAt(reader, a, Poe2.Ritual.FastChainChildB) : 0;
+            Console.WriteLine($"KBM fast chain: child[{Poe2.Ritual.FastChainChildA}]=0x{a:X} child[{Poe2.Ritual.FastChainChildB}]=0x{b:X}");
+        }
+        if (controllerUi != 0)
+        {
+            var a = ChildAt(reader, controllerUi, Poe2.Ritual.FastChainChildA);
+            var b = a != 0 ? ChildAt(reader, a, Poe2.Ritual.FastChainChildB) : 0;
+            Console.WriteLine($"Controller fast chain: child[{Poe2.Ritual.FastChainChildA}]=0x{a:X} child[{Poe2.Ritual.FastChainChildB}]=0x{b:X}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Paste-ready offset block:");
+        Console.WriteLine("    public static class Ritual");
+        Console.WriteLine("    {");
+        Console.WriteLine($"        public const int FastChainChildA = {Poe2.Ritual.FastChainChildA};");
+        Console.WriteLine($"        public const int FastChainChildB = {Poe2.Ritual.FastChainChildB};");
+        Console.WriteLine($"        public const int TileItemEntityPtr = 0x{Poe2.Ritual.TileItemEntityPtr:X};");
+        Console.WriteLine("    }");
+        return 0;
+    }
+
+    private static nint ChildAt(MemoryReader reader, nint parent, int index)
+    {
+        if (parent == 0) return 0;
+        var first = Ptr(reader, parent + Poe2.UiElement.Children);
+        if (first == 0) return 0;
+        if (!reader.TryReadStruct<nint>(parent + Poe2.UiElement.ChildrenEnd, out var last)) return 0;
+        var n = ((long)last - (long)first) / 8;
+        if (index < 0 || index >= n) return 0;
+        return Ptr(reader, first + (nint)(index * 8));
+    }
+
+    private static nint Ptr(MemoryReader reader, nint addr)
+    {
+        if (!reader.TryReadStruct<nint>(addr, out var p)) return 0;
+        var u = (ulong)p;
+        return (u < 0x10000 || u > 0x7FFFFFFFFFFF) ? 0 : p;
+    }
+
     private static void GetClientSize(ProcessHandle process, out float w, out float h)
     {
         w = 1920; h = 1080;

@@ -663,6 +663,19 @@ public sealed class ApiServer : IDisposable
         monolithsHideCollected = _settings.Monoliths.HideCollected,
         monolithsShowPanel = _settings.Monoliths.ShowPanel,
         monolithsShowMapLabel = _settings.Monoliths.ShowMapLabel,
+        ritualHelper = _settings.RitualHelper,
+        ritualHelperEnabled = _settings.RitualHelper.Enabled,
+        ritualHelperShowPrices = _settings.RitualHelper.ShowPrices,
+        ritualHelperDisplayCurrency = _settings.RitualHelper.DisplayCurrency,
+        ritualHelperMinDisplayExalted = _settings.RitualHelper.MinDisplayExalted,
+        ritualHelperPriceSource = _settings.RitualHelper.PriceSource,
+        ritualHelperLeague = _settings.RitualHelper.League,
+        ritualHelperRefreshIntervalMin = _settings.RitualHelper.RefreshIntervalMin,
+        ritualHelperReadHz = _settings.RitualHelper.ReadHz,
+        ritualHelperDiagnosePricing = _settings.RitualHelper.DiagnosePricing,
+        ritualHelperPlayValueAlert = _settings.RitualHelper.PlayValueAlert,
+        ritualHelperAlertMinDivine = _settings.RitualHelper.AlertMinDivine,
+        ritualHelperForceBfsFallback = _settings.RitualHelper.ForceBfsFallback,
     };
 
     /// <summary>Apply only whitelisted radar/visual keys from a posted JSON object; persists on change.</summary>
@@ -838,6 +851,31 @@ public sealed class ApiServer : IDisposable
                     _settings.Monoliths.ShowPanel = msp; applied.Add(p.Name); break;
                 case "monolithsShowMapLabel" when TryBool(p.Value, out var msm):
                     _settings.Monoliths.ShowMapLabel = msm; applied.Add(p.Name); break;
+                case "ritualHelperEnabled" when TryBool(p.Value, out var rhe):
+                    _settings.RitualHelper.Enabled = rhe; applied.Add(p.Name); break;
+                case "ritualHelperShowPrices" when TryBool(p.Value, out var rhsp):
+                    _settings.RitualHelper.ShowPrices = rhsp; applied.Add(p.Name); break;
+                case "ritualHelperDisplayCurrency" when TryInt(p.Value, out var rhdc):
+                    _settings.RitualHelper.DisplayCurrency = Math.Clamp(rhdc, 0, 2); applied.Add(p.Name); break;
+                case "ritualHelperMinDisplayExalted" when TryFloat(p.Value, out var rhme):
+                    _settings.RitualHelper.MinDisplayExalted = Math.Max(0, rhme); applied.Add(p.Name); break;
+                case "ritualHelperPriceSource" when TryInt(p.Value, out var rhps):
+                    _settings.RitualHelper.PriceSource = rhps is 0 or 1 ? rhps : 1; applied.Add(p.Name); break;
+                case "ritualHelperLeague":
+                    _settings.RitualHelper.League = p.Value.GetString() ?? "";
+                    applied.Add(p.Name); break;
+                case "ritualHelperRefreshIntervalMin" when TryInt(p.Value, out var rhri):
+                    _settings.RitualHelper.RefreshIntervalMin = Math.Clamp(rhri, 1, 120); applied.Add(p.Name); break;
+                case "ritualHelperReadHz" when TryInt(p.Value, out var rhrh):
+                    _settings.RitualHelper.ReadHz = Math.Clamp(rhrh, 1, 20); applied.Add(p.Name); break;
+                case "ritualHelperDiagnosePricing" when TryBool(p.Value, out var rhdp):
+                    _settings.RitualHelper.DiagnosePricing = rhdp; applied.Add(p.Name); break;
+                case "ritualHelperPlayValueAlert" when TryBool(p.Value, out var rhpa):
+                    _settings.RitualHelper.PlayValueAlert = rhpa; applied.Add(p.Name); break;
+                case "ritualHelperAlertMinDivine" when TryFloat(p.Value, out var rham):
+                    _settings.RitualHelper.AlertMinDivine = Math.Max(0.1, rham); applied.Add(p.Name); break;
+                case "ritualHelperForceBfsFallback" when TryBool(p.Value, out var rhfb):
+                    _settings.RitualHelper.ForceBfsFallback = rhfb; applied.Add(p.Name); break;
                 case "gamepadHotkeysEnabled" when TryBool(p.Value, out var gpe):
                     _settings.GamepadHotkeysEnabled = gpe;
                     applied.Add(p.Name);

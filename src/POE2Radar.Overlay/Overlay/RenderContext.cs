@@ -127,6 +127,11 @@ public sealed record RuneforgePanelData(
 /// <summary>Loot-tag anchored value chip (screen-space).</summary>
 public readonly record struct LootTagLabel(float X, float Y, float W, float H, string Value, bool Highlight);
 
+/// <summary>Ritual Favours reward tile price label (screen-space).</summary>
+public readonly record struct RitualRewardLabel(
+    float X, float Y, float W, float H,
+    string Value, string Currency, bool DiagnoseNoPrice, string? DebugText);
+
 /// <summary>One priced monolith reward offer.</summary>
 public readonly record struct MonolithReward(string Name, int Count, double Ex, int Size, string Runes);
 
@@ -303,4 +308,5 @@ public sealed record RenderContext(
     IReadOnlyList<LootTagLabel>? LootTags = null,
     IReadOnlyList<MonolithMarker>? Monoliths = null,
     bool ShowMonolithPanel = true,
-    bool ShowMonolithMapLabel = true);
+    bool ShowMonolithMapLabel = true,
+    IReadOnlyList<RitualRewardLabel>? RitualLabels = null);

@@ -65,6 +65,7 @@ public sealed partial class RadarApp
         exPerChaos = _priceBook.ExPerChaos,
         lastFetchUtc = _priceBook.LastFetchUtc,
         status = _priceBook.Status,
+        ritual = RitualPriceBookStatus(),
     };
 
     private void SyncPriceBookLeague(nint areaInstance)
@@ -251,8 +252,12 @@ public sealed partial class RadarApp
         _windowWidth = windowWidth;
         _windowHeight = windowHeight;
         _itemFrame.Clear();
-        if (inGame && _live.TryResolve(out var inGameState, out _, out _))
+        if (inGame && _live.TryResolve(out var inGameState, out var areaInstance, out _))
+        {
+            SyncRitualPriceBook(areaInstance);
             UpdatePanelValuesLive(inGameState, windowWidth, windowHeight);
+            UpdateRitualHelperLive(inGameState, windowWidth, windowHeight);
+        }
 
         if (inGame)
         {
@@ -299,6 +304,7 @@ public sealed partial class RadarApp
         if (!ReferenceEquals(_runeRender, RuneRender.Closed)) _runeRender = RuneRender.Closed;
         if (!ReferenceEquals(_lootTags, LootTagRender.Empty)) _lootTags = LootTagRender.Empty;
         if (_monoRender.Markers.Count > 0) _monoRender = MonolithRender.Empty;
+        ResetRitualSession();
         _itemFrame.Clear();
         _lootTagFrame.Clear();
     }

@@ -357,6 +357,22 @@ public static class Poe2
         public const int Rarity = 0x94;
     }
 
+    /// <summary>Ritual Favours / tribute-shop reward grid (GameHelper RitualHelper fast path).
+    /// Validate with <c>POE2Radar.Research --ritual-helper</c> after UI patches.</summary>
+    public static class Ritual
+    {
+        /// <summary>GameUi.children[76].children[13] — ritual reward window (GameHelper RitualHelper).</summary>
+        public const int FastChainChildA = 76;
+        public const int FastChainChildB = 13;
+        /// <summary>Item entity pointer on each reward tile UiElement (GameHelper RitualHelper).</summary>
+        public const int TileItemEntityPtr = 0x4F8;
+        public static readonly string[] SignatureTexts = { "Rituals Remaining", "tribute to the king" };
+        public const int MaxRewardTiles = 16;
+        public const int BfsMaxNodes = 20000;
+        public const int BfsThrottleMs = 750;
+        public const int ColdClosedThrottleMs = 2000;
+    }
+
     /// <summary>Runeshape Combinations panel (rune-crafting UI). Validated 2026-06-14.</summary>
     public static class Runeforge
     {

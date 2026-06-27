@@ -134,7 +134,17 @@ internal static class DashboardHtml
         .Replace("{{H.MonolithMinValue}}", H(SettingHints.Monoliths.MinValue))
         .Replace("{{H.MonolithHideCollected}}", H(SettingHints.Monoliths.HideCollected))
         .Replace("{{H.MonolithShowMapLabel}}", H(SettingHints.Monoliths.ShowMapLabel))
-        .Replace("{{H.MonolithShowPanel}}", H(SettingHints.Monoliths.ShowPanel));
+        .Replace("{{H.MonolithShowPanel}}", H(SettingHints.Monoliths.ShowPanel))
+        .Replace("{{H.RitualEnabled}}", H(SettingHints.RitualHelper.Enabled))
+        .Replace("{{H.RitualShowPrices}}", H(SettingHints.RitualHelper.ShowPrices))
+        .Replace("{{H.RitualMinDisplay}}", H(SettingHints.RitualHelper.MinDisplayExalted))
+        .Replace("{{H.RitualPriceSource}}", H(SettingHints.RitualHelper.PriceSource))
+        .Replace("{{H.RitualLeague}}", H(SettingHints.RitualHelper.League))
+        .Replace("{{H.RitualRefresh}}", H(SettingHints.RitualHelper.RefreshIntervalMin))
+        .Replace("{{H.RitualReadHz}}", H(SettingHints.RitualHelper.ReadHz))
+        .Replace("{{H.RitualDiagnose}}", H(SettingHints.RitualHelper.DiagnosePricing))
+        .Replace("{{H.RitualAlert}}", H(SettingHints.RitualHelper.PlayValueAlert))
+        .Replace("{{H.RitualAlertDiv}}", H(SettingHints.RitualHelper.AlertMinDivine));
 
     private const string PageTemplate = """
 <!DOCTYPE html>
@@ -885,6 +895,32 @@ internal static class DashboardHtml
               <label class="sw"><input type="checkbox" data-set="monolithsShowMapLabel"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.MonolithShowPanel}}">Show reward panel</div>
               <label class="sw"><input type="checkbox" data-set="monolithsShowPanel"><span class="track"></span><span class="knob"></span></label></div>
+          </div>
+          <div class="card">
+            <h3>Ritual Helper</h3>
+            <div class="row"><div class="rl" title="{{H.RitualEnabled}}">Enabled</div>
+              <label class="sw"><input type="checkbox" data-set="ritualHelperEnabled"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl" title="{{H.RitualShowPrices}}">Show prices</div>
+              <label class="sw"><input type="checkbox" data-set="ritualHelperShowPrices"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl" title="{{H.RitualMinDisplay}}">Min display (ex)</div>
+              <input class="numin" type="number" step="1" min="0" data-set="ritualHelperMinDisplayExalted"></div>
+            <div class="row"><div class="rl" title="{{H.RitualPriceSource}}">Price source</div>
+              <select class="numin selin" data-set="ritualHelperPriceSource">
+                <option value="0">poe.ninja</option>
+                <option value="1">poe2scout</option>
+              </select></div>
+            <div class="row"><div class="rl" title="{{H.RitualLeague}}">League override</div>
+              <input class="numin" type="text" data-set="ritualHelperLeague" style="width:220px"></div>
+            <div class="row"><div class="rl" title="{{H.RitualRefresh}}">Refresh interval (min)</div>
+              <input class="numin" type="number" step="1" min="1" max="120" data-set="ritualHelperRefreshIntervalMin"></div>
+            <div class="row"><div class="rl" title="{{H.RitualReadHz}}">Read rate (Hz)</div>
+              <input class="numin" type="number" step="1" min="1" max="20" data-set="ritualHelperReadHz"></div>
+            <div class="row"><div class="rl" title="{{H.RitualDiagnose}}">Diagnose pricing</div>
+              <label class="sw"><input type="checkbox" data-set="ritualHelperDiagnosePricing"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl" title="{{H.RitualAlert}}">Value alert</div>
+              <label class="sw"><input type="checkbox" data-set="ritualHelperPlayValueAlert"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl" title="{{H.RitualAlertDiv}}">Alert from (div)</div>
+              <input class="numin" type="number" step="0.1" min="0.1" data-set="ritualHelperAlertMinDivine"></div>
           </div>
           </div>
           <div class="settings-section panel-grid" id="setNav" hidden>

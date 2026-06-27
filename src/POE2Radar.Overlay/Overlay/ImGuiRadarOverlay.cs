@@ -1005,6 +1005,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         DrawItemLabels(dl, ctx);
         DrawRuneforgePanel(dl, ctx);
         DrawLootTagLabels(dl, ctx);
+        DrawRitualLabels(dl, ctx);
         DrawMonolithPanel(dl, ctx);
     }
 
@@ -1097,6 +1098,30 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (t.Highlight) dl.AddRect(new NumVec2(lx, cy - boxH * 0.5f), new NumVec2(lx + boxW, cy + boxH * 0.5f), ColItemHi, 0, 0, 2f);
             dl.AddText(ImGui.GetFont(), ImGui.GetFontSize(), new NumVec2(lx + 4f, cy - boxH * 0.5f + 1f),
                 t.Highlight ? ColItemHi : ColItemText, t.Value);
+        }
+    }
+
+    private static void DrawRitualLabels(ImDrawListPtr dl, RenderContext ctx)
+    {
+        if (ctx.RitualLabels is not { Count: > 0 } labels) return;
+        var font = ImGui.GetFont();
+        const uint shadow = 0xCC000000;
+        foreach (var label in labels)
+        {
+            if (!string.IsNullOrEmpty(label.DebugText))
+            {
+                var diagColor = label.DiagnoseNoPrice ? 0xFF4040FFu : 0xFF40FF40u;
+                var dbgPos = new NumVec2(label.X + 2f, label.Y + 2f);
+                var dbgFs = font.FontSize * 0.8f;
+                dl.AddText(font, dbgFs, dbgPos + new NumVec2(1f, 1f), shadow, label.DebugText);
+                dl.AddText(font, dbgFs, dbgPos, diagColor, label.DebugText);
+            }
+
+            if (string.IsNullOrEmpty(label.Value)) continue;
+            var fs = font.FontSize;
+            var textPos = new NumVec2(label.X + label.W * 0.5f - label.Value.Length * fs * 0.28f, label.Y + label.H - fs);
+            dl.AddText(font, fs, textPos + new NumVec2(1f, 1f), shadow, label.Value);
+            dl.AddText(font, fs, textPos, ColItemText, label.Value);
         }
     }
 
@@ -1654,6 +1679,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             BeginSettingsTab("HP Bars", () => DrawHpBarsTab(s));
             BeginSettingsTab("Flask", () => DrawFlaskTab(s));
             BeginSettingsTab("Atlas", () => DrawAtlasTab(s));
+            BeginSettingsTab("Ritual", () => DrawRitualTab(s));
             BeginSettingsTab("Hotkeys", () => DrawHotkeysTab(s));
             ImGui.EndTabBar();
         }
@@ -2592,6 +2618,74 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             ImGuiTheme.Tooltip(SettingHints.HpBars.OffsetY);
         }
         ImGuiTheme.EndAccordionSection(geomOpen);
+    }
+
+    private void DrawRitualTab(RadarSettings s)
+    {
+        var r = s.RitualHelper;
+        bool generalOpen = ImGuiTheme.BeginAccordionSection("RitualGeneral", "General",
+            "Price labels on Ritual Favours reward tiles.");
+        if (generalOpen)
+        {
+            bool en = r.Enabled; if (ImGui.Checkbox("Enabled", ref en)) r.Enabled = en;
+            ImGuiTheme.Tooltip(SettingHints.RitualHelper.Enabled);
+            bool sp = r.ShowPrices; if (ImGui.Checkbox("Show prices", ref sp)) r.ShowPrices = sp;
+            ImGuiTheme.Tooltip(SettingHints.RitualHelper.ShowPrices);
+
+            int dc = r.DisplayCurrency;
+            if (ImGui.RadioButton("Divine", dc == 0)) r.DisplayCurrency = 0;
+            ImGui.SameLine();
+            if (ImGui.RadioButton("Exalted", dc == 1)) r.DisplayCurrency = 1;
+            ImGui.SameLine();
+            if (ImGui.RadioButton("Chaos", dc == 2)) r.DisplayCurrency = 2;
+            ImGuiTheme.Tooltip(SettingHints.RitualHelper.DisplayCurrency);
+
+            float minEx = (float)r.MinDisplayExalted;
+            if (ImGui.SliderFloat("Min display (Ex)", ref minEx, 0f, 500f, "%.0f Ex")) r.MinDisplayExalted = minEx;
+            ImGuiTheme.Tooltip(SettingHints.RitualHelper.MinDisplayExalted);
+
+            int hz = r.ReadHz;
+            if (ImGui.SliderInt("Read rate (Hz)", ref hz, 1, 20)) r.ReadHz = hz;
+            ImGuiTheme.Tooltip(SettingHints.RitualHelper.ReadHz);
+        }
+        ImGuiTheme.EndAccordionSection(generalOpen);
+
+        bool dataOpen = ImGuiTheme.BeginAccordionSection("RitualData", "Data source",
+            "poe2scout or poe.ninja price feeds.");
+        if (dataOpen)
+        {
+            int ps = r.PriceSource;
+            if (ImGui.RadioButton("poe.ninja", ps == 0)) r.PriceSource = 0;
+            ImGui.SameLine();
+            if (ImGui.RadioButton("poe2scout", ps == 1)) r.PriceSource = 1;
+            ImGuiTheme.Tooltip(SettingHints.RitualHelper.PriceSource);
+
+            var league = r.League ?? "";
+            ImGui.SetNextItemWidth(UiW());
+            if (ImGui.InputText("League override", ref league, 64)) r.League = league;
+            ImGuiTheme.Tooltip(SettingHints.RitualHelper.League);
+
+            int refresh = r.RefreshIntervalMin;
+            if (ImGui.SliderInt("Refresh interval (min)", ref refresh, 1, 120)) r.RefreshIntervalMin = refresh;
+            ImGuiTheme.Tooltip(SettingHints.RitualHelper.RefreshIntervalMin);
+        }
+        ImGuiTheme.EndAccordionSection(dataOpen);
+
+        bool advOpen = ImGuiTheme.BeginAccordionSection("RitualAdvanced", "Advanced",
+            "Diagnostics and fallback scanning.");
+        if (advOpen)
+        {
+            bool diag = r.DiagnosePricing; if (ImGui.Checkbox("Diagnose pricing", ref diag)) r.DiagnosePricing = diag;
+            ImGuiTheme.Tooltip(SettingHints.RitualHelper.DiagnosePricing);
+            bool bfs = r.ForceBfsFallback; if (ImGui.Checkbox("Force BFS fallback", ref bfs)) r.ForceBfsFallback = bfs;
+            ImGuiTheme.Tooltip(SettingHints.RitualHelper.ForceBfsFallback);
+            bool alert = r.PlayValueAlert; if (ImGui.Checkbox("Value alert", ref alert)) r.PlayValueAlert = alert;
+            ImGuiTheme.Tooltip(SettingHints.RitualHelper.PlayValueAlert);
+            float alertDiv = (float)r.AlertMinDivine;
+            if (ImGui.SliderFloat("Alert from (Div)", ref alertDiv, 0.1f, 50f, "%.2f")) r.AlertMinDivine = alertDiv;
+            ImGuiTheme.Tooltip(SettingHints.RitualHelper.AlertMinDivine);
+        }
+        ImGuiTheme.EndAccordionSection(advOpen);
     }
 
     private void DrawFlaskTab(RadarSettings s)

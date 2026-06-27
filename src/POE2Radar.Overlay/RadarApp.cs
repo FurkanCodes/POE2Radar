@@ -517,6 +517,7 @@ public sealed partial class RadarApp : IDisposable
         Console.WriteLine($"Hidden entities: {_hidden.Count} pattern(s); display rules: {_displayRules.Count}");
         _imguiOverlay?.AttachEntityStores(_displayRules, _zoneOverrides, _ruleEngine, _hidden);
         InitLootValues();
+        InitRitualHelper();
         _worldThread = new Thread(WorldReaderLoop) { IsBackground = true, Name = "POE2Radar.WorldReader" };
         _worldThread.Start();
         _api = new ApiServer(() => _state, _settings, GetNavSelection, ToggleNavTarget, ClearNavSelection,
@@ -834,7 +835,8 @@ public sealed partial class RadarApp : IDisposable
             LootTags: lootPayload.lootTags,
             Monoliths: lootPayload.monoliths,
             ShowMonolithPanel: _settings.Monoliths.ShowPanel,
-            ShowMonolithMapLabel: _settings.Monoliths.ShowMapLabel);
+            ShowMonolithMapLabel: _settings.Monoliths.ShowMapLabel,
+            RitualLabels: _ritualRender.Open && _ritualRender.Labels.Count > 0 ? _ritualRender.Labels : null);
         _imguiOverlay?.UpdateContext(ctx);
 
         var overlayMetrics = _imguiOverlay?.GetRenderMetrics().Snapshot() ?? default;

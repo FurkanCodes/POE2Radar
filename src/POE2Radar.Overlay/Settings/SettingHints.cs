@@ -221,6 +221,22 @@ internal static class SettingHints
         public const string ShowPanel = "Show the detailed reward panel in-game.";
     }
 
+    internal static class RitualHelper
+    {
+        public const string Enabled = "Show Ritual Favours shop price labels while the tribute window is open.";
+        public const string ShowPrices = "Draw estimated value on each ritual reward tile.";
+        public const string DisplayCurrency = "Show prices in divine, exalted, or chaos orbs.";
+        public const string MinDisplayExalted = "Hide ritual labels below this exalted value.";
+        public const string PriceSource = "Fetch prices from poe2scout or poe.ninja.";
+        public const string League = "League name for ritual prices. Blank uses auto-detect from the game.";
+        public const string RefreshIntervalMin = "How often to refresh ritual price data from the web.";
+        public const string ReadHz = "How often to read the ritual shop UI while it is open.";
+        public const string DiagnosePricing = "Label every tile with memory names and lookup results for debugging.";
+        public const string ForceBfsFallback = "Skip the fast UI chain and always scan for the ritual window.";
+        public const string PlayValueAlert = "Play a sound when a reward exceeds the alert threshold.";
+        public const string AlertMinDivine = "Minimum divine value before playing the high-value alert.";
+    }
+
     internal static class Dashboard
     {
         public const string LiveColName = "Entity display name in the zone.";

@@ -109,6 +109,7 @@ public sealed class RadarSettings
     // ── Ground loot + league reward pricing (poe.ninja). ──
     public GroundItemSettings GroundItems { get; set; } = new();
     public MonolithSettings Monoliths { get; set; } = new();
+    public RitualHelperSettings RitualHelper { get; set; } = new();
 
     // ── Global multiplier on map icon sprite scale (PNG from icons.png). ──
     public float GlobalIconScale { get; set; } = 1.25f;
@@ -662,6 +663,28 @@ public sealed class MonolithSettings
     public bool ShowPanel { get; set; } = true;
     public bool ShowMapLabel { get; set; } = true;
     public float PanelMaxDistance { get; set; } = 0f;
+}
+
+/// <summary>Ritual Favours / tribute-shop price labels (poe2scout + poe.ninja).</summary>
+public sealed class RitualHelperSettings
+{
+    public bool Enabled { get; set; } = true;
+    public bool ShowPrices { get; set; } = true;
+    /// <summary>0=divine, 1=exalted, 2=chaos.</summary>
+    public int DisplayCurrency { get; set; } = 1;
+    public double MinDisplayExalted { get; set; } = 50;
+    /// <summary>0=poe.ninja, 1=poe2scout.</summary>
+    public int PriceSource { get; set; } = 1;
+    public string League { get; set; } = "";
+    public int RefreshIntervalMin { get; set; } = 5;
+    public int ReadHz { get; set; } = 8;
+    public bool DiagnosePricing { get; set; } = false;
+    public bool PlayValueAlert { get; set; } = false;
+    public double AlertMinDivine { get; set; } = 1;
+    public bool ForceBfsFallback { get; set; } = false;
+    public float PriceFontScale { get; set; } = 1f;
+    public float PriceOffsetX { get; set; } = 0f;
+    public float PriceOffsetY { get; set; } = 0f;
 }
 
 /// <summary>
