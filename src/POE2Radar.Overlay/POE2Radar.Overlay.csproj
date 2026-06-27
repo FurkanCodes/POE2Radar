@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <PackageReference Include="ClickableTransparentOverlay" Version="11.1.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="9.0.0" />
   </ItemGroup>
@@ -34,6 +35,8 @@
     <None Include="fonts\DejaVuSans.ttf" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <None Include="Overlay\icons.png" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <None Include="Overlay\Textures\*.png" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="Pricing\item_names.json" CopyToOutputDirectory="PreserveNewest" TargetPath="RitualHelper\item_names.json" />
+    <None Include="Pricing\RitualHelper.GPLv3.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" TargetPath="RitualHelper\RitualHelper.GPLv3.LICENSE.txt" />
   </ItemGroup>
 
 </Project>

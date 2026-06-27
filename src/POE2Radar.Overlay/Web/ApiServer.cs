@@ -28,6 +28,8 @@ namespace POE2Radar.Overlay.Web;
 ///   GET  /api/nav                 — current navigation-target selection (ids + color slots)
 ///   POST /api/nav                 — toggle/clear a navigation target (draw-only; never sends input to
 ///                                   the game); loopback-Host-gated like POST /api/settings
+///   GET  /api/ritual              — Ritual pricing status/settings diagnostics
+///   POST /api/ritual              — write Ritual pricing/display settings; loopback-Host-gated
 ///   GET  /api/hidden              — user cull patterns (entities matching these are hidden everywhere)
 ///   POST /api/hidden              — add/remove/clear a cull pattern ({add|remove|clear}); loopback-Host-gated
 ///   GET  /api/watched             — user highlight rules (pattern/label/color/shape/size/enabled)
@@ -59,6 +61,8 @@ public sealed class ApiServer : IDisposable
     private readonly Action<IReadOnlyList<long>>? _atlasSelect;
     // Atlas highlight rules (tag + colour + track/arrow) — only matching nodes draw in-game; loopback-gated.
     private readonly Action<IReadOnlyList<(string tag, string color, bool track, bool arrow)>>? _atlasHighlight;
+    private readonly Func<object>? _ritual;
+    private readonly Action<string>? _ritualApply;
     // Version/update info provider ({current, latest, updateAvailable, url}) for the dashboard banner.
     private readonly Func<object>? _version;
     private volatile bool _running;
@@ -80,6 +84,8 @@ public sealed class ApiServer : IDisposable
         Func<object>? atlasProvider = null,
         Action<IReadOnlyList<long>>? atlasSelect = null,
         Action<IReadOnlyList<(string tag, string color, bool track, bool arrow)>>? atlasHighlight = null,
+        Func<object>? ritualProvider = null,
+        Action<string>? ritualApply = null,
         Func<object>? versionProvider = null,
         int port = 7777)
     {
@@ -87,6 +93,8 @@ public sealed class ApiServer : IDisposable
         _atlas = atlasProvider;
         _atlasSelect = atlasSelect;
         _atlasHighlight = atlasHighlight;
+        _ritual = ritualProvider;
+        _ritualApply = ritualApply;
         _version = versionProvider;
         _settings = settings;
         _navGet = navGet;
@@ -296,6 +304,29 @@ public sealed class ApiServer : IDisposable
                     }
                     ApplyNav(ReadBody(ctx));
                     Write(ctx, 200, JsonSerializer.Serialize(new { ok = true, selected = NavSelection() }, Json));
+                }
+                else
+                {
+                    Write(ctx, 405, JsonSerializer.Serialize(new { error = "method not allowed" }, Json));
+                }
+                break;
+            }
+
+            case "/api/ritual":
+            {
+                if (ctx.Request.HttpMethod == "GET")
+                {
+                    Write(ctx, 200, JsonSerializer.Serialize(_ritual?.Invoke() ?? new { enabled = false, note = "ritual reader unavailable" }, Json));
+                }
+                else if (ctx.Request.HttpMethod == "POST")
+                {
+                    if (!IsLoopbackHost(ctx.Request))
+                    {
+                        Write(ctx, 403, JsonSerializer.Serialize(new { error = "forbidden host" }, Json));
+                        break;
+                    }
+                    _ritualApply?.Invoke(ReadBody(ctx));
+                    Write(ctx, 200, JsonSerializer.Serialize(new { ok = true, ritual = _ritual?.Invoke() }, Json));
                 }
                 else
                 {

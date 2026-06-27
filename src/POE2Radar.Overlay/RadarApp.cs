@@ -520,7 +520,8 @@ public sealed partial class RadarApp : IDisposable
         _worldThread.Start();
         _api = new ApiServer(() => _state, _settings, GetNavSelection, ToggleNavTarget, ClearNavSelection,
                              _hidden, _displayRules, _zoneOverrides, _ruleEngine, _landmarkStore, CurrentTilePaths,
-                             AtlasJson, SetAtlasSelection, SetAtlasHighlight, VersionJson, _settings.ApiPort);
+                             AtlasJson, SetAtlasSelection, SetAtlasHighlight, RitualApiJson, ApplyRitualApi,
+                             VersionJson, _settings.ApiPort);
         try { _api.Start(); Console.WriteLine($"API on http://localhost:{_settings.ApiPort} (dashboard at /)"); }
         catch (Exception ex) { Console.Error.WriteLine($"API server disabled: {ex.Message}"); }
         Console.WriteLine("Hotkeys: configurable in dashboard (Settings → Hotkeys) or overlay settings. "
@@ -662,6 +663,11 @@ public sealed partial class RadarApp : IDisposable
         if (live.InGame)
             live = RefreshMapLock(live, windowWidth, windowHeight);
 
+        if (live.InGame && drawActive)
+            RefreshRitualLabels(live, windowWidth, windowHeight);
+        else
+            ClearRitualWindowSession(open: false);
+
         if (live.InGame)
         {
             BuildRenderPaths(live.PlayerGrid, snap);
@@ -789,6 +795,7 @@ public sealed partial class RadarApp : IDisposable
             HpBars: _settings.HpBars,
             HpBarTargets: _hpFrame,
             TerrainStyle: _settings.Terrain,
+            RitualLabels: _ritualLabels,
             AtlasOpen: _atlasOpen,
             AtlasNodes: _atlasMarksPublish,
             AtlasShowOnScreenNodes: _settings.AtlasShowOnScreenNodes,

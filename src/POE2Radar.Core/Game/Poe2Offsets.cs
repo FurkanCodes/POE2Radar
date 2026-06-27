@@ -189,6 +189,7 @@ public static class Poe2
     {
         // ✓ validated live across 21 monsters (values 0 and 2 seen). Enum: 0=Normal,1=Magic,2=Rare,3=Unique.
         public const int Rarity = 0x144;
+        public const int Mods = 0x150; // GH2: Details1.Mods vectors
     }
 
     /// <summary>Chest component. ✓ OpenState @ +0x168 — the offset is stable, but the 2026-06-06 patch
@@ -355,6 +356,23 @@ public static class Poe2
     {
         public const int Identified = 0x90;
         public const int Rarity = 0x94;
+        public const int Mods = 0xA0; // GH2: Details0.Mods vectors
+    }
+
+    /// <summary>Ritual Favours UI item slot.</summary>
+    public static class RitualUi
+    {
+        public const int TileItemEntity = 0x4F8; // GH2/RitualHelper: item entity pointer on reward tile UiElement
+    }
+
+    public static class ModVectors
+    {
+        public const int Implicit = 0x00;
+        public const int Explicit = 0x18;
+        public const int Enchant = 0x30;
+        public const int Hellscape = 0x48;
+        public const int Crucible = 0x60;
+        public const int EntryStride = 0x40;
     }
 
     /// <summary>ServerData league name for price auto-detect. ✓ validated 2026-06-22.</summary>

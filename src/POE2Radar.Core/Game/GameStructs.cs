@@ -50,3 +50,12 @@ public struct VitalStruct
         return ReservedFlat >= 0 && ReservedFlat <= Max;
     }
 }
+
+/// <summary>Ritual/item mod entry from the Mods and ObjectMagicProperties components.</summary>
+[StructLayout(LayoutKind.Explicit, Pack = 1, Size = 0x40)]
+public struct ModArrayStruct
+{
+    [FieldOffset(0x00)] public StdVector Values;
+    [FieldOffset(0x18)] public int Value0;
+    [FieldOffset(0x28)] public nint ModsPtr;
+}

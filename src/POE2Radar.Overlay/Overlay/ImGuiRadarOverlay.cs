@@ -11,6 +11,7 @@ using POE2Radar.Overlay.Diagnostics;
 using POE2Radar.Overlay.Input;
 using POE2Radar.Overlay.Native;
 using POE2Radar.Overlay.Navigation;
+using POE2Radar.Overlay.Pricing;
 using POE2Radar.Overlay.Settings;
 using POE2Radar.Overlay.Web;
 using NumVec2 = System.Numerics.Vector2;
@@ -275,6 +276,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     var t = Stopwatch.GetTimestamp();
                     DrawNameplates(dl, ctx);
                     DrawPathLabels(dl, ctx);
+                    DrawRitualLabels(ImGui.GetForegroundDrawList(), ctx);
                     nameplatesMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                 }
             }
@@ -970,6 +972,47 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
     }
 
+    private void DrawRitualLabels(ImDrawListPtr dl, RenderContext ctx)
+    {
+        if (ctx.RitualLabels is not { Length: > 0 } labels) return;
+
+        var font = ImGui.GetFont();
+        var currentFontSize = Math.Max(1f, ImGui.GetFontSize());
+        const uint shadowColor = 0xCC000000u;
+
+        foreach (var label in labels)
+        {
+            if (!string.IsNullOrEmpty(label.ValueText))
+            {
+                var textPos = label.Pos;
+                dl.AddText(font, label.FontSize, textPos + new NumVec2(1f, 1f), shadowColor, label.ValueText);
+                dl.AddText(font, label.FontSize, textPos, label.TextColor, label.ValueText);
+
+                var textWidth = label.TextWidth > 0
+                    ? label.TextWidth
+                    : ImGui.CalcTextSize(label.ValueText).X * (label.FontSize / currentFontSize);
+                var iconPos = textPos + new NumVec2(textWidth + 3f, 0f);
+                var iconH = Math.Max(1f, label.IconHeight);
+                var iconW = Math.Max(1f, label.IconWidth);
+                if (_textures.TryGet(this, RitualCurrencyIcons.PathFor(label.IconFile), out var tex))
+                {
+                    if (tex.Height > 0)
+                        iconW = iconH * tex.Width / (float)tex.Height;
+                    dl.AddImage(tex.Id, iconPos, iconPos + new NumVec2(iconW, iconH));
+                }
+            }
+
+            if (!string.IsNullOrEmpty(label.DebugText))
+            {
+                var color = label.DebugText.Contains("NO PRICE", StringComparison.Ordinal)
+                    ? 0xFF4040FFu
+                    : 0xFF40FF40u;
+                dl.AddText(font, label.DebugFontSize, label.DebugPos + new NumVec2(1f, 1f), shadowColor, label.DebugText);
+                dl.AddText(font, label.DebugFontSize, label.DebugPos, color, label.DebugText);
+            }
+        }
+    }
+
     private static uint ColorFromU(uint u)
         => ColorU32((byte)((u >> 16) & 0xFF), (byte)((u >> 8) & 0xFF), (byte)(u & 0xFF), ((u >> 24) & 0xFF) / 255f);
 
@@ -1479,6 +1522,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             BeginSettingsTab("Performance", () => DrawPerformanceTab(s));
             BeginSettingsTab("HP Bars", () => DrawHpBarsTab(s));
             BeginSettingsTab("Flask", () => DrawFlaskTab(s));
+            BeginSettingsTab("Ritual", () => DrawRitualTab(s, ctx));
             BeginSettingsTab("Atlas", () => DrawAtlasTab(s));
             BeginSettingsTab("Hotkeys", () => DrawHotkeysTab(s));
             ImGui.EndTabBar();
@@ -2468,6 +2512,144 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             ImGui.BulletText("Keys are Win32 virtual-key codes (0x31 = '1', 0x32 = '2').");
         }
         ImGuiTheme.EndAccordionSection(statusOpen);
+    }
+
+    private void DrawRitualTab(RadarSettings s, RenderContext? ctx)
+    {
+        var r = s.Ritual;
+
+        var pricingOpen = ImGuiTheme.BeginAccordionSection("RitualPricing", "Pricing",
+            defaultOpen: true);
+        if (pricingOpen)
+        {
+            bool show = r.ShowOverlay;
+            if (ImGui.Checkbox("Show price labels", ref show)) r.ShowOverlay = show;
+
+            var source = Math.Clamp(r.PriceSource, 0, 1);
+            ImGui.SetNextItemWidth(UiW(9f));
+            if (ImGui.Combo("Price source", ref source, "poe.ninja\0poe2scout\0"))
+                r.PriceSource = source;
+
+            var league = r.League ?? "";
+            ImGui.SetNextItemWidth(UiW(14f));
+            if (ImGui.InputText("League", ref league, 96))
+                r.League = league;
+
+            var leagues = LeagueProvider.Leagues.ToArray();
+            if (leagues.Length > 0)
+            {
+                var current = Array.FindIndex(leagues, l => string.Equals(l, r.League, StringComparison.OrdinalIgnoreCase));
+                if (current < 0) current = 0;
+                ImGui.SetNextItemWidth(UiW(14f));
+                if (ImGui.BeginCombo("Known leagues", leagues[current]))
+                {
+                    foreach (var option in leagues)
+                    {
+                        var selected = string.Equals(option, r.League, StringComparison.OrdinalIgnoreCase);
+                        if (ImGui.Selectable(option, selected))
+                            r.League = option;
+                    }
+                    ImGui.EndCombo();
+                }
+            }
+
+            if (ImGui.Button("Reload leagues"))
+                LeagueProvider.ForceReload();
+            ImGui.SameLine();
+            if (ImGui.Button("Refresh prices"))
+            {
+                var dir = System.IO.Path.Combine(AppContext.BaseDirectory, "RitualHelper");
+                Directory.CreateDirectory(dir);
+                PoeNinjaPriceFetcher.Configure(Math.Clamp(r.PriceSource, 0, 1), r.League ?? "", Math.Max(1, r.RefreshIntervalMin));
+                PoeNinjaPriceFetcher.ForceRefresh(dir, ignoreCooldown: true);
+            }
+
+            var refresh = Math.Max(1, r.RefreshIntervalMin);
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Refresh minutes", ref refresh, 1, 60))
+                r.RefreshIntervalMin = refresh;
+
+            var currency = Math.Clamp(r.DisplayCurrency, 0, 2);
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.Combo("Display currency", ref currency, "Divine\0Exalted\0Chaos\0"))
+                r.DisplayCurrency = currency;
+
+            var minEx = r.MinDisplayExalted;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Min display value", ref minEx, 0f, 500f, "%.0f Ex"))
+                r.MinDisplayExalted = Math.Clamp(minEx, 0f, 100000f);
+        }
+        ImGuiTheme.EndAccordionSection(pricingOpen);
+
+        var alertOpen = ImGuiTheme.BeginAccordionSection("RitualAlerts", "Alerts",
+            defaultOpen: true);
+        if (alertOpen)
+        {
+            bool enabled = r.PlayValueAlert;
+            if (ImGui.Checkbox("Enable alert", ref enabled)) r.PlayValueAlert = enabled;
+
+            var alertMin = r.AlertMinDivine;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Alert from", ref alertMin, 0.1f, 50f, "%.3f Divine"))
+                r.AlertMinDivine = Math.Clamp(alertMin, 0.001f, 1000f);
+
+            var sound = Math.Clamp(r.AlertSound, 0, 4);
+            ImGui.SetNextItemWidth(UiW(9f));
+            if (ImGui.Combo("Sound", ref sound, "Asterisk\0Exclamation\0Hand\0Question\0Beep\0"))
+                r.AlertSound = sound;
+            ImGui.SameLine();
+            if (ImGui.Button("Test"))
+                AlertSoundPlayer.Play(sound);
+        }
+        ImGuiTheme.EndAccordionSection(alertOpen);
+
+        var styleOpen = ImGuiTheme.BeginAccordionSection("RitualStyle", "Label style",
+            defaultOpen: false);
+        if (styleOpen)
+        {
+            var scale = r.PriceFontScale;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Font scale", ref scale, 0.5f, 2.5f, "%.2f"))
+                r.PriceFontScale = Math.Clamp(scale, 0.4f, 4f);
+
+            var ox = r.PriceOffsetX;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Offset X", ref ox, -80f, 80f, "%.0f"))
+                r.PriceOffsetX = Math.Clamp(ox, -500f, 500f);
+
+            var oy = r.PriceOffsetY;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Offset Y", ref oy, -80f, 80f, "%.0f"))
+                r.PriceOffsetY = Math.Clamp(oy, -500f, 500f);
+
+            var col = ParseHexColor(r.PriceTextColor);
+            if (ImGui.ColorEdit3("Text color", ref col, ImGuiColorEditFlags.NoInputs))
+                r.PriceTextColor = FormatHexColor3(col);
+        }
+        ImGuiTheme.EndAccordionSection(styleOpen);
+
+        var diagnosticsOpen = ImGuiTheme.BeginAccordionSection("RitualDiagnostics", "Diagnostics",
+            defaultOpen: false);
+        if (diagnosticsOpen)
+        {
+            bool diagnose = r.DiagnosePricing;
+            if (ImGui.Checkbox("Diagnose pricing", ref diagnose)) r.DiagnosePricing = diagnose;
+
+            bool debug = r.DebugMode;
+            if (ImGui.Checkbox("Debug mode", ref debug)) r.DebugMode = debug;
+
+            bool bfs = r.ForceBfsFallback;
+            if (ImGui.Checkbox("Force BFS fallback", ref bfs)) r.ForceBfsFallback = bfs;
+
+            var fetchAge = PoeNinjaPriceFetcher.LastFetchUtc == DateTime.MinValue
+                ? "never"
+                : $"{Math.Max(0, (DateTime.UtcNow - PoeNinjaPriceFetcher.LastFetchUtc).TotalSeconds):F0}s ago";
+            ImGui.TextUnformatted($"Loaded prices: {PoeNinjaPriceFetcher.LoadedItemCount}");
+            ImGui.TextUnformatted($"Fetching: {(PoeNinjaPriceFetcher.IsFetching ? "yes" : "no")}");
+            ImGui.TextUnformatted($"Last fetch: {fetchAge}");
+            ImGui.TextUnformatted($"Labels this frame: {ctx?.RitualLabels.Length ?? 0}");
+        }
+        ImGuiTheme.EndAccordionSection(diagnosticsOpen);
     }
 
     private void DrawAtlasTab(RadarSettings s)

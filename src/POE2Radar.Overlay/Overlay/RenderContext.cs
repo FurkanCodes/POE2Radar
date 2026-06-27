@@ -114,6 +114,19 @@ public readonly record struct MapFrame(
 /// so the bar tracks the moving monster smoothly. The renderer just projects + fills.</summary>
 public readonly record struct HpBarTarget(Vector3 World, float Frac, float EsFrac, float Width, uint Fill, float BorderWidth, uint Border);
 
+public readonly record struct RitualPriceLabel(
+    NumVec2 Pos,
+    string IconFile,
+    float IconWidth,
+    float IconHeight,
+    string ValueText,
+    uint TextColor,
+    float FontSize,
+    float TextWidth,
+    string? DebugText = null,
+    NumVec2 DebugPos = default,
+    float DebugFontSize = 0f);
+
 /// <summary>Endgame atlas tier for icon/label accent (Return of the Ancients / 0.5).</summary>
 public enum AtlasEndgameTier : byte
 {
@@ -231,6 +244,7 @@ public sealed record RenderContext(
     HpBarTarget[] HpBarTargets,
     // Walkable-terrain bitmap colors/transparency (mirrored from RadarSettings).
     TerrainSettings TerrainStyle,
+    RitualPriceLabel[] RitualLabels,
     // ── Unified display-rule engine (Phase 1). Resolves an entity to the first matching display rule
     // (or null → not drawn); the rule says hide or how to draw (shape/color/size/label). Replaces the
     // watched/mechanic/category dot decision in DrawMap. Null only if not wired (defensive). ──

@@ -83,6 +83,19 @@ if (HasFlag(args, "--find-map"))
 if (HasFlag(args, "--map-probe"))
     return RunMapProbe(process, reader);
 
+if (HasFlag(args, "--ritual-probe"))
+{
+    var (ritW, ritH) = TryGameClientSize(process.ProcessId);
+    return RitualResearchProbes.Run(
+        process,
+        reader,
+        LootResearchProbes.ResolveGameStateSlot(process, reader),
+        HasFlag(args, "--watch"),
+        TryGetIntArg(args, "--ms") ?? 500,
+        ritW,
+        ritH);
+}
+
 if (HasFlag(args, "--map-watch"))
     return RunMapWatch(process, reader, TryGetIntArg(args, "--ms") ?? 400);
 

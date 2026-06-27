@@ -103,6 +103,8 @@ public sealed class RadarSettings
     // One-time: add server-icon portal rule.
     public bool ServerIconPortalMigrated { get; set; } = false;
 
+    public RitualSettings Ritual { get; set; } = new();
+
     // ── Global multiplier on map icon sprite scale (PNG from icons.png). ──
     public float GlobalIconScale { get; set; } = 1.25f;
 
@@ -486,6 +488,26 @@ public sealed class AtlasMapGroupSettings
     public string FontColor { get; set; } = "#ffffff";
     public bool Enabled { get; set; } = true;
     public List<string> Maps { get; set; } = new();
+}
+
+public sealed class RitualSettings
+{
+    public int PriceSource { get; set; } = 1; // 0 = poe.ninja, 1 = poe2scout
+    public string League { get; set; } = "Runes of Aldur";
+    public int RefreshIntervalMin { get; set; } = 5;
+    public int DisplayCurrency { get; set; } = 1; // 0 = Divine, 1 = Exalted, 2 = Chaos
+    public bool ShowOverlay { get; set; } = true;
+    public bool PlayValueAlert { get; set; } = true;
+    public float AlertMinDivine { get; set; } = 1f;
+    public int AlertSound { get; set; } = 0;
+    public bool DebugMode { get; set; } = false;
+    public bool DiagnosePricing { get; set; } = false;
+    public bool ForceBfsFallback { get; set; } = false;
+    public float PriceFontScale { get; set; } = 1.025f;
+    public float PriceOffsetX { get; set; } = 5f;
+    public float PriceOffsetY { get; set; } = -5f;
+    public string PriceTextColor { get; set; } = "#FFEB8C";
+    public float MinDisplayExalted { get; set; } = 50f;
 }
 
 public sealed class AtlasRouteGroupSettings
