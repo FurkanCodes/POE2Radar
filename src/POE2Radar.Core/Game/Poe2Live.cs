@@ -874,7 +874,12 @@ public sealed partial class Poe2Live
     private nint _classifiedMiniEl;
     private nint _preferredUiAnchor;
     private nint _preferredUiAnchorIgs;
+    private Poe2UiAnchors.BranchKind _mapProbeHint;
+    private Poe2UiAnchors.BranchKind _lootProbeHint;
     private const int PreferredMapScoreThreshold = 4;
+
+    public Poe2UiAnchors.BranchKind MapProbeHint => _mapProbeHint;
+    public Poe2UiAnchors.BranchKind LootProbeHint => _lootProbeHint;
 
     /// <summary>
     /// Map UI state. The MapUiElements (DefaultShift=(0,-20), Zoom=0.5) are discovered once per area
@@ -901,41 +906,25 @@ public sealed partial class Poe2Live
 
     private nint GetUiRoot(nint inGameState) => UiRootResolver.Resolve(_reader, inGameState);
 
-    private readonly nint[] _uiBranchBuf = new nint[4];
+    private readonly nint[] _uiBranchBuf = new nint[6];
 
     /// <summary>Parallel UI trees — ritual shop must probe every branch (KBM vs controller).</summary>
-    public ReadOnlySpan<nint> GetUiBranches(nint inGameState) => GetUiBranches(inGameState, preferController: false);
+    public ReadOnlySpan<nint> GetUiBranches(nint inGameState)
+        => GetUiBranches(inGameState, Poe2UiAnchors.BranchKind.None);
 
-    public ReadOnlySpan<nint> GetUiBranches(nint inGameState, bool preferController)
+    public ReadOnlySpan<nint> GetUiBranches(nint inGameState, Poe2UiAnchors.BranchKind probeHint, nint lastSuccessRoot = 0)
     {
         var uiRoot = GetUiRoot(inGameState);
         DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
         var fixedRoot = Ptr(inGameState + Poe2.InGameState.UiRoot);
-        var n = 0;
-        void Add(nint p)
-        {
-            if (p == 0) return;
-            for (var i = 0; i < n; i++)
-                if (_uiBranchBuf[i] == p) return;
-            if (n < _uiBranchBuf.Length) _uiBranchBuf[n++] = p;
-        }
-
-        if (preferController)
-        {
-            Add(controllerGameUi);
-            Add(uiRoot);
-            Add(fixedRoot);
-            Add(gameUi);
-        }
-        else
-        {
-            Add(gameUi);
-            Add(controllerGameUi);
-            Add(uiRoot);
-            Add(fixedRoot);
-        }
+        var n = UiBranchCandidates.Fill(
+            _uiBranchBuf, gameUi, controllerGameUi, uiRoot, fixedRoot, probeHint, lastSuccessRoot);
         return _uiBranchBuf.AsSpan(0, n);
     }
+
+    public ReadOnlySpan<nint> GetUiBranches(nint inGameState, bool preferController)
+        => GetUiBranches(inGameState,
+            preferController ? Poe2UiAnchors.BranchKind.Controller : Poe2UiAnchors.BranchKind.KeyboardMouse);
 
     public bool IsPlausibleItemEntity(nint item)
     {
@@ -982,6 +971,10 @@ public sealed partial class Poe2Live
         if (anchor == 0 || score < PreferredMapScoreThreshold) return;
         _preferredUiAnchor = anchor;
         _preferredUiAnchorIgs = inGameState;
+        DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
+        var kind = UiBranchCandidates.BranchForRoot(anchor, gameUi, controllerGameUi);
+        if (kind != Poe2UiAnchors.BranchKind.None)
+            _mapProbeHint = kind;
     }
 
     /// <summary>Active GameUi / GameUiController branch — much smaller than the full InGameState UiRoot on KBM.</summary>
@@ -1046,22 +1039,14 @@ public sealed partial class Poe2Live
         maps = default;
         SyncPreferredUiAnchor(inGameState);
 
-        if (_preferredUiAnchor != 0
-            && TryReadMapsFromImportantUi(_preferredUiAnchor, windowWidth, windowHeight, out var cached)
-            && ScoreMapViews(cached) >= PreferredMapScoreThreshold)
-        {
-            maps = cached;
-            return true;
-        }
-
         var uiRoot = GetUiRoot(inGameState);
         DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
+        var fixedRoot = Ptr(inGameState + Poe2.InGameState.UiRoot);
 
-        Span<nint> bases = stackalloc nint[4];
-        var baseCount = 0;
-        TryAddUniqueAnchor(bases, ref baseCount, controllerGameUi);
-        TryAddUniqueAnchor(bases, ref baseCount, gameUi);
-        TryAddUniqueAnchor(bases, ref baseCount, uiRoot);
+        Span<nint> bases = stackalloc nint[6];
+        var baseCount = UiBranchCandidates.Fill(
+            bases, gameUi, controllerGameUi, uiRoot, fixedRoot, _mapProbeHint,
+            _preferredUiAnchorIgs == inGameState ? _preferredUiAnchor : 0);
         TryAddUniqueAnchor(bases, ref baseCount, inGameState);
 
         MapViews best = default;

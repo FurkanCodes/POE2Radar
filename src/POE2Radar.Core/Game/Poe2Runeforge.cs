@@ -12,6 +12,8 @@ public sealed class Poe2Runeforge
 
     private nint _panel;
     private nint _viewport;
+    private nint _lastSuccessRoot;
+    private Poe2UiAnchors.BranchKind _probeHint;
     private DateTime _nextResolveUtc = DateTime.MinValue;
     private const int HotResolveThrottleMs = 120;
     private const int ColdResolveThrottleMs = 2000;
@@ -27,8 +29,9 @@ public sealed class Poe2Runeforge
     /// <summary>Cheap open probe — does not read reward rows unless the panel was already cached open.</summary>
     public RuneforgeWindowState ReadWindowState(nint inGameState, UiContextSnapshot ui, float winW, float winH)
     {
-        var scanRoot = ResolveScanRoot(inGameState, ui);
-        if (scanRoot == 0)
+        Span<nint> roots = stackalloc nint[6];
+        var rootCount = ResolveScanRoots(inGameState, ui, roots);
+        if (rootCount == 0)
         {
             PanelOpen = false;
             _panel = 0;
@@ -42,20 +45,27 @@ public sealed class Poe2Runeforge
         if (_panel == 0 && now < _nextResolveUtc)
             return new RuneforgeWindowState(false, 0, 0);
 
-        var titleEl = FindTitleElement(scanRoot);
-        if (titleEl == 0)
+        for (var i = 0; i < rootCount; i++)
         {
-            PanelOpen = false;
-            _panel = 0;
-            _nextResolveUtc = now.AddMilliseconds(ColdResolveThrottleMs);
-            return new RuneforgeWindowState(false, 0, 0);
+            var scanRoot = roots[i];
+            var titleEl = FindTitleElement(scanRoot);
+            if (titleEl == 0)
+                continue;
+
+            _panel = Walk(scanRoot, 0);
+            if (_panel == 0) _panel = FindPanelByTitle(scanRoot, titleEl);
+            if (_panel == 0)
+                continue;
+            _nextResolveUtc = now.AddMilliseconds(HotResolveThrottleMs);
+            PanelOpen = true;
+            RememberSuccessRoot(scanRoot, ui);
+            return new RuneforgeWindowState(PanelOpen, _panel, 0);
         }
 
-        _panel = Walk(scanRoot, 0);
-        if (_panel == 0) _panel = FindPanelByTitle(scanRoot, titleEl);
-        _nextResolveUtc = now.AddMilliseconds(_panel == 0 ? ColdResolveThrottleMs : HotResolveThrottleMs);
-        PanelOpen = _panel != 0;
-        return new RuneforgeWindowState(PanelOpen, _panel, 0);
+        PanelOpen = false;
+        _panel = 0;
+        _nextResolveUtc = now.AddMilliseconds(ColdResolveThrottleMs);
+        return new RuneforgeWindowState(false, 0, 0);
     }
 
     public void ResetSession()
@@ -63,20 +73,49 @@ public sealed class Poe2Runeforge
         PanelOpen = false;
         _panel = 0;
         _viewport = 0;
+        _lastSuccessRoot = 0;
+        _probeHint = Poe2UiAnchors.BranchKind.None;
         _nextResolveUtc = DateTime.MinValue;
     }
 
-    private nint ResolveScanRoot(nint inGameState, UiContextSnapshot ui)
+    public Poe2UiAnchors.BranchKind ProbeHint => _probeHint;
+
+    private int ResolveScanRoots(nint inGameState, UiContextSnapshot ui, Span<nint> roots)
     {
+        var count = 0;
+        if (_lastSuccessRoot != 0)
+            AddScanRoot(roots, ref count, _lastSuccessRoot);
+
         if (ui.Valid)
         {
-            if (ui.GameUi != 0) return ui.GameUi;
-            if (ui.GameUiController != 0) return ui.GameUiController;
-            if (ui.FixedUiRoot != 0) return ui.FixedUiRoot;
             foreach (var branch in ui.Branches)
-                if (branch != 0) return branch;
+                AddScanRoot(roots, ref count, branch);
+            AddScanRoot(roots, ref count, ui.GameUi);
+            AddScanRoot(roots, ref count, ui.GameUiController);
+            AddScanRoot(roots, ref count, ui.FixedUiRoot);
         }
-        return inGameState != 0 ? Ptr(inGameState + Poe2.InGameState.UiRoot) : 0;
+        if (inGameState != 0)
+            AddScanRoot(roots, ref count, Ptr(inGameState + Poe2.InGameState.UiRoot));
+        return count;
+    }
+
+    private void RememberSuccessRoot(nint root, UiContextSnapshot ui)
+    {
+        if (root == 0) return;
+        _lastSuccessRoot = root;
+        if (!ui.Valid) return;
+        var kind = UiBranchCandidates.BranchForRoot(root, ui.GameUi, ui.GameUiController);
+        if (kind != Poe2UiAnchors.BranchKind.None)
+            _probeHint = kind;
+    }
+
+    private static void AddScanRoot(Span<nint> roots, ref int count, nint root)
+    {
+        if (root == 0) return;
+        for (var i = 0; i < count; i++)
+            if (roots[i] == root) return;
+        if (count < roots.Length)
+            roots[count++] = root;
     }
 
     public List<RuneReward> ReadRewards(nint inGameState, float winW, float winH)
@@ -85,8 +124,9 @@ public sealed class Poe2Runeforge
     public List<RuneReward> ReadRewards(nint inGameState, UiContextSnapshot ui, float winW, float winH)
     {
         PanelOpen = false;
-        var gameUi = ResolveScanRoot(inGameState, ui);
-        if (gameUi == 0) { _panel = 0; return new List<RuneReward>(); }
+        Span<nint> roots = stackalloc nint[6];
+        var rootCount = ResolveScanRoots(inGameState, ui, roots);
+        if (rootCount == 0) { _panel = 0; return new List<RuneReward>(); }
 
         var now = DateTime.UtcNow;
         if (_panel == 0 && now < _nextResolveUtc)
@@ -94,27 +134,45 @@ public sealed class Poe2Runeforge
 
         var shouldResolve = _panel == 0 || now >= _nextResolveUtc;
 
-        nint titleEl = 0;
+        List<RuneReward> result = new();
         if (shouldResolve)
         {
             _viewport = 0;
-            titleEl = FindTitleElement(gameUi);
-            _panel = Walk(gameUi, 0);
-            if (_panel == 0) _panel = FindPanelByTitle(gameUi, titleEl);
+            _panel = 0;
+            for (var i = 0; i < rootCount; i++)
+            {
+                var gameUi = roots[i];
+                var titleEl = FindTitleElement(gameUi);
+                if (titleEl == 0)
+                    continue;
+
+                _panel = Walk(gameUi, 0);
+                if (_panel == 0) _panel = FindPanelByTitle(gameUi, titleEl);
+                if (_panel == 0)
+                    continue;
+
+                result = ReadRowsFromPanel(_panel, winW, winH);
+                if (result.Count == 0)
+                {
+                    _panel = 0;
+                    _viewport = 0;
+                    _panel = Walk(gameUi, 0);
+                    if (_panel == 0) _panel = FindPanelByTitle(gameUi, titleEl);
+                    if (_panel != 0) result = ReadRowsFromPanel(_panel, winW, winH);
+                    if (result.Count == 0) result = ScanRewardTexts(gameUi, titleEl, winW, winH);
+                }
+
+                if (result.Count > 0)
+                {
+                    RememberSuccessRoot(gameUi, ui);
+                    break;
+                }
+            }
             _nextResolveUtc = now.AddMilliseconds(_panel == 0 ? ColdResolveThrottleMs : HotResolveThrottleMs);
         }
-
-        var result = _panel != 0 ? ReadRowsFromPanel(_panel, winW, winH) : new List<RuneReward>();
-
-        // Stale cached panel or drifted fingerprints: re-resolve once when the title is visible but rows read empty.
-        if (result.Count == 0 && shouldResolve && titleEl != 0)
+        else if (_panel != 0)
         {
-            _panel = 0;
-            _viewport = 0;
-            _panel = Walk(gameUi, 0);
-            if (_panel == 0) _panel = FindPanelByTitle(gameUi, titleEl);
-            if (_panel != 0) result = ReadRowsFromPanel(_panel, winW, winH);
-            if (result.Count == 0) result = ScanRewardTexts(gameUi, titleEl, winW, winH);
+            result = ReadRowsFromPanel(_panel, winW, winH);
         }
 
         if (result.Count == 0 && shouldResolve)

@@ -213,11 +213,46 @@ public sealed partial class Poe2Live
     public List<(nint El, string Text)> ScanLootLabels(nint inGameState, int maxNodes = 20000)
     {
         var result = new List<(nint, string)>();
-        var uiRoot = PreferredUiScanRoot(inGameState);
-        if (uiRoot == 0) return result;
+        var elementSeen = new HashSet<nint>();
+        DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
+        var uiRoot = GetUiRoot(inGameState);
+        var fixedRoot = Ptr(inGameState + Poe2.InGameState.UiRoot);
+        Span<nint> roots = stackalloc nint[6];
+        var rootCount = UiBranchCandidates.Fill(
+            roots, gameUi, controllerGameUi, uiRoot, fixedRoot, _lootProbeHint);
+        var bestRoot = (nint)0;
+        var bestCount = 0;
+        for (var i = 0; i < rootCount; i++)
+        {
+            var before = result.Count;
+            ScanLootLabelsFromRoot(roots[i], maxNodes, result, elementSeen);
+            var found = result.Count - before;
+            if (found <= bestCount) continue;
+            bestCount = found;
+            bestRoot = roots[i];
+        }
+
+        if (bestRoot != 0)
+        {
+            var kind = UiBranchCandidates.BranchForRoot(bestRoot, gameUi, controllerGameUi);
+            if (kind != Poe2UiAnchors.BranchKind.None)
+                _lootProbeHint = kind;
+        }
+
+        return result;
+    }
+
+    private void ScanLootLabelsFromRoot(
+        nint uiRoot,
+        int maxNodes,
+        List<(nint El, string Text)> result,
+        HashSet<nint> elementSeen)
+    {
+        if (uiRoot == 0) return;
         const uint visBit = 1u << Poe2.UiElement.FlagVisibleBit;
 
-        var queue = new Queue<nint>(); queue.Enqueue(uiRoot);
+        var queue = new Queue<nint>();
+        queue.Enqueue(uiRoot);
         var visited = new HashSet<nint>();
         while (queue.Count > 0 && visited.Count < maxNodes)
         {
@@ -238,8 +273,8 @@ public sealed partial class Poe2Live
             if (text.Length < 2) continue;
             var nl = text.IndexOf('\n');
             var firstLine = (nl >= 0 ? text[..nl] : text).Trim();
-            if (firstLine.Length >= 2) result.Add((el, firstLine));
+            if (firstLine.Length < 2 || !elementSeen.Add(el)) continue;
+            result.Add((el, firstLine));
         }
-        return result;
     }
 }

@@ -5,6 +5,7 @@ using POE2Radar.Core.Pathfinding;
 using POE2Radar.Overlay.Navigation;
 using POE2Radar.Overlay.Web;
 using POE2Radar.Overlay.Config;
+using POE2Radar.Overlay.Input;
 
 namespace POE2Radar.Overlay;
 
@@ -73,10 +74,10 @@ public sealed partial class RadarApp
 
         var atlasStart = System.Diagnostics.Stopwatch.GetTimestamp();
         ResolveGameClientSize(out var winW, out var winH);
-        var preferController = _settings.GamepadHotkeysEnabled
-            || Input.GamepadInput.IsConnected(_settings.GamepadUserIndex);
         _worldUiContext = UiContextSnapshot.Capture(
-            _worldReader, _worldLive, game, winW, winH, preferController, allowAnchorScan: false);
+            _worldReader, _worldLive, game, winW, winH,
+            probeHint: _worldLive.LootProbeHint,
+            allowAnchorScan: false);
         UpdateAtlas(game, _worldUiContext);
         _atlasUpdateMs = (float)System.Diagnostics.Stopwatch.GetElapsedTime(atlasStart).TotalMilliseconds;
 

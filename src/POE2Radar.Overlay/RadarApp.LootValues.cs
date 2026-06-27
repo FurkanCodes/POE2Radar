@@ -90,7 +90,7 @@ public sealed partial class RadarApp
         }
         else
         {
-            var panels = _panelCatalog.Capture(game, ui, ritualAllowLocate: false, preferController: ui.PreferController);
+            var panels = _panelCatalog.Capture(game, ui, ritualAllowLocate: false, ui.ProbeHint);
             if (!panels.Runeforge.Open)
                 UpdateLootTags(game.InGameState);
             else if (!ReferenceEquals(_lootTags, LootTagRender.Empty))
@@ -335,6 +335,8 @@ public sealed partial class RadarApp
         if (!ReferenceEquals(_runeRender, RuneRender.Closed)) _runeRender = RuneRender.Closed;
         if (!ReferenceEquals(_lootTags, LootTagRender.Empty)) _lootTags = LootTagRender.Empty;
         if (_monoRender.Markers.Count > 0) _monoRender = MonolithRender.Empty;
+        _ritualProbeHint = Poe2UiAnchors.BranchKind.None;
+        _panelCatalog?.ResetRitualSession();
         _panelCatalog?.ResetRuneforgeSession();
         ResetRitualSession();
         _itemFrame.Clear();

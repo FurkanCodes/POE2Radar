@@ -89,13 +89,15 @@ internal static class LootResearchProbes
             Console.WriteLine($"Anchors: GameUi=0x{gameUi:X} Controller=0x{controllerUi:X}");
 
         var shop = new Poe2RitualShop(reader, live);
-        var preferController = Array.IndexOf(cliArgs, "--controller") >= 0;
-        var read = shop.ReadPanelState(igs, w, h, allowFullLocate: true, preferControllerBranch: preferController);
+        var probeHint = Array.IndexOf(cliArgs, "--controller") >= 0
+            ? Poe2UiAnchors.BranchKind.Controller
+            : Poe2UiAnchors.BranchKind.None;
+        var read = shop.ReadPanelState(igs, w, h, allowFullLocate: true, probeHint);
         var perf = shop.PerfSnapshot;
-        Console.WriteLine($"preferController={preferController} signature={read.SignatureDetected} panelOpen={read.PanelOpen} inBounds={read.InBoundsTiles} branch=0x{read.Branch:X}");
+        Console.WriteLine($"probeHint={probeHint} signature={read.SignatureDetected} panelOpen={read.PanelOpen} inBounds={read.InBoundsTiles} branch=0x{read.Branch:X}");
         Console.WriteLine($"probe={shop.LastIdleProbeKind} fastPath={shop.LastIdleProbeFastPathHit} rewards={read.Rewards.Count}");
         Console.WriteLine($"perf: elapsed={perf.LastElapsedMs:F3}ms avg={perf.AverageElapsedMs:F3}ms sig=0x{perf.LastItemSignature:X} fast={perf.FastChainHits} cached={perf.CachedGridHits} bfs={perf.BfsRuns} fullReads={perf.FullRewardReads} labelScans={perf.LabelMergeScans} anchors={perf.AnchorDiscoveries}");
-        var cachedRead = shop.ReadWindowState(igs, w, h, allowFullLocate: true, preferControllerBranch: preferController);
+        var cachedRead = shop.ReadWindowState(igs, w, h, allowFullLocate: true, probeHint);
         var cachedPerf = shop.PerfSnapshot;
         Console.WriteLine($"cached-pass: panelOpen={cachedRead.PanelOpen} inBounds={cachedRead.InBoundsTiles} sig=0x{cachedRead.ItemSignature:X} elapsed={cachedPerf.LastElapsedMs:F3}ms avg={cachedPerf.AverageElapsedMs:F3}ms cached={cachedPerf.CachedGridHits} bfs={cachedPerf.BfsRuns} fullReads={cachedPerf.FullRewardReads} labelScans={cachedPerf.LabelMergeScans}");
 

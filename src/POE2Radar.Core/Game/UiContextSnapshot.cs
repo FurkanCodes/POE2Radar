@@ -15,7 +15,9 @@ public readonly struct UiContextSnapshot
     public nint FixedUiRoot { get; init; }
     public int WindowWidth { get; init; }
     public int WindowHeight { get; init; }
+    /// <summary>True when probe order puts GameUiController before GameUi (hint only).</summary>
     public bool PreferController { get; init; }
+    public Poe2UiAnchors.BranchKind ProbeHint { get; init; }
     public long Generation { get; init; }
     public nint Branch0 { get; init; }
     public nint Branch1 { get; init; }
@@ -43,8 +45,9 @@ public readonly struct UiContextSnapshot
         GameContextSnapshot game,
         int windowWidth,
         int windowHeight,
-        bool preferController,
-        bool allowAnchorScan)
+        Poe2UiAnchors.BranchKind probeHint = Poe2UiAnchors.BranchKind.None,
+        nint lastSuccessRoot = 0,
+        bool allowAnchorScan = false)
     {
         if (!game.Valid || game.InGameState == 0)
             return Invalid;
@@ -54,7 +57,7 @@ public readonly struct UiContextSnapshot
 
         var uiRootStruct = Ptr(reader, game.InGameState + Poe2.InGameState.UiRootStructPtr);
         var fixedRoot = Ptr(reader, game.InGameState + Poe2.InGameState.UiRoot);
-        var branches = live.GetUiBranches(game.InGameState, preferController);
+        var branches = live.GetUiBranches(game.InGameState, probeHint, lastSuccessRoot);
 
         nint b0 = 0, b1 = 0, b2 = 0, b3 = 0;
         var n = branches.Length;
@@ -73,7 +76,8 @@ public readonly struct UiContextSnapshot
             FixedUiRoot = fixedRoot,
             WindowWidth = windowWidth,
             WindowHeight = windowHeight,
-            PreferController = preferController,
+            PreferController = UiBranchCandidates.PreferControllerOrder(probeHint),
+            ProbeHint = probeHint,
             Generation = game.Generation,
             Branch0 = b0,
             Branch1 = b1,

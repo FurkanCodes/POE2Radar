@@ -87,8 +87,8 @@ public sealed partial class RadarApp
             return;
 
         var allowLocate = cfg.ForceBfsFallback || _ritualShop.PanelOpen || _ritualShop.LastIdleProbeFastPathHit;
-        var preferController = ui.Valid && ui.PreferController;
-        var panels = _panelCatalog.Capture(game, ui, allowLocate, preferController);
+        var panels = _panelCatalog.Capture(game, ui, allowLocate, ui.ProbeHint);
+        RememberUiBranchFromPanels(panels, ui, ref _ritualProbeHint);
         var ritual = panels.Ritual;
         var open = ritual.Open;
         var pathKind = $"{_ritualShop.LastIdleProbeKind} fast={ritual.FastPathHit}";
@@ -159,6 +159,30 @@ public sealed partial class RadarApp
     private static double RitualElapsedMs(long startTimestamp)
         => (System.Diagnostics.Stopwatch.GetTimestamp() - startTimestamp) * 1000.0
            / System.Diagnostics.Stopwatch.Frequency;
+
+    private static void RememberUiBranchFromPanels(
+        PanelCatalogSnapshot panels,
+        UiContextSnapshot ui,
+        ref Poe2UiAnchors.BranchKind hint)
+    {
+        if (!panels.Valid || !ui.Valid || !panels.Ritual.Open)
+            return;
+
+        var detected = BranchKindForUiRoot(panels.Ritual.Branch, ui);
+        if (detected != Poe2UiAnchors.BranchKind.None)
+            hint = detected;
+    }
+
+    private static Poe2UiAnchors.BranchKind BranchKindForUiRoot(nint root, UiContextSnapshot ui)
+    {
+        if (root == 0 || !ui.Valid)
+            return Poe2UiAnchors.BranchKind.None;
+        if (root == ui.GameUiController)
+            return Poe2UiAnchors.BranchKind.Controller;
+        if (root == ui.GameUi)
+            return Poe2UiAnchors.BranchKind.KeyboardMouse;
+        return Poe2UiAnchors.BranchKind.None;
+    }
 
     private List<RitualRewardLabel> BuildRitualLabels(
         IReadOnlyList<Poe2Live.RitualReward> rewards,

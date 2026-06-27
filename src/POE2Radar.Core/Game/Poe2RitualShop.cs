@@ -23,6 +23,7 @@ public sealed class Poe2RitualShop
     private long _rewardSignature;
     /// <summary>Last branch that hosted an open tribute shop — probed first on idle to save CPU.</summary>
     private nint _branchHint;
+    private Poe2UiAnchors.BranchKind _activeProbeHint;
     private bool _preferControllerBranch;
     private DateTime _nextClosedUtc = DateTime.MinValue;
     private DateTime _nextBfsUtc = DateTime.MinValue;
@@ -30,12 +31,11 @@ public sealed class Poe2RitualShop
     private long _lastItemSignature;
     private readonly RitualPerfCounters _perf = new();
 
-    public void ConfigureUiPreference(bool preferControllerBranch)
+    public void ConfigureUiPreference(Poe2UiAnchors.BranchKind probeHint)
     {
-        if (_preferControllerBranch == preferControllerBranch) return;
-        _preferControllerBranch = preferControllerBranch;
-        _branchHint = 0;
-        if (PanelOpen) ClearSession();
+        if (_activeProbeHint == probeHint) return;
+        _activeProbeHint = probeHint;
+        _preferControllerBranch = UiBranchCandidates.PreferControllerOrder(probeHint);
     }
 
     private static readonly string[] SignatureTexts = Poe2.Ritual.SignatureTexts;
@@ -134,9 +134,9 @@ public sealed class Poe2RitualShop
     public RitualPerfSnapshot PerfSnapshot => _perf.Snapshot(_lastItemSignature);
 
     public RitualPanelRead ReadPanelState(nint inGameState, float winW, float winH, bool allowFullLocate,
-        bool preferControllerBranch = false)
+        Poe2UiAnchors.BranchKind probeHint = Poe2UiAnchors.BranchKind.None)
     {
-        var state = ReadWindowState(inGameState, winW, winH, allowFullLocate, preferControllerBranch);
+        var state = ReadWindowState(inGameState, winW, winH, allowFullLocate, probeHint);
         if (!state.PanelOpen)
             return new RitualPanelRead(state.SignatureDetected, false, state.InBoundsTiles, state.Branch, []);
 
@@ -148,7 +148,7 @@ public sealed class Poe2RitualShop
     /// Cheap GameHelper-style window pass: panel/grid/signature only, no reward identity or price work.
     /// </summary>
     public RitualWindowState ReadWindowState(nint inGameState, float winW, float winH, bool allowFullLocate,
-        bool preferControllerBranch = false)
+        Poe2UiAnchors.BranchKind probeHint = Poe2UiAnchors.BranchKind.None)
     {
         _perf.UpdateTicks++;
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -162,7 +162,8 @@ public sealed class Poe2RitualShop
             return state;
         }
 
-        ConfigureUiPreference(preferControllerBranch);
+        ConfigureUiPreference(probeHint);
+        var preferController = _preferControllerBranch;
         var now = DateTime.UtcNow;
 
         // Hot path: shop open — recount cached grids only (no BFS).
@@ -173,7 +174,8 @@ public sealed class Poe2RitualShop
         }
 
         // GameHelper fast chain: GameUi.child[76].child[13] — O(1) pointer chase every tick.
-        if (TryReadFastChainWindow(inGameState, winW, winH, preferControllerBranch, out var fastState))
+        if (TryReadFastChainWindow(inGameState, winW, winH, preferController, out var fastState)
+            || TryReadFastChainWithAlternatePreference(inGameState, winW, winH, probeHint, out fastState))
         {
             return Finish(fastState);
         }
@@ -184,8 +186,9 @@ public sealed class Poe2RitualShop
             return Finish(new RitualWindowState(false, false, 0, 0, 0, LastIdleProbeKind, LastIdleProbeFastPathHit));
         }
 
-        var signatureDetected = TryIdleProbe(inGameState, winW, winH);
-        if (!signatureDetected && preferControllerBranch && now >= _nextGridProbeUtc)
+        var signatureDetected = TryIdleProbe(inGameState, winW, winH)
+            || TryIdleProbeWithAlternatePreference(inGameState, winW, winH, probeHint);
+        if (!signatureDetected && now >= _nextGridProbeUtc)
         {
             _nextGridProbeUtc = now.AddMilliseconds(Poe2.Ritual.BfsThrottleMs);
             signatureDetected = TryIdleGridProbe(inGameState, winW, winH);
@@ -215,7 +218,7 @@ public sealed class Poe2RitualShop
             _branchHint = 0;
             _cachedUiRoot = 0;
             _cachedGrids.Clear();
-            foreach (var alt in _live.GetUiBranches(inGameState, preferControllerBranch))
+            foreach (var alt in _live.GetUiBranches(inGameState, probeHint))
             {
                 if (alt == 0) continue;
                 var altCount = EnsureGridsAndCountTiles(alt, winW, winH, true, out var altSig);
@@ -291,6 +294,23 @@ public sealed class Poe2RitualShop
 
         return false;
     }
+
+    private bool TryReadFastChainWithAlternatePreference(nint inGameState, float winW, float winH,
+        Poe2UiAnchors.BranchKind primaryHint, out RitualWindowState state)
+    {
+        var alternate = AlternateProbeHint(primaryHint);
+        ConfigureUiPreference(alternate);
+        if (TryReadFastChainWindow(inGameState, winW, winH, _preferControllerBranch, out state))
+            return true;
+
+        ConfigureUiPreference(primaryHint);
+        return false;
+    }
+
+    private static Poe2UiAnchors.BranchKind AlternateProbeHint(Poe2UiAnchors.BranchKind hint)
+        => hint == Poe2UiAnchors.BranchKind.Controller
+            ? Poe2UiAnchors.BranchKind.KeyboardMouse
+            : Poe2UiAnchors.BranchKind.Controller;
 
     private bool TryReadFastChainWindowOnRoot(nint root, float winW, float winH, out RitualWindowState state)
     {
@@ -423,7 +443,7 @@ public sealed class Poe2RitualShop
         LastUiBranch = 0;
 
         _perf.AnchorDiscoveries++;
-        var branches = _live.GetUiBranches(inGameState, _preferControllerBranch);
+        var branches = _live.GetUiBranches(inGameState, _activeProbeHint, _branchHint);
         if (branches.Length == 0)
         {
             ClearSession();
@@ -449,6 +469,18 @@ public sealed class Poe2RitualShop
         }
 
         ClearSession();
+        return false;
+    }
+
+    private bool TryIdleProbeWithAlternatePreference(nint inGameState, float winW, float winH,
+        Poe2UiAnchors.BranchKind primaryHint)
+    {
+        var alternate = AlternateProbeHint(primaryHint);
+        ConfigureUiPreference(alternate);
+        if (TryIdleProbe(inGameState, winW, winH))
+            return true;
+
+        ConfigureUiPreference(primaryHint);
         return false;
     }
 
@@ -578,7 +610,7 @@ public sealed class Poe2RitualShop
     private bool TryIdleGridProbe(nint inGameState, float winW, float winH)
     {
         _perf.AnchorDiscoveries++;
-        foreach (var branch in _live.GetUiBranches(inGameState, preferController: true))
+        foreach (var branch in _live.GetUiBranches(inGameState, _activeProbeHint, _branchHint))
         {
             if (branch == 0) continue;
             var tiles = EnsureGridsAndCountTiles(branch, winW, winH, allowFullLocate: true, out _);

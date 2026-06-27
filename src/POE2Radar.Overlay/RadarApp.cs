@@ -60,6 +60,7 @@ public sealed partial class RadarApp : IDisposable
     private UiContextSnapshot _mainUiContext = UiContextSnapshot.Invalid;
     private UiContextSnapshot _worldUiContext = UiContextSnapshot.Invalid;
     private EntityContextSnapshot _entityContext = EntityContextSnapshot.Invalid;
+    private Poe2UiAnchors.BranchKind _ritualProbeHint = Poe2UiAnchors.BranchKind.None;
     private long _entityContextGeneration;
     private Poe2PanelCatalog _panelCatalog = null!;
     private volatile float _worldTickMs;
@@ -918,7 +919,10 @@ public sealed partial class RadarApp : IDisposable
 
         var game = _mainGameContext;
         if (game.AreaChanged(priorGame))
+        {
             _live.OnAreaInstanceChanged(priorGame.AreaInstance, game.AreaInstance);
+            _ritualProbeHint = Poe2UiAnchors.BranchKind.None;
+        }
 
         var inGameState = game.InGameState;
         var areaInstance = game.AreaInstance;
@@ -929,10 +933,11 @@ public sealed partial class RadarApp : IDisposable
         _areaHash = game.AreaHash;
 
         var uiStart = Stopwatch.GetTimestamp();
-        var preferController = _settings.GamepadHotkeysEnabled
-            || GamepadInput.IsConnected(_settings.GamepadUserIndex);
         _mainUiContext = UiContextSnapshot.Capture(
-            _reader, _live, game, windowWidth, windowHeight, preferController, allowAnchorScan: false);
+            _reader, _live, game, windowWidth, windowHeight,
+            probeHint: _ritualProbeHint,
+            lastSuccessRoot: _ritualShop.LastUiBranch,
+            allowAnchorScan: false);
         _featurePerf.RecordUiContext(FeaturePerfAccumulator.ElapsedMs(uiStart));
 
         var player = game.PlayerGrid ?? NumVec2.Zero;

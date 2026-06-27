@@ -48,7 +48,7 @@ public sealed class Poe2PanelCatalog
         GameContextSnapshot game,
         UiContextSnapshot ui,
         bool ritualAllowLocate,
-        bool preferController)
+        Poe2UiAnchors.BranchKind probeHint)
     {
         if (!game.Valid)
             return PanelCatalogSnapshot.Invalid;
@@ -57,7 +57,7 @@ public sealed class Poe2PanelCatalog
         var winW = ui.Valid ? ui.WindowWidth : 1920f;
         var winH = ui.Valid ? ui.WindowHeight : 1080f;
 
-        var ritualState = _ritual.ReadWindowState(game.InGameState, winW, winH, ritualAllowLocate, preferController);
+        var ritualState = _ritual.ReadWindowState(game.InGameState, winW, winH, ritualAllowLocate, probeHint);
         var ritual = new RitualPanelState(
             ritualState.PanelOpen,
             ritualState.SignatureDetected,
