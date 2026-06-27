@@ -22,6 +22,7 @@ public static class EntityDisplayHelper
     public static string RuleLabel(DisplayRule? rule)
     {
         if (rule is null) return "";
+        if (rule.HideLabel) return "";
         if (rule.Label is { Length: > 0 } lbl) return lbl;
         return rule.Name;
     }
@@ -69,7 +70,19 @@ public static class EntityDisplayHelper
         if (IsBossMonster(e, rule) || IsBossMinimapIcon(e.Metadata))
             return FormatBossDisplayName(e, peers, areaCode);
 
-        if (rule is { Name: { Length: > 0 } rn } && IsMechanicRuleName(rn))
+        if (rule is { HideLabel: true })
+            return "";
+
+        if (ChestDisplayPolicy.IsPlainChestEntity(e)
+            && (rule is null
+                || ChestDisplayPolicy.IsChestLootRule(rule.Name)
+                || ChestDisplayPolicy.IsChestLootPatternRule(rule)))
+            return "";
+
+        if (rule is { Name: { Length: > 0 } rn } && ChestDisplayPolicy.IsChestLootRule(rn))
+            return "";
+
+        if (rule is { Name: { Length: > 0 } rn2 } && IsMechanicRuleName(rn2))
             return RuleLabel(rule);
 
         if (IsBossRoomMetadata(e.Metadata))
@@ -89,6 +102,9 @@ public static class EntityDisplayHelper
                 return $"NPC ({specific})";
             return "NPC";
         }
+
+        if (rule is not null && ChestDisplayPolicy.IsChestLootPatternRule(rule))
+            return "";
 
         var label = RuleLabel(rule);
         return label.Length > 0 ? label : TypeToken(e.Metadata);

@@ -506,6 +506,28 @@ public sealed partial class RadarApp : IDisposable
             _settings.Save();
             Console.WriteLine("Added server-icon portal rule.");
         }
+        if (!_settings.ChestIconOnlyMigrated)
+        {
+            var rules = _displayRules.All.ToList();
+            var changed = false;
+            foreach (var r in rules)
+                if (ChestDisplayPolicy.ApplyIconOnlyDefaults(r)) changed = true;
+            if (changed) _displayRules.Replace(rules);
+            _settings.ChestIconOnlyMigrated = true;
+            _settings.Save();
+            Console.WriteLine("Chest defaults: plain chests icon-only (no labels, no auto-path).");
+        }
+        if (!_settings.StrongboxDefaultsRestoredMigrated)
+        {
+            var rules = _displayRules.All.ToList();
+            var changed = false;
+            foreach (var r in rules)
+                if (ChestDisplayPolicy.ApplyStrongboxDefaults(r)) changed = true;
+            if (changed) _displayRules.Replace(rules);
+            _settings.StrongboxDefaultsRestoredMigrated = true;
+            _settings.Save();
+            Console.WriteLine("Strongbox defaults restored: labels + auto-path enabled.");
+        }
         LogMissingHpBarTextures();
         _displayRulesGen = _ruleEngine.Generation;
         // User-editable overlay on the baked curated landmark table (the "Landmarks" tab). Inject its
@@ -1436,24 +1458,37 @@ public sealed partial class RadarApp : IDisposable
             Console.WriteLine($"\n[hide] Pattern '{pattern}' already hidden.");
     }
 
-    /// <summary>Hotkey: print entity identity to the console (no path selection).</summary>
+    /// <summary>Hotkey: pick entity under cursor → add to display rules and open settings.</summary>
     private void InspectEntityUnderCursor()
     {
         if (!TryPickEntityUnderCursor("inspect", out var entity)) return;
 
-        var rule = _ruleEngine.Resolve(entity, _areaCode, _settings.ImportantOnly, _entities);
-        var label = EntityLabel(entity, rule);
+        var merged = _ruleEngine.Resolve(entity, _areaCode, _settings.ImportantOnly, _entities);
         var token = EntityDisplayHelper.TypeToken(entity.Metadata);
-        var ruleName = rule?.Name ?? "(none)";
-        var hideFlag = rule is { Hide: true } ? "yes" : "no";
-        var navFlag = rule is { Navigable: true } ? "yes" : "no";
+        if (token.Length == 0)
+        {
+            Console.WriteLine("\n[inspect] entity has no metadata token.");
+            return;
+        }
 
-        Console.WriteLine($"\n[inspect] Label: {label}");
-        Console.WriteLine($"          Category: {entity.Category}");
-        Console.WriteLine($"          TypeToken: {token}");
-        Console.WriteLine($"          Metadata: {entity.Metadata}");
-        Console.WriteLine($"          Id: e:{entity.Id}  Grid: {entity.Grid.X:F0},{entity.Grid.Y:F0}");
-        Console.WriteLine($"          Rule: {ruleName} (hide={hideFlag} nav={navFlag})");
+        var displayLabel = EntityDisplayHelper.FormatEntityLabel(entity, merged, _entities, _areaCode);
+        var (index, created) = TypeDisplayRulePromoter.Promote(
+            _displayRules,
+            _zoneOverrides,
+            _areaCode,
+            token,
+            entity,
+            merged,
+            _settings.Styles,
+            displayLabel);
+
+        if (created)
+            Console.WriteLine($"\n[inspect] Added display rule for '{token}' — metadata: {entity.Metadata}");
+        else
+            Console.WriteLine($"\n[inspect] Already in display rules: '{token}' — metadata: {entity.Metadata}");
+
+        var idx = index;
+        _commandQueue.Enqueue(() => _imguiOverlay?.FocusDisplayRule(idx));
     }
 
     /// <summary>F10: pick the atlas tile under the cursor using the live UI-element screen rect.</summary>

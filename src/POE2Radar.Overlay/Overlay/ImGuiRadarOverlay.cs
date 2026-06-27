@@ -61,6 +61,10 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private long _lastRenderStamp;
     private int _spritePickerRuleIndex = -1;
     private int _selectedRuleIndex = -1;
+    private bool _forceOpenDisplayRules;
+    private int _scrollToRuleIndex = -1;
+    private int _highlightRuleIndex = -1;
+    private long _highlightRuleUntil;
     private string? _hotkeyBindTarget;
     private bool _hotkeyBindArmed;
     private string _activeSettingsTab = "";
@@ -86,14 +90,14 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private static readonly string[] ShapeNames = ["Circle", "Diamond", "Triangle", "Square", "Star", "Hexagon", "Pentagon", "Cross", "Plus", "Ring", "Heart", "Shield", "Gem"];
 
-    private static readonly string[] RuleCategories = ["Monster", "Chest", "Npc", "Object", "Other", "Transition", "Player", "Tile"];
+    private static readonly string[] RuleGroupOptions = ["Any", "Monster", "Chest", "Npc", "Object", "Other", "Transition", "Player", "Tile"];
 
     private static readonly (string Field, string Label, string[] Options)[] RuleConditionFields =
     [
         ("Rarity", "Rarity", ["Normal", "Magic", "Rare", "Unique"]),
         ("Reaction", "Reaction", ["Hostile", "Friendly"]),
         ("Life", "Life", ["Alive", "Dead"]),
-        ("Chest", "Chest", ["Opened", "Unopened"]),
+        ("Chest", "Opened", ["Opened", "Unopened"]),
         ("Poi", "POI icon", ["Yes", "No"]),
     ];
 
@@ -1658,12 +1662,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         ImGui.InputTextWithHint("##rulesearch", "Search rules by name…", ref _ruleSearch, 128);
         ImGuiTheme.Tooltip(SettingHints.DisplayRules.SearchRules);
 
-        ImGui.BeginChild("DisplayRulesTable", new NumVec2(0, 240));
+        ImGui.BeginChild("DisplayRulesTable", new NumVec2(0, 320));
         DrawDisplayRulesTable();
         ImGui.EndChild();
-
-        if (_selectedRuleIndex >= 0 && _selectedRuleIndex < _rulesUiCache.Count)
-            DrawDisplayRuleDetailPanel(_selectedRuleIndex);
 
         DrawSpritePickerWindow();
     }
@@ -1674,8 +1675,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
         var filter = _ruleSearch.Trim();
         var flags = ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY
-                    | ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.Resizable;
-        if (!ImGui.BeginTable("EntityRules", 10, flags)) return;
+                    | ImGuiTableFlags.ScrollX | ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.Resizable;
+        if (!ImGui.BeginTable("EntityRules", 15, flags)) return;
 
         ImGui.TableSetupColumn("#", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 2f);
         ImGui.TableSetupColumn("On", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 2.2f);
@@ -1686,7 +1687,12 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         ImGui.TableSetupColumn("Alpha", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 4f);
         ImGui.TableSetupColumn("Size", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 4f);
         ImGui.TableSetupColumn("Spr", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 3.5f);
-        ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthStretch);
+        ImGui.TableSetupColumn("Label", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 7f);
+        ImGui.TableSetupColumn("No lbl", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 3.6f);
+        ImGui.TableSetupColumn("Group", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 5.5f);
+        ImGui.TableSetupColumn("Match", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 8f);
+        ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 8f);
+        ImGui.TableSetupColumn("Adv", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 2.8f);
         ImGuiTheme.TableHeadersWithTooltips([
             ("#", SettingHints.DisplayRules.ColumnOrder),
             ("On", SettingHints.DisplayRules.ColumnOn),
@@ -1697,84 +1703,134 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             ("Alpha", SettingHints.DisplayRules.ColumnAlpha),
             ("Size", SettingHints.DisplayRules.ColumnSize),
             ("Spr", SettingHints.DisplayRules.ColumnSprite),
+            ("Label", SettingHints.DisplayRules.ColumnLabel),
+            ("No lbl", SettingHints.DisplayRules.ColumnHideLabel),
+            ("Group", SettingHints.DisplayRules.ColumnGroup),
+            ("Match", SettingHints.DisplayRules.ColumnMatch),
             ("Name", SettingHints.DisplayRules.ColumnName),
+            ("Adv", SettingHints.DisplayRules.ColumnAdvanced),
         ]);
+
+        var highlightActive = _highlightRuleIndex >= 0 && Stopwatch.GetTimestamp() < _highlightRuleUntil;
+        if (!highlightActive) _highlightRuleIndex = -1;
 
         for (var i = 0; i < _rulesUiCache.Count; i++)
         {
             var rule = _rulesUiCache[i];
-            if (EntityDisplayHelper.IsPerTypeEntityRule(rule)) continue;
-            if (filter.Length > 0 && rule.Name.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0)
+            if (!TypeDisplayRulePromoter.RuleMatchesSearch(rule, filter))
                 continue;
 
             ImGui.TableNextRow();
+            if (i == _scrollToRuleIndex)
+            {
+                ImGui.SetScrollHereY(0.35f);
+                _scrollToRuleIndex = -1;
+            }
+
+            if (highlightActive && i == _highlightRuleIndex)
+            {
+                var hl = ImGui.ColorConvertFloat4ToU32(new Vector4(0.25f, 0.55f, 0.35f, 0.45f));
+                ImGui.TableSetBgColor(ImGuiTableBgTarget.RowBg0, hl);
+                ImGui.TableSetBgColor(ImGuiTableBgTarget.RowBg1, hl);
+            }
+
             ImGui.PushID(i);
-            var selected = _selectedRuleIndex == i;
 
             ImGui.TableNextColumn();
             ImGui.TextUnformatted((i + 1).ToString());
-            ImGuiTheme.Tooltip(SettingHints.DisplayRules.ColumnOrder);
 
             ImGui.TableNextColumn();
             bool en = rule.Enabled;
             if (ImGui.Checkbox("##en", ref en) && en != rule.Enabled)
                 UpdateRuleAt(i, c => c.Enabled = en);
-            ImGuiTheme.Tooltip(SettingHints.DisplayRules.ColumnOn);
 
             ImGui.TableNextColumn();
             bool hide = rule.Hide;
             if (ImGui.Checkbox("##hide", ref hide) && hide != rule.Hide)
                 UpdateRuleAt(i, c => c.Hide = hide);
-            ImGuiTheme.Tooltip(SettingHints.DisplayRules.ColumnHide);
 
             ImGui.TableNextColumn();
             bool nav = rule.Navigable;
             if (ImGui.Checkbox("##nav", ref nav) && nav != rule.Navigable)
                 UpdateRuleAt(i, c => c.Navigable = nav);
-            ImGuiTheme.Tooltip(SettingHints.DisplayRules.ColumnPath);
 
             ImGui.TableNextColumn();
             DrawRuleSpriteButton(i, rule);
-            ImGuiTheme.Tooltip(SettingHints.DisplayRules.ColumnIcon);
 
             ImGui.TableNextColumn();
             var col = ParseHexColor(rule.Color);
             if (ImGui.ColorEdit3("##col", ref col, ImGuiColorEditFlags.NoInputs))
                 UpdateRuleAt(i, c => c.Color = FormatHexColor3(col));
-            ImGuiTheme.Tooltip(SettingHints.DisplayRules.ColumnColor);
 
             ImGui.TableNextColumn();
             float op = rule.Opacity;
             if (ImGui.DragFloat("##op", ref op, 0.01f, 0f, 1f, "a%.2f"))
-                rule.Opacity = Math.Clamp(op, 0f, 1f);
-            if (ImGui.IsItemDeactivatedAfterEdit())
-                UpdateRuleAt(i, c => c.Opacity = rule.Opacity);
-            ImGuiTheme.Tooltip(SettingHints.DisplayRules.ColumnAlpha);
+            {
+                var clamped = Math.Clamp(op, 0f, 1f);
+                if (Math.Abs(clamped - rule.Opacity) > 0.0001f)
+                    UpdateRuleAt(i, c => c.Opacity = clamped);
+            }
 
             ImGui.TableNextColumn();
             float sz = rule.Size;
             if (ImGui.DragFloat("##sz", ref sz, 0.1f, 1f, 24f, "sz%.1f"))
-                rule.Size = Math.Clamp(sz, 1f, 24f);
-            if (ImGui.IsItemDeactivatedAfterEdit())
-                UpdateRuleAt(i, c => c.Size = rule.Size);
-            ImGuiTheme.Tooltip(SettingHints.DisplayRules.ColumnSize);
+            {
+                var clamped = Math.Clamp(sz, 1f, 24f);
+                if (Math.Abs(clamped - rule.Size) > 0.0001f)
+                    UpdateRuleAt(i, c => c.Size = clamped);
+            }
 
             ImGui.TableNextColumn();
             float sprScale = rule.Sprite?.Scale ?? 1.25f;
             if (ImGui.DragFloat("##sprsc", ref sprScale, 0.02f, 0.2f, 4f, "s%.2f"))
             {
-                rule.Sprite ??= SpriteIconRef.Cell(0, 0, sprScale);
-                rule.Sprite.Scale = Math.Clamp(sprScale, 0.2f, 4f);
+                var clamped = Math.Clamp(sprScale, 0.2f, 4f);
+                if (rule.Sprite is null || Math.Abs(clamped - rule.Sprite.Scale) > 0.0001f)
+                {
+                    UpdateRuleAt(i, c =>
+                    {
+                        c.Sprite ??= SpriteIconRef.Cell(0, 0, clamped);
+                        c.Sprite.Scale = clamped;
+                    });
+                }
             }
-            if (ImGui.IsItemDeactivatedAfterEdit())
-                UpdateRuleAt(i, c => c.Sprite = rule.Sprite?.Clone());
-            ImGuiTheme.Tooltip(SettingHints.DisplayRules.ColumnSprite);
 
             ImGui.TableNextColumn();
-            var label = rule.Name.Length > 0 ? rule.Name : $"Rule {i + 1}";
-            if (ImGui.Selectable(label, selected))
-                _selectedRuleIndex = i;
-            ImGuiTheme.Tooltip(SettingHints.DisplayRules.ColumnName);
+            var mapLabel = rule.Label ?? "";
+            ImGui.SetNextItemWidth(-1f);
+            if (ImGui.InputText("##maplbl", ref mapLabel, 64)) { }
+            if (ImGui.IsItemDeactivatedAfterEdit())
+                UpdateRuleAt(i, c => c.Label = string.IsNullOrWhiteSpace(mapLabel) ? null : mapLabel);
+
+            ImGui.TableNextColumn();
+            bool hideLbl = rule.HideLabel;
+            if (ImGui.Checkbox("##hidelbl", ref hideLbl) && hideLbl != rule.HideLabel)
+                UpdateRuleAt(i, c => c.HideLabel = hideLbl);
+
+            ImGui.TableNextColumn();
+            DrawRuleGroupCombo(i, rule);
+
+            ImGui.TableNextColumn();
+            var matchText = string.Join(", ", rule.Match);
+            ImGui.SetNextItemWidth(-1f);
+            if (ImGui.InputText("##match", ref matchText, 256)) { }
+            if (ImGui.IsItemDeactivatedAfterEdit())
+            {
+                var terms = matchText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+                UpdateRuleAt(i, c => c.Match = terms);
+            }
+
+            ImGui.TableNextColumn();
+            var ruleName = rule.Name;
+            ImGui.SetNextItemWidth(-1f);
+            if (ImGui.InputText("##rname", ref ruleName, 128)) { }
+            if (ImGui.IsItemDeactivatedAfterEdit())
+                UpdateRuleAt(i, c => c.Name = ruleName);
+
+            ImGui.TableNextColumn();
+            if (ImGui.SmallButton("…"))
+                ImGui.OpenPopup($"ruleAdv{i}");
+            DrawRuleAdvancedPopup(i, rule);
 
             ImGui.PopID();
         }
@@ -1782,52 +1838,31 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         ImGui.EndTable();
     }
 
-    private void DrawDisplayRuleDetailPanel(int index)
+    private void DrawRuleGroupCombo(int index, DisplayRule rule)
     {
-        var rule = _rulesUiCache[index];
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.TextDisabled($"Edit rule #{index + 1} — matchers blank = any");
+        var current = rule.Categories is { Count: 1 } ? rule.Categories[0] : "Any";
+        var idx = Array.FindIndex(RuleGroupOptions, g => string.Equals(g, current, StringComparison.OrdinalIgnoreCase));
+        if (idx < 0) idx = 0;
 
-        ImGui.PushID($"ruleDetail{index}");
-
-        var name = rule.Name;
         ImGui.SetNextItemWidth(-1f);
-        if (ImGui.InputText("Name", ref name, 256)) { }
-        if (ImGui.IsItemDeactivatedAfterEdit())
-            UpdateRuleAt(index, c => c.Name = name);
-        ImGuiTheme.Tooltip(SettingHints.DisplayRules.RuleName);
-
-        var matchText = string.Join(", ", rule.Match);
-        ImGui.SetNextItemWidth(-1f);
-        if (ImGui.InputTextWithHint("Match contains", "Waypoint, Strongbox, *Daemon* — comma-separated", ref matchText, 512)) { }
-        if (ImGui.IsItemDeactivatedAfterEdit())
+        if (ImGui.Combo("##grp", ref idx, string.Join('\0', RuleGroupOptions) + "\0"))
         {
-            var terms = matchText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-            UpdateRuleAt(index, c => c.Match = terms);
-            rule = _rulesUiCache[index];
-        }
-        ImGuiTheme.Tooltip(SettingHints.DisplayRules.MatchContains);
-
-        ImGui.TextUnformatted("Entity type");
-        ImGuiTheme.Tooltip(SettingHints.DisplayRules.EntityType);
-        for (var ci = 0; ci < RuleCategories.Length; ci++)
-        {
-            var cat = RuleCategories[ci];
-            if (ci > 0) ImGui.SameLine();
-            bool on = rule.Categories.Contains(cat, StringComparer.OrdinalIgnoreCase);
-            if (ImGui.Checkbox(cat, ref on))
+            var picked = RuleGroupOptions[idx];
+            UpdateRuleAt(index, c =>
             {
-                var cats = new List<string>(rule.Categories);
-                if (on && !cats.Contains(cat, StringComparer.OrdinalIgnoreCase))
-                    cats.Add(cat);
-                else if (!on)
-                    cats.RemoveAll(c => string.Equals(c, cat, StringComparison.OrdinalIgnoreCase));
-                UpdateRuleAt(index, c => c.Categories = new List<string>(cats));
-                rule = _rulesUiCache[index];
-            }
+                c.Categories = picked == "Any"
+                    ? new List<string>()
+                    : new List<string> { picked };
+            });
         }
+    }
 
+    private void DrawRuleAdvancedPopup(int index, DisplayRule rule)
+    {
+        if (!ImGui.BeginPopup($"ruleAdv{index}"))
+            return;
+
+        ImGui.PushID($"adv{index}");
         foreach (var (field, label, options) in RuleConditionFields)
         {
             var current = field switch
@@ -1840,64 +1875,42 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 _ => null,
             };
             var preview = string.IsNullOrEmpty(current) ? "(any)" : current!;
-            ImGui.SetNextItemWidth(UiW(8f));
-            if (ImGui.BeginCombo(label, preview))
+            ImGui.SetNextItemWidth(UiW(10f));
+            if (ImGui.BeginCombo($"##{field}", preview))
             {
                 if (ImGui.Selectable("(any)", string.IsNullOrEmpty(current)))
-                {
                     ApplyRuleCondition(index, field, null);
-                    rule = _rulesUiCache[index];
-                }
                 foreach (var opt in options)
                 {
                     if (ImGui.Selectable(opt, string.Equals(current, opt, StringComparison.OrdinalIgnoreCase)))
-                    {
                         ApplyRuleCondition(index, field, opt);
-                        rule = _rulesUiCache[index];
-                    }
                 }
                 ImGui.EndCombo();
             }
+            ImGui.SameLine();
+            ImGui.TextUnformatted(label);
             ImGuiTheme.Tooltip(field switch
             {
                 "Rarity" => SettingHints.DisplayRules.Rarity,
                 "Reaction" => SettingHints.DisplayRules.Reaction,
                 "Life" => SettingHints.DisplayRules.Life,
-                "Chest" => SettingHints.DisplayRules.Chest,
+                "Chest" => SettingHints.DisplayRules.MatcherOpened,
                 "Poi" => SettingHints.DisplayRules.Poi,
                 _ => "",
             });
         }
 
-        ImGui.Spacing();
-        ImGui.TextUnformatted("Then on the map");
-
-        bool hide = rule.Hide;
-        if (ImGui.Checkbox("Don't show on map", ref hide) && hide != rule.Hide)
-            UpdateRuleAt(index, c => c.Hide = hide);
-        ImGuiTheme.Tooltip(SettingHints.DisplayRules.HideOnMap);
-
-        bool navigable = rule.Navigable;
-        ImGui.SameLine();
-        if (ImGui.Checkbox("Auto-path target", ref navigable) && navigable != rule.Navigable)
-            UpdateRuleAt(index, c => c.Navigable = navigable);
-        ImGuiTheme.Tooltip(SettingHints.DisplayRules.AutoPathTarget);
-
         var shapeIdx = Array.FindIndex(ShapeNames, sh => string.Equals(sh, rule.Shape, StringComparison.OrdinalIgnoreCase));
         if (shapeIdx < 0) shapeIdx = 0;
-        ImGui.SetNextItemWidth(UiW(8f));
-        if (ImGui.Combo("Shape", ref shapeIdx, string.Join('\0', ShapeNames) + "\0"))
+        ImGui.SetNextItemWidth(UiW(10f));
+        if (ImGui.Combo("##shape", ref shapeIdx, string.Join('\0', ShapeNames) + "\0"))
             UpdateRuleAt(index, c => c.Shape = ShapeNames[shapeIdx]);
+        ImGui.SameLine();
+        ImGui.TextUnformatted("Shape");
         ImGuiTheme.Tooltip(SettingHints.DisplayRules.Shape);
 
-        var labelText = rule.Label ?? "";
-        ImGui.SetNextItemWidth(-1f);
-        if (ImGui.InputTextWithHint("Map label", "optional text beside the dot", ref labelText, 128)) { }
-        if (ImGui.IsItemDeactivatedAfterEdit())
-            UpdateRuleAt(index, c => c.Label = string.IsNullOrWhiteSpace(labelText) ? null : labelText);
-        ImGuiTheme.Tooltip(SettingHints.DisplayRules.MapLabel);
-
         ImGui.PopID();
+        ImGui.EndPopup();
     }
 
     private void UpdateRuleAt(int index, Action<DisplayRule> mutate)
@@ -1952,10 +1965,14 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
         DrawTypesInZone(ctx, s);
 
+        if (_forceOpenDisplayRules)
+            ImGui.SetNextItemOpen(true, ImGuiCond.Always);
         bool rulesOpen = ImGuiTheme.BeginAccordionSection("DisplayRules", "Display rules",
             "What entities show on the map — first active match wins.");
         if (rulesOpen)
             DrawDisplayRulesEditor(s);
+        if (_forceOpenDisplayRules)
+            _forceOpenDisplayRules = false;
         ImGuiTheme.EndAccordionSection(rulesOpen);
 
         if (_hidden is null) return;
@@ -2054,7 +2071,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     {
                         DrawTierGroupToggles(tier);
 
-                        ImGui.TextDisabled("Show  Nav   Count  Type");
+                        ImGui.TextDisabled("Show  Nav   Count  Name          Rule");
                         foreach (var (token, info) in rows)
                             DrawTypeRow(ctx, token, info.label, info.count, info.sample);
 
@@ -2091,6 +2108,24 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         ImGui.TextDisabled("tier defaults");
     }
 
+    public void FocusDisplayRule(int index)
+    {
+        if (index < 0) return;
+        _settingsOpen = true;
+        InvalidateRulesUiCache();
+        ScrollToDisplayRule(index);
+    }
+
+    private void ScrollToDisplayRule(int index)
+    {
+        _selectedRuleIndex = index;
+        _scrollToRuleIndex = index;
+        _highlightRuleIndex = index;
+        _highlightRuleUntil = Stopwatch.GetTimestamp() + (long)(1.5 * Stopwatch.Frequency);
+        _ruleSearch = "";
+        _forceOpenDisplayRules = true;
+    }
+
     private void DrawTypeRow(RenderContext ctx, string token, string label, int count, Poe2Live.EntityDot sample)
     {
         ImGui.PushID(token);
@@ -2098,32 +2133,76 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         var globalRule = _ruleEngine?.ResolveGlobal(sample);
         var mergedRule = _ruleEngine?.Resolve(sample, areaCode, _settings.ImportantOnly, ctx.Entities);
         var hasZoneOverride = _zoneOverrides?.HasOverride(areaCode, token) ?? false;
+        var hasRule = _displayRules is not null
+                      && TypeDisplayRulePromoter.FindRuleIndex(_displayRules.All, token) >= 0;
         var rawHide = mergedRule is { Hide: true };
         var rawNav = mergedRule?.Navigable ?? false;
         var shownNow = !rawHide;
         var navNow = !rawHide && rawNav;
 
+        if (hasRule)
+            ImGui.BeginDisabled();
+
         bool show = shownNow;
-        if (ImGui.Checkbox("##show", ref show) && show != shownNow)
+        if (ImGui.Checkbox("##show", ref show) && !hasRule && show != shownNow)
             ApplyZoneOverride(areaCode, token, hide: !show, navigable: rawNav, globalRule);
-        ImGuiTheme.Tooltip(SettingHints.Entities.TypeShow);
+        ImGuiTheme.Tooltip(hasRule ? SettingHints.Entities.TypeShowGlobal : SettingHints.Entities.TypeShow);
 
         ImGui.SameLine();
         bool nav = navNow;
-        if (ImGui.Checkbox("##nav", ref nav) && nav != navNow)
+        if (ImGui.Checkbox("##nav", ref nav) && !hasRule && nav != navNow)
             ApplyZoneOverride(areaCode, token, hide: rawHide, navigable: nav, globalRule);
-        ImGuiTheme.Tooltip(SettingHints.Entities.TypeNav);
+        ImGuiTheme.Tooltip(hasRule ? SettingHints.Entities.TypeNavGlobal : SettingHints.Entities.TypeNav);
+
+        if (hasRule)
+            ImGui.EndDisabled();
 
         ImGui.SameLine();
         ImGui.TextDisabled($"x{count}");
         ImGui.SameLine();
         ImGui.TextUnformatted(label);
-        if (hasZoneOverride)
+        if (hasZoneOverride && !hasRule)
         {
             ImGui.SameLine();
             ImGui.TextDisabled("· zone");
         }
+
+        ImGui.SameLine();
+        if (hasRule)
+        {
+            if (ImGui.SmallButton("In rules##rule"))
+            {
+                var idx = TypeDisplayRulePromoter.FindRuleIndex(_displayRules!.All, token);
+                if (idx >= 0) ScrollToDisplayRule(idx);
+            }
+            ImGuiTheme.Tooltip(SettingHints.Entities.InDisplayRules);
+        }
+        else if (ImGui.SmallButton("Add##rule"))
+        {
+            PromoteTypeToDisplayRule(ctx, token, label, sample);
+            ImGuiTheme.Tooltip(SettingHints.Entities.PromoteTypeToRule);
+        }
+
         ImGui.PopID();
+    }
+
+    private void PromoteTypeToDisplayRule(RenderContext ctx, string token, string displayLabel, Poe2Live.EntityDot sample)
+    {
+        if (_displayRules is null || _settings is null) return;
+
+        var merged = _ruleEngine?.Resolve(sample, ctx.AreaCode, _settings.ImportantOnly, ctx.Entities);
+        var (index, _) = TypeDisplayRulePromoter.Promote(
+            _displayRules,
+            _zoneOverrides,
+            ctx.AreaCode,
+            token,
+            sample,
+            merged,
+            _settings.Styles,
+            displayLabel);
+
+        InvalidateRulesUiCache();
+        ScrollToDisplayRule(index);
     }
 
     private (bool shown, bool nav) GetGroupRuleState(IReadOnlyList<string> names)
@@ -3429,6 +3508,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         Size = r.Size,
         Sprite = r.Sprite?.Clone(),
         Label = r.Label,
+        HideLabel = r.HideLabel,
         Navigable = r.Navigable,
     };
 

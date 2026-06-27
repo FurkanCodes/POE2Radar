@@ -96,9 +96,9 @@ public static class EndgameMechanicCatalog
     public static DisplayRule ToDisplayRule(EndgameMechanicDef d) => new()
     {
         Name = d.Name,
-        Label = d.Name,
+        Label = ChestDisplayPolicy.IsPlainChestRule(d.Name) ? null : d.Name,
         Enabled = true,
-        Navigable = d.Navigable,
+        Navigable = ChestDisplayPolicy.IsPlainChestRule(d.Name) ? false : d.Navigable,
         Categories = d.Categories is { Length: > 0 } ? new List<string>(d.Categories) : new(),
         Match = new List<string>(d.Match),
         Shape = d.Shape,
@@ -180,7 +180,12 @@ public static class EndgameMechanicCatalog
                 changed = true;
             }
 
-            if (existing.Label is not { Length: > 0 })
+            if (ChestDisplayPolicy.IsPlainChestRule(def.Name))
+            {
+                if (existing.Navigable) { existing.Navigable = false; changed = true; }
+                if (existing.Label is { Length: > 0 }) { existing.Label = null; changed = true; }
+            }
+            else if (existing.Label is not { Length: > 0 })
             {
                 existing.Label = def.Name;
                 changed = true;

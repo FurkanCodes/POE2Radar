@@ -16,21 +16,28 @@ internal static class SettingHints
         public const string ColumnAlpha = "How see-through the dot is (0 = invisible).";
         public const string ColumnSize = "Dot size on the map.";
         public const string ColumnSprite = "Scale for PNG sprite icons from icons.png.";
-        public const string ColumnName = "Rule name — click to edit details below.";
+        public const string ColumnName = "Rule name shown in this list.";
+        public const string ColumnLabel = "Optional text chip beside the dot on the map (empty = none).";
+        public const string HideLabel = "Icon only — hide the text chip on the map for matches.";
+        public const string ColumnHideLabel = "Hide the map text chip for this rule (icon only).";
+        public const string ColumnGroup = "Entity category this rule matches, or Any for all types.";
+        public const string ColumnMatch = "Metadata token or substring — comma-separated.";
+        public const string ColumnAdvanced = "Rarity, reaction, life, opened state, and POI filters.";
+        public const string MatcherOpened = "Match opened or unopened chests, or any.";
         public const string GlobalIconScale = "Multiplier on PNG sprite size from icons.png (per-rule scale stacks on top).";
         public const string AddRule = "Append a blank rule at the lowest priority.";
         public const string DuplicateRule = "Duplicate the selected rule below it.";
         public const string DeleteRule = "Remove the selected rule.";
         public const string MoveUp = "Higher priority — evaluated earlier.";
         public const string MoveDown = "Lower priority — evaluated later.";
-        public const string SearchRules = "Filter the list by rule name.";
+        public const string SearchRules = "Filter by rule name, match token, or category.";
         public const string RuleName = "Friendly name shown in lists and the dashboard.";
         public const string MatchContains = "Metadata substring or glob (* ?). Any term matching is enough.";
         public const string EntityType = "Only match entities in these categories. None checked = any type.";
         public const string Rarity = "Match monster/item rarity, or any.";
         public const string Reaction = "Match friendly or hostile entities, or any.";
         public const string Life = "Match alive or dead entities, or any.";
-        public const string Chest = "Match opened or unopened chests, or any.";
+        public const string Chest = "Match opened or unopened chests, or any."; // legacy alias
         public const string Poi = "Match points of interest, or any.";
         public const string HideOnMap = "Do not draw matching entities on the radar.";
         public const string AutoPathTarget = "Continuously path to the nearest match (needs paths enabled).";
@@ -50,6 +57,10 @@ internal static class SettingHints
         public const string TierNav = "Enable or disable paths for all types in this tier for this zone only.";
         public const string TypeShow = "Show this entity type on the map in this zone.";
         public const string TypeNav = "Draw paths to this entity type in this zone.";
+        public const string TypeShowGlobal = "Controlled by display rules below.";
+        public const string TypeNavGlobal = "Controlled by display rules below.";
+        public const string PromoteTypeToRule = "Add this type to display rules — edit icon and path in the table below.";
+        public const string InDisplayRules = "Jump to this type's row in display rules below.";
     }
 
     internal static class Radar
@@ -179,7 +190,7 @@ internal static class SettingHints
         public const string Bind = "Click, then press a key or controller button.";
         public const string Clear = "Remove this hotkey binding.";
         public const string HideEntity = "Hover an entity and press to add its type to Never show.";
-        public const string TrackEntity = "Print entity metadata to the console.";
+        public const string TrackEntity = "Add the entity under your cursor to display rules and open settings.";
         public const string AutoPathToggle = "Toggle continuous auto-pathing.";
         public const string AddNearestPath = "Add nearest navigation target to the path list.";
         public const string ClearPaths = "Clear all path targets.";

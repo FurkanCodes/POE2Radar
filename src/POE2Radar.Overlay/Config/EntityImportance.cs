@@ -38,7 +38,8 @@ public static class EntityImportanceHelper
         if (e.Poi || e.Category == Poe2Live.EntityCategory.Transition)
             return EntityImportance.PoiTransition;
 
-        if (e.Category == Poe2Live.EntityCategory.Chest) return EntityImportance.Chest;
+        if (ChestDisplayPolicy.IsPlainChestEntity(e) || e.Category == Poe2Live.EntityCategory.Chest)
+            return EntityImportance.Chest;
         if (e.Category == Poe2Live.EntityCategory.Npc) return EntityImportance.Npc;
 
         return EntityImportance.Other;

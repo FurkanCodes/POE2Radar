@@ -37,6 +37,7 @@ public sealed class DisplayRule
     public float Size { get; set; } = 3f;
     public SpriteIconRef? Sprite { get; set; }
     public string? Label { get; set; }                      // optional text label drawn next to the dot
+    public bool HideLabel { get; set; }                     // match → draw dot/icon only, no text chip
     public bool Navigable { get; set; }                     // reserved (Phase 2): qualifies as a nav target
 }
 
@@ -274,8 +275,20 @@ public sealed class DisplayRules
         });
         Cat("Player", "Player", null, st.Player);
         Cat("NPC", "Npc", null, st.Npc, "NPC");
-        Cat("Chest · Unique", "Chest", "Unique", st.ChestUnique);
-        Cat("Chest · Rare", "Chest", "Rare", st.ChestRare);
+        rules.Add(new DisplayRule
+        {
+            Name = "Chest · Unique", Label = null, Navigable = false,
+            Enabled = st.ChestUnique.Enabled, Categories = new() { "Chest" }, Rarity = "Unique",
+            Shape = st.ChestUnique.Shape, Color = st.ChestUnique.Color, Opacity = st.ChestUnique.Opacity,
+            Size = st.ChestUnique.Size, Sprite = st.ChestUnique.Sprite?.Clone(),
+        });
+        rules.Add(new DisplayRule
+        {
+            Name = "Chest · Rare", Label = null, Navigable = false,
+            Enabled = st.ChestRare.Enabled, Categories = new() { "Chest" }, Rarity = "Rare",
+            Shape = st.ChestRare.Shape, Color = st.ChestRare.Color, Opacity = st.ChestRare.Opacity,
+            Size = st.ChestRare.Size, Sprite = st.ChestRare.Sprite?.Clone(),
+        });
         CatNav("Transition", "Transition", null, st.Transition, "Transition", navigable: true);
 
         // Server-authoritative minimap icons (sent by the server; visible before local entities spawn).
@@ -339,7 +352,7 @@ public sealed class DisplayRules
         });
         rules.Add(new DisplayRule
         {
-            Name = "ServerIcon · Chest", Label = "Chest", Enabled = true, Navigable = true,
+            Name = "ServerIcon · Chest", Label = null, Enabled = true, Navigable = false,
             Categories = new() { "ServerIcon" }, Match = new() { "Chest" },
             Shape = "Square", Color = "#FFD926", Opacity = 0.95f, Size = 10f, Sprite = SpriteCatalog.ChestRare().Clone(),
         });

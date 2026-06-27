@@ -285,6 +285,12 @@ public sealed class RadarSettings
     /// <summary>One-time: large-map scale knob was unwired with a GameHelper-style 0.1738 stub default.</summary>
     public bool LargeMapScaleWiredMigrated { get; set; }
 
+    /// <summary>One-time: plain loot chests icon-only (no map chips, no auto-path).</summary>
+    public bool ChestIconOnlyMigrated { get; set; }
+
+    /// <summary>One-time: restore strongbox labels + auto-path after chest-only icon pass.</summary>
+    public bool StrongboxDefaultsRestoredMigrated { get; set; }
+
     // ── HTTP API. ──
     public int ApiPort { get; set; } = 7777;
 

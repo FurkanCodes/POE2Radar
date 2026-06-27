@@ -342,7 +342,9 @@ public sealed partial class RadarApp
 
             var (sprite, shape, size, color, opacity) = (rule.Sprite, rule.Shape, rule.Size, rule.Color, rule.Opacity);
 
-            var label = rule?.Label is { Length: > 0 } ruleLabel ? ruleLabel : icon.Name;
+            var label = rule is { Name: var rn } && ChestDisplayPolicy.IsPlainChestRule(rn)
+                ? ""
+                : rule?.Label is { Length: > 0 } ruleLabel ? ruleLabel : icon.Name;
             items.Add(new MapEntityRenderItem(
                 "s:" + icon.Key,
                 icon.Grid,

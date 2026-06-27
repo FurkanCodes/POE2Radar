@@ -150,6 +150,7 @@ public sealed class DisplayRuleEngine
         Size = r.Size,
         Sprite = r.Sprite?.Clone(),
         Label = r.Label,
+        HideLabel = r.HideLabel,
         Navigable = r.Navigable,
     };
 }

@@ -5,7 +5,6 @@
   {"pattern": "MiscellaneousObjects/Stash", "label": "Stash", "color": "#ffcc00", "enabled": true},
   {"pattern": "MiscellaneousObjects/TownPortal", "label": "Portal", "color": "#cc99ff", "enabled": true},
   {"pattern": "MiscellaneousObjects/ReturnToLastTownPortal", "label": "Town Portal", "color": "#cc99ff", "enabled": true},
-  {"pattern": "QuestChests", "label": "Quest Chest", "color": "#ff9900", "enabled": true},
   {"pattern": "QuestObjects", "label": "Quest Object", "color": "#ffff00", "enabled": true},
   {"pattern": "Monsters/NPC/", "label": "NPC", "color": "#ffdd33", "enabled": true},
   {"pattern": "ReforgingBench", "label": "Reforging Bench", "color": "#ff66cc", "enabled": true},

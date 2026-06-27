@@ -48,6 +48,14 @@ internal static class DashboardHtml
         .Replace("{{H.AutoPathNearest}}", H(SettingHints.Entities.AutoPathNearest))
         .Replace("{{H.DetectionRadius}}", H(SettingHints.Entities.DetectionRadius))
         .Replace("{{H.ShowAllMonsters}}", H(SettingHints.Entities.ShowAllMonsters))
+        .Replace("{{H.PromoteTypeToRule}}", H(SettingHints.Entities.PromoteTypeToRule))
+        .Replace("{{H.InDisplayRules}}", H(SettingHints.Entities.InDisplayRules))
+        .Replace("{{H.HideLabel}}", H(SettingHints.DisplayRules.HideLabel))
+        .Replace("{{H.ColumnHideLabel}}", H(SettingHints.DisplayRules.ColumnHideLabel))
+        .Replace("{{H.ColumnLabel}}", H(SettingHints.DisplayRules.ColumnLabel))
+        .Replace("{{H.ColumnGroup}}", H(SettingHints.DisplayRules.ColumnGroup))
+        .Replace("{{H.ColumnMatch}}", H(SettingHints.DisplayRules.ColumnMatch))
+        .Replace("{{H.MatcherOpened}}", H(SettingHints.DisplayRules.MatcherOpened))
         .Replace("{{H.NavMenuCorner}}", H(SettingHints.Performance.NavMenuCorner))
         .Replace("{{H.GlobalIconScale}}", H(SettingHints.DisplayRules.GlobalIconScale))
         .Replace("{{H.LargeMapScale}}", H(SettingHints.Radar.LargeMapScale))
@@ -371,6 +379,8 @@ internal static class DashboardHtml
   /* Display-rule rows: collapsed one-line header, expand to the full editor. */
   .drrow{padding:10px 12px; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--panel2); margin-bottom:8px}
   .drhead{display:flex; align-items:center; gap:9px; cursor:pointer}
+  .drhead .dr-head-label{width:72px;font-size:11px;padding:2px 4px}
+  .drhead .dr-head-group{font-size:11px;padding:2px 4px;max-width:72px}
   .drhead .sw{flex:none}
   .drcaret{color:var(--ink-faint); width:10px; font-size:10px; flex:none}
   .drswatch{width:15px; height:15px; flex:none; display:inline-flex}
@@ -525,6 +535,7 @@ internal static class DashboardHtml
   .zt-count{font-size:11px;color:var(--ink-faint);min-width:28px}
   .zt-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .zt-zone{font-size:10px;color:var(--ink-faint)}
+  .zt-rulebtn{padding:2px 8px;margin:0;font-size:10px;flex-shrink:0}
   .dr-search-row{margin:0 0 10px}
   .hkctl{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .pad-menu{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;padding:6px;background:var(--bg-2);border:1px solid var(--line-soft);border-radius:6px}
@@ -1021,7 +1032,7 @@ internal static class DashboardHtml
                 <button type="button" class="chip" data-hk-bind="hideEntityHotkey">Bind</button>
                 <button type="button" class="chip" data-hk-pad="hideEntityHotkey">Pad</button>
                 <button type="button" class="chip" data-hk-clear="hideEntityHotkey">Clear</button></span></div>
-            <div class="row"><div class="rl" title="{{H.HkTrackEntity}}">Inspect under cursor<small>print entity info to console</small></div>
+            <div class="row"><div class="rl" title="{{H.HkTrackEntity}}">Inspect under cursor<small>add entity to display rules</small></div>
               <span class="hkctl"><span class="hk-display" data-hk="trackEntityHotkey">F4</span>
                 <button type="button" class="chip" data-hk-bind="trackEntityHotkey">Bind</button>
                 <button type="button" class="chip" data-hk-pad="trackEntityHotkey">Pad</button>
@@ -1642,7 +1653,6 @@ function isPerTypeEntityRule(r){
   return !KNOWN_SEMANTIC_NAMES.has(r.name);
 }
 function druleVisible(r){
-  if(isPerTypeEntityRule(r)) return false;
   const q=(drSearchQ||'').trim().toLowerCase();
   if(!q) return true;
   if((r.name||'').toLowerCase().includes(q)) return true;
@@ -1692,9 +1702,10 @@ function renderZoneTypes(){
     const rows=types.map(t=>{
       const zMark=t.hasZoneOverride?'<span class="zt-zone">· zone</span>':'';
       return `<div class="zt-row" data-token="${esc(t.token)}">
-        <label><input type="checkbox" class="zt-show"${t.show?' checked':''}> Show</label>
-        <label><input type="checkbox" class="zt-nav"${t.nav?' checked':''}${t.show?'':' disabled'}> Path</label>
+        <label title="${t.hasDisplayRule?'{{H.TypeShowGlobal}}':''}"><input type="checkbox" class="zt-show"${t.show?' checked':''}${t.hasDisplayRule?' disabled':''}> Show</label>
+        <label title="${t.hasDisplayRule?'{{H.TypeNavGlobal}}':''}"><input type="checkbox" class="zt-nav"${t.nav?' checked':''}${t.show&&!t.hasDisplayRule?'':' disabled'}> Path</label>
         <span class="zt-count">x${t.count}</span>
+        <button type="button" class="addbtn zt-rulebtn" title="${t.hasDisplayRule?'{{H.InDisplayRules}}':'{{H.PromoteTypeToRule}}'}">${t.hasDisplayRule?'In rules':'Add'}</button>
         <span class="zt-label">${esc(t.label||t.token)}</span>${zMark}</div>`;
     }).join('');
     const grp=tier.ruleNames&&tier.ruleNames.length?`<div class="zt-tier-grp">
@@ -1732,7 +1743,21 @@ function renderZoneTypes(){
     };
     block.querySelectorAll('.zt-row').forEach(row=>{
       const token=row.dataset.token, showCb=row.querySelector('.zt-show'), navCb=row.querySelector('.zt-nav');
+      row.querySelector('.zt-rulebtn')?.addEventListener('click',async()=>{
+        try{
+          const r=await fetch('/api/zone-types/promote',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({token})});
+          if(!r.ok){ toast('Could not add rule for this type'); return; }
+          const data=await r.json();
+          drules=data.rules||[];
+          renderDrules();
+          highlightDrRow(data.index??0);
+          await loadZoneTypes(true);
+          if(data.created) toast('Added global rule — edit below');
+        }catch(_){ toast('Promote to rule failed'); }
+      });
       showCb?.addEventListener('change',async e=>{
+        if(showCb.disabled) return;
         const show=e.target.checked; if(navCb){ navCb.disabled=!show; if(!show) navCb.checked=false; }
         try{
           await fetch('/api/zone-types',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -1741,6 +1766,7 @@ function renderZoneTypes(){
         }catch(_){ toast('Zone override failed'); }
       });
       navCb?.addEventListener('change',async e=>{
+        if(navCb.disabled) return;
         try{
           await fetch('/api/zone-types',{method:'POST',headers:{'Content-Type':'application/json'},
             body:JSON.stringify({token,show:showCb?.checked||false,nav:e.target.checked})});
@@ -1757,7 +1783,7 @@ function stopZoneTypesPoll(){ if(zoneTypesPoll){ clearInterval(zoneTypesPoll); z
    the WHOLE list on any change (add / remove / reorder / toggle / field) — same pattern styles used. ── */
 const DR_CATS=['Monster','Chest','Npc','Object','Other','Transition','Player','Tile'];
 const DR_SELECTS=[['rarity','Rarity',['Normal','Magic','Rare','Unique']],['reaction','Reaction',['Hostile','Friendly']],
-  ['life','Life',['Alive','Dead']],['chest','Chest',['Opened','Unopened']],['poi','POI',['Yes','No']]];
+  ['life','Life',['Alive','Dead']],['chest','Opened',['Opened','Unopened']],['poi','POI',['Yes','No']]];
 async function saveDrules(){ try{ await fetch('/api/display-rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules:drules})}); flashF(); updateLiveRuleCol(); }catch(e){ toast('Save failed'); } }
 async function refreshLiveCache(){ try{ _liveEntsCache=await getJSON('/entities?limit=2000')||[]; }catch(_){ _liveEntsCache=[]; } }
 async function loadDrules(){ try{ const r=await getJSON('/api/display-rules'); drules=r.rules||[]; }catch(e){ drules=[]; } await refreshLiveCache(); renderDrules(); }
@@ -1820,6 +1846,7 @@ function highlightDrRow(i){
 }
 function drRow(r,i){
   const open=!!r._open, cats=r.categories||[];
+  const grp=cats.length?cats[0]:'';
   const mc=_liveEntsCache.length?countRuleMatches(r):'—';
   const badges=(!r.enabled?'<span class="drbadge paused">paused</span>':'')
     +(r.hide?'<span class="drbadge hide">hidden</span>':'')
@@ -1852,6 +1879,12 @@ function drRow(r,i){
       <span class="dr-status${r.enabled?'':' paused'}">${r.enabled?'Active':'Paused'}</span>
       <span class="drcaret">${open?'▾':'▸'}</span>
       <span class="drswatch">${r.hide?'':iconPreview(r.shape,r.color,r.sprite,15)}</span>
+      <input type="text" class="dr-head-label" value="${esc(r.label||'')}" placeholder="Label" title="{{H.ColumnLabel}}">
+      <label class="dr-head-hidelbl" title="{{H.HideLabel}}"><input type="checkbox" class="dr-head-hidelbl-cb"${r.hideLabel?' checked':''}> No lbl</label>
+      <select class="dr-head-group" title="{{H.ColumnGroup}}">
+        <option value=""${!grp?' selected':''}>Any</option>
+        ${DR_CATS.map(c=>`<option value="${c}"${grp===c?' selected':''}>${c}</option>`).join('')}
+      </select>
       <span class="drnm">${esc(r.name||'(unnamed)')}</span>
       <span class="drsum">${drSummary(r)}</span>
       <span class="drmatch" title="entities in zone matching this rule">${mc}</span>
@@ -1879,6 +1912,12 @@ function renderDrules(){
       const st=row.querySelector('.dr-status'); if(st){ st.textContent=r.enabled?'Active':'Paused'; st.classList.toggle('paused',!r.enabled); }
       save(); renderDrules();
     };
+    const headLbl=row.querySelector('.dr-head-label');
+    if(headLbl) headLbl.onchange=e=>{ r.label=e.target.value.trim()||null; save(); };
+    const headHideLbl=row.querySelector('.dr-head-hidelbl-cb');
+    if(headHideLbl) headHideLbl.onchange=e=>{ r.hideLabel=e.target.checked; save(); renderDrules(); };
+    const headGrp=row.querySelector('.dr-head-group');
+    if(headGrp) headGrp.onchange=e=>{ const v=e.target.value; r.categories=v?[v]:[]; save(); renderDrules(); };
     row.querySelector('.dr-up').onclick=()=>{ if(i>0){ const t=drules[i-1]; drules[i-1]=drules[i]; drules[i]=t; renderDrules(); save(); } };
     row.querySelector('.dr-dn').onclick=()=>{ if(i<drules.length-1){ const t=drules[i+1]; drules[i+1]=drules[i]; drules[i]=t; renderDrules(); save(); } };
     row.querySelector('.dr-dup').onclick=()=>{ const c=JSON.parse(JSON.stringify(r)); delete c._open; c.name=(r.name||'Rule')+' copy'; drules.splice(i+1,0,c); renderDrules(); save(); };

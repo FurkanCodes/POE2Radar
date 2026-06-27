@@ -543,6 +543,28 @@ public sealed class ApiServer : IDisposable
                 break;
             }
 
+            case "/api/zone-types/promote":
+            {
+                if (ctx.Request.HttpMethod != "POST")
+                {
+                    Write(ctx, 405, JsonSerializer.Serialize(new { error = "method not allowed" }, Json));
+                    break;
+                }
+                if (!IsLoopbackHost(ctx.Request))
+                {
+                    Write(ctx, 403, JsonSerializer.Serialize(new { error = "forbidden host" }, Json));
+                    break;
+                }
+                var promoted = ApplyZoneTypePromote(s, ReadBody(ctx));
+                if (promoted is null)
+                {
+                    Write(ctx, 400, JsonSerializer.Serialize(new { error = "unknown token or no sample entity" }, Json));
+                    break;
+                }
+                Write(ctx, 200, JsonSerializer.Serialize(promoted, Json));
+                break;
+            }
+
             default:
                 Write(ctx, 404, JsonSerializer.Serialize(new { error = "not found", path }, Json));
                 break;
@@ -1099,6 +1121,7 @@ public sealed class ApiServer : IDisposable
                     var merged = _ruleEngine.Resolve(sample, areaCode, importantOnly, entities);
                     var rawHide = merged is { Hide: true };
                     var rawNav = merged?.Navigable ?? false;
+                    var hasDisplayRule = TypeDisplayRulePromoter.FindRuleIndex(_displayRules.All, token) >= 0;
                     return new
                     {
                         token,
@@ -1107,6 +1130,7 @@ public sealed class ApiServer : IDisposable
                         show = !rawHide,
                         nav = !rawHide && rawNav,
                         hasZoneOverride = _zoneOverrides.HasOverride(areaCode, token),
+                        hasDisplayRule,
                     };
                 })
                 .OrderByDescending(t => t.count)
@@ -1192,6 +1216,54 @@ public sealed class ApiServer : IDisposable
             _zoneOverrides.ClearOverride(areaCode, token);
         else
             _zoneOverrides.SetOverride(areaCode, token, hide, navigable);
+    }
+
+    private object? ApplyZoneTypePromote(RadarState s, string body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return null;
+        using var doc = JsonDocument.Parse(body);
+        var root = doc.RootElement;
+        if (root.ValueKind != JsonValueKind.Object) return null;
+
+        var token = root.TryGetProperty("token", out var tv) ? tv.GetString()?.Trim() : null;
+        if (string.IsNullOrEmpty(token)) return null;
+
+        Poe2Live.EntityDot? sample = null;
+        foreach (var e in s.Entities)
+        {
+            if (string.Equals(EntityDisplayHelper.TypeToken(e.Metadata), token, StringComparison.Ordinal))
+            {
+                sample = e;
+                break;
+            }
+        }
+        if (sample is null) return null;
+        var ent = sample.Value;
+
+        var areaCode = s.AreaCode;
+        var merged = _ruleEngine.Resolve(ent, areaCode, _settings.ImportantOnly, s.Entities);
+        var label = EntityDisplayHelper.FormatEntityLabel(ent, merged, s.Entities, areaCode);
+        if (label.Length == 0) label = token;
+
+        var (index, created) = TypeDisplayRulePromoter.Promote(
+            _displayRules,
+            _zoneOverrides,
+            areaCode,
+            token,
+            ent,
+            merged,
+            _settings.Styles,
+            label);
+
+        return new
+        {
+            ok = true,
+            token,
+            index,
+            created,
+            ruleName = TypeDisplayRulePromoter.RuleNameFor(token),
+            rules = _displayRules.All,
+        };
     }
 
     private void ApplyZoneTierToggle(string body)
