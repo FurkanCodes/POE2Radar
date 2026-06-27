@@ -50,7 +50,7 @@ public sealed class DisplayRuleEngine
         if (zoneOv != null)
         {
             if (global != null)
-                return Patch(global, zoneOv);
+                return ApplyImportantOnly(Patch(global, zoneOv), e, importantOnly, peers, zoneExplicitShow: zoneOv.Hide == false);
             if (zoneOv.Hide == true)
                 return HiddenTrash;
             return new DisplayRule
@@ -67,19 +67,24 @@ public sealed class DisplayRuleEngine
         }
 
         if (global != null)
-        {
-            if (importantOnly && !global.Hide && IsTrash(e, peers))
-                return HiddenTrash;
-            return global;
-        }
+            return ApplyImportantOnly(global, e, importantOnly, peers);
 
-        if (importantOnly && IsTrash(e, peers))
+        if (importantOnly && !CuratedDefaults.IsVisibleWhenImportantOnly(e, null, Styles, peers))
             return HiddenTrash;
         return null;
     }
 
-    private bool IsTrash(Poe2Live.EntityDot e, IReadOnlyList<Poe2Live.EntityDot>? peers)
-        => EntityImportanceHelper.IsTrash(EntityImportanceHelper.Classify(e, Styles, FinalizeEssence(e, _global.ResolveContent(e), peers)));
+    private DisplayRule? ApplyImportantOnly(
+        DisplayRule? rule,
+        Poe2Live.EntityDot e,
+        bool importantOnly,
+        IReadOnlyList<Poe2Live.EntityDot>? peers,
+        bool zoneExplicitShow = false)
+    {
+        if (rule is null) return null;
+        if (!importantOnly || zoneExplicitShow) return rule;
+        return CuratedDefaults.IsVisibleWhenImportantOnly(e, rule, Styles, peers) ? rule : HiddenTrash;
+    }
 
     private static DisplayRule Patch(DisplayRule global, ZoneEntityOverride zoneOv)
     {
@@ -121,7 +126,7 @@ public sealed class DisplayRuleEngine
         foreach (var def in EndgameMechanicCatalog.All)
             if (string.Equals(def.Name, "Essence", StringComparison.OrdinalIgnoreCase))
                 return EndgameMechanicCatalog.ToDisplayRule(def);
-        return new DisplayRule { Name = "Essence", Label = "Essence", Enabled = true, Navigable = false };
+        return new DisplayRule { Name = "Essence", Label = "Essence", Enabled = true, Navigable = CuratedDefaults.IsDefaultNavigable("Essence") };
     }
 
     private static DisplayRule? ApplyOpenedChestExemption(Poe2Live.EntityDot e, DisplayRule? state)

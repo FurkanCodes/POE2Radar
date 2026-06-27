@@ -42,7 +42,7 @@ internal static class SettingHints
     {
         public const string DetectionRadius = "Max grid distance from player for entity dots, nav targets, and API list. 0 = no limit.";
         public const string AutoPathNearest = "F3: auto-path league mechanics (Breach, Ritual, Expedition, Abyss pit, Summoning Circle). Strongbox/Essence need Auto-path target enabled per rule.";
-        public const string ShowAllMonsters = "Show normal/magic grey monsters and other map clutter on the radar.";
+        public const string ShowAllMonsters = "Show chests, waypoints, NPCs, and other map clutter — off shows only league mechanics, bosses, and rare monsters.";
         public const string NeverShowPattern = "Substring or glob (* ?) — not on map, not in lists, not for paths.";
         public const string NeverShowAdd = "Add this pattern to the never-show list.";
         public const string TypeSearch = "Filter entity types in the current zone.";

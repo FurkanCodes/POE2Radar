@@ -57,9 +57,8 @@ public sealed class RadarSettings
     //    preserved; this stays true thereafter so we never re-stomp the user's edits. ──
     public bool NavRuleModelMigrated { get; set; } = false;
 
-    // ── Curated radar: when true, normal/magic monster trash and miscellaneous clutter are not drawn
-    //    on the map overlay (nav is still governed by display-rule Navigable flags). Toggle off to
-    //    reveal everything. ──
+    // ── Curated radar: when true, only league mechanics, bosses, and rare monsters are drawn
+    //    (nav still governed by display-rule Navigable flags). Toggle off to reveal clutter. ──
     public bool ImportantOnly { get; set; } = true;
 
     // ── One-time: flip Navigable on mechanic rules + Monster · Rare after the endgame-nav defaults pass. ──
@@ -115,6 +114,9 @@ public sealed class RadarSettings
 
     // One-time: tighten Navigable defaults to GameHelper-style conservative auto-path qualification.
     public bool ConservativeNavDefaultsMigrated { get; set; } = false;
+
+    // One-time: curated visibility filter + navigable flags (mechanics, boss, rare pathable).
+    public bool CuratedDefaultsMigrated { get; set; } = false;
 
     // One-time: fresh installs default ShowPathWorld=false; existing configs are not changed.
     public bool PathGroundDefaultMigrated { get; set; } = false;

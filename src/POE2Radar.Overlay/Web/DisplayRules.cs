@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -256,8 +257,8 @@ public sealed class DisplayRules
             Shape = s.Shape, Color = s.Color, Opacity = s.Opacity, Size = s.Size, Sprite = s.Sprite?.Clone(),
             Navigable = navigable,
         });
-        Mon("Boss", "Unique", st.MonsterUnique, "Boss", navigable: false);
-        Mon("Monster · Rare", "Rare", st.MonsterRare, "Rare", navigable: false);
+        Mon("Boss", "Unique", st.MonsterUnique, "Boss", navigable: true);
+        Mon("Monster · Rare", "Rare", st.MonsterRare, "Rare", navigable: true);
         Mon("Monster · Magic", "Magic", st.MonsterMagic, "Magic");
         Mon("Monster · Normal", "Normal", st.MonsterNormal, "Normal");
 
@@ -321,7 +322,7 @@ public sealed class DisplayRules
         });
         rules.Add(new DisplayRule
         {
-            Name = "ServerIcon · Strongbox", Label = "Strongbox", Enabled = true, Navigable = false,
+            Name = "ServerIcon · Strongbox", Label = "Strongbox", Enabled = true, Navigable = true,
             Categories = new() { "ServerIcon" }, Match = new() { "Strongbox" },
             Shape = "Square", Color = "#FFB300", Opacity = 1f, Size = 11f, Sprite = SpriteCatalog.Strongbox().Clone(),
         });
@@ -470,6 +471,29 @@ public sealed class DisplayRules
     /// <summary>One-time endgame mechanic migration (dedupe, insert missing, reorder before Map marker).</summary>
     public static bool MigrateEndgameMechanics(List<DisplayRule> rules)
         => EndgameMechanicCatalog.MigrateDisplayRules(rules);
+
+    /// <summary>Load the shipped default ruleset from the embedded <c>display_rules.default.json</c> resource.</summary>
+    public static List<DisplayRule>? LoadEmbeddedDefault()
+    {
+        try
+        {
+            var asm = Assembly.GetExecutingAssembly();
+            var resName = asm.GetManifestResourceNames()
+                .FirstOrDefault(n => n.Contains("display_rules.default", StringComparison.OrdinalIgnoreCase));
+            if (resName is null) return null;
+            using var stream = asm.GetManifestResourceStream(resName)!;
+            return JsonSerializer.Deserialize<List<DisplayRule>>(stream, Json);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Display rules embedded default load failed: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>Serialize <see cref="BuildDefault"/> for embedding — used by snapshot/regen tests.</summary>
+    public static string SerializeDefaultForEmbed(RadarStyles st, bool showMonsters, IEnumerable<WatchedEntry> watched)
+        => JsonSerializer.Serialize(BuildDefault(st, showMonsters, watched), Json);
 
     // ── internals ───────────────────────────────────────────────────────────
 

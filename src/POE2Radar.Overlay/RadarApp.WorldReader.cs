@@ -311,8 +311,6 @@ public sealed partial class RadarApp
         {
             var rule = _ruleEngine.Resolve(e, areaCode, _settings.ImportantOnly, entities);
             if (rule is { Hide: true }) continue;
-            if (_settings.ImportantOnly && EntityImportanceHelper.IsTrash(EntityImportanceHelper.Classify(e, _settings.Styles, rule)))
-                continue;
 
             var (sprite, shape, size, color, opacity) = rule is not null
                 ? (rule.Sprite, rule.Shape, rule.Size, rule.Color, rule.Opacity)

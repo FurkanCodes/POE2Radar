@@ -98,7 +98,7 @@ public static class EndgameMechanicCatalog
         Name = d.Name,
         Label = d.Name,
         Enabled = true,
-        Navigable = d.Navigable,
+        Navigable = CuratedDefaults.IsDefaultNavigable(d.Name),
         Categories = d.Categories is { Length: > 0 } ? new List<string>(d.Categories) : new(),
         Match = new List<string>(d.Match),
         Shape = d.Shape,
@@ -189,9 +189,10 @@ public static class EndgameMechanicCatalog
             existing.Sprite ??= def.Sprite.Clone();
             if (existing.Size < def.Size) { existing.Size = def.Size; changed = true; }
 
-            if (existing.Navigable != def.Navigable)
+            var wantNav = CuratedDefaults.IsDefaultNavigable(def.Name);
+            if (existing.Navigable != wantNav)
             {
-                existing.Navigable = def.Navigable;
+                existing.Navigable = wantNav;
                 changed = true;
             }
         }

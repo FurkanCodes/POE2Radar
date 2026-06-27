@@ -270,9 +270,18 @@ public sealed partial class RadarApp : IDisposable
         _ruleEngine = new DisplayRuleEngine(_displayRules, _zoneOverrides, () => _settings.Styles);
         if (_displayRules.Count == 0)
         {
-            _displayRules.Replace(DisplayRules.BuildDefault(
-                _settings.Styles, _settings.ShowMonsters, _watched.All));
-            Console.WriteLine($"Display rules: seeded {_displayRules.Count} from legacy config (first run).");
+            var embedded = DisplayRules.LoadEmbeddedDefault();
+            if (embedded is { Count: > 0 })
+            {
+                _displayRules.Replace(embedded);
+                Console.WriteLine($"Display rules: seeded {_displayRules.Count} from embedded default (first run).");
+            }
+            else
+            {
+                _displayRules.Replace(DisplayRules.BuildDefault(
+                    _settings.Styles, _settings.ShowMonsters, _watched.All));
+                Console.WriteLine($"Display rules: seeded {_displayRules.Count} from legacy config (first run).");
+            }
         }
         // One-time: fold any user landmark-tile patterns into Tile display rules (the unified system),
         // then clear the old config so it's retired and won't double-apply or re-migrate.
@@ -513,6 +522,15 @@ public sealed partial class RadarApp : IDisposable
             _settings.ConservativeNavDefaultsMigrated = true;
             _settings.Save();
             Console.WriteLine("Migrated display rules to conservative auto-path defaults (GameHelper parity).");
+        }
+        if (!_settings.CuratedDefaultsMigrated)
+        {
+            var rules = _displayRules.All.ToList();
+            if (CuratedDefaults.MigrateDisplayRules(rules))
+                _displayRules.Replace(rules);
+            _settings.CuratedDefaultsMigrated = true;
+            _settings.Save();
+            Console.WriteLine("Applied curated display defaults (visibility filter + navigable flags).");
         }
         LogMissingHpBarTextures();
         _displayRulesGen = _ruleEngine.Generation;

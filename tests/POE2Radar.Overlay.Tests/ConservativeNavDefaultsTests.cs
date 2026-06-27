@@ -7,7 +7,7 @@ namespace POE2Radar.Overlay.Tests;
 public sealed class ConservativeNavDefaultsTests
 {
     [Fact]
-    public void BuildDefault_UsesConservativeNavigableMechanics()
+    public void BuildDefault_UsesCuratedNavigableDefaults()
     {
         var rules = DisplayRules.BuildDefault(new RadarStyles(), showMonsters: true, watched: Array.Empty<WatchedEntry>());
         var byName = rules.ToDictionary(r => r.Name, StringComparer.OrdinalIgnoreCase);
@@ -16,12 +16,12 @@ public sealed class ConservativeNavDefaultsTests
         Assert.True(byName["Ritual"].Navigable);
         Assert.True(byName["Expedition"].Navigable);
         Assert.True(byName["Abyss · Pit"].Navigable);
-        Assert.False(byName["Abyss"].Navigable);
-        Assert.False(byName["Essence"].Navigable);
-        Assert.False(byName["Strongbox"].Navigable);
+        Assert.True(byName["Abyss"].Navigable);
+        Assert.True(byName["Essence"].Navigable);
+        Assert.True(byName["Strongbox"].Navigable);
+        Assert.True(byName["Boss"].Navigable);
+        Assert.True(byName["Monster · Rare"].Navigable);
         Assert.False(byName["Map marker"].Navigable);
-        Assert.False(byName["Boss"].Navigable);
-        Assert.False(byName["Monster · Rare"].Navigable);
     }
 
     [Fact]

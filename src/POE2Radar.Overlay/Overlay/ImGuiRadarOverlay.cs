@@ -2106,7 +2106,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             ImGui.TextDisabled("Strongbox/Essence: enable Auto-path target on their Display Rule, then F3.");
 
             bool showAll = !s.ImportantOnly;
-            if (ImGui.Checkbox("Show all monsters (including clutter)", ref showAll))
+            if (ImGui.Checkbox("Show all entities (not just mechanics)", ref showAll))
                 s.ImportantOnly = !showAll;
             ImGuiTheme.Tooltip(SettingHints.Entities.ShowAllMonsters);
         }
@@ -2174,8 +2174,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 foreach (var e in entities)
                 {
                     var rule = _ruleEngine?.Resolve(e, areaCode, s.ImportantOnly, entities);
+                    if (rule is { Hide: true }) continue;
+
                     var tier = EntityImportanceHelper.Classify(e, ctx.Styles, rule);
-                    if (s.ImportantOnly && EntityImportanceHelper.IsTrash(tier)) continue;
 
                     var token = TypeToken(e.Metadata);
                     if (token.Length == 0) continue;
@@ -2197,7 +2198,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
                 foreach (var tier in EntityImportanceHelper.DisplayOrder)
                 {
-                    if (s.ImportantOnly && EntityImportanceHelper.IsTrash(tier)) continue;
                     if (!byTier.TryGetValue(tier, out var bucket) || bucket.Count == 0) continue;
 
                     var rows = bucket

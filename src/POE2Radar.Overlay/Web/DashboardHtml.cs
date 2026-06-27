@@ -905,7 +905,7 @@ internal static class DashboardHtml
               <label class="sw"><input type="checkbox" data-set="autoPathNavigable"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.DetectionRadius}}">Detection radius<small>max grid distance for entity dots, nav, and API list (0 = unlimited)</small></div>
               <input class="numin" type="number" step="10" min="0" max="2000" data-set="entityDrawRadiusGrid"></div>
-            <div class="row"><div class="rl" title="{{H.ShowAllMonsters}}">Show all monsters<small>include normal/magic grey clutter on the radar (off = curated important-only view)</small></div>
+            <div class="row"><div class="rl" title="{{H.ShowAllMonsters}}">Show all entities<small>show chests, waypoints, and clutter — off shows only league mechanics, bosses, and rare monsters</small></div>
               <label class="sw"><input type="checkbox" data-set-inv="importantOnly"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.NavMenuCorner}}">Nav menu corner<small>where the in-game nav dropdown is pinned</small></div>
               <select class="numin selin" data-set="navMenuCorner">
