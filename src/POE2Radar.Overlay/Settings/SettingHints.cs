@@ -57,8 +57,8 @@ internal static class SettingHints
         public const string ShowMonsters = "Draw entity dots (monsters, NPCs, chests, POIs) on the map overlay.";
         public const string ShowTerrain = "Draw walkable terrain boundary edges on the map overlay.";
         public const string ShowPlayerBlip = "Show a cyan dot at your position on the map overlay.";
-        public const string ShowPathWorld = "Draw guidance route polylines between you and selected targets.";
-        public const string ShowGroundWaypoints = "World-screen breadcrumbs when the Tab map is closed (requires Paths on world view).";
+        public const string ShowPathWorld = "Route breadcrumbs on the game world when the Tab map is closed.";
+        public const string ShowGroundWaypoints = "Included in Path on ground — world-screen breadcrumb dots along the route.";
         public const string ShowPathMap = "Draw route lines on the large Tab map.";
         public const string ShowPathMinimap = "Draw route lines on the corner minimap.";
         public const string HideJunk = "Hide cosmetic FX, daemons, and other noise dots on the map.";
@@ -66,8 +66,8 @@ internal static class SettingHints
         public const string AlwaysShowOverlay = "Keep the overlay visible even when PoE2 is not the foreground window.";
         public const string LandmarkClusterGap = "Max tile distance for merging nearby landmarks into one marker (0 = disable clustering).";
         public const string DrawAllLandmarkPaths = "Draw path lines to every landmark tile (heavy; off by default).";
-        public const string LargeMapScale = "Tab-map overlay scale multiplier (fine-tune large map alignment).";
-        public const string MinimapScale = "Adjust the map overlay zoom multiplier relative to the game's minimap.";
+        public const string LargeMapScale = "Tab-map overlay scale — fine-tune pixel lock when the large map is open.";
+        public const string MinimapScale = "Corner minimap overlay scale multiplier.";
         public const string OffsetX = "Shift the entire map overlay horizontally in pixels.";
         public const string OffsetY = "Shift the entire map overlay vertically in pixels.";
         public const string TerrainInterior = "Color and opacity for the interior of walkable terrain cells.";

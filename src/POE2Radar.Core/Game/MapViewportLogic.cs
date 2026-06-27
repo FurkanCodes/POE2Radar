@@ -180,6 +180,22 @@ public static class MapViewportLogic
             top + size);
     }
 
+    /// <summary>PoE2 / v1.3.0 fullscreen Tab-map overlay scale: Zoom × (window height / 677) × user multiplier.</summary>
+    public static float LargeMapOverlayScale(float windowHeight, float zoom, float largeMapScaleMultiplier)
+    {
+        var h = MathF.Max(1f, windowHeight);
+        var z = zoom > 0f ? zoom : 1f;
+        return z * (h / 677f) * MathF.Max(0.01f, largeMapScaleMultiplier);
+    }
+
+    /// <summary>Corner minimap overlay scale: Zoom × (clip side / 677) × user multiplier.</summary>
+    public static float MinimapOverlayScale(float referenceSide, float zoom, float scaleMul)
+    {
+        var side = MathF.Max(1f, referenceSide);
+        var z = zoom > 0f ? zoom : 1f;
+        return z * (side / 677f) * MathF.Max(0.01f, scaleMul);
+    }
+
     /// <summary>Alias kept for callers that still mention a generic fallback.</summary>
     public static (float Left, float Top, float Right, float Bottom) FallbackMinimapRect(
         int windowWidth, int windowHeight, float uiScale)

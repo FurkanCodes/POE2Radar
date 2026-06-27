@@ -661,7 +661,7 @@ public sealed partial class RadarApp : IDisposable
 
         var live = _liveFrame;
         if (live.InGame)
-            live = RefreshMapLock(live, windowWidth, windowHeight);
+            live = RefreshHudLock(live, windowWidth, windowHeight, drawActive, _atlasOpen);
 
         if (live.InGame && drawActive)
             RefreshRitualLabels(live, windowWidth, windowHeight);
@@ -690,13 +690,18 @@ public sealed partial class RadarApp : IDisposable
 
         var largeMap = live.Maps.LargeMap;
         var miniMap = live.Maps.MiniMap;
+        var pathDiag = BuildPathDiag(live);
         _state = new RadarState(live.InGame, snap.AreaHash, snap.AreaLevel, largeMap.IsVisible, largeMap.Zoom, live.PlayerGrid, snap.Entities, snap.Landmarks,
             _hpPct, _manaPct, _esPct, _autoFlask, _flaskNote, _areaCode, _charName, snap.CharLevel, _perfSnapshot,
             MapDiag: _mapDiag,
             MiniMapVisible: miniMap.IsVisible, MiniMapRect: miniMap.HasScreenRect,
             MiniMapW: miniMap.Width, MiniMapH: miniMap.Height,
             GameFocused: realActive, OverlayActive: drawActive,
-            OverlayW: windowWidth, OverlayH: windowHeight, GameHwnd: _gameHwnd);
+            OverlayW: windowWidth, OverlayH: windowHeight, GameHwnd: _gameHwnd,
+            PathTargetCount: _renderPathSnapshot.Length,
+            PathLayersEnabled: _settings.AnyPathLayerEnabled,
+            CameraMatrixOk: live.CameraMatrix is { Length: >= 16 },
+            PathDiag: pathDiag);
 
         var atlasProj = AtlasProjection();
         var mapFrame = BuildLargeMapFrame(largeMap, windowWidth, windowHeight, live.PlayerTerrainHeight);
@@ -829,7 +834,9 @@ public sealed partial class RadarApp : IDisposable
             AtlasRoutes: (_atlasOpen && _settings.AtlasShowRoute && _atlasRoutesPublish.Count > 0) ? _atlasRoutesPublish : null,
             AtlasCurrent: _atlasOpen ? _atlasCurrentPt : null,
             CursorInspectTitle: _cursorInspectTitle,
-            CursorInspectMeta: _cursorInspectMeta);
+            CursorInspectMeta: _cursorInspectMeta,
+            MapDiag: _mapDiag,
+            PathDiagNote: pathDiag);
         _imguiOverlay?.UpdateContext(ctx);
 
         var overlayMetrics = _imguiOverlay?.GetRenderMetrics().Snapshot() ?? default;
@@ -899,10 +906,18 @@ public sealed partial class RadarApp : IDisposable
             CloseAtlasSession();
 
         var maps = _cachedMaps;
-        if (!_atlasOpen && drawActive)
+        if (!_atlasOpen)
         {
-            maps = _live.ReadMaps(inGameState, areaInstance, windowWidth, windowHeight);
-            _cachedMaps = maps;
+            // Map HUD reads run every tick via RefreshHudLock when the overlay is drawing; keep LiveRefreshHz
+            // reads only when the overlay is hidden so cached shift/zoom stay warm for the next focus.
+            if (!drawActive)
+            {
+                maps = _live.ReadMaps(inGameState, areaInstance, windowWidth, windowHeight);
+                _cachedMaps = maps;
+            }
+            else
+                maps = _cachedMaps;
+
             if (_settings.ShowPerfStats)
                 _mapDiag = _live.MapDiagnostics(inGameState, windowWidth, windowHeight);
         }
@@ -932,9 +947,9 @@ public sealed partial class RadarApp : IDisposable
             maps, _areaHash, _cameraMatrix);
     }
 
-    /// <summary>Fast player lock between live refreshes. Map UI/controller branch reads stay on
-    /// LiveRefreshHz via <see cref="RefreshLiveFrame"/> so render FPS does not multiply map reads.</summary>
-    private LiveFrameState RefreshMapLock(LiveFrameState live, int windowWidth, int windowHeight)
+    /// <summary>Fast HUD lock between live refreshes: player grid + map shift/zoom/rect at render cadence
+    /// when the map overlay is active so markers stay pixel-locked to the game HUD.</summary>
+    private LiveFrameState RefreshHudLock(LiveFrameState live, int windowWidth, int windowHeight, bool drawActive, bool atlasOpen)
     {
         if (!live.InGame || live.LocalPlayer == 0 || live.InGameState == 0 || live.AreaInstance == 0)
             return live;
@@ -942,6 +957,12 @@ public sealed partial class RadarApp : IDisposable
         var player = _live.PlayerGrid(live.LocalPlayer) ?? live.PlayerGrid;
         var playerTerrainHeight = _live.PlayerTerrainHeight(live.LocalPlayer);
         var maps = live.Maps;
+
+        if (drawActive && !atlasOpen)
+        {
+            maps = _live.ReadMaps(live.InGameState, live.AreaInstance, windowWidth, windowHeight);
+            _cachedMaps = maps;
+        }
 
         if (player == live.PlayerGrid && maps.Equals(live.Maps) && playerTerrainHeight.Equals(live.PlayerTerrainHeight))
             return live;
@@ -952,6 +973,23 @@ public sealed partial class RadarApp : IDisposable
             PlayerTerrainHeight = playerTerrainHeight,
             Maps = maps,
         };
+    }
+
+    private string BuildPathDiag(LiveFrameState live)
+    {
+        if (!live.InGame) return "";
+        var count = _renderPathSnapshot.Length;
+        if (!_settings.AnyPathLayerEnabled && count == 0) return "";
+
+        var layers = new List<string>(3);
+        if (_settings.ShowPathWorld && _settings.ShowGroundWaypoints) layers.Add("grd");
+        if (_settings.ShowPathMap) layers.Add("map");
+        if (_settings.ShowPathMinimap) layers.Add("mini");
+        var note = $"paths:{count} layers:{string.Join(",", layers)}";
+        if (_settings.ShowPathWorld && _settings.ShowGroundWaypoints &&
+            live.CameraMatrix is not { Length: >= 16 })
+            note += " | ground paths need camera matrix (read failed)";
+        return note;
     }
 
     private void RefreshHpBars(WorldSnapshot snap)
@@ -998,13 +1036,12 @@ public sealed partial class RadarApp : IDisposable
         return copy;
     }
 
-    private const float MapScaleDivisor = 677f;
 
     private MapFrame BuildLargeMapFrame(Poe2Live.MapUi map, int windowWidth, int windowHeight, float playerTerrainHeight)
     {
         // Sikaka/v1.3.0 parity — fullscreen Tab overlay only (draw gated on Map.IsVisible):
         //   center = window center + Shift + DefaultShiftY(-20) + manual offset
-        //   scale  = Zoom × (WindowHeight / 677) × ScaleMul
+        //   scale  = Zoom × (WindowHeight / 677) × LargeMapScaleMultiplier
         var w = MathF.Max(1f, windowWidth);
         var h = MathF.Max(1f, windowHeight);
         var (cx, cy) = MapViewportLogic.MapProjectionCenter(
@@ -1020,7 +1057,8 @@ public sealed partial class RadarApp : IDisposable
             clipRight: 0,
             clipBottom: 0);
         var center = new NumVec2(cx, cy);
-        var scale = (map.Zoom > 0f ? map.Zoom : 1f) * (h / MapScaleDivisor) * _settings.ScaleMul;
+        var zoom = map.Zoom > 0f ? map.Zoom : 1f;
+        var scale = MapViewportLogic.LargeMapOverlayScale(h, zoom, _settings.LargeMapScaleMultiplier);
         return new MapFrame(center, scale, w, h, map.Element, playerTerrainHeight, NumVec2.Zero, IsMinimap: false);
     }
 
@@ -1060,9 +1098,9 @@ public sealed partial class RadarApp : IDisposable
             clipRight: x + width,
             clipBottom: y + height);
         var center = new NumVec2(cx, cy);
-        // v1.3.0 parity: minimap scale = Zoom × (clipSide / 677) × ScaleMul — NOT diagonal/240.
+        // v1.3.0 parity: minimap scale = Zoom × (clipSide / 677) × ScaleMul
         var referenceSide = MathF.Max(1f, MathF.Min(width, height));
-        var scale = (map.Zoom > 0f ? map.Zoom : 1f) * (referenceSide / MapScaleDivisor) * _settings.ScaleMul;
+        var scale = MapViewportLogic.MinimapOverlayScale(referenceSide, map.Zoom, _settings.ScaleMul);
         return new MapFrame(center, scale, width, height, map.Element, playerTerrainHeight, new NumVec2(x, y), IsMinimap: true);
     }
 
@@ -1217,7 +1255,7 @@ public sealed partial class RadarApp : IDisposable
         if (HotkeyPressed(_settings.AutoPathToggleHotkey, ref _nextAutoPathToggleAt, requireGameFocus: true))
         {
             _settings.AutoPathNavigable = !_settings.AutoPathNavigable;
-            if (_settings.AutoPathNavigable) _settings.ShowPath = true;
+            if (_settings.AutoPathNavigable) _settings.SetAllPathLayers(true);
             _settings.Save();
             Console.WriteLine($"\nAuto-path: {(_settings.AutoPathNavigable ? "ON" : "OFF")}");
         }

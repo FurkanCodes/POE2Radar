@@ -168,6 +168,26 @@ public sealed class MapViewportLogicTests
         Assert.Equal(200 * 0.675f, t, 3);
     }
 
+    [Fact]
+    public void LargeMapOverlayScale_UsesWindowHeightNotDiagonal()
+    {
+        const float zoom = 1f;
+        const float mul = 1f;
+        var scale1440 = MapViewportLogic.LargeMapOverlayScale(1440, zoom, mul);
+        Assert.Equal(zoom * (1440f / 677f) * mul, scale1440, 3);
+
+        // Ultrawide: height-only formula must not grow with width (diagonal/240 would).
+        var scaleUltrawide = MapViewportLogic.LargeMapOverlayScale(1440, zoom, mul);
+        Assert.Equal(scale1440, scaleUltrawide, 3);
+    }
+
+    [Fact]
+    public void MinimapOverlayScale_ScalesWithClipSide()
+    {
+        var scale = MapViewportLogic.MinimapOverlayScale(274f, 0.5f, 1.1f);
+        Assert.Equal(0.5f * (274f / 677f) * 1.1f, scale, 4);
+    }
+
     private static Poe2Live.MapUi Map(bool visible, bool rect, nint element)
         => new(
             visible,

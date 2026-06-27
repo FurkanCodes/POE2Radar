@@ -24,6 +24,35 @@ public sealed class RadarSettingsMigrationTests
         Assert.True(s.ShowPathWorld);
         Assert.True(s.ShowPathMap);
         Assert.True(s.ShowPathMinimap);
+        Assert.True(s.ShowGroundWaypoints);
+    }
+
+    [Fact]
+    public void SetAllPathLayers_EnablesEveryLayer()
+    {
+        var s = new RadarSettings();
+        s.SetAllPathLayers(false);
+        s.SetAllPathLayers(true);
+
+        Assert.True(s.ShowPath);
+        Assert.True(s.ShowPathWorld);
+        Assert.True(s.ShowGroundWaypoints);
+        Assert.True(s.ShowPathMap);
+        Assert.True(s.ShowPathMinimap);
+        Assert.True(s.AnyPathLayerEnabled);
+    }
+
+    [Fact]
+    public void SetPathGroundEnabled_TogglesBothGroundFlags()
+    {
+        var s = new RadarSettings();
+        s.SetPathGroundEnabled(false);
+        Assert.False(s.ShowPathWorld);
+        Assert.False(s.ShowGroundWaypoints);
+
+        s.SetPathGroundEnabled(true);
+        Assert.True(s.ShowPathWorld);
+        Assert.True(s.ShowGroundWaypoints);
     }
 
     [Fact]
@@ -121,10 +150,28 @@ public sealed class RadarSettingsMigrationTests
     }
 
     [Fact]
+    public void Migrate_LargeMapScaleStubDefault_CopiesScaleMul()
+    {
+        var s = new RadarSettings
+        {
+            LargeMapScaleWiredMigrated = false,
+            LargeMapScaleMultiplier = 0.1738f,
+            ScaleMul = 1.25f,
+        };
+
+        var changed = s.Migrate();
+
+        Assert.True(changed);
+        Assert.True(s.LargeMapScaleWiredMigrated);
+        Assert.Equal(1.25f, s.LargeMapScaleMultiplier);
+    }
+
+    [Fact]
     public void NewWorldPathSettings_DefaultToCurrentBehavior()
     {
         var s = new RadarSettings();
 
         Assert.True(s.ShowGroundWaypoints);
+        Assert.Equal(1.0f, s.LargeMapScaleMultiplier);
     }
 }

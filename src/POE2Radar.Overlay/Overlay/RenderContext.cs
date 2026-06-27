@@ -289,4 +289,7 @@ public sealed record RenderContext(
     NumVec2? AtlasCurrent = null,
     // Entity under cursor (hover inspect) — title + metadata for the on-screen HUD.
     string? CursorInspectTitle = null,
-    string? CursorInspectMeta = null);
+    string? CursorInspectMeta = null,
+    // Map/path diagnostics (extended perf HUD when ShowPerfStats).
+    string MapDiag = "",
+    string PathDiagNote = "");

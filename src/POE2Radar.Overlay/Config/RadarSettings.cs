@@ -23,6 +23,27 @@ public sealed class RadarSettings
     public bool UseCuratedLandmarks { get; set; } = true;
     public bool DrawAllLandmarkPaths { get; set; } = false;
 
+    /// <summary>True when any path display layer is enabled (ground needs world + waypoints).</summary>
+    public bool AnyPathLayerEnabled =>
+        (ShowPathWorld && ShowGroundWaypoints) || ShowPathMap || ShowPathMinimap;
+
+    /// <summary>Enable or disable all path display layers together (legacy <see cref="ShowPath"/> compat).</summary>
+    public void SetAllPathLayers(bool enabled)
+    {
+        ShowPath = enabled;
+        ShowPathWorld = enabled;
+        ShowGroundWaypoints = enabled;
+        ShowPathMap = enabled;
+        ShowPathMinimap = enabled;
+    }
+
+    /// <summary>Ground path draw gate — sets both world polyline and breadcrumb toggles.</summary>
+    public void SetPathGroundEnabled(bool enabled)
+    {
+        ShowPathWorld = enabled;
+        ShowGroundWaypoints = enabled;
+    }
+
     // ── Landmark clustering. A reusable tile (e.g. a "stairs up" wall piece) recurs in several
     //    disjoint spots — a multi-level dungeon has several stair-up/stair-down sections — so the
     //    scanner groups a tile path's cells into spatial clusters and emits one marker per cluster.
@@ -158,7 +179,7 @@ public sealed class RadarSettings
     public bool HpBarUnique { get; set; } = true;
 
     // ── Projection calibration (PageUp/Down = scale, arrows = offset, Home = reset). ──
-    public float LargeMapScaleMultiplier { get; set; } = 0.1738f;
+    public float LargeMapScaleMultiplier { get; set; } = 1.0f;
     public float ScaleMul { get; set; } = 1.0f;
     public float OffX { get; set; } = 0f;
     public float OffY { get; set; } = 0f;
@@ -260,6 +281,9 @@ public sealed class RadarSettings
     public int UiFontSize { get; set; } = 18;
     public UiFontGlyphRange UiFontGlyphRange { get; set; } = UiFontGlyphRange.ChineseSimplifiedCommon;
     public bool UiFontDefaultsMigrated { get; set; }
+
+    /// <summary>One-time: large-map scale knob was unwired with a GameHelper-style 0.1738 stub default.</summary>
+    public bool LargeMapScaleWiredMigrated { get; set; }
 
     // ── HTTP API. ──
     public int ApiPort { get; set; } = 7777;
@@ -389,6 +413,7 @@ public sealed class RadarSettings
         if (!PathTogglesMigrated)
         {
             ShowPathWorld = ShowPathMap = ShowPathMinimap = ShowPath;
+            if (ShowPath) ShowGroundWaypoints = true;
             PathTogglesMigrated = true;
             changed = true;
         }
@@ -415,6 +440,15 @@ public sealed class RadarSettings
             UiFontSize = 18;
             UiFontGlyphRange = UiFontGlyphRange.ChineseSimplifiedCommon;
             UiFontDefaultsMigrated = true;
+            changed = true;
+        }
+
+        if (!LargeMapScaleWiredMigrated)
+        {
+            // Large map used ScaleMul before the dedicated knob was wired; 0.1738 was never applied live.
+            if (MathF.Abs(LargeMapScaleMultiplier - 0.1738f) < 0.0001f)
+                LargeMapScaleMultiplier = ScaleMul;
+            LargeMapScaleWiredMigrated = true;
             changed = true;
         }
 

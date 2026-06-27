@@ -161,6 +161,10 @@ public sealed class ApiServer : IDisposable
                     miniMapVisible = s.MiniMapVisible, miniMapRect = s.MiniMapRect,
                     miniMapW = s.MiniMapW, miniMapH = s.MiniMapH,
                     mapDiag = s.MapDiag,
+                    pathTargetCount = s.PathTargetCount,
+                    pathLayersEnabled = s.PathLayersEnabled,
+                    cameraMatrixOk = s.CameraMatrixOk,
+                    pathDiag = s.PathDiag,
                     gameFocused = s.GameFocused, overlayActive = s.OverlayActive,
                     overlayW = s.OverlayW, overlayH = s.OverlayH, gameHwnd = s.GameHwnd.ToInt64(),
                     hpPct = s.HpPct, manaPct = s.ManaPct, esPct = s.EsPct, autoFlask = s.AutoFlask, flask = s.FlaskNote,
@@ -660,14 +664,21 @@ public sealed class ApiServer : IDisposable
             switch (p.Name)
             {
                 case "hideJunk" when TryBool(p.Value, out var b): _settings.HideJunk = b; applied.Add(p.Name); break;
-                case "showPath" when TryBool(p.Value, out var b): _settings.ShowPath = b; applied.Add(p.Name); break;
+                case "showPath" when TryBool(p.Value, out var b):
+                    _settings.SetAllPathLayers(b);
+                    applied.Add(p.Name);
+                    break;
                 case "showPathWorld" when TryBool(p.Value, out var b): _settings.ShowPathWorld = b; applied.Add(p.Name); break;
+                case "showPathGround" when TryBool(p.Value, out var b):
+                    _settings.SetPathGroundEnabled(b);
+                    applied.Add(p.Name);
+                    break;
                 case "showGroundWaypoints" when TryBool(p.Value, out var b): _settings.ShowGroundWaypoints = b; applied.Add(p.Name); break;
                 case "showPathMap" when TryBool(p.Value, out var b): _settings.ShowPathMap = b; applied.Add(p.Name); break;
             case "showPathMinimap" when TryBool(p.Value, out var b): _settings.ShowPathMinimap = b; applied.Add(p.Name); break;
             case "autoPathNavigable" when TryBool(p.Value, out var b):
                     _settings.AutoPathNavigable = b;
-                    if (b) { _settings.ShowPath = true; _settings.ShowPathWorld = true; }
+                    if (b) _settings.SetAllPathLayers(true);
                     applied.Add(p.Name);
                     break;
                 case "importantOnly" when TryBool(p.Value, out var b): _settings.ImportantOnly = b; applied.Add(p.Name); break;
@@ -1432,7 +1443,11 @@ public sealed record RadarState(
     bool OverlayActive = false,
     int OverlayW = 0,
     int OverlayH = 0,
-    nint GameHwnd = 0)
+    nint GameHwnd = 0,
+    int PathTargetCount = 0,
+    bool PathLayersEnabled = false,
+    bool CameraMatrixOk = false,
+    string PathDiag = "")
 {
     public static readonly RadarState Empty =
         new(false, 0, 0, false, 0, System.Numerics.Vector2.Zero,

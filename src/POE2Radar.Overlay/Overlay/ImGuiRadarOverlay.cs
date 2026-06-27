@@ -1285,11 +1285,15 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         return clusters;
     }
 
+    private static bool AnyPathLayerEnabled(RenderContext ctx)
+        => (ctx.ShowPathWorld && ctx.ShowGroundWaypoints) || ctx.ShowPathMap || ctx.ShowPathMinimap;
+
     // ── Path endpoint labels ──
 
     private void DrawPathLabels(ImDrawListPtr dl, RenderContext ctx)
     {
-        if (ctx.SelectedPaths.Length == 0 || ShouldDrawLargeMapOverlay(ctx.Map)) return;
+        if (ctx.SelectedPaths.Length == 0 || !AnyPathLayerEnabled(ctx)) return;
+        if (ShouldDrawLargeMapOverlay(ctx.Map)) return;
         float W = ctx.WindowWidth, H = ctx.WindowHeight;
         if (ctx.CameraMatrix is not { Length: >= 16 } m) return;
 
@@ -1456,6 +1460,10 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 $"ent {p.EntityCount}   hp {p.HpBarCount}   paths {p.SelectedPathCount}   metrics opt-in");
             if (ctx.AtlasOpen)
                 TextColoredUnformatted(new Vector4(0.85f, 0.85f, 0.85f, 1f), $"atlas draw {p.AtlasMs:F1} ms");
+            if (!string.IsNullOrEmpty(ctx.MapDiag))
+                TextColoredUnformatted(new Vector4(0.75f, 0.85f, 1f, 1f), ctx.MapDiag);
+            if (!string.IsNullOrEmpty(ctx.PathDiagNote))
+                TextColoredUnformatted(new Vector4(1f, 0.82f, 0.55f, 1f), ctx.PathDiagNote);
         }
     }
 
@@ -1931,7 +1939,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (ImGui.Checkbox("Auto-path to nearest targets", ref ap))
             {
                 s.AutoPathNavigable = ap;
-                if (ap) s.ShowPath = true;
+                if (ap) s.SetAllPathLayers(true);
             }
             ImGuiTheme.Tooltip(SettingHints.Entities.AutoPathNearest);
 
@@ -2161,8 +2169,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private void DrawRadarTab(RadarSettings s, RenderContext? ctx)
     {
-        bool mapOpen = ImGuiTheme.BeginAccordionSection("MapDisplay", "Map display",
-            "What appears on the radar overlay.");
+        bool mapOpen = ImGuiTheme.BeginAccordionSection("MapOverlay", "Map overlay",
+            "What appears on the in-game minimap and Tab map.");
         if (mapOpen)
         {
             bool sm = s.ShowMonsters; ImGui.Checkbox("Show Monsters", ref sm); s.ShowMonsters = sm;
@@ -2173,15 +2181,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
             bool sb = s.ShowPlayerBlip; ImGui.Checkbox("Player Blip", ref sb); s.ShowPlayerBlip = sb;
             ImGuiTheme.Tooltip(SettingHints.Radar.ShowPlayerBlip);
-
-            bool spw = s.ShowPathWorld; ImGui.Checkbox("Paths on world view", ref spw); s.ShowPathWorld = spw;
-            ImGuiTheme.Tooltip(SettingHints.Radar.ShowPathWorld);
-            bool sgw = s.ShowGroundWaypoints; ImGui.Checkbox("Ground waypoints", ref sgw); s.ShowGroundWaypoints = sgw;
-            ImGuiTheme.Tooltip(SettingHints.Radar.ShowGroundWaypoints);
-            bool spm = s.ShowPathMap; ImGui.Checkbox("Paths on Tab map", ref spm); s.ShowPathMap = spm;
-            ImGuiTheme.Tooltip(SettingHints.Radar.ShowPathMap);
-            bool spmi = s.ShowPathMinimap; ImGui.Checkbox("Paths on minimap", ref spmi); s.ShowPathMinimap = spmi;
-            ImGuiTheme.Tooltip(SettingHints.Radar.ShowPathMinimap);
 
             bool hj = s.HideJunk; ImGui.Checkbox("Hide map clutter", ref hj); s.HideJunk = hj;
             ImGuiTheme.Tooltip(SettingHints.Radar.HideJunk);
@@ -2197,18 +2196,34 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (ImGui.SliderInt("Cluster Gap", ref lcg, 0, 64)) s.LandmarkClusterGap = lcg;
             ImGuiTheme.Tooltip(SettingHints.Radar.LandmarkClusterGap);
 
-            bool drawAllLm = s.DrawAllLandmarkPaths;
-            if (ImGui.Checkbox("Draw all landmark paths", ref drawAllLm)) s.DrawAllLandmarkPaths = drawAllLm;
-            ImGuiTheme.Tooltip(SettingHints.Radar.DrawAllLandmarkPaths);
-
             DrawNavMenuCornerSetting(s);
         }
         ImGuiTheme.EndAccordionSection(mapOpen);
 
+        bool pathsOpen = ImGuiTheme.BeginAccordionSection("NavigationPaths", "Navigation paths",
+            "Walking routes to selected nav targets (F6 / nav menu).");
+        if (pathsOpen)
+        {
+            bool pathGround = s.ShowPathWorld && s.ShowGroundWaypoints;
+            if (ImGui.Checkbox("Path on ground", ref pathGround))
+                s.SetPathGroundEnabled(pathGround);
+            ImGuiTheme.Tooltip(SettingHints.Radar.ShowPathWorld);
+
+            bool spm = s.ShowPathMap; ImGui.Checkbox("Path on Tab map", ref spm); s.ShowPathMap = spm;
+            ImGuiTheme.Tooltip(SettingHints.Radar.ShowPathMap);
+            bool spmi = s.ShowPathMinimap; ImGui.Checkbox("Path on minimap", ref spmi); s.ShowPathMinimap = spmi;
+            ImGuiTheme.Tooltip(SettingHints.Radar.ShowPathMinimap);
+
+            ImGui.PushStyleColor(ImGuiCol.Text, ImGuiTheme.TextMuted);
+            ImGui.TextWrapped("Auto-path (Entities tab) turns on all three layers. Per-target paths: display rules or nav menu.");
+            ImGui.PopStyleColor();
+        }
+        ImGuiTheme.EndAccordionSection(pathsOpen);
+
         DrawRadarEntitySections(s, ctx);
 
-        bool calOpen = ImGuiTheme.BeginAccordionSection("MapCalibration", "Map calibration",
-            "Fine-tune overlay alignment with the game minimap.");
+        bool calOpen = ImGuiTheme.BeginAccordionSection("MapAlignment", "Map alignment",
+            "Fine-tune overlay lock to the game minimap and Tab map.");
         if (calOpen)
         {
             ImGui.SetNextItemWidth(UiW());
@@ -2225,6 +2240,10 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             ImGui.SetNextItemWidth(UiW());
             float oy = s.OffY; if (ImGui.SliderFloat("Offset Y", ref oy, -200f, 200f, "%.0f")) s.OffY = oy;
             ImGuiTheme.Tooltip(SettingHints.Radar.OffsetY);
+
+            ImGui.PushStyleColor(ImGuiCol.Text, ImGuiTheme.TextMuted);
+            ImGui.TextWrapped("Map shift/zoom refresh at overlay FPS when the map is visible. Vitals/entity reads stay on Live refresh Hz → Performance tab.");
+            ImGui.PopStyleColor();
         }
         ImGuiTheme.EndAccordionSection(calOpen);
 

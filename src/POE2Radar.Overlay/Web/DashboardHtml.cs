@@ -833,10 +833,8 @@ internal static class DashboardHtml
           <div class="settings-section panel-grid" id="setNav" hidden>
           <div class="card">
             <h3>Navigation &amp; paths</h3>
-            <div class="row"><div class="rl" title="{{H.ShowPathWorld}}">Path on ground<small>world-projected route when the large map is closed</small></div>
-              <label class="sw"><input type="checkbox" data-set="showPathWorld"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.ShowGroundWaypoints}}">Ground waypoints<small>world-screen breadcrumbs (requires path on ground)</small></div>
-              <label class="sw"><input type="checkbox" data-set="showGroundWaypoints"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl" title="{{H.ShowPathWorld}}">Path on ground<small>route on the game world when Tab map is closed</small></div>
+              <label class="sw"><input type="checkbox" data-set="showPathGround"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.ShowPathMap}}">Path on large map<small>route overlay when Tab map is open</small></div>
               <label class="sw"><input type="checkbox" data-set="showPathMap"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.ShowPathMinimap}}">Path on minimap<small>route inside the corner minimap</small></div>
@@ -930,10 +928,10 @@ internal static class DashboardHtml
           </div>
           <div class="settings-section panel-grid" id="setCalib" hidden>
           <div class="card">
-            <h3>Map Calibration</h3>
-            <div class="row"><div class="rl" title="{{H.LargeMapScale}}">Large-map scale base<small>GameHelper-style diagonal/zoom multiplier</small></div>
+            <h3>Map alignment</h3>
+            <div class="row"><div class="rl" title="{{H.LargeMapScale}}">Large map scale<small>Tab-map overlay scale when map is open</small></div>
               <input class="numin" type="number" step="0.0001" min="0.01" data-set="largeMapScaleMultiplier"></div>
-            <div class="row"><div class="rl" title="{{H.MinimapScale}}">Scale multiplier<small>projection scale of the map overlay</small></div>
+            <div class="row"><div class="rl" title="{{H.MinimapScale}}">Minimap scale<small>corner minimap overlay scale</small></div>
               <input class="numin" type="number" step="0.01" data-set="scaleMul"></div>
             <div class="row"><div class="rl" title="{{H.OffsetX}}">Offset X</div><input class="numin" type="number" step="1" data-set="offX"></div>
             <div class="row"><div class="rl" title="{{H.OffsetY}}">Offset Y</div><input class="numin" type="number" step="1" data-set="offY"></div>
@@ -1337,6 +1335,8 @@ async function loadSettings(){
       const k=el.dataset.setInv;
       if(el.type==='checkbox') el.checked=!s[k];
     });
+    const pathGround=$('[data-set="showPathGround"]');
+    if(pathGround) pathGround.checked=!!(s.showPathWorld&&s.showGroundWaypoints);
     hpBars = s.hpBars || null;
     terrain = s.terrain || null;
     styles = s.styles || null;
@@ -1346,13 +1346,24 @@ async function loadSettings(){
 async function saveSetting(key,val){
   try{
     const body={[key]:val};
-    if(key==='autoPathNavigable'&&val){ body.showPath=true; body.showPathWorld=true; }
+    if(key==='autoPathNavigable'&&val){
+      body.showPath=true; body.showPathWorld=true; body.showGroundWaypoints=true;
+      body.showPathMap=true; body.showPathMinimap=true;
+    }
+    if(key==='showPathGround'){
+      body.showPathWorld=val; body.showGroundWaypoints=val;
+    }
     await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const m=$('#savedMsg'); m.classList.add('show'); clearTimeout(m._t); m._t=setTimeout(()=>m.classList.remove('show'),1100);
     markStamp('stampSettings'); toast('Settings saved','ok');
     if(key==='hideJunk') updateHeaderQuick();
     if(key==='autoPathNavigable'&&val){
-      const spw=$('[data-set="showPathWorld"]'); if(spw) spw.checked=true;
+      const pg=$('[data-set="showPathGround"]'); if(pg) pg.checked=true;
+      const spm=$('[data-set="showPathMap"]'); if(spm) spm.checked=true;
+      const spmi=$('[data-set="showPathMinimap"]'); if(spmi) spmi.checked=true;
+    }
+    if(key==='showPathGround'&&_settingsCache){
+      _settingsCache.showPathWorld=val; _settingsCache.showGroundWaypoints=val;
     }
     if(_settingsCache) _settingsCache[key]=val;
   }catch(e){ toast('Settings save failed'); }
