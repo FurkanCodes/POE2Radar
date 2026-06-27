@@ -114,12 +114,6 @@ public readonly record struct MapFrame(
 /// so the bar tracks the moving monster smoothly. The renderer just projects + fills.</summary>
 public readonly record struct HpBarTarget(Vector3 World, float Frac, float EsFrac, float Width, uint Fill, float BorderWidth, uint Border);
 
-/// <summary>A priced ground-item label drawn over the in-world loot icon.</summary>
-public readonly record struct ItemLabel(Vector3 World, string Name, string Value, bool Highlight, bool ShowName);
-
-/// <summary>Loot-tag anchored value chip (screen-space).</summary>
-public readonly record struct LootTagLabel(float X, float Y, float W, float H, string Value, bool Highlight);
-
 /// <summary>Endgame atlas tier for icon/label accent (Return of the Ancients / 0.5).</summary>
 public enum AtlasEndgameTier : byte
 {
@@ -281,7 +275,4 @@ public sealed record RenderContext(
     NumVec2? AtlasCurrent = null,
     // Entity under cursor (hover inspect) — title + metadata for the on-screen HUD.
     string? CursorInspectTitle = null,
-    string? CursorInspectMeta = null,
-    // ── Loot / league reward values (poe.ninja). ──
-    IReadOnlyList<ItemLabel>? ItemLabels = null,
-    IReadOnlyList<LootTagLabel>? LootTags = null);
+    string? CursorInspectMeta = null);

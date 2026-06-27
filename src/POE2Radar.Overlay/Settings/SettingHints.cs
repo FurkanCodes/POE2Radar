@@ -198,18 +198,6 @@ internal static class SettingHints
         public const string Quit = "Close POE2Radar without starting the overlay.";
     }
 
-    internal static class Loot
-    {
-        public const string Enabled = "Show ground loot price labels using poe.ninja data.";
-        public const string LeagueOverride = "League name for price lookup. Blank = auto-detect from the game.";
-        public const string HighlightMin = "Minimum value in exalted orbs to highlight a drop.";
-        public const string UniqueFloor = "Minimum exalt value to show unique items.";
-        public const string CurrencyFloor = "Minimum exalt value to show currency stacks.";
-        public const string OtherFloor = "Minimum exalt value for other item types.";
-        public const string MinListingQty = "Skip price rows with fewer listings than this (more reliable prices).";
-        public const string AnchorToTags = "Place value text on the game's loot label tags.";
-    }
-
     internal static class Dashboard
     {
         public const string LiveColName = "Entity display name in the zone.";

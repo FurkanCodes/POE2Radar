@@ -119,15 +119,7 @@ internal static class DashboardHtml
         .Replace("{{H.DbColPath}}", H(SettingHints.Dashboard.DbColPath))
         .Replace("{{H.RulesPaused}}", H(SettingHints.Dashboard.RulesPaused))
         .Replace("{{H.RulesHide}}", H(SettingHints.Dashboard.RulesHide))
-        .Replace("{{H.RulesPath}}", H(SettingHints.Dashboard.RulesPath))
-        .Replace("{{H.LootEnabled}}", H(SettingHints.Loot.Enabled))
-        .Replace("{{H.LootLeague}}", H(SettingHints.Loot.LeagueOverride))
-        .Replace("{{H.LootHighlightMin}}", H(SettingHints.Loot.HighlightMin))
-        .Replace("{{H.LootUniqueFloor}}", H(SettingHints.Loot.UniqueFloor))
-        .Replace("{{H.LootCurrencyFloor}}", H(SettingHints.Loot.CurrencyFloor))
-        .Replace("{{H.LootOtherFloor}}", H(SettingHints.Loot.OtherFloor))
-        .Replace("{{H.LootMinQty}}", H(SettingHints.Loot.MinListingQty))
-        .Replace("{{H.LootAnchorTags}}", H(SettingHints.Loot.AnchorToTags));
+        .Replace("{{H.RulesPath}}", H(SettingHints.Dashboard.RulesPath));
 
     private const string PageTemplate = """
 <!DOCTYPE html>
@@ -777,7 +769,6 @@ internal static class DashboardHtml
         <div class="settings-layout">
           <nav class="settings-nav" id="settingsNav">
             <button type="button" class="on" data-setsec="setDisplay">Display</button>
-            <button type="button" data-setsec="setLoot">Loot values</button>
             <button type="button" data-setsec="setNav">Navigation</button>
             <button type="button" data-setsec="setIcons">Icons</button>
             <button type="button" data-setsec="setHp">HP bars</button>
@@ -837,30 +828,6 @@ internal static class DashboardHtml
               <input class="numin" type="number" step="1" min="1" max="10" data-set="metricsRefreshHz"></div>
             <div class="row"><div class="rl" title="{{H.GpuMetricsSeconds}}">GPU metrics seconds<small>GPU/VRAM sampling interval when metrics HUD is enabled: 1&ndash;30</small></div>
               <input class="numin" type="number" step="1" min="1" max="30" data-set="gpuMetricsRefreshSeconds"></div>
-          </div>
-          </div>
-          <div class="settings-section panel-grid" id="setLoot" hidden>
-          <div class="card">
-            <h3>Ground loot values (poe.ninja)</h3>
-            <div class="row"><div class="rl" title="{{H.LootEnabled}}">Enabled</div>
-              <label class="sw"><input type="checkbox" data-set="groundItemsEnabled"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.LootLeague}}">League override<small>blank = auto-detect from game</small></div>
-              <input class="numin" type="text" data-set="groundItemsLeague" style="width:220px"></div>
-            <div class="row"><div class="rl" title="{{H.LootHighlightMin}}">Highlight min (ex)</div>
-              <input class="numin" type="number" step="0.1" min="0" data-set="groundItemsHighlightMinEx"></div>
-            <div class="row"><div class="rl" title="{{H.LootUniqueFloor}}">Unique floor (ex)</div>
-              <input class="numin" type="number" step="0.1" min="0" data-set="groundItemsUniqueMinEx"></div>
-            <div class="row"><div class="rl" title="{{H.LootCurrencyFloor}}">Currency floor (ex)</div>
-              <input class="numin" type="number" step="0.1" min="0" data-set="groundItemsCurrencyMinEx"></div>
-            <div class="row"><div class="rl" title="{{H.LootOtherFloor}}">Other floor (ex)</div>
-              <input class="numin" type="number" step="0.1" min="0" data-set="groundItemsOtherMinEx"></div>
-            <div class="row"><div class="rl" title="{{H.LootMinQty}}">Min listing qty<small>skip low-confidence rows</small></div>
-              <input class="numin" type="number" step="1" min="0" data-set="groundItemsMinQuantity"></div>
-            <div class="row"><div class="rl" title="{{H.LootAnchorTags}}">Anchor to loot tags</div>
-              <label class="sw"><input type="checkbox" data-set="groundItemsAnchorValuesToTags"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl">Price cache</div>
-              <span id="priceStatus" class="muted">loading…</span>
-              <button type="button" id="priceRefreshBtn" class="btn sm">Refresh</button></div>
           </div>
           </div>
           <div class="settings-section panel-grid" id="setNav" hidden>
@@ -1374,23 +1341,8 @@ async function loadSettings(){
     terrain = s.terrain || null;
     styles = s.styles || null;
     renderHpBars(); renderTerrain(); renderIcons(); renderMechanics();
-    refreshPriceStatus();
   }catch(e){}
 }
-async function refreshPriceStatus(){
-  try{
-    const p=await getJSON('/api/prices');
-    const el=$('#priceStatus');
-    if(el) el.textContent=p.loaded?`${p.count} items · ${p.league||'?'} · ${p.status}`:(p.status||'not loaded');
-  }catch(e){}
-}
-$('#priceRefreshBtn')?.addEventListener('click',async()=>{
-  try{
-    await fetch('/api/prices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refresh:true})});
-    toast('Price refresh started','ok');
-    setTimeout(refreshPriceStatus,1500);
-  }catch(e){ toast('Price refresh failed'); }
-});
 async function saveSetting(key,val){
   try{
     const body={[key]:val};

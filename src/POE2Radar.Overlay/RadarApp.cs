@@ -516,13 +516,11 @@ public sealed partial class RadarApp : IDisposable
         _landmarkStoreGen = _landmarkStore.Generation;
         Console.WriteLine($"Hidden entities: {_hidden.Count} pattern(s); display rules: {_displayRules.Count}");
         _imguiOverlay?.AttachEntityStores(_displayRules, _zoneOverrides, _ruleEngine, _hidden);
-        InitLootValues();
         _worldThread = new Thread(WorldReaderLoop) { IsBackground = true, Name = "POE2Radar.WorldReader" };
         _worldThread.Start();
         _api = new ApiServer(() => _state, _settings, GetNavSelection, ToggleNavTarget, ClearNavSelection,
                              _hidden, _displayRules, _zoneOverrides, _ruleEngine, _landmarkStore, CurrentTilePaths,
-                             AtlasJson, SetAtlasSelection, SetAtlasHighlight, VersionJson, _settings.ApiPort,
-                             PriceBookStatus, RefreshPriceBook, SetPriceLeague);
+                             AtlasJson, SetAtlasSelection, SetAtlasHighlight, VersionJson, _settings.ApiPort);
         try { _api.Start(); Console.WriteLine($"API on http://localhost:{_settings.ApiPort} (dashboard at /)"); }
         catch (Exception ex) { Console.Error.WriteLine($"API server disabled: {ex.Message}"); }
         Console.WriteLine("Hotkeys: configurable in dashboard (Settings → Hotkeys) or overlay settings. "
@@ -682,11 +680,7 @@ public sealed partial class RadarApp : IDisposable
             _renderPathSnapshot = Array.Empty<SelectedPath>();
             if (_atlasOpen) CloseAtlasSession();
             if (_hpFrame.Length > 0) _hpFrame = Array.Empty<HpBarTarget>();
-            ResetLootSession();
         }
-
-        RefreshLootRenderFrames(snap, windowWidth, windowHeight, live.InGame);
-        var lootPayload = BuildLootRenderPayload(live.InGame);
 
         var largeMap = live.Maps.LargeMap;
         var miniMap = live.Maps.MiniMap;
@@ -828,9 +822,7 @@ public sealed partial class RadarApp : IDisposable
             AtlasRoutes: (_atlasOpen && _settings.AtlasShowRoute && _atlasRoutesPublish.Count > 0) ? _atlasRoutesPublish : null,
             AtlasCurrent: _atlasOpen ? _atlasCurrentPt : null,
             CursorInspectTitle: _cursorInspectTitle,
-            CursorInspectMeta: _cursorInspectMeta,
-            ItemLabels: lootPayload.items.Count > 0 ? lootPayload.items : null,
-            LootTags: lootPayload.lootTags);
+            CursorInspectMeta: _cursorInspectMeta);
         _imguiOverlay?.UpdateContext(ctx);
 
         var overlayMetrics = _imguiOverlay?.GetRenderMetrics().Snapshot() ?? default;

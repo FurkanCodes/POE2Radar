@@ -274,13 +274,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 {
                     var t = Stopwatch.GetTimestamp();
                     DrawNameplates(dl, ctx);
-                    DrawLootValueOverlays(dl, ctx);
                     DrawPathLabels(dl, ctx);
                     nameplatesMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
-                }
-                else
-                {
-                    DrawLootValueOverlays(dl, ctx);
                 }
             }
 
@@ -977,69 +972,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private static uint ColorFromU(uint u)
         => ColorU32((byte)((u >> 16) & 0xFF), (byte)((u >> 8) & 0xFF), (byte)(u & 0xFF), ((u >> 24) & 0xFF) / 255f);
-
-    private static readonly uint ColItemHi = ColorU32(255, 204, 51, 1f);
-    private static readonly uint ColItemText = ColorU32(235, 235, 235, 1f);
-    private static readonly uint ColPanelBg = ColorU32(13, 13, 13, 0.82f);
-
-    private void DrawLootValueOverlays(ImDrawListPtr dl, RenderContext ctx)
-    {
-        DrawItemLabels(dl, ctx);
-        DrawLootTagLabels(dl, ctx);
-    }
-
-    private void DrawItemLabels(ImDrawListPtr dl, RenderContext ctx)
-    {
-        if (ctx.CameraMatrix is not { Length: >= 16 } m || ctx.ItemLabels is not { Count: > 0 } labels) return;
-        float W = ctx.WindowWidth, H = ctx.WindowHeight;
-        foreach (var it in labels)
-        {
-            var w = it.World;
-            var cw = w.X * m[3] + w.Y * m[7] + w.Z * m[11] + m[15];
-            if (cw <= 0.0001f) continue;
-            var cx = w.X * m[0] + w.Y * m[4] + w.Z * m[8] + m[12];
-            var cy = w.X * m[1] + w.Y * m[5] + w.Z * m[9] + m[13];
-            var sx = (cx / cw / 2f + 0.5f) * W;
-            var sy = (0.5f - cy / cw / 2f) * H;
-            if (sx < 0 || sx > W || sy < 0 || sy > H) continue;
-
-            if (it.ShowName)
-            {
-                var text = $"{it.Name}\n{it.Value}";
-                var halfW = MathF.Max(48f, 4.5f * MathF.Max(it.Name.Length, it.Value.Length + 3));
-                const float halfH = 19f;
-                dl.AddRectFilled(new NumVec2(sx - halfW, sy - halfH), new NumVec2(sx + halfW, sy + halfH), ColPanelBg);
-                if (it.Highlight) dl.AddRect(new NumVec2(sx - halfW, sy - halfH), new NumVec2(sx + halfW, sy + halfH), ColItemHi, 0, 0, 2.5f);
-                dl.AddText(ImGui.GetFont(), ImGui.GetFontSize(), new NumVec2(sx - halfW + 4f, sy - halfH + 2f),
-                    it.Highlight ? ColItemHi : ColItemText, text);
-            }
-            else
-            {
-                var halfW = MathF.Max(26f, 4.5f * (it.Value.Length + 1));
-                const float halfH = 11f;
-                dl.AddRectFilled(new NumVec2(sx - halfW, sy - halfH), new NumVec2(sx + halfW, sy + halfH), ColPanelBg);
-                if (it.Highlight) dl.AddRect(new NumVec2(sx - halfW, sy - halfH), new NumVec2(sx + halfW, sy + halfH), ColItemHi, 0, 0, 2f);
-                dl.AddText(ImGui.GetFont(), ImGui.GetFontSize(), new NumVec2(sx - halfW + 3f, sy - halfH + 1f),
-                    it.Highlight ? ColItemHi : ColItemText, it.Value);
-            }
-        }
-    }
-
-    private static void DrawLootTagLabels(ImDrawListPtr dl, RenderContext ctx)
-    {
-        if (ctx.LootTags is not { Count: > 0 } labels) return;
-        const float gap = 6f, boxH = 18f;
-        foreach (var t in labels)
-        {
-            var lx = t.X + t.W + gap;
-            var cy = t.Y + t.H * 0.5f;
-            var boxW = MathF.Max(40f, 7.5f * (t.Value.Length + 1));
-            dl.AddRectFilled(new NumVec2(lx, cy - boxH * 0.5f), new NumVec2(lx + boxW, cy + boxH * 0.5f), ColPanelBg);
-            if (t.Highlight) dl.AddRect(new NumVec2(lx, cy - boxH * 0.5f), new NumVec2(lx + boxW, cy + boxH * 0.5f), ColItemHi, 0, 0, 2f);
-            dl.AddText(ImGui.GetFont(), ImGui.GetFontSize(), new NumVec2(lx + 4f, cy - boxH * 0.5f + 1f),
-                t.Highlight ? ColItemHi : ColItemText, t.Value);
-        }
-    }
 
     private static void DrawPartialImage(
         ImDrawListPtr dl,

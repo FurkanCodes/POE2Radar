@@ -34,7 +34,6 @@ public sealed partial class RadarApp
             _state = RadarState.Empty;
             _worldTickMs = 0;
             if (_atlasOpen) CloseAtlasSession();
-            ResetLootSession();
             return;
         }
 
@@ -152,15 +151,10 @@ public sealed partial class RadarApp
         var serverIconArray = _serverIcons as Poe2Live.ServerMinimapIcon[] ?? _serverIcons.ToArray();
         var mapServerIcons = BuildMapServerIconRenderItems(serverIconArray, entityArray, landmarkArray, _areaCode);
 
-        if (!_atlasOpen)
-            UpdateLootWorld(inGameState, areaInstance);
-        var itemLabels = _atlasOpen ? Array.Empty<ItemLabelSpec>() : BuildItemLabels(entityArray).ToArray();
-
         _snapshot = new WorldSnapshot(
             true, areaHash, areaLevel, _areaCode, charLevel,
             entityArray, landmarkArray, _worldTerrain, navTargetArray, hpSpecArray, legendArray,
-            selectedIds, _renderPathSnapshot, mapEntities, mapLandmarks, serverIconArray, mapServerIcons,
-            itemLabels);
+            selectedIds, _renderPathSnapshot, mapEntities, mapLandmarks, serverIconArray, mapServerIcons);
 
         _state = new RadarState(inGame, areaHash, areaLevel, false, 0, player, entityArray, landmarkArray,
             _hpPct, _manaPct, _esPct, _autoFlask, _flaskNote, _areaCode, _charName, charLevel, _perfSnapshot,

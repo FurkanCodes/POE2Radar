@@ -61,9 +61,6 @@ public sealed class ApiServer : IDisposable
     private readonly Action<IReadOnlyList<(string tag, string color, bool track, bool arrow)>>? _atlasHighlight;
     // Version/update info provider ({current, latest, updateAvailable, url}) for the dashboard banner.
     private readonly Func<object>? _version;
-    private readonly Func<object>? _prices;
-    private readonly Action? _priceRefresh;
-    private readonly Action<string?>? _priceLeague;
     private volatile bool _running;
 
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
@@ -84,19 +81,13 @@ public sealed class ApiServer : IDisposable
         Action<IReadOnlyList<long>>? atlasSelect = null,
         Action<IReadOnlyList<(string tag, string color, bool track, bool arrow)>>? atlasHighlight = null,
         Func<object>? versionProvider = null,
-        int port = 7777,
-        Func<object>? priceProvider = null,
-        Action? priceRefresh = null,
-        Action<string?>? priceLeague = null)
+        int port = 7777)
     {
         _state = state;
         _atlas = atlasProvider;
         _atlasSelect = atlasSelect;
         _atlasHighlight = atlasHighlight;
         _version = versionProvider;
-        _prices = priceProvider;
-        _priceRefresh = priceRefresh;
-        _priceLeague = priceLeague;
         _settings = settings;
         _navGet = navGet;
         _navToggle = navToggle;
@@ -284,31 +275,6 @@ public sealed class ApiServer : IDisposable
                 {
                     Write(ctx, 405, JsonSerializer.Serialize(new { error = "method not allowed" }, Json));
                 }
-                break;
-            }
-
-            case "/api/prices":
-            {
-                if (ctx.Request.HttpMethod == "GET")
-                {
-                    Write(ctx, 200, JsonSerializer.Serialize(_prices?.Invoke() ?? new { loaded = false }, Json));
-                }
-                else if (ctx.Request.HttpMethod == "POST")
-                {
-                    if (!IsLoopbackHost(ctx.Request))
-                    {
-                        Write(ctx, 403, JsonSerializer.Serialize(new { error = "forbidden host" }, Json));
-                        break;
-                    }
-                    using var doc = JsonDocument.Parse(ReadBody(ctx));
-                    var root = doc.RootElement;
-                    if (root.TryGetProperty("refresh", out var rf) && rf.ValueKind == JsonValueKind.True)
-                        _priceRefresh?.Invoke();
-                    if (root.TryGetProperty("league", out var lg) && lg.ValueKind == JsonValueKind.String)
-                        _priceLeague?.Invoke(lg.GetString());
-                    Write(ctx, 200, JsonSerializer.Serialize(new { ok = true, prices = _prices?.Invoke() }, Json));
-                }
-                else Write(ctx, 405, JsonSerializer.Serialize(new { error = "method not allowed" }, Json));
                 break;
             }
 
@@ -646,15 +612,6 @@ public sealed class ApiServer : IDisposable
         styles = _settings.Styles,   // per-item icon shapes/colors/sizes + mechanic overrides
         hpBars = _settings.HpBars,   // monster HP-bar geometry (width/height/offset)
         terrain = _settings.Terrain, // walkable-terrain bitmap colors/transparency
-        groundItems = _settings.GroundItems,
-        groundItemsEnabled = _settings.GroundItems.Enabled,
-        groundItemsLeague = _settings.GroundItems.League,
-        groundItemsHighlightMinEx = _settings.GroundItems.HighlightMinEx,
-        groundItemsUniqueMinEx = _settings.GroundItems.UniqueMinEx,
-        groundItemsCurrencyMinEx = _settings.GroundItems.CurrencyMinEx,
-        groundItemsOtherMinEx = _settings.GroundItems.OtherMinEx,
-        groundItemsMinQuantity = _settings.GroundItems.MinQuantity,
-        groundItemsAnchorValuesToTags = _settings.GroundItems.AnchorValuesToTags,
     };
 
     /// <summary>Apply only whitelisted radar/visual keys from a posted JSON object; persists on change.</summary>
@@ -798,24 +755,6 @@ public sealed class ApiServer : IDisposable
                     _settings.OpenDashboardHotkey = ClampHotkey(od);
                     applied.Add(p.Name);
                     break;
-                case "groundItemsEnabled" when TryBool(p.Value, out var gie):
-                    _settings.GroundItems.Enabled = gie; applied.Add(p.Name); break;
-                case "groundItemsLeague" when p.Value.ValueKind == JsonValueKind.String:
-                    _settings.GroundItems.League = p.Value.GetString() ?? "";
-                    _priceLeague?.Invoke(string.IsNullOrWhiteSpace(_settings.GroundItems.League) ? null : _settings.GroundItems.League);
-                    applied.Add(p.Name); break;
-                case "groundItemsHighlightMinEx" when TryFloat(p.Value, out var gh):
-                    _settings.GroundItems.HighlightMinEx = Math.Max(0, gh); applied.Add(p.Name); break;
-                case "groundItemsUniqueMinEx" when TryFloat(p.Value, out var gu):
-                    _settings.GroundItems.UniqueMinEx = Math.Max(0, gu); applied.Add(p.Name); break;
-                case "groundItemsCurrencyMinEx" when TryFloat(p.Value, out var gc):
-                    _settings.GroundItems.CurrencyMinEx = Math.Max(0, gc); applied.Add(p.Name); break;
-                case "groundItemsOtherMinEx" when TryFloat(p.Value, out var go):
-                    _settings.GroundItems.OtherMinEx = Math.Max(0, go); applied.Add(p.Name); break;
-                case "groundItemsMinQuantity" when TryInt(p.Value, out var gq):
-                    _settings.GroundItems.MinQuantity = Math.Clamp(gq, 0, 1000); applied.Add(p.Name); break;
-                case "groundItemsAnchorValuesToTags" when TryBool(p.Value, out var ga):
-                    _settings.GroundItems.AnchorValuesToTags = ga; applied.Add(p.Name); break;
                 case "gamepadHotkeysEnabled" when TryBool(p.Value, out var gpe):
                     _settings.GamepadHotkeysEnabled = gpe;
                     applied.Add(p.Name);
