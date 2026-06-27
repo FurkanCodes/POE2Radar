@@ -21,6 +21,7 @@ internal static partial class OverlayNative
     public const uint LWA_ALPHA    = 0x00000002;
 
     // ShowWindow commands
+    public const int SW_SHOWNOACTIVATE = 4;
     public const int SW_SHOW = 5;
     public const int SW_HIDE = 0;
 

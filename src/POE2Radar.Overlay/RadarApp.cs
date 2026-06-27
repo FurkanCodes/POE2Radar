@@ -859,6 +859,7 @@ public sealed partial class RadarApp : IDisposable
             CursorInspectMeta: _cursorInspectMeta,
             MapDiag: _mapDiag,
             PathDiagNote: pathDiag);
+        _imguiOverlay?.SetDrawEnabled(drawActive);
         _imguiOverlay?.UpdateContext(ctx);
 
         var overlayMetrics = _imguiOverlay?.GetRenderMetrics().Snapshot() ?? default;

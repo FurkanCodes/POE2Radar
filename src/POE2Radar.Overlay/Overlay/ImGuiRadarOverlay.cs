@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using ImGuiNET;
 using POE2Radar.Core.Game;
@@ -69,6 +70,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private bool _hotkeyBindArmed;
     private string _activeSettingsTab = "";
     private bool _settingsPanelWasOpen;
+    private int _drawEnabled;
+    private int _appliedDrawEnabled = -1;
     private readonly SettingsAutoSaveDebouncer _settingsAutoSave = new();
     private int _appliedUiFontSize = -1;
     private string _appliedUiFontPath = "";
@@ -126,6 +129,23 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     public void UpdateContext(RenderContext ctx) => _ctx = ctx;
 
+    /// <summary>Show or hide the overlay HWND (map draw is also skipped when hidden).</summary>
+    public void SetDrawEnabled(bool enabled)
+    {
+        var desired = enabled ? 1 : 0;
+        if (Interlocked.Exchange(ref _drawEnabled, desired) == desired) return;
+        ApplyDrawEnabled();
+    }
+
+    private void ApplyDrawEnabled()
+    {
+        if (window is null) return;
+        var desired = Volatile.Read(ref _drawEnabled);
+        if (Interlocked.Exchange(ref _appliedDrawEnabled, desired) == desired) return;
+        var enabled = desired != 0;
+        OverlayNative.ShowWindow(window.Handle, enabled ? OverlayNative.SW_SHOWNOACTIVATE : OverlayNative.SW_HIDE);
+    }
+
     public void AttachEntityStores(DisplayRules displayRules, ZoneEntityOverrides zoneOverrides,
         DisplayRuleEngine ruleEngine, HiddenEntities hidden)
     {
@@ -151,6 +171,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         _appliedUiFontSize = _settings.UiFontSize;
         _appliedUiFontPath = _settings.UiFontPath;
         _appliedUiGlyphRange = _settings.UiFontGlyphRange;
+        ApplyDrawEnabled();
         return base.PostInitialized();
     }
 
@@ -231,6 +252,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         try
         {
             if (_closeRequested) { Close(); return; }
+            ApplyDrawEnabled();
+            if (Volatile.Read(ref _drawEnabled) == 0) return;
 
             lock (_boundsLock) { Position = _position; Size = _size; }
 
@@ -240,14 +263,15 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
             var ctx = _ctx;
             var inGame = ctx is not null && ctx.InGame;
+            var drawOverlay = inGame && ctx!.Active;
 
             var dl = ImGui.GetBackgroundDrawList();
 
-            if (inGame && ctx!.Active)
+            if (drawOverlay)
             {
                 IconAtlas.EnsureInitialized(this);
 
-                if (ctx.AtlasOpen)
+                if (ctx!.AtlasOpen)
                 {
                     var t = Stopwatch.GetTimestamp();
                     DrawAtlas(dl, ctx);
@@ -283,17 +307,14 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     DrawRitualLabels(ImGui.GetForegroundDrawList(), ctx);
                     nameplatesMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                 }
+
+                var navT = Stopwatch.GetTimestamp();
+                DrawNavMenu(ctx);
+                navMenuMs = Stopwatch.GetElapsedTime(navT).TotalMilliseconds;
+                DrawCursorInspect(dl, ctx);
             }
 
-            if (inGame)
-            {
-                var t = Stopwatch.GetTimestamp();
-                DrawNavMenu(ctx!);
-                navMenuMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
-                DrawCursorInspect(dl, ctx!);
-            }
-
-            if (_settingsOpen)
+            if (_settingsOpen && (ctx?.Active == true || _settings.AlwaysShowOverlay))
                 DrawSettingsPanel(ctx);
             else if (_settingsPanelWasOpen)
                 FlushSettingsNow();
