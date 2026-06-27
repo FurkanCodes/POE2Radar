@@ -25,6 +25,8 @@ public sealed partial class Poe2Live
         if (areaInstance != _mapCacheKey || _mapEls.Count == 0)
         {
             _mapCacheKey = areaInstance;
+            _preferredUiAnchor = 0;
+            _preferredUiAnchorIgs = 0;
             _mapEls.Clear();
             _everHidden.Clear();
             _everVisible.Clear();
@@ -286,27 +288,25 @@ public sealed partial class Poe2Live
         _mapEls.Clear();
         _classifiedLargeEl = _classifiedMiniEl = 0;
 
+        SyncPreferredUiAnchor(inGameState);
         DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
         var uiRoot = GetUiRoot(inGameState);
-        Span<nint> anchors = stackalloc nint[] { controllerGameUi, gameUi, uiRoot };
+
+        Span<nint> anchors = stackalloc nint[4];
+        var anchorCount = 0;
+        if (_preferredUiAnchorIgs == inGameState) TryAddUniqueAnchor(anchors, ref anchorCount, _preferredUiAnchor);
+        TryAddUniqueAnchor(anchors, ref anchorCount, controllerGameUi);
+        TryAddUniqueAnchor(anchors, ref anchorCount, gameUi);
+        TryAddUniqueAnchor(anchors, ref anchorCount, uiRoot);
 
         var uiScale = windowHeight > 0 ? windowHeight / 1600f : 1f;
         var scratch = new List<nint>();
         var bestScore = -1;
+        nint bestAnchor = 0;
 
-        for (var i = 0; i < anchors.Length; i++)
+        for (var i = 0; i < anchorCount; i++)
         {
             var anchor = anchors[i];
-            if (anchor == 0) continue;
-            var duplicate = false;
-            for (var j = 0; j < i; j++)
-            {
-                if (anchors[j] != anchor) continue;
-                duplicate = true;
-                break;
-            }
-            if (duplicate) continue;
-
             CollectMapElementsFromRoot(anchor, scratch);
             if (scratch.Count < 2) continue;
             if (!TryClassifyMapPairFromEls(scratch, out var largeEl, out var miniEl)) continue;
@@ -315,11 +315,15 @@ public sealed partial class Poe2Live
             if (score <= bestScore) continue;
 
             bestScore = score;
+            bestAnchor = anchor;
             _mapEls.Clear();
             _mapEls.AddRange(scratch);
             _classifiedLargeEl = largeEl;
             _classifiedMiniEl = miniEl;
         }
+
+        if (bestAnchor != 0)
+            RememberPreferredUiAnchor(inGameState, bestAnchor, bestScore);
     }
 
     private nint ResolveBfsRoot(nint anchor)

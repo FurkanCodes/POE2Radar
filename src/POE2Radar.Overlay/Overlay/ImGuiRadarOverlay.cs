@@ -1004,7 +1004,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     {
         DrawItemLabels(dl, ctx);
         DrawRuneforgePanel(dl, ctx);
-        DrawRitualLabels(dl, ctx);
         DrawLootTagLabels(dl, ctx);
         DrawMonolithPanel(dl, ctx);
     }
@@ -1083,21 +1082,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             h += headH + lineH * rowCount;
         }
         return h + 8f;
-    }
-
-    private static void DrawRitualLabels(ImDrawListPtr dl, RenderContext ctx)
-    {
-        if (ctx.RitualRewards is not { Count: > 0 } labels) return;
-        const float boxH = 20f;
-        foreach (var r in labels)
-        {
-            var boxW = MathF.Max(44f, 7.5f * (r.Text.Length + 1));
-            var cx = r.X + r.W * 0.5f;
-            var top = r.Y + r.H - boxH;
-            dl.AddRectFilled(new NumVec2(cx - boxW * 0.5f, top), new NumVec2(cx + boxW * 0.5f, top + boxH), ColPanelBg);
-            if (r.Highlight) dl.AddRect(new NumVec2(cx - boxW * 0.5f, top), new NumVec2(cx + boxW * 0.5f, top + boxH), ColItemHi, 0, 0, 2f);
-            dl.AddText(ImGui.GetFont(), ImGui.GetFontSize(), new NumVec2(cx - boxW * 0.5f + 3f, top + 1f), ColorFromU(r.Color), r.Text);
-        }
     }
 
     private static void DrawLootTagLabels(ImDrawListPtr dl, RenderContext ctx)

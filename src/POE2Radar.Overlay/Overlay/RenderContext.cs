@@ -124,9 +124,6 @@ public readonly record struct RuneforgeRewardRow(string Label, double Ex, uint C
 public sealed record RuneforgePanelData(
     double BestEx, string BestLabel, uint HeaderColor, IReadOnlyList<RuneforgeRewardRow> Rows);
 
-/// <summary>Ritual tribute-shop tile value chip (screen-space).</summary>
-public readonly record struct RitualLabel(float X, float Y, float W, float H, string Text, uint Color, bool Highlight);
-
 /// <summary>Loot-tag anchored value chip (screen-space).</summary>
 public readonly record struct LootTagLabel(float X, float Y, float W, float H, string Value, bool Highlight);
 
@@ -303,7 +300,6 @@ public sealed record RenderContext(
     // ── Loot / league reward values (poe.ninja). ──
     IReadOnlyList<ItemLabel>? ItemLabels = null,
     RuneforgePanelData? RuneforgePanel = null,
-    IReadOnlyList<RitualLabel>? RitualRewards = null,
     IReadOnlyList<LootTagLabel>? LootTags = null,
     IReadOnlyList<MonolithMarker>? Monoliths = null,
     bool ShowMonolithPanel = true,

@@ -872,6 +872,9 @@ public sealed partial class Poe2Live
     private nint _mapCacheKey = -1;
     private nint _classifiedLargeEl;
     private nint _classifiedMiniEl;
+    private nint _preferredUiAnchor;
+    private nint _preferredUiAnchorIgs;
+    private const int PreferredMapScoreThreshold = 4;
 
     /// <summary>
     /// Map UI state. The MapUiElements (DefaultShift=(0,-20), Zoom=0.5) are discovered once per area
@@ -918,6 +921,46 @@ public sealed partial class Poe2Live
         return large != 0 && mini != 0 && large != mini;
     }
 
+    private void SyncPreferredUiAnchor(nint inGameState)
+    {
+        if (_preferredUiAnchorIgs != inGameState)
+        {
+            _preferredUiAnchor = 0;
+            _preferredUiAnchorIgs = 0;
+        }
+    }
+
+    private void RememberPreferredUiAnchor(nint inGameState, nint anchor, int score)
+    {
+        if (anchor == 0 || score < PreferredMapScoreThreshold) return;
+        _preferredUiAnchor = anchor;
+        _preferredUiAnchorIgs = inGameState;
+    }
+
+    /// <summary>Active GameUi / GameUiController branch — much smaller than the full InGameState UiRoot on KBM.</summary>
+    internal nint PreferredUiScanRoot(nint inGameState, bool preferController = false)
+    {
+        SyncPreferredUiAnchor(inGameState);
+        if (_preferredUiAnchor != 0) return _preferredUiAnchor;
+        DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
+        if (preferController && controllerGameUi != 0) return controllerGameUi;
+        if (gameUi != 0) return gameUi;
+        if (controllerGameUi != 0) return controllerGameUi;
+        var uiRoot = GetUiRoot(inGameState);
+        return uiRoot != 0 ? uiRoot : Ptr(inGameState + Poe2.InGameState.UiRoot);
+    }
+
+    private static bool TryAddUniqueAnchor(Span<nint> anchors, ref int count, nint anchor)
+    {
+        if (anchor == 0) return false;
+        for (var j = 0; j < count; j++)
+        {
+            if (anchors[j] == anchor) return false;
+        }
+        anchors[count++] = anchor;
+        return true;
+    }
+
     /// <summary>Locate GameUi / GameUiController anchors when the hardcoded UiRootStruct offset reads 0.</summary>
     private void DiscoverGameUiAnchors(nint inGameState, out nint gameUi, out nint controllerGameUi)
     {
@@ -954,43 +997,44 @@ public sealed partial class Poe2Live
     private bool TryReadDirectMaps(nint inGameState, int windowWidth, int windowHeight, out MapViews maps)
     {
         maps = default;
+        SyncPreferredUiAnchor(inGameState);
+
+        if (_preferredUiAnchor != 0
+            && TryReadMapsFromImportantUi(_preferredUiAnchor, windowWidth, windowHeight, out var cached)
+            && ScoreMapViews(cached) >= PreferredMapScoreThreshold)
+        {
+            maps = cached;
+            return true;
+        }
 
         var uiRoot = GetUiRoot(inGameState);
         DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
 
-        // PoE2 keeps parallel UI trees: keyboard/mouse GameUi vs controller GameUiController. The first
-        // successful read used to win even when that branch's minimap/large-map visibility was stale
-        // (controller play → overlay paths drew but map wash/icons did not). Score every anchor and pick
-        // the branch that actually has visible map elements (+ resolved screen rects).
-        Span<nint> bases = stackalloc nint[] { controllerGameUi, gameUi, uiRoot, inGameState };
+        Span<nint> bases = stackalloc nint[4];
+        var baseCount = 0;
+        TryAddUniqueAnchor(bases, ref baseCount, controllerGameUi);
+        TryAddUniqueAnchor(bases, ref baseCount, gameUi);
+        TryAddUniqueAnchor(bases, ref baseCount, uiRoot);
+        TryAddUniqueAnchor(bases, ref baseCount, inGameState);
+
         MapViews best = default;
         var bestScore = -1;
-        for (var i = 0; i < bases.Length; i++)
+        nint bestAnchor = 0;
+        for (var i = 0; i < baseCount; i++)
         {
             var baseAddr = bases[i];
-            if (baseAddr == 0) continue;
-
-            var duplicate = false;
-            for (var j = 0; j < i; j++)
-            {
-                if (bases[j] != baseAddr) continue;
-                duplicate = true;
-                break;
-            }
-            if (duplicate) continue;
-
             if (!TryReadMapsFromImportantUi(baseAddr, windowWidth, windowHeight, out var candidate))
                 continue;
 
             var score = ScoreMapViews(candidate);
-            if (score > bestScore)
-            {
-                best = candidate;
-                bestScore = score;
-            }
+            if (score <= bestScore) continue;
+            best = candidate;
+            bestScore = score;
+            bestAnchor = baseAddr;
         }
 
         if (bestScore < 0) return false;
+        RememberPreferredUiAnchor(inGameState, bestAnchor, bestScore);
         maps = best;
         return true;
     }

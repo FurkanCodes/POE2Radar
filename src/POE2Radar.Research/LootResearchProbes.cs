@@ -45,18 +45,6 @@ internal static class LootResearchProbes
         return 0;
     }
 
-    public static int RunRitualShop(ProcessHandle process, MemoryReader reader, nint gameStateSlot)
-    {
-        var live = new Poe2Live(reader, gameStateSlot);
-        if (!live.TryResolve(out var igs, out _, out _)) { Console.Error.WriteLine("Not in game."); return 1; }
-        GetClientSize(process, out var w, out var h);
-        var rewards = live.ReadRitualRewards(igs, w, h);
-        Console.WriteLine($"Ritual tribute shop tiles: {rewards.Count}");
-        foreach (var r in rewards)
-            Console.WriteLine($"  {r.Name ?? r.Art ?? "?"} rarity={r.Rarity} @ ({r.X:F0},{r.Y:F0}) {r.W:F0}x{r.H:F0}");
-        return 0;
-    }
-
     public static int RunMonolith(ProcessHandle process, MemoryReader reader, nint gameStateSlot)
     {
         var live = new Poe2Live(reader, gameStateSlot);

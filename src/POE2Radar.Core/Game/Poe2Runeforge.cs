@@ -13,7 +13,8 @@ public sealed class Poe2Runeforge
     private nint _panel;
     private nint _viewport;
     private DateTime _nextResolveUtc = DateTime.MinValue;
-    private const int ResolveThrottleMs = 120;
+    private const int HotResolveThrottleMs = 120;
+    private const int ColdResolveThrottleMs = 2000;
 
     public Poe2Runeforge(MemoryReader reader) => _reader = reader;
 
@@ -27,22 +28,26 @@ public sealed class Poe2Runeforge
         var gameUi = Ptr(inGameState + Poe2.InGameState.UiRoot);
         if (gameUi == 0) { _panel = 0; return new List<RuneReward>(); }
 
-        var titleEl = FindTitleElement(gameUi);
-        var titleVisible = titleEl != 0;
-
         var now = DateTime.UtcNow;
-        if (_panel == 0 || now >= _nextResolveUtc)
+        if (_panel == 0 && now < _nextResolveUtc)
+            return new List<RuneReward>();
+
+        var shouldResolve = _panel == 0 || now >= _nextResolveUtc;
+
+        nint titleEl = 0;
+        if (shouldResolve)
         {
-            _nextResolveUtc = now.AddMilliseconds(ResolveThrottleMs);
             _viewport = 0;
+            titleEl = FindTitleElement(gameUi);
             _panel = Walk(gameUi, 0);
             if (_panel == 0) _panel = FindPanelByTitle(gameUi, titleEl);
+            _nextResolveUtc = now.AddMilliseconds(_panel == 0 ? ColdResolveThrottleMs : HotResolveThrottleMs);
         }
 
         var result = _panel != 0 ? ReadRowsFromPanel(_panel, winW, winH) : new List<RuneReward>();
 
         // Stale cached panel or drifted fingerprints: re-resolve once when the title is visible but rows read empty.
-        if (result.Count == 0 && titleVisible)
+        if (result.Count == 0 && shouldResolve && titleEl != 0)
         {
             _panel = 0;
             _viewport = 0;
@@ -50,6 +55,13 @@ public sealed class Poe2Runeforge
             if (_panel == 0) _panel = FindPanelByTitle(gameUi, titleEl);
             if (_panel != 0) result = ReadRowsFromPanel(_panel, winW, winH);
             if (result.Count == 0) result = ScanRewardTexts(gameUi, titleEl, winW, winH);
+        }
+
+        if (result.Count == 0 && shouldResolve)
+        {
+            _panel = 0;
+            _viewport = 0;
+            _nextResolveUtc = now.AddMilliseconds(ColdResolveThrottleMs);
         }
 
         if (result.Count > 0) PanelOpen = true;

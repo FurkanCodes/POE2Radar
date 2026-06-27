@@ -831,7 +831,6 @@ public sealed partial class RadarApp : IDisposable
             CursorInspectMeta: _cursorInspectMeta,
             ItemLabels: lootPayload.items.Count > 0 ? lootPayload.items : null,
             RuneforgePanel: lootPayload.runeforge,
-            RitualRewards: lootPayload.ritual,
             LootTags: lootPayload.lootTags,
             Monoliths: lootPayload.monoliths,
             ShowMonolithPanel: _settings.Monoliths.ShowPanel,
@@ -909,7 +908,8 @@ public sealed partial class RadarApp : IDisposable
         {
             maps = _live.ReadMaps(inGameState, areaInstance, windowWidth, windowHeight);
             _cachedMaps = maps;
-            _mapDiag = _live.MapDiagnostics(inGameState, windowWidth, windowHeight);
+            if (_settings.ShowPerfStats)
+                _mapDiag = _live.MapDiagnostics(inGameState, windowWidth, windowHeight);
         }
 
         MaybeMigratePerTypeRules();

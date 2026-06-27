@@ -368,12 +368,6 @@ public static class Poe2
         public const int NameWString = 0x390;
     }
 
-    /// <summary>Ritual tribute-shop reward tiles (item-slot UiElements).</summary>
-    public static class Ritual
-    {
-        public const int TileSlotItem = 0x4F8;
-    }
-
     /// <summary>ServerData league name for price auto-detect. ✓ validated 2026-06-22.</summary>
     public static class ServerData
     {
