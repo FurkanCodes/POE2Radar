@@ -16,6 +16,7 @@ public sealed partial class Poe2Live
 {
     private readonly MemoryReader _reader;
     private readonly nint _gameStateSlot;
+    private readonly nint[] _uiBranchBuf = new nint[6];
 
     // Per-entity frozen data, keyed by entity object address (stable within an area).
     private readonly Dictionary<nint, nint> _renderAddr = new();   // entity → Render component
@@ -900,6 +901,20 @@ public sealed partial class Poe2Live
     }
 
     private nint GetUiRoot(nint inGameState) => UiRootResolver.Resolve(_reader, inGameState);
+
+    /// <summary>Parallel UI trees — panel readers must probe every branch (KBM vs controller).</summary>
+    public ReadOnlySpan<nint> GetUiBranches(nint inGameState)
+        => GetUiBranches(inGameState, Poe2UiAnchors.BranchKind.None);
+
+    public ReadOnlySpan<nint> GetUiBranches(nint inGameState, Poe2UiAnchors.BranchKind probeHint, nint lastSuccessRoot = 0)
+    {
+        var uiRoot = GetUiRoot(inGameState);
+        DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
+        var fixedRoot = Ptr(inGameState + Poe2.InGameState.UiRoot);
+        var n = UiBranchCandidates.Fill(
+            _uiBranchBuf, gameUi, controllerGameUi, uiRoot, fixedRoot, probeHint, lastSuccessRoot);
+        return _uiBranchBuf.AsSpan(0, n);
+    }
 
     /// <summary>Live UiRoot for dev tools; auto-scans InGameState when the hardcoded offset reads 0.</summary>
     public nint ResolveUiRoot()

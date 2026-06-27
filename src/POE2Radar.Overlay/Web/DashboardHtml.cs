@@ -142,6 +142,8 @@ internal static class DashboardHtml
         .Replace("{{H.RitualLeague}}", H(SettingHints.RitualHelper.League))
         .Replace("{{H.RitualRefresh}}", H(SettingHints.RitualHelper.RefreshIntervalMin))
         .Replace("{{H.RitualReadHz}}", H(SettingHints.RitualHelper.ReadHz))
+        .Replace("{{H.RitualOpenReadHz}}", H(SettingHints.RitualHelper.OpenReadHz))
+        .Replace("{{H.RitualClosedProbeHz}}", H(SettingHints.RitualHelper.ClosedProbeHz))
         .Replace("{{H.RitualDiagnose}}", H(SettingHints.RitualHelper.DiagnosePricing))
         .Replace("{{H.RitualAlert}}", H(SettingHints.RitualHelper.PlayValueAlert))
         .Replace("{{H.RitualAlertDiv}}", H(SettingHints.RitualHelper.AlertMinDivine));
@@ -913,8 +915,10 @@ internal static class DashboardHtml
               <input class="numin" type="text" data-set="ritualHelperLeague" style="width:220px"></div>
             <div class="row"><div class="rl" title="{{H.RitualRefresh}}">Refresh interval (min)</div>
               <input class="numin" type="number" step="1" min="1" max="120" data-set="ritualHelperRefreshIntervalMin"></div>
-            <div class="row"><div class="rl" title="{{H.RitualReadHz}}">Read rate (Hz)</div>
-              <input class="numin" type="number" step="1" min="1" max="20" data-set="ritualHelperReadHz"></div>
+            <div class="row"><div class="rl" title="{{H.RitualOpenReadHz}}">Open read rate (Hz)</div>
+              <input class="numin" type="number" step="1" min="1" max="20" data-set="ritualHelperOpenReadHz"></div>
+            <div class="row"><div class="rl" title="{{H.RitualClosedProbeHz}}">Closed probe rate (Hz)</div>
+              <input class="numin" type="number" step="1" min="1" max="4" data-set="ritualHelperClosedProbeHz"></div>
             <div class="row"><div class="rl" title="{{H.RitualDiagnose}}">Diagnose pricing</div>
               <label class="sw"><input type="checkbox" data-set="ritualHelperDiagnosePricing"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.RitualAlert}}">Value alert</div>

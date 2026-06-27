@@ -94,6 +94,12 @@ public static class GamepadInput
         return true;
     }
 
+    public static bool IsConnected()
+    {
+        var state = new XINPUT_STATE();
+        return XInputGetState(_userIndex, ref state) == 0;
+    }
+
     private static bool TryReadButtons(out ushort buttons)
     {
         var state = new XINPUT_STATE();

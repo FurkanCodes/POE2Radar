@@ -132,6 +132,16 @@ public readonly record struct RitualRewardLabel(
     float X, float Y, float W, float H,
     string Value, string Currency, bool DiagnoseNoPrice, string? DebugText);
 
+/// <summary>Ritual helper perf counters for ShowPerfStats.</summary>
+public readonly record struct RitualPerfInfo(
+    float ProbeMs,
+    long LabelCacheHits,
+    long LabelRebuilds,
+    long RewardReads,
+    long ItemCacheHits,
+    long FullReads,
+    string PathKind);
+
 /// <summary>One priced monolith reward offer.</summary>
 public readonly record struct MonolithReward(string Name, int Count, double Ex, int Size, string Runes);
 
@@ -309,4 +319,6 @@ public sealed record RenderContext(
     IReadOnlyList<MonolithMarker>? Monoliths = null,
     bool ShowMonolithPanel = true,
     bool ShowMonolithMapLabel = true,
-    IReadOnlyList<RitualRewardLabel>? RitualLabels = null);
+    IReadOnlyList<RitualRewardLabel>? RitualLabels = null,
+    float RitualPriceFontScale = 1f,
+    RitualPerfInfo RitualPerf = default);

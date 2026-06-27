@@ -1105,6 +1105,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     {
         if (ctx.RitualLabels is not { Count: > 0 } labels) return;
         var font = ImGui.GetFont();
+        var fs = font.FontSize * Math.Clamp(ctx.RitualPriceFontScale, 0.5f, 2.5f);
         const uint shadow = 0xCC000000;
         foreach (var label in labels)
         {
@@ -1112,13 +1113,12 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             {
                 var diagColor = label.DiagnoseNoPrice ? 0xFF4040FFu : 0xFF40FF40u;
                 var dbgPos = new NumVec2(label.X + 2f, label.Y + 2f);
-                var dbgFs = font.FontSize * 0.8f;
+                var dbgFs = fs * 0.8f;
                 dl.AddText(font, dbgFs, dbgPos + new NumVec2(1f, 1f), shadow, label.DebugText);
                 dl.AddText(font, dbgFs, dbgPos, diagColor, label.DebugText);
             }
 
             if (string.IsNullOrEmpty(label.Value)) continue;
-            var fs = font.FontSize;
             var textPos = new NumVec2(label.X + label.W * 0.5f - label.Value.Length * fs * 0.28f, label.Y + label.H - fs);
             dl.AddText(font, fs, textPos + new NumVec2(1f, 1f), shadow, label.Value);
             dl.AddText(font, fs, textPos, ColItemText, label.Value);
@@ -1612,6 +1612,12 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 $"ent {p.EntityCount}   hp {p.HpBarCount}   paths {p.SelectedPathCount}   metrics opt-in");
             if (ctx.AtlasOpen)
                 TextColoredUnformatted(new Vector4(0.85f, 0.85f, 0.85f, 1f), $"atlas draw {p.AtlasMs:F1} ms");
+            if (ctx.RitualPerf.PathKind is { Length: > 0 } rk && rk != "Closed")
+            {
+                var rp = ctx.RitualPerf;
+                TextColoredUnformatted(new Vector4(0.85f, 0.85f, 0.85f, 1f),
+                    $"ritual probe {rp.ProbeMs:F2} ms   {rk}   lbl hit {rp.LabelCacheHits} / {rp.LabelRebuilds}   item hit {rp.ItemCacheHits} / {rp.FullReads}");
+            }
         }
     }
 
@@ -2644,9 +2650,13 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             if (ImGui.SliderFloat("Min display (Ex)", ref minEx, 0f, 500f, "%.0f Ex")) r.MinDisplayExalted = minEx;
             ImGuiTheme.Tooltip(SettingHints.RitualHelper.MinDisplayExalted);
 
-            int hz = r.ReadHz;
-            if (ImGui.SliderInt("Read rate (Hz)", ref hz, 1, 20)) r.ReadHz = hz;
-            ImGuiTheme.Tooltip(SettingHints.RitualHelper.ReadHz);
+            int openHz = r.OpenReadHz;
+            if (ImGui.SliderInt("Open read rate (Hz)", ref openHz, 1, 20)) { r.OpenReadHz = openHz; r.ReadHz = openHz; }
+            ImGuiTheme.Tooltip(SettingHints.RitualHelper.OpenReadHz);
+
+            int closedHz = r.ClosedProbeHz;
+            if (ImGui.SliderInt("Closed probe rate (Hz)", ref closedHz, 1, 4)) r.ClosedProbeHz = closedHz;
+            ImGuiTheme.Tooltip(SettingHints.RitualHelper.ClosedProbeHz);
         }
         ImGuiTheme.EndAccordionSection(generalOpen);
 
@@ -2684,6 +2694,18 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             float alertDiv = (float)r.AlertMinDivine;
             if (ImGui.SliderFloat("Alert from (Div)", ref alertDiv, 0.1f, 50f, "%.2f")) r.AlertMinDivine = alertDiv;
             ImGuiTheme.Tooltip(SettingHints.RitualHelper.AlertMinDivine);
+
+            float fontScale = r.PriceFontScale;
+            if (ImGui.SliderFloat("Price font scale", ref fontScale, 0.5f, 2.5f, "%.2f")) r.PriceFontScale = fontScale;
+            ImGuiTheme.Tooltip(SettingHints.RitualHelper.PriceFontScale);
+
+            float ox = r.PriceOffsetX;
+            if (ImGui.SliderFloat("Price offset X", ref ox, -80f, 80f)) r.PriceOffsetX = ox;
+            ImGuiTheme.Tooltip(SettingHints.RitualHelper.PriceOffsetX);
+
+            float oy = r.PriceOffsetY;
+            if (ImGui.SliderFloat("Price offset Y", ref oy, -80f, 80f)) r.PriceOffsetY = oy;
+            ImGuiTheme.Tooltip(SettingHints.RitualHelper.PriceOffsetY);
         }
         ImGuiTheme.EndAccordionSection(advOpen);
     }

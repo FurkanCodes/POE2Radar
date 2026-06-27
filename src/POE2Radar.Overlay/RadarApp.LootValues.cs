@@ -254,9 +254,8 @@ public sealed partial class RadarApp
         _itemFrame.Clear();
         if (inGame && _live.TryResolve(out var inGameState, out var areaInstance, out _))
         {
-            SyncRitualPriceBook(areaInstance);
+            SyncPriceBookLeague(areaInstance);
             UpdatePanelValuesLive(inGameState, windowWidth, windowHeight);
-            UpdateRitualHelperLive(inGameState, windowWidth, windowHeight);
         }
 
         if (inGame)

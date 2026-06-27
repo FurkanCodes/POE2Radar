@@ -1,0 +1,37 @@
+---
+description: Ritual Favours shop pricing — ritual-scoped only, async fetch, zero-impact perf contract
+globs:
+  - src/POE2Radar.Core/Game/Poe2Ritual*.cs
+  - src/POE2Radar.Overlay/RadarApp.RitualHelper.cs
+  - src/POE2Radar.Overlay/Pricing/RitualPrice*.cs
+---
+
+# Ritual Pricing (Ritual Helper)
+
+**Scope:** Ritual Favours / tribute-shop tile labels only. Do **not** couple to ground-loot pricing (`PoeNinjaPriceBook`, `ScanLootLabels`, `ReadMaps`).
+
+## Performance contract (blocks merge)
+
+| State | Allowed | Forbidden |
+|-------|---------|-----------|
+| `!Enabled` or (`!ShowPrices` && `!DiagnosePricing`) | **Zero** memory reads, HTTP, label build | Any UI walk, `TryResolve` for ritual |
+| Enabled, shop **closed** | O(1) fast chain; BFS at most once per 2 s on failure | Per-tick BFS, full item reads, label rebuild |
+| Enabled, shop **open** | Fast-chain recount; full item read only when `itemSignature` changes; labels at most every **120 ms** | Per-frame BFS, sync HTTP |
+
+Price fetch: `RitualPriceBook.RefreshIfDue()` only — never block the main tick on network.
+
+## Architecture
+
+- **Reader:** `Poe2RitualRewards` — `ReadWindowState` (cheap) + `ReadRewardsFromCachedWindow` (items).
+- **Tick:** `RadarApp.Tick` → `TickRitualHelper` only. Not `RefreshLootRenderFrames` / world reader.
+- **Render:** `ImGuiRadarOverlay.DrawRitualLabels` — draw cached `RenderContext.RitualLabels` only.
+- **Dual UI branch:** `_ritualProbeHint`; alternate branch only when primary fast chain fails (`ui-branch-probing.mdc`).
+- **Zone change:** `ResetRitualSession()` clears caches and probe hint.
+
+## Settings
+
+`RitualHelperSettings`: `OpenReadHz` (open), `ClosedProbeHz` (closed), `PriceSource` (0=ninja, 1=scout), `config/ritual_prices.json`.
+
+## Research
+
+After UI patches: `POE2Radar.Research --ritual-helper` with tribute panel open.

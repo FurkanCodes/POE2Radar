@@ -671,7 +671,12 @@ public sealed class ApiServer : IDisposable
         ritualHelperPriceSource = _settings.RitualHelper.PriceSource,
         ritualHelperLeague = _settings.RitualHelper.League,
         ritualHelperRefreshIntervalMin = _settings.RitualHelper.RefreshIntervalMin,
-        ritualHelperReadHz = _settings.RitualHelper.ReadHz,
+        ritualHelperOpenReadHz = _settings.RitualHelper.OpenReadHz,
+        ritualHelperClosedProbeHz = _settings.RitualHelper.ClosedProbeHz,
+        ritualHelperReadHz = _settings.RitualHelper.OpenReadHz,
+        ritualHelperPriceFontScale = _settings.RitualHelper.PriceFontScale,
+        ritualHelperPriceOffsetX = _settings.RitualHelper.PriceOffsetX,
+        ritualHelperPriceOffsetY = _settings.RitualHelper.PriceOffsetY,
         ritualHelperDiagnosePricing = _settings.RitualHelper.DiagnosePricing,
         ritualHelperPlayValueAlert = _settings.RitualHelper.PlayValueAlert,
         ritualHelperAlertMinDivine = _settings.RitualHelper.AlertMinDivine,
@@ -866,8 +871,22 @@ public sealed class ApiServer : IDisposable
                     applied.Add(p.Name); break;
                 case "ritualHelperRefreshIntervalMin" when TryInt(p.Value, out var rhri):
                     _settings.RitualHelper.RefreshIntervalMin = Math.Clamp(rhri, 1, 120); applied.Add(p.Name); break;
+                case "ritualHelperOpenReadHz" when TryInt(p.Value, out var rho):
+                    _settings.RitualHelper.OpenReadHz = Math.Clamp(rho, 1, 20);
+                    _settings.RitualHelper.ReadHz = _settings.RitualHelper.OpenReadHz;
+                    applied.Add(p.Name); break;
+                case "ritualHelperClosedProbeHz" when TryInt(p.Value, out var rhc):
+                    _settings.RitualHelper.ClosedProbeHz = Math.Clamp(rhc, 1, 4); applied.Add(p.Name); break;
                 case "ritualHelperReadHz" when TryInt(p.Value, out var rhrh):
-                    _settings.RitualHelper.ReadHz = Math.Clamp(rhrh, 1, 20); applied.Add(p.Name); break;
+                    _settings.RitualHelper.OpenReadHz = Math.Clamp(rhrh, 1, 20);
+                    _settings.RitualHelper.ReadHz = _settings.RitualHelper.OpenReadHz;
+                    applied.Add(p.Name); break;
+                case "ritualHelperPriceFontScale" when TryFloat(p.Value, out var rhfs):
+                    _settings.RitualHelper.PriceFontScale = Math.Clamp(rhfs, 0.5f, 2.5f); applied.Add(p.Name); break;
+                case "ritualHelperPriceOffsetX" when TryFloat(p.Value, out var rhox):
+                    _settings.RitualHelper.PriceOffsetX = Math.Clamp(rhox, -80f, 80f); applied.Add(p.Name); break;
+                case "ritualHelperPriceOffsetY" when TryFloat(p.Value, out var rhoy):
+                    _settings.RitualHelper.PriceOffsetY = Math.Clamp(rhoy, -80f, 80f); applied.Add(p.Name); break;
                 case "ritualHelperDiagnosePricing" when TryBool(p.Value, out var rhdp):
                     _settings.RitualHelper.DiagnosePricing = rhdp; applied.Add(p.Name); break;
                 case "ritualHelperPlayValueAlert" when TryBool(p.Value, out var rhpa):

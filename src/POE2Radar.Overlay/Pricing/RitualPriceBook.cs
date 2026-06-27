@@ -54,6 +54,9 @@ public sealed class RitualPriceBook
     public bool IsLoaded => _flatChaos.Count > 0 || _uniqueListings.Count > 0;
     public int ItemCount => _flatChaos.Count + _uniqueListings.Values.Sum(v => v.Count);
     public string League => _league;
+    public string EffectiveLeague => string.IsNullOrWhiteSpace(_leagueOverride) ? (_detectedLeague ?? _league) : _leagueOverride;
+    public string DetectedLeague => _detectedLeague ?? "";
+    public bool IsFetching => _fetching;
     public string Status { get; private set; } = "not started";
     public DateTime LastFetchUtc => _lastFetchUtc;
     public int RefreshIntervalMinutes { get; set; } = 5;
@@ -72,6 +75,8 @@ public sealed class RitualPriceBook
         c.DefaultRequestHeaders.UserAgent.ParseAdd("POE2Radar-RitualHelper");
         return c;
     }
+
+    public void ReloadCacheFromDisk() => TryLoadCache();
 
     public void SetLeagueOverride(string? league)
     {

@@ -676,6 +676,8 @@ public sealed partial class RadarApp : IDisposable
             }
             else if (_atlasOpen && _hpFrame.Length > 0)
                 _hpFrame = Array.Empty<HpBarTarget>();
+
+            TickRitualHelper(live.InGameState, live.AreaInstance, windowWidth, windowHeight);
         }
         else
         {
@@ -836,7 +838,18 @@ public sealed partial class RadarApp : IDisposable
             Monoliths: lootPayload.monoliths,
             ShowMonolithPanel: _settings.Monoliths.ShowPanel,
             ShowMonolithMapLabel: _settings.Monoliths.ShowMapLabel,
-            RitualLabels: _ritualRender.Open && _ritualRender.Labels.Count > 0 ? _ritualRender.Labels : null);
+            RitualLabels: _ritualRender.Open && _ritualRender.Labels.Count > 0 ? _ritualRender.Labels : null,
+            RitualPriceFontScale: Math.Clamp(_settings.RitualHelper.PriceFontScale, 0.5f, 2.5f),
+            RitualPerf: _settings.ShowPerfStats && _settings.RitualHelper.Enabled
+                ? new RitualPerfInfo(
+                    (float)_ritualProbeLastMs,
+                    _ritualLabelCacheHits,
+                    _ritualLabelRebuilds,
+                    _ritualRewardReads,
+                    _ritualRewards.Perf.CacheHits,
+                    _ritualRewards.Perf.FullReads,
+                    _ritualRender.PathKind)
+                : default);
         _imguiOverlay?.UpdateContext(ctx);
 
         var overlayMetrics = _imguiOverlay?.GetRenderMetrics().Snapshot() ?? default;

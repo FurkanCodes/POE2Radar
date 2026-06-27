@@ -106,6 +106,8 @@ public sealed class RadarSettings
     // One-time: expand ground-item category defaults (poe.ninja group keys).
     public bool GroundItemCategoriesMigrated { get; set; } = false;
 
+    public bool RitualHelperHzMigrated { get; set; } = false;
+
     // ── Ground loot + league reward pricing (poe.ninja). ──
     public GroundItemSettings GroundItems { get; set; } = new();
     public MonolithSettings Monoliths { get; set; } = new();
@@ -677,6 +679,11 @@ public sealed class RitualHelperSettings
     public int PriceSource { get; set; } = 1;
     public string League { get; set; } = "";
     public int RefreshIntervalMin { get; set; } = 5;
+    /// <summary>Hz while the tribute shop is open (1–20).</summary>
+    public int OpenReadHz { get; set; } = 8;
+    /// <summary>Hz while the shop is closed — fast-chain probe only (1–4).</summary>
+    public int ClosedProbeHz { get; set; } = 1;
+    /// <summary>Legacy alias migrated to <see cref="OpenReadHz"/>.</summary>
     public int ReadHz { get; set; } = 8;
     public bool DiagnosePricing { get; set; } = false;
     public bool PlayValueAlert { get; set; } = false;

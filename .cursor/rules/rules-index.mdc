@@ -24,6 +24,7 @@ Always-on rules: **dual-input**, **performance**, **project-layout**, **threadin
 | `pathfinding-navigation.mdc` | A*, nav, atlas routes |
 | `entity-display.mdc` | Display rules, styles |
 | `loot-pricing.mdc` | Ground loot, poe.ninja |
+| `ritual-pricing.mdc` | Ritual Favours shop only — perf contract, async fetch |
 | `atlas-overlay.mdc` | Atlas projection, graph |
 | `map-viewport.mdc` | Map UI, minimap, viewport |
 | `diagnostics.mdc` | CrashLog, startup errors |

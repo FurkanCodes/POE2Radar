@@ -130,12 +130,15 @@ public sealed partial class Poe2Live
     }
 
     public bool TryUiElementRect(nint el, float winW, float winH, out float x, out float y, out float w, out float h,
-        string? requireFirstLine = null)
+        string? requireFirstLine = null, bool requireVisible = true)
     {
         x = y = w = h = 0f;
         if (el == 0) return false;
-        if (!_reader.TryReadStruct<uint>(el + Poe2.UiElement.Flags, out var flags)) return false;
-        if ((flags & (1u << Poe2.UiElement.FlagVisibleBit)) == 0) return false;
+        if (requireVisible)
+        {
+            if (!_reader.TryReadStruct<uint>(el + Poe2.UiElement.Flags, out var flags)) return false;
+            if ((flags & (1u << Poe2.UiElement.FlagVisibleBit)) == 0) return false;
+        }
         if (requireFirstLine is { Length: > 0 })
         {
             var t = ReadStdWString(el + Poe2.UiElement.Text);
@@ -216,5 +219,88 @@ public sealed partial class Poe2Live
             if (firstLine.Length >= 2) result.Add((el, firstLine));
         }
         return result;
+    }
+
+    public readonly record struct RitualReward(
+        Rarity Rarity, string? Art, string? Name, bool Identified, float X, float Y, float W, float H);
+
+    public string ItemMetadataPath(nint entity) => ReadMetadata(entity);
+
+    public bool HasRenderItemComponent(nint item) => ResolveComponent(item, "RenderItem") != 0;
+
+    public bool IsPlausibleItemEntity(nint item)
+    {
+        if (item == 0) return false;
+        if (HasRenderItemComponent(item)) return true;
+        var meta = ItemMetadataPath(item);
+        return meta.StartsWith("Metadata/Items/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public bool TryReadRitualRewardTile(nint tile, float winW, float winH, out RitualReward reward)
+        => TryReadRitualRewardTile(tile, 0, winW, winH, out reward);
+
+    public bool TryReadRitualRewardTile(nint tile, nint itemEntity, float winW, float winH, out RitualReward reward)
+    {
+        reward = default;
+        if (tile == 0) return false;
+
+        var item = itemEntity != 0 ? itemEntity : Ptr(tile + Poe2.Ritual.TileSlotItem);
+        if (item == 0 || !IsPlausibleItemEntity(item)) return false;
+
+        var (rarity, art, identified, name) = ReadIdentityFromItem(item);
+        if (string.IsNullOrEmpty(art) && string.IsNullOrEmpty(name))
+        {
+            var meta = ItemMetadataPath(item);
+            if (meta.Length > 0)
+            {
+                var slash = meta.LastIndexOf('/');
+                name = slash >= 0 ? meta[(slash + 1)..] : meta;
+            }
+        }
+
+        if (!TryUiElementRect(tile, winW, winH, out var x, out var y, out var w, out var h, requireVisible: false)
+            && !TryFirstChildRect(tile, winW, winH, out x, out y, out w, out h)
+            && !TryDescendantRect(tile, winW, winH, 6, out x, out y, out w, out h))
+        {
+            x = y = 0f;
+            w = h = 48f;
+        }
+
+        reward = new RitualReward(rarity, art, name, identified, x, y, w, h);
+        return true;
+    }
+
+    private bool TryDescendantRect(nint root, float winW, float winH, int maxDepth, out float x, out float y, out float w, out float h)
+    {
+        x = y = w = h = 0f;
+        if (root == 0 || maxDepth < 0) return false;
+        if (TryUiElementRect(root, winW, winH, out x, out y, out w, out h, requireVisible: false))
+            return true;
+        var first = Ptr(root + Poe2.UiElement.Children);
+        if (first == 0 || !_reader.TryReadStruct<nint>(root + Poe2.UiElement.ChildrenEnd, out var last)) return false;
+        var n = ((long)last - (long)first) / 8;
+        if (n is <= 0 or > 16) return false;
+        for (long i = 0; i < n; i++)
+        {
+            if (TryDescendantRect(Ptr(first + (nint)(i * 8)), winW, winH, maxDepth - 1, out x, out y, out w, out h))
+                return true;
+        }
+        return false;
+    }
+
+    private bool TryFirstChildRect(nint parent, float winW, float winH, out float x, out float y, out float w, out float h)
+    {
+        x = y = w = h = 0f;
+        var first = Ptr(parent + Poe2.UiElement.Children);
+        if (first == 0 || !_reader.TryReadStruct<nint>(parent + Poe2.UiElement.ChildrenEnd, out var last)) return false;
+        var n = ((long)last - (long)first) / 8;
+        if (n is <= 0 or > 32) return false;
+        for (long i = 0; i < n; i++)
+        {
+            var child = Ptr(first + (nint)(i * 8));
+            if (TryUiElementRect(child, winW, winH, out x, out y, out w, out h, requireVisible: false))
+                return true;
+        }
+        return false;
     }
 }

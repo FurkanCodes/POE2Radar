@@ -230,7 +230,12 @@ internal static class SettingHints
         public const string PriceSource = "Fetch prices from poe2scout or poe.ninja.";
         public const string League = "League name for ritual prices. Blank uses auto-detect from the game.";
         public const string RefreshIntervalMin = "How often to refresh ritual price data from the web.";
-        public const string ReadHz = "How often to read the ritual shop UI while it is open.";
+        public const string OpenReadHz = "How often to read the ritual shop while the tribute window is open.";
+        public const string ClosedProbeHz = "How often to check for the ritual shop when it is closed (fast chain only).";
+        public const string ReadHz = "Legacy alias for open read rate — use Open read rate instead.";
+        public const string PriceFontScale = "Scale ritual price label text size on reward tiles.";
+        public const string PriceOffsetX = "Shift ritual price labels horizontally on screen.";
+        public const string PriceOffsetY = "Shift ritual price labels vertically on screen.";
         public const string DiagnosePricing = "Label every tile with memory names and lookup results for debugging.";
         public const string ForceBfsFallback = "Skip the fast UI chain and always scan for the ritual window.";
         public const string PlayValueAlert = "Play a sound when a reward exceeds the alert threshold.";

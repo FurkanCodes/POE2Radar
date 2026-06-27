@@ -365,9 +365,17 @@ public static class Poe2
         public const int FastChainChildA = 76;
         public const int FastChainChildB = 13;
         /// <summary>Item entity pointer on each reward tile UiElement (GameHelper RitualHelper).</summary>
-        public const int TileItemEntityPtr = 0x4F8;
+        public const int TileSlotItem = 0x4F8;
+        public const int TileItemEntityPtr = TileSlotItem;
+        public static readonly int[] TileItemOffsetCandidates =
+        [
+            0x4F8, 0x4F0, 0x500, 0x488, 0x490, 0x4E8, 0x4E0, 0x4D8,
+            0x508, 0x510, 0x758, 0x760, 0x768, 0x480, 0x498,
+        ];
         public static readonly string[] SignatureTexts = { "Rituals Remaining", "tribute to the king" };
         public const int MaxRewardTiles = 16;
+        /// <summary>Max child tiles when detecting a reward grid during BFS (can exceed visible slots).</summary>
+        public const int GridDetectMaxChildren = 32;
         public const int BfsMaxNodes = 20000;
         public const int BfsThrottleMs = 750;
         public const int ColdClosedThrottleMs = 2000;
