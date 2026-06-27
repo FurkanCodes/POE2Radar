@@ -117,13 +117,6 @@ public readonly record struct HpBarTarget(Vector3 World, float Frac, float EsFra
 /// <summary>A priced ground-item label drawn over the in-world loot icon.</summary>
 public readonly record struct ItemLabel(Vector3 World, string Name, string Value, bool Highlight, bool ShowName);
 
-/// <summary>One priced row in the Runeshape Combinations overlay panel.</summary>
-public readonly record struct RuneforgeRewardRow(string Label, double Ex, uint Color);
-
-/// <summary>Priced Runeshape Combinations list (screen-space HUD panel, like monolith preview).</summary>
-public sealed record RuneforgePanelData(
-    double BestEx, string BestLabel, uint HeaderColor, IReadOnlyList<RuneforgeRewardRow> Rows);
-
 /// <summary>Loot-tag anchored value chip (screen-space).</summary>
 public readonly record struct LootTagLabel(float X, float Y, float W, float H, string Value, bool Highlight);
 
@@ -304,7 +297,6 @@ public sealed record RenderContext(
     string? CursorInspectMeta = null,
     // ── Loot / league reward values (poe.ninja). ──
     IReadOnlyList<ItemLabel>? ItemLabels = null,
-    RuneforgePanelData? RuneforgePanel = null,
     IReadOnlyList<LootTagLabel>? LootTags = null,
     IReadOnlyList<MonolithMarker>? Monoliths = null,
     bool ShowMonolithPanel = true,

@@ -172,7 +172,7 @@ public sealed partial class RadarApp
         if (!_atlasOpen)
         {
             var entityCtx = BuildEntityContext(areaInstance, areaHash, areaLevel, entityArray);
-            UpdateLootWorld(game, entityCtx, _worldUiContext, winW, winH);
+            UpdateLootWorld(game, entityCtx, winW, winH);
         }
         var itemLabels = _atlasOpen ? Array.Empty<ItemLabelSpec>() : BuildItemLabels(entityArray).ToArray();
 

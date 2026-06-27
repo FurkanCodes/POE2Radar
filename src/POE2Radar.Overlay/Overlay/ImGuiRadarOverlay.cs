@@ -1003,7 +1003,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private void DrawLootValueOverlays(ImDrawListPtr dl, RenderContext ctx)
     {
         DrawItemLabels(dl, ctx);
-        DrawRuneforgePanel(dl, ctx);
         DrawLootTagLabels(dl, ctx);
         DrawRitualLabels(dl, ctx);
         DrawMonolithPanel(dl, ctx);
@@ -1044,45 +1043,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     it.Highlight ? ColItemHi : ColItemText, it.Value);
             }
         }
-    }
-
-    private static void DrawRuneforgePanel(ImDrawListPtr dl, RenderContext ctx)
-    {
-        if (ctx.RuneforgePanel is not { Rows.Count: > 0 } panel) return;
-        const float w = 268f, pad = 6f, lineH = 15f, headH = 17f, titleH = 18f;
-        var rows = panel.Rows;
-        float h = pad * 2f + titleH + headH + lineH * rows.Count;
-        float x = ctx.WindowWidth - w - 10f;
-        float y = 90f + EstimateMonolithPanelHeight(ctx);
-        dl.AddRectFilled(new NumVec2(x, y), new NumVec2(x + w, y + h), ColPanelBg);
-        var font = ImGui.GetFont();
-        var fs = font.FontSize;
-        float cy = y + pad;
-        dl.AddText(font, fs, new NumVec2(x + pad, cy), ColItemText, $"Combinations ({rows.Count})");
-        cy += titleH;
-        var hdr = panel.BestEx > 0 ? $"{panel.BestEx:F0}ex · {panel.BestLabel}" : panel.BestLabel;
-        dl.AddText(font, fs, new NumVec2(x + pad, cy), ColorFromU(panel.HeaderColor), hdr);
-        cy += headH;
-        foreach (var r in rows)
-        {
-            dl.AddText(font, fs, new NumVec2(x + pad, cy), ColorFromU(r.Color), $"  {r.Ex,4:F0}  {r.Label}");
-            cy += lineH;
-        }
-    }
-
-    private static float EstimateMonolithPanelHeight(RenderContext ctx)
-    {
-        if (!ctx.ShowMonolithPanel || ctx.Monoliths is not { Count: > 0 } monos) return 0f;
-        const float pad = 6f, lineH = 15f, headH = 17f, titleH = 18f;
-        var list = monos.OrderByDescending(m => m.BestEx).Take(6).ToList();
-        float h = pad * 2f + titleH;
-        foreach (var m in list)
-        {
-            var rowCount = 0;
-            foreach (var r in m.Rewards) if (r.Ex > 0 && rowCount < 3) rowCount++;
-            h += headH + lineH * rowCount;
-        }
-        return h + 8f;
     }
 
     private static void DrawLootTagLabels(ImDrawListPtr dl, RenderContext ctx)

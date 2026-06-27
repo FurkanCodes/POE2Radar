@@ -58,14 +58,13 @@ if (HasFlag(args, "--chain"))
 if (HasFlag(args, "--chain-deep"))
     return RunChainDeepProbe(process, reader);
 
-if (HasFlag(args, "--item") || HasFlag(args, "--groundlabels") || HasFlag(args, "--runeforge")
+if (HasFlag(args, "--item") || HasFlag(args, "--groundlabels")
     || HasFlag(args, "--monolith") || HasFlag(args, "--league") || HasFlag(args, "--ritual-helper"))
 {
     var slot = LootResearchProbes.ResolveGameStateSlot(process, reader);
     if (slot == 0) { Console.Error.WriteLine("Could not lock GameState slot (in game?)."); return 1; }
     if (HasFlag(args, "--item")) return LootResearchProbes.RunItem(process, reader, slot);
     if (HasFlag(args, "--groundlabels")) return LootResearchProbes.RunGroundLabels(process, reader, slot);
-    if (HasFlag(args, "--runeforge")) return LootResearchProbes.RunRuneforge(process, reader, slot);
     if (HasFlag(args, "--monolith")) return LootResearchProbes.RunMonolith(process, reader, slot);
     if (HasFlag(args, "--ritual-helper")) return LootResearchProbes.RunRitualHelper(process, reader, slot, args);
     return LootResearchProbes.RunLeague(process, reader, slot);

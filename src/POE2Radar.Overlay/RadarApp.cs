@@ -851,7 +851,6 @@ public sealed partial class RadarApp : IDisposable
             CursorInspectTitle: _cursorInspectTitle,
             CursorInspectMeta: _cursorInspectMeta,
             ItemLabels: lootPayload.items.Count > 0 ? lootPayload.items : null,
-            RuneforgePanel: lootPayload.runeforge,
             LootTags: lootPayload.lootTags,
             Monoliths: lootPayload.monoliths,
             ShowMonolithPanel: _settings.Monoliths.ShowPanel,

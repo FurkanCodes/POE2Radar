@@ -7,7 +7,7 @@ Standard path for new performance-safe overlay features. Follow this checklist b
 - Use **`GameContextSnapshot`** for chain resolution — never call `TryResolve` on hot paths.
 - Use **`UiContextSnapshot`** for GameUi / controller branches — never assemble branch order in feature code.
 - Use **`UiProjector.TryRect`** for UI element screen rects.
-- Use **`PanelCatalogSnapshot`** for open-window detection (Ritual, runeforge, map panels).
+- Use **`PanelCatalogSnapshot`** for open-window detection (Ritual, atlas panels).
 - Use **`EntityContextSnapshot`** / **`WorldSnapshot`** for entity lists — component-map walks stay in **`Poe2Live.ResolveComponent`** only.
 - Use **`InputActionCatalog`** for any user-triggered bind — one catalog entry, not edits across ImGui/API/dashboard.
 

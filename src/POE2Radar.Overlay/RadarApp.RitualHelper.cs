@@ -37,7 +37,7 @@ public sealed partial class RadarApp
     private void InitRitualHelper()
     {
         _ritualShop = new Poe2RitualShop(_reader, _live);
-        _panelCatalog = new Poe2PanelCatalog(_ritualShop, _runeforgeLive, _atlas);
+        _panelCatalog = new Poe2PanelCatalog(_ritualShop, _atlas);
         var cfg = _settings.RitualHelper;
         _ritualPriceBook = new RitualPriceBook(
             Path.Combine(ConfigDir, "ritual_prices.json"),

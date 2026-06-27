@@ -32,19 +32,6 @@ internal static class LootResearchProbes
         return 0;
     }
 
-    public static int RunRuneforge(ProcessHandle process, MemoryReader reader, nint gameStateSlot)
-    {
-        var live = new Poe2Live(reader, gameStateSlot);
-        if (!live.TryResolve(out var igs, out _, out _)) { Console.Error.WriteLine("Not in game."); return 1; }
-        GetClientSize(process, out var w, out var h);
-        var forge = new Poe2Runeforge(reader);
-        var rewards = forge.ReadRewards(igs, w, h);
-        Console.WriteLine($"Runeforge panel open={forge.PanelOpen} rewards={rewards.Count}");
-        foreach (var r in rewards)
-            Console.WriteLine($"  {r.Count}x {r.Name} @ ({r.X:F0},{r.Y:F0}) {r.W:F0}x{r.H:F0}");
-        return 0;
-    }
-
     public static int RunMonolith(ProcessHandle process, MemoryReader reader, nint gameStateSlot)
     {
         var live = new Poe2Live(reader, gameStateSlot);
