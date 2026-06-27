@@ -901,6 +901,53 @@ public sealed partial class Poe2Live
 
     private nint GetUiRoot(nint inGameState) => UiRootResolver.Resolve(_reader, inGameState);
 
+    private readonly nint[] _uiBranchBuf = new nint[4];
+
+    /// <summary>Parallel UI trees — ritual shop must probe every branch (KBM vs controller).</summary>
+    public ReadOnlySpan<nint> GetUiBranches(nint inGameState) => GetUiBranches(inGameState, preferController: false);
+
+    public ReadOnlySpan<nint> GetUiBranches(nint inGameState, bool preferController)
+    {
+        var uiRoot = GetUiRoot(inGameState);
+        DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
+        var fixedRoot = Ptr(inGameState + Poe2.InGameState.UiRoot);
+        var n = 0;
+        void Add(nint p)
+        {
+            if (p == 0) return;
+            for (var i = 0; i < n; i++)
+                if (_uiBranchBuf[i] == p) return;
+            if (n < _uiBranchBuf.Length) _uiBranchBuf[n++] = p;
+        }
+
+        if (preferController)
+        {
+            Add(controllerGameUi);
+            Add(uiRoot);
+            Add(fixedRoot);
+            Add(gameUi);
+        }
+        else
+        {
+            Add(gameUi);
+            Add(controllerGameUi);
+            Add(uiRoot);
+            Add(fixedRoot);
+        }
+        return _uiBranchBuf.AsSpan(0, n);
+    }
+
+    public bool IsPlausibleItemEntity(nint item)
+    {
+        if (item == 0) return false;
+        if (HasRenderItemComponent(item)) return true;
+        var meta = ItemMetadataPath(item);
+        return meta.StartsWith("Metadata/Items/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal string ItemMetadataPath(nint item)
+        => item == 0 ? "" : ReadMetadata(item);
+
     /// <summary>Live UiRoot for dev tools; auto-scans InGameState when the hardcoded offset reads 0.</summary>
     public nint ResolveUiRoot()
     {

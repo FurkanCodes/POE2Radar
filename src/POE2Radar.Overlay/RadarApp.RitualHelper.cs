@@ -1,12 +1,13 @@
 using POE2Radar.Core.Game;
 using POE2Radar.Overlay.Config;
+using POE2Radar.Overlay.Input;
 using POE2Radar.Overlay.Pricing;
 
 namespace POE2Radar.Overlay;
 
 public sealed partial class RadarApp
 {
-    private Poe2RitualRewards _ritualRewards = null!;
+    private Poe2RitualShop _ritualShop = null!;
     private RitualPriceBook _ritualPriceBook = null!;
     private readonly PerformanceCadence _ritualCadence = new();
     private readonly Dictionary<string, double> _ritualSessionPrices = new(StringComparer.OrdinalIgnoreCase);
@@ -21,7 +22,7 @@ public sealed partial class RadarApp
 
     private void InitRitualHelper()
     {
-        _ritualRewards = new Poe2RitualRewards(_reader);
+        _ritualShop = new Poe2RitualShop(_reader, _live);
         var cfg = _settings.RitualHelper;
         _ritualPriceBook = new RitualPriceBook(
             Path.Combine(ConfigDir, "ritual_prices.json"),
@@ -30,16 +31,27 @@ public sealed partial class RadarApp
             PriceSource = cfg.PriceSource,
             RefreshIntervalMinutes = Math.Clamp(cfg.RefreshIntervalMin, 1, 120),
         };
-        _ritualPriceBook.RefreshIfDue();
+        _ritualPriceBook.ReloadCacheFromDisk();
+        if (string.IsNullOrWhiteSpace(cfg.League) && !string.IsNullOrWhiteSpace(_ritualPriceBook.League))
+        {
+            cfg.League = _ritualPriceBook.League.Trim();
+            _settings.Save();
+        }
     }
 
-  private void SyncRitualPriceBook(nint areaInstance)
+    private void SyncRitualPriceBook(nint areaInstance)
     {
         var cfg = _settings.RitualHelper;
+        var detected = _live.LeagueName(areaInstance);
+        if (string.IsNullOrWhiteSpace(cfg.League) && !string.IsNullOrWhiteSpace(detected))
+        {
+            cfg.League = detected.Trim();
+            _settings.Save();
+        }
+
         _ritualPriceBook.SetLeagueOverride(string.IsNullOrWhiteSpace(cfg.League) ? null : cfg.League.Trim());
         _ritualPriceBook.PriceSource = cfg.PriceSource;
         _ritualPriceBook.RefreshIntervalMinutes = Math.Clamp(cfg.RefreshIntervalMin, 1, 120);
-        var detected = _worldLive.LeagueName(areaInstance);
         if (!string.IsNullOrWhiteSpace(detected))
             _ritualPriceBook.SetDetectedLeague(detected);
         _ritualPriceBook.RefreshIfDue();
@@ -57,9 +69,13 @@ public sealed partial class RadarApp
         if (!_ritualCadence.IsDue(PerformanceCadence.ClampHz(cfg.ReadHz, 1, 20)))
             return;
 
-        var tiles = _ritualRewards.ReadRewards(
-            inGameState, winW, winH, cfg.ForceBfsFallback, _ritualPriceBook.TryPrettyName);
-        var open = _ritualRewards.PanelOpen;
+        var allowLocate = cfg.ForceBfsFallback || _ritualShop.ShouldAllowFullLocate;
+        var preferController = _settings.GamepadHotkeysEnabled
+            || GamepadInput.IsConnected(_settings.GamepadUserIndex);
+        var read = _ritualShop.ReadPanelState(inGameState, winW, winH, allowLocate, preferController);
+        var open = read.PanelOpen;
+        var rewards = read.Rewards;
+        var pathKind = $"{_ritualShop.LastIdleProbeKind} fast={_ritualShop.LastIdleProbeFastPathHit}";
 
         if (!open && _ritualWasOpen)
         {
@@ -75,17 +91,17 @@ public sealed partial class RadarApp
         }
 
         var labels = new List<RitualRewardLabel>();
-        foreach (var tile in tiles)
+        foreach (var reward in rewards)
         {
-            var item = tile.Item;
-            var lookupName = ResolveRitualLookupName(item);
+            var lookupName = ResolveRitualLookupName(reward);
             var chaos = _ritualPriceBook.GetPriceChaos(
-                lookupName, item.ModLines, item.InternalBasename, item.FullPath);
+                lookupName, null, reward.Art, reward.Name);
             var diagOnly = cfg.DiagnosePricing && chaos is null or <= 0;
 
             if (chaos is > 0)
             {
-                chaos = _ritualPriceBook.StabilizeSessionPrice(item.InternalBasename, chaos.Value, _ritualSessionPrices);
+                var stableKey = reward.Art ?? reward.Name ?? lookupName;
+                chaos = _ritualPriceBook.StabilizeSessionPrice(stableKey, chaos.Value, _ritualSessionPrices);
                 var (exValue, _) = RitualPriceLookup.GetDisplayPrice(
                     chaos.Value, RitualPriceLookup.DisplayExalted, _ritualPriceBook.ChaosPerDivine, _ritualPriceBook.ChaosPerExalted);
                 if (!cfg.DiagnosePricing && cfg.MinDisplayExalted > 0 && exValue < cfg.MinDisplayExalted)
@@ -100,47 +116,47 @@ public sealed partial class RadarApp
                     var divine = chaos.Value / Math.Max(_ritualPriceBook.ChaosPerDivine, 1);
                     if (divine >= cfg.AlertMinDivine)
                     {
-                        var alertKey = string.IsNullOrEmpty(item.InternalBasename) ? lookupName : item.InternalBasename;
+                        var alertKey = string.IsNullOrEmpty(reward.Art) ? lookupName : reward.Art;
                         _ritualAlerted.Add(alertKey);
                     }
                 }
 
                 labels.Add(new RitualRewardLabel(
-                    tile.X, tile.Y, tile.W, tile.H, valueText, currency, false,
-                    cfg.DiagnosePricing ? BuildRitualDiag(item, lookupName, true) : null));
+                    reward.X, reward.Y, reward.W, reward.H, valueText, currency, false,
+                    cfg.DiagnosePricing ? BuildRitualDiag(reward, lookupName, true) : null));
             }
-            else if (diagOnly && !string.IsNullOrEmpty(item.InternalBasename))
+            else if (diagOnly)
             {
                 labels.Add(new RitualRewardLabel(
-                    tile.X, tile.Y, tile.W, tile.H, "", "", true,
-                    BuildRitualDiag(item, lookupName, false)));
+                    reward.X, reward.Y, reward.W, reward.H, "", "", true,
+                    BuildRitualDiag(reward, lookupName, false)));
             }
         }
 
         _ritualRender = new RitualRender(
             open,
             labels.Count > 0 ? labels : Array.Empty<RitualRewardLabel>(),
-            _ritualRewards.LastPathKind.ToString(),
-            tiles.Count);
+            pathKind,
+            rewards.Count);
     }
 
-    private string ResolveRitualLookupName(Poe2RitualItemReader.RitualItemIdentity item)
+    private string ResolveRitualLookupName(Poe2Live.RitualReward reward)
     {
-        if (item.Rarity == Poe2RitualItemReader.ItemRarity.Unique)
+        if (reward.Rarity == Poe2Live.Rarity.Unique)
         {
-            var fromArt = _ritualPriceBook.TryResolveArtName(item.ArtBasename);
+            var fromArt = _ritualPriceBook.TryResolveArtName(reward.Art);
             if (!string.IsNullOrWhiteSpace(fromArt) && !RitualPriceLookup.IsGenericLookupName(fromArt))
                 return fromArt;
         }
-        if (!string.IsNullOrWhiteSpace(item.BaseName) && item.Rarity != Poe2RitualItemReader.ItemRarity.Unique)
-            return item.BaseName;
-        return item.DisplayName;
+        if (!string.IsNullOrWhiteSpace(reward.Name) && reward.Rarity != Poe2Live.Rarity.Unique)
+            return reward.Name;
+        return reward.Name ?? reward.Art ?? "";
     }
 
-    private static string BuildRitualDiag(Poe2RitualItemReader.RitualItemIdentity item, string lookupName, bool ok)
+    private static string BuildRitualDiag(Poe2Live.RitualReward reward, string lookupName, bool ok)
     {
         var status = ok ? "OK" : "NO PRICE";
-        return $"{item.Rarity} {status}\nbase:{item.BaseName ?? " "}\nart:{item.ArtBasename ?? " "}\nname:{lookupName}\nint:{item.InternalBasename}";
+        return $"{reward.Rarity} {status}\nname:{reward.Name ?? " "}\nart:{reward.Art ?? " "}\nlookup:{lookupName}";
     }
 
     private void ResetRitualSession()
@@ -155,6 +171,9 @@ public sealed partial class RadarApp
     {
         loaded = _ritualPriceBook.IsLoaded,
         league = _ritualPriceBook.League,
+        effectiveLeague = _ritualPriceBook.EffectiveLeague,
+        detectedLeague = _ritualPriceBook.DetectedLeague,
+        fetching = _ritualPriceBook.IsFetching,
         count = _ritualPriceBook.ItemCount,
         chaosPerDivine = _ritualPriceBook.ChaosPerDivine,
         chaosPerExalted = _ritualPriceBook.ChaosPerExalted,
@@ -163,6 +182,7 @@ public sealed partial class RadarApp
         pathKind = _ritualRender.PathKind,
         tileCount = _ritualRender.TileCount,
         labelCount = _ritualRender.Labels.Count,
+        signatureDetected = _ritualShop.PanelOpen || _ritualShop.LastIdleProbeKind != Poe2RitualShop.IdleProbeKind.None,
     };
 
     public void RefreshRitualPriceBook()

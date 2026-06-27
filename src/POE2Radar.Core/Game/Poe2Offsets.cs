@@ -361,11 +361,20 @@ public static class Poe2
     /// Validate with <c>POE2Radar.Research --ritual-helper</c> after UI patches.</summary>
     public static class Ritual
     {
-        /// <summary>GameUi.children[76].children[13] — ritual reward window (GameHelper RitualHelper).</summary>
-        public const int FastChainChildA = 76;
-        public const int FastChainChildB = 13;
-        /// <summary>Item entity pointer on each reward tile UiElement (GameHelper RitualHelper).</summary>
-        public const int TileItemEntityPtr = 0x4F8;
+        /// <summary>Primary UiElement → item entity. Re-validate via Research --ritual-helper.</summary>
+        public const int TileSlotItem = 0x4F8;
+        public const int TileItemEntityPtr = TileSlotItem;
+        /// <summary>UiRoot → Children[index] fast path hint (GameHelper; may drift).</summary>
+        public const int UiRootChildIndex = 76;
+        public const int FastChainChildA = UiRootChildIndex;
+        /// <summary>Child of <see cref="UiRootChildIndex"/> → ritual window hint.</summary>
+        public const int WindowChildIndex = 13;
+        public const int FastChainChildB = WindowChildIndex;
+        public static readonly int[] TileItemOffsetCandidates =
+        [
+            0x4F8, 0x4F0, 0x500, 0x488, 0x490, 0x4E8, 0x4E0, 0x4D8,
+            0x508, 0x510, 0x758, 0x760, 0x768, 0x480, 0x498,
+        ];
         public static readonly string[] SignatureTexts = { "Rituals Remaining", "tribute to the king" };
         public const int MaxRewardTiles = 16;
         public const int BfsMaxNodes = 20000;

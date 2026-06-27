@@ -68,8 +68,7 @@ public static class Poe2RitualItemReader
     {
         var details = Ptr(reader, entity + Poe2.Entity.EntityDetailsPtr);
         if (details == 0) return "";
-        var namePtr = Ptr(reader, details + Poe2.EntityDetails.Name);
-        return namePtr == 0 ? "" : ReadStdWString(reader, namePtr);
+        return ReadStdWString(reader, details + Poe2.EntityDetails.Name);
     }
 
     private static string? ArtBasename(string path)
@@ -113,7 +112,7 @@ public static class Poe2RitualItemReader
 
     private static string ReadStdWString(MemoryReader reader, nint addr)
     {
-        if (!reader.TryReadStruct<long>(addr + 0x10, out var len) || len <= 0 || len > 1024) return "";
+        if (!reader.TryReadStruct<int>(addr + 0x10, out var len) || len <= 0 || len > 1024) return "";
         if (len < 8) return reader.ReadStringUtf16(addr, (int)len);
         var ptr = Ptr(reader, addr);
         return ptr == 0 ? "" : reader.ReadStringUtf16(ptr, (int)len);

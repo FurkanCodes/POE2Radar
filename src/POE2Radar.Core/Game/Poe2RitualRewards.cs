@@ -7,8 +7,6 @@ public sealed class Poe2RitualRewards
     public enum PathKind { Closed, FastChain, CachedFallback, BfsFallback }
 
     private readonly MemoryReader _reader;
-    private readonly Dictionary<nint, UiElementProjection.Element> _uiCache = new();
-    private readonly Dictionary<nint, UiElementProjection.Point> _parentCache = new();
 
     private nint _cachedBranchIgs;
     private Poe2UiAnchors.BranchKind _cachedBranch = Poe2UiAnchors.BranchKind.None;
@@ -35,8 +33,6 @@ public sealed class Poe2RitualRewards
     {
         PanelOpen = false;
         LastPathKind = PathKind.Closed;
-        _uiCache.Clear();
-        _parentCache.Clear();
 
         if (inGameState == 0 || winW <= 0 || winH <= 0)
             return Array.Empty<RitualRewardTile>();
@@ -84,15 +80,20 @@ public sealed class Poe2RitualRewards
         }
 
         _cachedGrid = grid;
+        if (Visible(grid) && IsValidRewardGrid(grid))
+            PanelOpen = true;
+
         var tiles = ReadTilesFromGrid(grid, winW, winH, prettyNameLookup);
         if (tiles.Count == 0)
         {
-            _cachedGrid = 0;
-            _nextColdUtc = now.AddMilliseconds(Poe2.Ritual.ColdClosedThrottleMs);
+            if (!PanelOpen)
+            {
+                _cachedGrid = 0;
+                _nextColdUtc = now.AddMilliseconds(Poe2.Ritual.ColdClosedThrottleMs);
+            }
             return Array.Empty<RitualRewardTile>();
         }
 
-        PanelOpen = true;
         return tiles;
     }
 
@@ -135,8 +136,33 @@ public sealed class Poe2RitualRewards
         grid = 0;
         var a = Child(root, Poe2.Ritual.FastChainChildA);
         if (a == 0) return false;
-        grid = Child(a, Poe2.Ritual.FastChainChildB);
-        return grid != 0 && IsValidRewardGrid(grid);
+        var window = Child(a, Poe2.Ritual.FastChainChildB);
+        if (window == 0 || !Visible(window)) return false;
+
+        // GameHelper: child[13] is the ritual window; its children are reward tiles.
+        if (IsValidRewardGrid(window))
+        {
+            grid = window;
+            PanelOpen = true;
+            return true;
+        }
+
+        var nested = FindRewardGridChild(window);
+        if (nested != 0)
+        {
+            grid = nested;
+            PanelOpen = true;
+            return true;
+        }
+
+        if (Children(window, out _, out var n) && n is >= 1 and <= Poe2.Ritual.MaxRewardTiles)
+        {
+            grid = window;
+            PanelOpen = true;
+            return true;
+        }
+
+        return false;
     }
 
     private bool TryBfsGrid(nint inGameState, bool force, DateTime now, out nint grid)
@@ -252,28 +278,32 @@ public sealed class Poe2RitualRewards
     {
         if (!Children(parent, out var first, out var n)) return 0;
         nint best = 0;
-        var bestScore = 0;
+        var bestItems = 0;
         for (long i = 0; i < n; i++)
         {
             var c = Ptr(first + (nint)(i * 8));
             if (c == 0) continue;
-            var score = ScoreRewardGrid(c);
-            if (score > bestScore) { bestScore = score; best = c; }
+            var (items, tiles) = CountRewardTiles(c);
+            if (items >= 2 && items > bestItems && items * 2 >= tiles)
+            {
+                bestItems = items;
+                best = c;
+            }
         }
-        return bestScore >= 2 ? best : 0;
+        return best;
     }
 
-    private int ScoreRewardGrid(nint candidate)
+    private (int Items, int Tiles) CountRewardTiles(nint candidate)
     {
-        if (!Children(candidate, out var first, out var n)) return 0;
-        if (n is < 1 or > Poe2.Ritual.MaxRewardTiles) return 0;
-        var score = 0;
+        if (!Children(candidate, out var first, out var n)) return (0, 0);
+        if (n is < 1 or > Poe2.Ritual.MaxRewardTiles) return (0, 0);
+        var items = 0;
         for (long i = 0; i < n; i++)
         {
             var tile = Ptr(first + (nint)(i * 8));
-            if (tile != 0 && Ptr(tile + Poe2.Ritual.TileItemEntityPtr) != 0) score++;
+            if (tile != 0 && Ptr(tile + Poe2.Ritual.TileItemEntityPtr) != 0) items++;
         }
-        return score;
+        return (items, (int)n);
     }
 
     private bool MatchesRitualSignature(nint element)
@@ -288,16 +318,7 @@ public sealed class Poe2RitualRewards
     }
 
     private bool TryTileRect(nint el, float winW, float winH, out float x, out float y, out float w, out float h)
-    {
-        x = y = w = h = 0;
-        if (!UiElementProjection.TryGetRect(el, ReadElement, winW, winH, _uiCache, _parentCache, out var rect))
-            return false;
-        x = rect.X; y = rect.Y; w = rect.W; h = rect.H;
-        return true;
-    }
-
-    private bool ReadElement(nint address, out UiElementProjection.Element element)
-        => UiElementProjection.TryRead(_reader, address, out element);
+        => UiElementScreenRect.TryGet(_reader, el, winW, winH, out x, out y, out w, out h);
 
     private string ReadElementText(nint el) => ReadStdWString(el + Poe2.UiElement.Text);
 

@@ -67,7 +67,7 @@ if (HasFlag(args, "--item") || HasFlag(args, "--groundlabels") || HasFlag(args, 
     if (HasFlag(args, "--groundlabels")) return LootResearchProbes.RunGroundLabels(process, reader, slot);
     if (HasFlag(args, "--runeforge")) return LootResearchProbes.RunRuneforge(process, reader, slot);
     if (HasFlag(args, "--monolith")) return LootResearchProbes.RunMonolith(process, reader, slot);
-    if (HasFlag(args, "--ritual-helper")) return LootResearchProbes.RunRitualHelper(process, reader, slot);
+    if (HasFlag(args, "--ritual-helper")) return LootResearchProbes.RunRitualHelper(process, reader, slot, args);
     return LootResearchProbes.RunLeague(process, reader, slot);
 }
 

@@ -54,10 +54,25 @@ public sealed class RitualPriceBook
     public bool IsLoaded => _flatChaos.Count > 0 || _uniqueListings.Count > 0;
     public int ItemCount => _flatChaos.Count + _uniqueListings.Values.Sum(v => v.Count);
     public string League => _league;
+    public string EffectiveLeague => TargetLeague();
+    public string DetectedLeague => _detectedLeague ?? "";
+    public bool IsFetching => _fetching;
     public string Status { get; private set; } = "not started";
     public DateTime LastFetchUtc => _lastFetchUtc;
     public int RefreshIntervalMinutes { get; set; } = 5;
-    public int PriceSource { get => _priceSource; set => _priceSource = value is RitualPriceLookup.SourcePoeNinja or RitualPriceLookup.SourcePoe2Scout ? value : RitualPriceLookup.SourcePoe2Scout; }
+    public int PriceSource
+    {
+        get => _priceSource;
+        set
+        {
+            var next = value is RitualPriceLookup.SourcePoeNinja or RitualPriceLookup.SourcePoe2Scout
+                ? value
+                : RitualPriceLookup.SourcePoe2Scout;
+            if (next == _priceSource) return;
+            _priceSource = next;
+            _lastFetchUtc = DateTime.MinValue;
+        }
+    }
 
     public RitualPriceBook(string cachePath, string? leagueOverride = null)
     {
@@ -65,6 +80,9 @@ public sealed class RitualPriceBook
         _leagueOverride = string.IsNullOrWhiteSpace(leagueOverride) ? null : leagueOverride.Trim();
         TryLoadCache();
     }
+
+    /// <summary>Re-read disk cache (e.g. after <see cref="PriceSource"/> is set from settings).</summary>
+    public void ReloadCacheFromDisk() => TryLoadCache();
 
     private static HttpClient CreateHttp()
     {
@@ -92,7 +110,10 @@ public sealed class RitualPriceBook
     public void RefreshIfDue()
     {
         if (_fetching) return;
-        if (DateTime.UtcNow - _lastFetchUtc < TimeSpan.FromMinutes(RefreshIntervalMinutes)) return;
+        var targetLeague = TargetLeague();
+        if (string.Equals(_league, targetLeague, StringComparison.OrdinalIgnoreCase)
+            && DateTime.UtcNow - _lastFetchUtc < TimeSpan.FromMinutes(RefreshIntervalMinutes))
+            return;
         _fetching = true;
         _ = Task.Run(FetchAsync);
     }
@@ -198,7 +219,7 @@ public sealed class RitualPriceBook
     {
         try
         {
-            var league = _leagueOverride ?? _detectedLeague ?? "Standard";
+            var league = TargetLeague();
             var flat = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
             var uniques = new Dictionary<string, List<UniqueListing>>(StringComparer.OrdinalIgnoreCase);
             var pathNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -244,12 +265,20 @@ public sealed class RitualPriceBook
 
     private readonly record struct RatePair(double DivChaos, double ExChaos);
 
+    private string TargetLeague()
+    {
+        if (!string.IsNullOrWhiteSpace(_leagueOverride)) return _leagueOverride;
+        if (!string.IsNullOrWhiteSpace(_detectedLeague)) return _detectedLeague!;
+        if (!string.IsNullOrWhiteSpace(_league)) return _league;
+        return "Standard";
+    }
+
     private async Task<RatePair> FetchFromScoutAsync(
         string league, Dictionary<string, double> flat, Dictionary<string, List<UniqueListing>> uniques,
         Dictionary<string, string> pathNames, double divChaos, double exChaos)
     {
         var escaped = Uri.EscapeDataString(league);
-        (divChaos, exChaos) = await UpdateScoutRatesAsync(escaped, divChaos, exChaos).ConfigureAwait(false);
+        (divChaos, exChaos) = await UpdateScoutRatesAsync(league, divChaos, exChaos).ConfigureAwait(false);
         foreach (var cat in ScoutCurrencyCategories)
             await FetchScoutCurrencyCategoryAsync(escaped, cat, flat, pathNames).ConfigureAwait(false);
         foreach (var cat in ScoutUniqueCategories)
@@ -257,30 +286,40 @@ public sealed class RitualPriceBook
         return new RatePair(divChaos, exChaos);
     }
 
-    private async Task<(double DivChaos, double ExChaos)> UpdateScoutRatesAsync(string leagueEscaped, double divChaos, double exChaos)
+    private async Task<(double DivChaos, double ExChaos)> UpdateScoutRatesAsync(string targetLeague, double divChaos, double exChaos)
     {
         try
         {
             var json = await Http.GetStringAsync("https://poe2scout.com/api/poe2/Leagues").ConfigureAwait(false);
             using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("value", out var leagues) || doc.RootElement.TryGetProperty("Value", out leagues))
+            JsonElement leagues;
+            if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                leagues = doc.RootElement;
+            else if (!doc.RootElement.TryGetProperty("value", out leagues) && !doc.RootElement.TryGetProperty("Value", out leagues))
+                return (divChaos, exChaos);
+
+            foreach (var league in leagues.EnumerateArray())
             {
-                foreach (var league in leagues.EnumerateArray())
+                var name = league.ValueKind == JsonValueKind.String
+                    ? league.GetString()
+                    : league.TryGetProperty("Value", out var v) ? v.GetString()
+                    : league.TryGetProperty("value", out var v2) ? v2.GetString() : null;
+                if (!string.Equals(name, targetLeague, StringComparison.OrdinalIgnoreCase)) continue;
+                if (league.ValueKind == JsonValueKind.Object)
                 {
-                    var name = league.TryGetProperty("Value", out var v) ? v.GetString() : null;
-                    if (!string.Equals(name, _leagueOverride ?? _detectedLeague, StringComparison.OrdinalIgnoreCase)) continue;
                     if (league.TryGetProperty("ChaosDivinePrice", out var cd) && cd.TryGetDouble(out var chaosDiv) && chaosDiv > 0)
                         divChaos = chaosDiv;
                     if (league.TryGetProperty("DivinePrice", out var dp) && dp.TryGetDouble(out var divEx) && divEx > 0 && divChaos > 0)
                         exChaos = divChaos / divEx;
-                    break;
                 }
+                break;
             }
         }
         catch { }
 
         try
         {
+            var leagueEscaped = Uri.EscapeDataString(targetLeague);
             var url = $"https://poe2scout.com/api/poe2/Leagues/{leagueEscaped}/Currencies/ByCategory?Category=currency&ReferenceCurrency=chaos&PerPage=250&Page=1";
             var json = await Http.GetStringAsync(url).ConfigureAwait(false);
             using var doc = JsonDocument.Parse(json);
@@ -530,7 +569,7 @@ public sealed class RitualPriceBook
             var dto = JsonSerializer.Deserialize<CacheDto>(File.ReadAllText(_cachePath), Json);
             if (dto == null || dto.CacheVersion != CacheSchemaVersion) return;
             if (_leagueOverride != null && !string.Equals(dto.League, _leagueOverride, StringComparison.OrdinalIgnoreCase)) return;
-            if (dto.PriceSource != _priceSource) return;
+            var sourceMismatch = dto.PriceSource != _priceSource;
             _flatChaos = dto.FlatPricesChaos ?? new(StringComparer.OrdinalIgnoreCase);
             _uniqueListings = dto.UniqueListings ?? new(StringComparer.OrdinalIgnoreCase);
             _pathNames = dto.PathBasenameToItemName ?? new(StringComparer.OrdinalIgnoreCase);
@@ -538,6 +577,7 @@ public sealed class RitualPriceBook
             _lastFetchUtc = dto.LastFetchUtc;
             if (dto.ChaosPerDivine > 0) ChaosPerDivine = dto.ChaosPerDivine;
             if (dto.ChaosPerExalted > 0) ChaosPerExalted = dto.ChaosPerExalted;
+            if (sourceMismatch) _lastFetchUtc = DateTime.MinValue;
             Status = $"cache: {ItemCount} entries for '{_league}'";
         }
         catch (Exception ex) { Status = $"cache load failed: {ex.Message}"; }
