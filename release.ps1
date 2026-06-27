@@ -118,6 +118,20 @@ function Test-ReleaseLayout {
     }
 }
 
+function Wait-ForReleaseAsset {
+    param(
+        [string]$Path,
+        [int]$TimeoutMs = 3000
+    )
+
+    $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMs)
+    while (-not (Test-Path $Path)) {
+        if ([DateTime]::UtcNow -ge $deadline) { return $false }
+        Start-Sleep -Milliseconds 50
+    }
+    return $true
+}
+
 Write-Host "Staging overlay textures and sprite atlas..."
 Stage-OverlayAssets $outDir
 
@@ -125,6 +139,10 @@ Write-Host "Materializing built-in SVG icon library..."
 $exe = Join-Path $outDir "POE2Radar.Overlay.exe"
 & $exe --export-release-assets $outDir
 if ($LASTEXITCODE -ne 0) { throw "Icon export failed with exit code $LASTEXITCODE" }
+$circleIcon = Join-Path $outDir "icons\Circle.svg"
+if (-not (Wait-ForReleaseAsset $circleIcon)) {
+    throw "Icon export finished but did not create: $circleIcon"
+}
 
 Copy-Item (Join-Path $root "README.md"), (Join-Path $root "LICENSE") $outDir -Force
 @"
