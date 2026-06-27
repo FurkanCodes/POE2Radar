@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using POE2Radar.Core.Game;
 using POE2Radar.Overlay.Config;
+using POE2Radar.Overlay.Input;
 
 namespace POE2Radar.Overlay.Web;
 
@@ -170,6 +171,7 @@ public sealed class ApiServer : IDisposable
                     poiCount = s.Entities.Count(e => e.Poi),
                     landmarkCount = s.Landmarks.Count,
                     perf = s.Perf,
+                    featurePerf = s.FeaturePerf,
                     counts,
                 }, Json));
                 break;
@@ -257,6 +259,21 @@ public sealed class ApiServer : IDisposable
                         dist = (int)Dist(e.Grid, s.Player),
                     });
                 Write(ctx, 200, JsonSerializer.Serialize(list, Json));
+                break;
+            }
+
+            case "/api/input-actions":
+            {
+                var actions = InputActionCatalog.All.Select(a => new
+                {
+                    id = a.Id,
+                    label = a.Label,
+                    hint = a.Hint,
+                    defaultBinding = a.DefaultBinding,
+                    binding = a.GetBinding(_settings),
+                    display = HotkeyCodes.DisplayName(a.GetBinding(_settings)),
+                });
+                Write(ctx, 200, JsonSerializer.Serialize(actions, Json));
                 break;
             }
 
@@ -1513,6 +1530,7 @@ public sealed record RadarState(
     string CharName,
     int CharLevel,
     PerfSnapshot Perf,
+    FeaturePerfSnapshot FeaturePerf = default,
     string MapDiag = "",
     bool MiniMapVisible = false,
     bool MiniMapRect = false,
@@ -1527,5 +1545,5 @@ public sealed record RadarState(
     public static readonly RadarState Empty =
         new(false, 0, 0, false, 0, System.Numerics.Vector2.Zero,
             Array.Empty<Poe2Live.EntityDot>(), Array.Empty<Poe2Live.Landmark>(), 100, 100, 100, false, "", "", "", 0,
-            PerfSnapshot.Empty);
+            PerfSnapshot.Empty, FeaturePerfSnapshot.Empty);
 }

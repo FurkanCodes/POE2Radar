@@ -521,6 +521,8 @@ public sealed class Poe2RitualShop
         return total;
     }
 
+    public void ResetSession() => ClearSession();
+
     private void ClearSession()
     {
         PanelOpen = false;

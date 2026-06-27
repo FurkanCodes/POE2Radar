@@ -78,14 +78,14 @@ public sealed partial class RadarApp
         _priceBook.RefreshIfDue();
     }
 
-    private void UpdateLootWorld(nint inGameState, nint areaInstance, int areaLevel, uint areaHash,
-        IReadOnlyList<Poe2Live.EntityDot> entities, int winW, int winH)
+    private void UpdateLootWorld(GameContextSnapshot game, EntityContextSnapshot snapEntityContext, int winW, int winH)
     {
         _windowWidth = winW;
         _windowHeight = winH;
-        SyncPriceBookLeague(areaInstance);
-        UpdateLootTags(inGameState);
-        UpdateMonoliths(areaInstance, areaLevel, areaHash, entities);
+        if (!game.Valid) return;
+        SyncPriceBookLeague(game.AreaInstance);
+        UpdateLootTags(game.InGameState);
+        UpdateMonoliths(snapEntityContext);
     }
 
     /// <summary>Runeforge panel: throttled live read so rects track the open UI without scanning every app tick.</summary>
@@ -209,17 +209,20 @@ public sealed partial class RadarApp
         _lootTags = specs.Count > 0 ? new LootTagRender(specs) : LootTagRender.Empty;
     }
 
-    private void UpdateMonoliths(nint areaInstance, int areaLevel, uint areaHash, IReadOnlyList<Poe2Live.EntityDot> entities)
+    private void UpdateMonoliths(EntityContextSnapshot entities)
     {
         var cfg = _settings.Monoliths;
-        if (!cfg.Enabled || !_priceBook.IsLoaded || !_monoCatalog.IsLoaded)
+        if (!cfg.Enabled || !_priceBook.IsLoaded || !_monoCatalog.IsLoaded || !entities.Valid)
         {
             if (_monoRender.Markers.Count > 0) _monoRender = MonolithRender.Empty;
             return;
         }
 
+        var areaHash = entities.AreaHash;
+        var areaLevel = entities.AreaLevel;
+        var entityList = entities.Entities;
         var markers = new List<MonolithMarker>();
-        foreach (var e in entities)
+        foreach (var e in entityList)
         {
             if (e.Metadata.IndexOf("Expedition2Encounter", StringComparison.OrdinalIgnoreCase) < 0) continue;
             var m = _worldLive.ReadMonolith(e.Address);
@@ -247,7 +250,8 @@ public sealed partial class RadarApp
         _monoRender = new MonolithRender(areaHash, markers);
     }
 
-    private void RefreshLootRenderFrames(WorldSnapshot snap, int windowWidth, int windowHeight, bool inGame)
+    private void RefreshLootRenderFrames(WorldSnapshot snap, GameContextSnapshot game, UiContextSnapshot ui,
+        int windowWidth, int windowHeight, bool inGame)
     {
         var profileStart = System.Diagnostics.Stopwatch.GetTimestamp();
         var itemLabelCount = 0;
@@ -257,11 +261,11 @@ public sealed partial class RadarApp
         _windowWidth = windowWidth;
         _windowHeight = windowHeight;
         _itemFrame.Clear();
-        if (inGame && _live.TryResolve(out var inGameState, out var areaInstance, out _))
+        if (inGame && game.Valid)
         {
-            SyncRitualPriceBook(areaInstance);
-            UpdatePanelValuesLive(inGameState, windowWidth, windowHeight);
-            UpdateRitualHelperLive(inGameState, windowWidth, windowHeight);
+            SyncRitualPriceBook(game.AreaInstance);
+            UpdatePanelValuesLive(game.InGameState, windowWidth, windowHeight);
+            UpdateRitualHelperLive(game, ui);
         }
 
         if (inGame)
@@ -278,7 +282,16 @@ public sealed partial class RadarApp
             foreach (var s in lt.Specs)
             {
                 lootTagSpecs++;
-                if (!_live.TryUiElementRect(s.El, windowWidth, windowHeight, out var rx, out var ry, out var rw, out var rh, requireFirstLine: s.TagText)) continue;
+                if (!UiProjector.TryRect(_reader, s.El, ui, out var rx, out var ry, out var rw, out var rh))
+                {
+                    if (!_live.TryUiElementRect(s.El, windowWidth, windowHeight, out rx, out ry, out rw, out rh, requireFirstLine: s.TagText))
+                        continue;
+                }
+                else if (s.TagText.Length > 0
+                    && !_live.TryUiElementRect(s.El, windowWidth, windowHeight, out _, out _, out _, out _, requireFirstLine: s.TagText))
+                {
+                    continue;
+                }
                 _lootTagFrame.Add(new LootTagLabel(rx, ry, rw, rh, s.Value, s.Highlight));
                 lootTagHits++;
             }

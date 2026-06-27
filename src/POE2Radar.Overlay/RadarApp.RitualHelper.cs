@@ -37,6 +37,7 @@ public sealed partial class RadarApp
     private void InitRitualHelper()
     {
         _ritualShop = new Poe2RitualShop(_reader, _live);
+        _panelCatalog = new Poe2PanelCatalog(_ritualShop);
         var cfg = _settings.RitualHelper;
         _ritualPriceBook = new RitualPriceBook(
             Path.Combine(ConfigDir, "ritual_prices.json"),
@@ -71,12 +72,14 @@ public sealed partial class RadarApp
         _ritualPriceBook.RefreshIfDue();
     }
 
-    private void UpdateRitualHelperLive(nint inGameState, int winW, int winH)
+    private void UpdateRitualHelperLive(GameContextSnapshot game, UiContextSnapshot ui)
     {
+        var ritualStart = System.Diagnostics.Stopwatch.GetTimestamp();
         var cfg = _settings.RitualHelper;
         if (!cfg.Enabled)
         {
             if (_ritualRender.Open) _ritualRender = RitualRender.Empty;
+            _featurePerf.RecordRitual(FeaturePerfAccumulator.ElapsedMs(ritualStart));
             return;
         }
 
@@ -84,11 +87,11 @@ public sealed partial class RadarApp
             return;
 
         var allowLocate = cfg.ForceBfsFallback || _ritualShop.PanelOpen || _ritualShop.LastIdleProbeFastPathHit;
-        var preferController = _settings.GamepadHotkeysEnabled
-            || GamepadInput.IsConnected(_settings.GamepadUserIndex);
-        var state = _ritualShop.ReadWindowState(inGameState, winW, winH, allowLocate, preferController);
-        var open = state.PanelOpen;
-        var pathKind = $"{_ritualShop.LastIdleProbeKind} fast={_ritualShop.LastIdleProbeFastPathHit}";
+        var preferController = ui.Valid && ui.PreferController;
+        var panels = _panelCatalog.CaptureRitualWindow(game, ui, allowLocate, preferController);
+        var ritual = panels.Ritual;
+        var open = ritual.Open;
+        var pathKind = $"{_ritualShop.LastIdleProbeKind} fast={ritual.FastPathHit}";
 
         if (!open && _ritualWasOpen)
         {
@@ -103,11 +106,12 @@ public sealed partial class RadarApp
         if (!open || !cfg.ShowPrices && !cfg.DiagnosePricing)
         {
             if (_ritualRender.Open) _ritualRender = RitualRender.Empty;
+            _featurePerf.RecordRitual(FeaturePerfAccumulator.ElapsedMs(ritualStart));
             return;
         }
 
         var now = DateTime.UtcNow;
-        var itemSignature = state.ItemSignature;
+        var itemSignature = ritual.ItemSignature;
         var settingsHash = RitualRenderSettingsHash(cfg);
         if (_ritualRender.Open
             && itemSignature != 0
@@ -118,12 +122,16 @@ public sealed partial class RadarApp
             _ritualLabelCacheHits++;
             _ritualWindowCacheHits++;
             _ritualRender = new RitualRender(
-                open,
+                true,
                 _ritualRender.Labels,
                 pathKind,
-                state.InBoundsTiles);
+                ritual.InBoundsTiles);
+            _featurePerf.RecordRitual(FeaturePerfAccumulator.ElapsedMs(ritualStart));
             return;
         }
+
+        var winW = ui.Valid ? ui.WindowWidth : _windowWidth;
+        var winH = ui.Valid ? ui.WindowHeight : _windowHeight;
 
         var forceRewardRefresh = itemSignature != 0
             && (itemSignature != _ritualRenderSignature || now >= _ritualNextLabelRecomputeUtc);
@@ -145,6 +153,7 @@ public sealed partial class RadarApp
             labels.Count > 0 ? labels : Array.Empty<RitualRewardLabel>(),
             pathKind,
             rewards.Count);
+        _featurePerf.RecordRitual(FeaturePerfAccumulator.ElapsedMs(ritualStart));
     }
 
     private static double RitualElapsedMs(long startTimestamp)
@@ -265,6 +274,7 @@ public sealed partial class RadarApp
         rewardReadElapsedMs = _ritualRewardReadLastMs,
         labelBuildElapsedMs = _ritualLabelBuildLastMs,
         perf = _ritualShop.PerfSnapshot,
+        featurePerf = _featurePerfSnapshot,
         nonRitualProfile = new
         {
             lootFrameTicks = _lootFrameTicks,

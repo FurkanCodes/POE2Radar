@@ -1,7 +1,7 @@
 namespace POE2Radar.Core.Game;
 
 /// <summary>Loot-tag style UI element screen rect — matches <see cref="Poe2Live.TryUiElementRect"/>.</summary>
-internal static class UiElementScreenRect
+public static class UiElementScreenRect
 {
     public static bool TryGet(MemoryReader reader, nint el, float winW, float winH, out float x, out float y, out float w, out float h)
     {

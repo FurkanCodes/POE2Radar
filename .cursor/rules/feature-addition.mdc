@@ -1,0 +1,44 @@
+# Feature Addition Template
+
+Standard path for new performance-safe overlay features. Follow this checklist before merging.
+
+## Data sources (required)
+
+- Use **`GameContextSnapshot`** for chain resolution — never call `TryResolve` on hot paths.
+- Use **`UiContextSnapshot`** for GameUi / controller branches — never assemble branch order in feature code.
+- Use **`UiProjector.TryRect`** for UI element screen rects.
+- Use **`PanelCatalogSnapshot`** for open-window detection (Ritual, runeforge, map panels).
+- Use **`EntityContextSnapshot`** / **`WorldSnapshot`** for entity lists — no feature-local component-map walks.
+- Use **`InputActionCatalog`** for any user-triggered bind — one catalog entry, not edits across ImGui/API/dashboard.
+
+## Cadence
+
+- Give memory/UI work its own `PerformanceCadence` or reuse an existing Hz setting.
+- Never piggyback entity walks or UI BFS on `FpsCap` / render rate.
+
+## Performance
+
+- Add **`FeaturePerfAccumulator`** timing for any new memory/UI prep category.
+- Keep fallback scans throttled and opt-in — steady-state counters must stay flat.
+- No memory reads on the ImGui render thread.
+
+## Settings & input
+
+- Add **`SettingHints.*`** for every user-facing control.
+- Wire ImGui tooltip + dashboard `title=` from the same hint.
+- Register bindable actions in **`InputActionCatalog`**; verify keyboard + gamepad display in tests.
+
+## Threading
+
+- One writer per mutable store; publish immutable snapshots for readers.
+- Marshal UI actions through `_commandQueue` onto the main tick thread.
+
+## Tests & verification
+
+- Unit test pure logic (catalog, snapshots, migration).
+- `dotnet test -c Release` before merge.
+- Compare `FeaturePerfSnapshot` before/after when touching hot paths.
+
+## Probe (optional)
+
+- Add a Research probe only when live validation requires in-game state.

@@ -51,8 +51,16 @@ public sealed partial class RadarApp : IDisposable
     private readonly Thread _worldThread;
     private readonly object _trackerGate = new();
     private readonly PerfAccumulator _perf = new();
+    private readonly FeaturePerfAccumulator _featurePerf = new();
     private readonly ProcessMetricsSampler _processMetrics;
     private PerfSnapshot _perfSnapshot = PerfSnapshot.Empty;
+    private FeaturePerfSnapshot _featurePerfSnapshot = FeaturePerfSnapshot.Empty;
+    private GameContextSnapshot _mainGameContext = GameContextSnapshot.Invalid;
+    private GameContextSnapshot _worldGameContext = GameContextSnapshot.Invalid;
+    private UiContextSnapshot _mainUiContext = UiContextSnapshot.Invalid;
+    private EntityContextSnapshot _entityContext = EntityContextSnapshot.Invalid;
+    private long _entityContextGeneration;
+    private Poe2PanelCatalog _panelCatalog = null!;
     private volatile float _worldTickMs;
     private readonly PerformanceCadence _liveCadence = new();
     private readonly PerformanceCadence _hpBarCadence = new();
@@ -684,15 +692,23 @@ public sealed partial class RadarApp : IDisposable
             if (_atlasOpen) CloseAtlasSession();
             if (_hpFrame.Length > 0) _hpFrame = Array.Empty<HpBarTarget>();
             ResetLootSession();
+            _mainGameContext = GameContextSnapshot.Invalid;
+            _mainUiContext = UiContextSnapshot.Invalid;
+            _entityContext = EntityContextSnapshot.Invalid;
         }
 
-        RefreshLootRenderFrames(snap, windowWidth, windowHeight, live.InGame);
+        var lootFrameStart = Stopwatch.GetTimestamp();
+        RefreshLootRenderFrames(snap, _mainGameContext, _mainUiContext, windowWidth, windowHeight, live.InGame);
+        _featurePerf.RecordLootTags(FeaturePerfAccumulator.ElapsedMs(lootFrameStart));
+        if (_atlasUpdateMs > 0)
+            _featurePerf.RecordAtlas(_atlasUpdateMs);
         var lootPayload = BuildLootRenderPayload(snap.AreaHash, live.InGame);
 
         var largeMap = live.Maps.LargeMap;
         var miniMap = live.Maps.MiniMap;
         _state = new RadarState(live.InGame, snap.AreaHash, snap.AreaLevel, largeMap.IsVisible, largeMap.Zoom, live.PlayerGrid, snap.Entities, snap.Landmarks,
             _hpPct, _manaPct, _esPct, _autoFlask, _flaskNote, _areaCode, _charName, snap.CharLevel, _perfSnapshot,
+            FeaturePerf: _featurePerfSnapshot,
             MapDiag: _mapDiag,
             MiniMapVisible: miniMap.IsVisible, MiniMapRect: miniMap.HasScreenRect,
             MiniMapW: miniMap.Width, MiniMapH: miniMap.Height,
@@ -734,6 +750,7 @@ public sealed partial class RadarApp : IDisposable
             _cursorInspectMeta = null;
         }
 
+        var renderBuildStart = Stopwatch.GetTimestamp();
         var ctx = new RenderContext(
             InGame: live.InGame,
             Active: drawActive,
@@ -836,7 +853,9 @@ public sealed partial class RadarApp : IDisposable
             Monoliths: lootPayload.monoliths,
             ShowMonolithPanel: _settings.Monoliths.ShowPanel,
             ShowMonolithMapLabel: _settings.Monoliths.ShowMapLabel,
-            RitualLabels: _ritualRender.Open && _ritualRender.Labels.Count > 0 ? _ritualRender.Labels : null);
+            RitualLabels: _ritualRender.Open && _ritualRender.Labels.Count > 0 ? _ritualRender.Labels : null,
+            FeaturePerf: _featurePerfSnapshot);
+        _featurePerf.RecordRenderBuild(FeaturePerfAccumulator.ElapsedMs(renderBuildStart));
         _imguiOverlay?.UpdateContext(ctx);
 
         var overlayMetrics = _imguiOverlay?.GetRenderMetrics().Snapshot() ?? default;
@@ -872,6 +891,7 @@ public sealed partial class RadarApp : IDisposable
             workingSetMb: _processMetrics.WorkingSetMb,
             gpuPercent: _processMetrics.GpuPercent,
             gpuMemoryMb: _processMetrics.GpuMemoryMb);
+        _featurePerfSnapshot = _featurePerf.Snapshot;
     }
     private static double ElapsedMs(long start)
         => Stopwatch.GetElapsedTime(start).TotalMilliseconds;
@@ -885,15 +905,35 @@ public sealed partial class RadarApp : IDisposable
             _live.InvalidateLandmarks();
         }
 
-        var inGame = _live.TryResolve(out var inGameState, out var areaInstance, out var localPlayer);
-        if (!inGame)
+        var gameStart = Stopwatch.GetTimestamp();
+        var priorGame = _mainGameContext;
+        if (!_live.TryCaptureGameContext(out _mainGameContext))
+        {
+            _mainUiContext = UiContextSnapshot.Invalid;
             return LiveFrameState.Empty;
+        }
+        _featurePerf.RecordGameContext(FeaturePerfAccumulator.ElapsedMs(gameStart));
+
+        var game = _mainGameContext;
+        if (game.AreaChanged(priorGame))
+            _live.OnAreaInstanceChanged(priorGame.AreaInstance, game.AreaInstance);
+
+        var inGameState = game.InGameState;
+        var areaInstance = game.AreaInstance;
+        var localPlayer = game.LocalPlayer;
 
         _areaInstanceForApi = areaInstance;
         _inGameStateForApi = inGameState;
-        _areaHash = _live.AreaHash(areaInstance);
+        _areaHash = game.AreaHash;
 
-        var player = _live.PlayerGrid(localPlayer) ?? NumVec2.Zero;
+        var uiStart = Stopwatch.GetTimestamp();
+        var preferController = _settings.GamepadHotkeysEnabled
+            || GamepadInput.IsConnected(_settings.GamepadUserIndex);
+        _mainUiContext = UiContextSnapshot.Capture(
+            _reader, _live, game, windowWidth, windowHeight, preferController, allowAnchorScan: false);
+        _featurePerf.RecordUiContext(FeaturePerfAccumulator.ElapsedMs(uiStart));
+
+        var player = game.PlayerGrid ?? NumVec2.Zero;
         var playerWorld = _live.PlayerWorld(localPlayer) is { } pw
             ? new System.Numerics.Vector3(pw.X, pw.Y, pw.Z)
             : new System.Numerics.Vector3(
@@ -908,10 +948,12 @@ public sealed partial class RadarApp : IDisposable
         var maps = _cachedMaps;
         if (!_atlasOpen && drawActive)
         {
+            var mapStart = Stopwatch.GetTimestamp();
             maps = _live.ReadMaps(inGameState, areaInstance, windowWidth, windowHeight);
             _cachedMaps = maps;
             if (_settings.ShowPerfStats)
                 _mapDiag = _live.MapDiagnostics(inGameState, windowWidth, windowHeight);
+            _featurePerf.RecordMapUi(FeaturePerfAccumulator.ElapsedMs(mapStart));
         }
 
         MaybeMigratePerTypeRules();

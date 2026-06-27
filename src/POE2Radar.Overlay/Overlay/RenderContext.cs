@@ -309,4 +309,5 @@ public sealed record RenderContext(
     IReadOnlyList<MonolithMarker>? Monoliths = null,
     bool ShowMonolithPanel = true,
     bool ShowMonolithMapLabel = true,
-    IReadOnlyList<RitualRewardLabel>? RitualLabels = null);
+    IReadOnlyList<RitualRewardLabel>? RitualLabels = null,
+    FeaturePerfSnapshot FeaturePerf = default);

@@ -27,16 +27,26 @@ public sealed partial class RadarApp
     private void RunWorldTick()
     {
         var worldStart = System.Diagnostics.Stopwatch.GetTimestamp();
-        var inGame = _worldLive.TryResolve(out var inGameState, out var areaInstance, out var localPlayer);
-        if (!inGame)
+        var priorGame = _worldGameContext;
+        if (!_worldLive.TryCaptureGameContext(out _worldGameContext))
         {
             _snapshot = WorldSnapshot.Empty;
             _state = RadarState.Empty;
             _worldTickMs = 0;
+            _entityContext = EntityContextSnapshot.Invalid;
             if (_atlasOpen) CloseAtlasSession();
             ResetLootSession();
             return;
         }
+
+        var game = _worldGameContext;
+        if (game.AreaChanged(priorGame))
+            _worldLive.OnAreaInstanceChanged(priorGame.AreaInstance, game.AreaInstance);
+
+        var inGameState = game.InGameState;
+        var areaInstance = game.AreaInstance;
+        var localPlayer = game.LocalPlayer;
+        var inGame = true;
 
         if (areaInstance != _lastAreaInstance)
         {
@@ -47,13 +57,13 @@ public sealed partial class RadarApp
         }
         _areaInstanceForApi = areaInstance;
         _inGameStateForApi = inGameState;
-        _areaHash = _worldLive.AreaHash(areaInstance);
+        _areaHash = game.AreaHash;
         var areaHash = _areaHash;
-        var areaLevel = _worldLive.AreaLevel(areaInstance);
-        _areaCode = _worldLive.AreaCode(areaInstance);
+        var areaLevel = game.AreaLevel;
+        _areaCode = game.AreaCode;
         var charLevel = _worldLive.PlayerLevel(localPlayer);
         _charLevel = charLevel;
-        var player = _worldLive.PlayerGrid(localPlayer) ?? NumVec2.Zero;
+        var player = game.PlayerGrid ?? NumVec2.Zero;
 
         if (!_atlasWarmupDone)
         {
@@ -154,7 +164,7 @@ public sealed partial class RadarApp
 
         ResolveGameClientSize(out var winW, out var winH);
         if (!_atlasOpen)
-            UpdateLootWorld(inGameState, areaInstance, areaLevel, areaHash, entityArray, winW, winH);
+            UpdateLootWorld(game, snapEntityContext: BuildEntityContext(areaInstance, areaHash, areaLevel, entityArray), winW, winH);
         var itemLabels = _atlasOpen ? Array.Empty<ItemLabelSpec>() : BuildItemLabels(entityArray).ToArray();
 
         _snapshot = new WorldSnapshot(
@@ -507,5 +517,15 @@ public sealed partial class RadarApp
         return metadata.Contains("Door", StringComparison.OrdinalIgnoreCase)
             || metadata.Contains("Blockage", StringComparison.OrdinalIgnoreCase)
             || metadata.Contains("Barricade", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private EntityContextSnapshot BuildEntityContext(nint areaInstance, uint areaHash, int areaLevel,
+        IReadOnlyList<Poe2Live.EntityDot> entities)
+    {
+        _entityContextGeneration++;
+        _entityContext = EntityContextSnapshot.FromWorld(
+            new WorldEntitySource(true, areaInstance, areaHash, areaLevel, entities),
+            _entityContextGeneration);
+        return _entityContext;
     }
 }

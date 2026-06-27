@@ -1606,6 +1606,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         {
             TextColoredUnformatted(new Vector4(0.92f, 0.92f, 0.55f, 1f),
                 $"world {p.WorldMs:F1} ms   draw {p.RenderMs:F1} ms   map {p.MapMs:F1}   paths {p.PathsMs:F1}   hp {p.HpBarsMs:F1}");
+            var fp = ctx.FeaturePerf;
+            TextColoredUnformatted(new Vector4(0.78f, 0.88f, 1f, 1f),
+                $"ctx game {fp.GameContextMs:F2} ui {fp.UiContextMs:F2}   ritual {fp.RitualMs:F2} loot {fp.LootTagsMs:F2} mapUi {fp.MapUiMs:F2} atlas {fp.AtlasMs:F2}");
             TextColoredUnformatted(new Vector4(0.85f, 0.85f, 0.85f, 1f),
                 $"reads total {p.TotalReadsPerSec / 1000f:F1}k/s   main {p.MainReadsPerSec / 1000f:F1}k/s   world {p.WorldReadsPerSec / 1000f:F1}k/s   {p.TotalMibPerSec:F2} MiB/s");
             TextColoredUnformatted(new Vector4(0.85f, 0.85f, 0.85f, 1f),
@@ -3108,16 +3111,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
             ImGui.TextDisabled("Bind: click Bind, then press a key or controller button.");
 
-            DrawHotkeyRow(s, "hideEntityHotkey", "Never show under cursor", SettingHints.Hotkeys.HideEntity);
-            DrawHotkeyRow(s, "trackEntityHotkey", "Inspect under cursor", SettingHints.Hotkeys.TrackEntity);
-            DrawHotkeyRow(s, "autoPathToggleHotkey", "Auto-path toggle", SettingHints.Hotkeys.AutoPathToggle);
-            DrawHotkeyRow(s, "addNearestPathHotkey", "Add nearest path", SettingHints.Hotkeys.AddNearestPath);
-            DrawHotkeyRow(s, "clearPathsHotkey", "Clear paths", SettingHints.Hotkeys.ClearPaths);
-            DrawHotkeyRow(s, "autoFlaskToggleHotkey", "Auto-flask toggle", SettingHints.Hotkeys.AutoFlaskToggle);
-            DrawHotkeyRow(s, "atlasPickHotkey", "Atlas tile pick", SettingHints.Hotkeys.AtlasPick);
-            DrawHotkeyRow(s, "toggleSettingsHotkey", "Overlay settings", SettingHints.Hotkeys.ToggleSettings);
-            DrawHotkeyRow(s, "openDashboardHotkey", "Open dashboard", SettingHints.Hotkeys.OpenDashboard);
-            DrawHotkeyRow(s, "quitHotkey", "Quit overlay", SettingHints.Hotkeys.Quit);
+            foreach (var action in InputActionCatalog.All)
+                DrawHotkeyRow(s, action.Id, action.Label, action.Hint);
         }
         ImGuiTheme.EndAccordionSection(open);
     }
@@ -3152,36 +3147,13 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         ImGui.PopID();
     }
 
-    private static int GetHotkey(RadarSettings s, string key) => key switch
-    {
-        "hideEntityHotkey" => s.HideEntityHotkey,
-        "trackEntityHotkey" => s.TrackEntityHotkey,
-        "autoPathToggleHotkey" => s.AutoPathToggleHotkey,
-        "addNearestPathHotkey" => s.AddNearestPathHotkey,
-        "clearPathsHotkey" => s.ClearPathsHotkey,
-        "autoFlaskToggleHotkey" => s.AutoFlaskToggleHotkey,
-        "atlasPickHotkey" => s.AtlasPickHotkey,
-        "toggleSettingsHotkey" => s.ToggleSettingsHotkey,
-        "openDashboardHotkey" => s.OpenDashboardHotkey,
-        "quitHotkey" => s.QuitHotkey,
-        _ => 0,
-    };
+    private static int GetHotkey(RadarSettings s, string key)
+        => InputActionCatalog.TryGet(key)?.GetBinding(s) ?? 0;
 
     private static void SetHotkey(RadarSettings s, string key, int value)
     {
-        switch (key)
-        {
-            case "hideEntityHotkey": s.HideEntityHotkey = value; break;
-            case "trackEntityHotkey": s.TrackEntityHotkey = value; break;
-            case "autoPathToggleHotkey": s.AutoPathToggleHotkey = value; break;
-            case "addNearestPathHotkey": s.AddNearestPathHotkey = value; break;
-            case "clearPathsHotkey": s.ClearPathsHotkey = value; break;
-            case "autoFlaskToggleHotkey": s.AutoFlaskToggleHotkey = value; break;
-            case "atlasPickHotkey": s.AtlasPickHotkey = value; break;
-            case "toggleSettingsHotkey": s.ToggleSettingsHotkey = value; break;
-            case "openDashboardHotkey": s.OpenDashboardHotkey = value; break;
-            case "quitHotkey": s.QuitHotkey = value; break;
-        }
+        var action = InputActionCatalog.TryGet(key);
+        action?.SetBinding(s, value);
     }
 
     private void PollHotkeyCapture(RadarSettings s)
