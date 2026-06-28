@@ -85,6 +85,13 @@ internal static class DashboardHtml
         .Replace("{{H.AtlasRouteThickness}}", H(SettingHints.Atlas.RouteThickness))
         .Replace("{{H.AtlasChevronSpacing}}", H(SettingHints.Atlas.ChevronSpacing))
         .Replace("{{H.AtlasLanguage}}", H(SettingHints.Atlas.Language))
+        .Replace("{{H.AtlasShowNodeSprites}}", H(SettingHints.Atlas.ShowNodeSprites))
+        .Replace("{{H.AtlasDrawLinesSearchQuery}}", H(SettingHints.Atlas.DrawLinesSearchQuery))
+        .Replace("{{H.AtlasDrawLinesToUniqueMaps}}", H(SettingHints.Atlas.DrawLinesToUniqueMaps))
+        .Replace("{{H.AtlasPathToLineageMaps}}", H(SettingHints.Atlas.PathToLineageMaps))
+        .Replace("{{H.AtlasPathToArbiterMaps}}", H(SettingHints.Atlas.PathToArbiterMaps))
+        .Replace("{{H.AtlasAnchorNudgeY}}", H(SettingHints.Atlas.AnchorNudgeY))
+        .Replace("{{H.AtlasScaleMultiplier}}", H(SettingHints.Atlas.ScaleMultiplier))
         .Replace("{{H.FlaskTriggerPool}}", H(SettingHints.Flask.TriggerPool))
         .Replace("{{H.FlaskLifeThreshold}}", H(SettingHints.Flask.LifeThreshold))
         .Replace("{{H.FlaskEsThreshold}}", H(SettingHints.Flask.EsThreshold))
@@ -988,8 +995,22 @@ internal static class DashboardHtml
             <div class="row"><div class="rl" title="{{H.AtlasRouteThickness}}">Route thickness</div>
               <input class="numin" type="number" step="0.5" min="1" max="8" data-set="atlasRouteLineThickness"></div>
             <div class="row"><div class="rl" title="{{H.AtlasChevronSpacing}}">Chevron spacing</div>
-              <input class="numin" type="number" step="1" min="8" max="80" data-set="atlasRouteChevronSpacing"></div>
-            <div class="row"><div class="rl" title="{{H.AtlasLanguage}}">Atlas language<small>currently English; ready for translated catalogs</small></div>
+              <input class="numin" type="number" step="1" min="1" max="16" data-set="atlasRouteChevronSpacing"></div>
+            <div class="row"><div class="rl" title="{{H.AtlasShowNodeSprites}}">Node sprites</div>
+              <label class="sw"><input type="checkbox" data-set="atlasShowNodeSprites"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl" title="{{H.AtlasDrawLinesSearchQuery}}">Route search matches</div>
+              <label class="sw"><input type="checkbox" data-set="atlasDrawLinesSearchQuery"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl" title="{{H.AtlasDrawLinesToUniqueMaps}}">Route unique maps</div>
+              <label class="sw"><input type="checkbox" data-set="atlasDrawLinesToUniqueMaps"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl" title="{{H.AtlasPathToLineageMaps}}">Route lineage maps</div>
+              <label class="sw"><input type="checkbox" data-set="atlasPathToLineageMaps"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl" title="{{H.AtlasPathToArbiterMaps}}">Route arbiter maps</div>
+              <label class="sw"><input type="checkbox" data-set="atlasPathToArbiterMaps"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl" title="{{H.AtlasAnchorNudgeY}}">Label nudge Y</div>
+              <input class="numin" type="number" step="1" min="-80" max="120" data-set="atlasAnchorNudgeY"></div>
+            <div class="row"><div class="rl" title="{{H.AtlasScaleMultiplier}}">UI scale</div>
+              <input class="numin" type="number" step="0.05" min="0.5" max="4" data-set="atlasScaleMultiplier"></div>
+            <div class="row"><div class="rl" title="{{H.AtlasLanguage}}">Atlas language<small>content name translations from catalog</small></div>
               <input class="numin" type="text" data-set="atlasLanguage" style="width:150px"></div>
           </div>
           </div>

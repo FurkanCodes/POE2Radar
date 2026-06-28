@@ -9,7 +9,9 @@ internal static class AtlasRoutePolylineBuilder
         IReadOnlyDictionary<(int X, int Y), NumVec2> centers,
         string label,
         string color,
-        int hops)
+        int hops,
+        float thickness = 1f,
+        int phaseIndex = 0)
     {
         if (path is null || path.Count < 2) return Array.Empty<AtlasRouteLine>();
 
@@ -32,7 +34,8 @@ internal static class AtlasRoutePolylineBuilder
         void Flush(bool labelOnSegment)
         {
             if (current.Count >= 2)
-                segments.Add(new AtlasRouteLine(current.ToArray(), labelOnSegment ? label : "", color, labelOnSegment ? hops : 0));
+                segments.Add(new AtlasRouteLine(current.ToArray(), labelOnSegment ? label : "", color,
+                    labelOnSegment ? hops : 0, thickness, phaseIndex));
             current.Clear();
         }
     }

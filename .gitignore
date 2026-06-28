@@ -425,4 +425,7 @@ POE2Radar-*-win-x64.zip
 
 # local-only scratch + reference material (community notes, third-party dumps)
 resources/
+# Embedded atlas metadata shipped in Core (not repo-root resources/)
+!src/POE2Radar.Core/Game/Resources/
+!src/POE2Radar.Core/Game/Resources/**
 

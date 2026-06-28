@@ -31,6 +31,6 @@ public sealed class AtlasCatalogTests
     {
         var info = AtlasCatalog.Shared.ContentInfoFor("map_atlas_node_has_breach");
         Assert.NotNull(info);
-        Assert.Equal("Br", info?.ShortLabel);
+        Assert.Equal("Br", info?.Abbrev);
     }
 }

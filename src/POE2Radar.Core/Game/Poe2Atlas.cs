@@ -786,21 +786,34 @@ public sealed class Poe2Atlas
 
     public List<(int X, int Y)>? FindPath((int X, int Y) start, (int X, int Y) goal)
     {
-        Dictionary<(int, int), List<(int, int)>> g;
         lock (_nodeLock)
         {
             if (!_graph.ContainsKey(start) || !_graph.ContainsKey(goal)) return null;
-            // Snapshot so the search doesn't race a concurrent EnsureGraph rebuild.
-            g = new Dictionary<(int, int), List<(int, int)>>(_graph);
+            if (start == goal) return new List<(int X, int Y)> { start };
+            return FindPathOnGraph(_graph, start, goal);
         }
-        if (start == goal) return new List<(int X, int Y)> { start };
+    }
 
+    public List<(int X, int Y)>? FindPathFromAccessible(IEnumerable<(int X, int Y)> starts, (int X, int Y) goal)
+    {
+        lock (_nodeLock)
+        {
+            if (!_graph.ContainsKey(goal)) return null;
+            return MultiSourceShortestPath(_graph, starts, goal);
+        }
+    }
+
+    private static List<(int X, int Y)>? FindPathOnGraph(
+        IReadOnlyDictionary<(int X, int Y), List<(int X, int Y)>> graph,
+        (int X, int Y) start,
+        (int X, int Y) goal)
+    {
         static float Dist((int X, int Y) a, (int X, int Y) b)
         { float dx = a.X - b.X, dy = a.Y - b.Y; return MathF.Sqrt(dx * dx + dy * dy); }
 
         var cameFrom = new Dictionary<(int, int), (int, int)>();
         var gScore = new Dictionary<(int, int), float> { [start] = 0f };
-        var open = new PriorityQueue<(int, int), float>();   // lazy PQ: stale entries are filtered via gScore
+        var open = new PriorityQueue<(int, int), float>();
         open.Enqueue(start, Dist(start, goal));
 
         while (open.Count > 0)
@@ -813,7 +826,7 @@ public sealed class Poe2Atlas
                 path.Reverse();
                 return path;
             }
-            if (!g.TryGetValue(cur, out var neighbours)) continue;
+            if (!graph.TryGetValue(cur, out var neighbours)) continue;
             var baseG = gScore[cur];
             foreach (var nb in neighbours)
             {
@@ -825,17 +838,6 @@ public sealed class Poe2Atlas
             }
         }
         return null;
-    }
-
-    public List<(int X, int Y)>? FindPathFromAccessible(IEnumerable<(int X, int Y)> starts, (int X, int Y) goal)
-    {
-        Dictionary<(int, int), List<(int, int)>> g;
-        lock (_nodeLock)
-        {
-            if (!_graph.ContainsKey(goal)) return null;
-            g = new Dictionary<(int, int), List<(int, int)>>(_graph);
-        }
-        return MultiSourceShortestPath(g, starts, goal);
     }
 
     public static List<(int X, int Y)>? MultiSourceShortestPath(
@@ -952,7 +954,7 @@ public sealed class Poe2Atlas
 
         foreach (var t in tags)
             if (AtlasCatalog.Shared.ContentInfoFor(t) is { } ci)
-                AddUnique(badges, ci.ShortLabel);
+                AddUnique(badges, ci.Abbrev);
 
         return (mapCode, map, tags.Count == 0 ? NoTags : tags.ToArray(), badges.Count == 0 ? NoTags : badges.ToArray(), Math.Max(contentCount, tags.Count));
     }

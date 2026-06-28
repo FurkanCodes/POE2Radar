@@ -20,7 +20,7 @@ using GameVec2 = POE2Radar.Core.Game.Vector2;
 
 namespace POE2Radar.Overlay;
 
-public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
+public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 {
     private readonly object _settingsLock;
     private volatile RadarSettings _settings;
@@ -404,227 +404,6 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     }
 
     // ── Atlas overlay ──
-
-    private void DrawAtlas(ImDrawListPtr dl, RenderContext ctx)
-    {
-        var sw = Stopwatch.GetTimestamp();
-        var W = ctx.WindowWidth;
-        var H = ctx.WindowHeight;
-        float ccx = W * 0.5f, ccy = H * 0.5f;
-        var iconScale = ctx.AtlasIconScale;
-        var labelScale = ctx.AtlasLabelScale;
-
-        if (ctx.AtlasRoutes is { Count: > 0 } routeLines)
-        {
-            foreach (var line in routeLines)
-                DrawAtlasRoutePolyline(dl, line.Points, ColorU32(line.Color, 0.95f), ctx.AtlasRouteLineThickness, ctx.AtlasShowRouteChevrons, ctx.AtlasRouteChevronSpacing, line.Hops, line.Label);
-        }
-
-        var route = ctx.AtlasRoute;
-        if (route is { Count: >= 2 })
-        {
-            var dark = ColorU32(0, 0, 0, 0.6f);
-            var bright = ColorU32(59, 219, 255, 0.95f);
-            var pts = route.ToArray();
-            for (var i = 1; i < pts.Length; i++) dl.AddLine(pts[i - 1], pts[i], dark, 7f);
-            for (var i = 1; i < pts.Length; i++) dl.AddLine(pts[i - 1], pts[i], bright, ctx.AtlasRouteLineThickness);
-            for (var i = 1; i < pts.Length - 1; i++) dl.AddCircle(pts[i], 4f, bright, 0, 2f);
-            if (ctx.AtlasShowRouteChevrons)
-                DrawAtlasRouteChevrons(dl, pts, bright, ctx.AtlasRouteChevronSpacing);
-        }
-
-        if (ctx.AtlasStart is { } s) { dl.AddCircleFilled(s, 8f, ColorU32(110, 232, 135, 1f), 12); dl.AddCircleFilled(s, 3f, ColorU32(110, 232, 135, 1f), 8); }
-        if (ctx.AtlasEnd is { } e) { dl.AddCircle(e, 11f, ColorU32(224, 179, 65, 1f), 0, 3f); dl.AddCircle(e, 4f, ColorU32(224, 179, 65, 1f), 0, 2f); }
-        if (ctx.AtlasCurrent is { } cur) { dl.AddCircleFilled(cur, 6f, ColorU32(231, 76, 60, 0.95f), 16); dl.AddCircle(cur, 9f, ColorU32(0, 0, 0, 0.65f), 16, 2f); }
-
-        if (ctx.AtlasNodes is { Count: > 0 } marks)
-        {
-            _atlasLabelScratch.Clear();
-            var labelCandidates = _atlasLabelScratch;
-            foreach (var n in marks)
-            {
-                var sx = n.ScreenX;
-                var sy = n.ScreenY;
-                if (!float.IsFinite(sx) || !float.IsFinite(sy)) continue;
-                var onScreen = sx >= 0 && sx <= W && sy >= 0 && sy <= H;
-
-                var colHex = string.IsNullOrEmpty(n.Color)
-                    ? n.Selected || n.Arrow ? "#3BDBFF"
-                    : !n.Visible && ctx.AtlasRevealFog ? "#9CB8D4"
-                    : n.HasContent && !n.Visited ? "#FF9E42" : "#6EEB87"
-                    : n.Color;
-                float opacity = n.Visible
-                    ? n.Visited ? 0.75f : 0.95f
-                    : ctx.AtlasRevealFog ? 0.95f : n.Selected || n.Arrow ? 0.55f : 0.45f;
-                var col = ColorU32(colHex, opacity);
-
-                if (!onScreen)
-                {
-                    if (ctx.AtlasOffScreenArrows && n.Arrow && n.HighlightLabel is { Length: > 0 } offLabel)
-                        DrawAtlasArrow(dl, sx, sy, ccx, ccy, W, H, col, offLabel);
-                    continue;
-                }
-
-                if (ctx.AtlasTrackedOnly && !n.Selected && !n.Arrow && string.IsNullOrEmpty(n.HighlightLabel) && string.IsNullOrEmpty(n.Color)) continue;
-                else if (!ctx.AtlasShowOnScreenNodes && !n.Selected && !n.Arrow && string.IsNullOrEmpty(n.Color)) continue;
-
-                var c = new NumVec2(sx, sy);
-                var sprite = SpriteCatalog.AtlasNode(n.IconType, n.Biome);
-                var baseSize = n.Selected || n.Arrow ? 11f : 9f;
-                var tierMul = n.EndgameTier switch
-                {
-                    AtlasEndgameTier.Pinnacle => 1.15f,
-                    AtlasEndgameTier.KeyHalls => 1.10f,
-                    _ => 1f,
-                };
-                var size = baseSize * tierMul;
-                var accentRing = n.EndgameTier is AtlasEndgameTier.Pinnacle or AtlasEndgameTier.KeyHalls;
-                if (ctx.AtlasShowBiomeBorders && n.BiomeColor is { Length: > 0 })
-                {
-                    var halfW = MathF.Max(12f, n.ScreenW * 0.36f * iconScale);
-                    var halfH = MathF.Max(12f, n.ScreenH * 0.36f * iconScale);
-                    dl.AddRect(new NumVec2(c.X - halfW, c.Y - halfH), new NumVec2(c.X + halfW, c.Y + halfH), ColorU32(n.BiomeColor, 0.82f), 5f, 0, 2f);
-                }
-                if (IconAtlas.TryResolve(sprite, null, out var tex))
-                {
-                    var half = size * iconScale;
-                    dl.AddImage(tex.TextureId, new NumVec2(c.X - half, c.Y - half), new NumVec2(c.X + half, c.Y + half), tex.UV0, tex.UV1, col);
-                    if (n.Selected || n.Arrow || !string.IsNullOrEmpty(n.Color) || accentRing)
-                        dl.AddCircle(c, half + 3f, col, 0, accentRing ? 3f : 2f);
-                }
-                else
-                    dl.AddCircleFilled(c, size, col, 12);
-
-                if (ctx.AtlasShowContentCount && n.ContentCount > 0)
-                {
-                    var pips = Math.Clamp(n.ContentCount, 1, 5);
-                    var startX = c.X - (pips - 1) * 3f;
-                    for (var pi = 0; pi < pips; pi++)
-                        dl.AddCircleFilled(new NumVec2(startX + pi * 6f, c.Y + size + 8f), 2f, ColorU32(255, 255, 255, 0.82f), 8);
-                }
-
-                if (ctx.AtlasShowContentBadges && n.Badges is { Count: > 0 })
-                    DrawAtlasBadges(dl, c.X, c.Y - size - 20f, n.Badges, col);
-
-                string? chipText = null;
-                if (ctx.AtlasShowNames)
-                    chipText = n.HighlightLabel ?? n.MapName;
-                else if (n.HighlightLabel is { Length: > 0 })
-                    chipText = n.HighlightLabel;
-                if (chipText is { Length: > 0 } && ctx.AtlasShowNames)
-                {
-                    if (n.EndgameTier == AtlasEndgameTier.Pinnacle) chipText = "★ " + chipText;
-                    else if (n.EndgameTier == AtlasEndgameTier.KeyHalls) chipText = "◆ " + chipText;
-                }
-                if (chipText is { Length: > 0 })
-                {
-                    var textCol = n.LabelFg is { Length: > 0 } ? ColorU32(n.LabelFg, 0.96f) : ColorU32(colHex, Math.Min(1f, opacity + 0.05f));
-                    var chipCol = n.LabelBg is { Length: > 0 } ? ColorU32(n.LabelBg, 0.95f) : col;
-                    var labelPos = new NumVec2(c.X + ctx.AtlasLabelOffsetX, c.Y + ctx.AtlasLabelOffsetY);
-                    labelCandidates.Add(new MapLabelCandidate($"atlas:{n.X:F1}:{n.Y:F1}:{chipText}", labelPos, chipText, textCol, chipCol));
-                }
-            }
-
-            if (labelCandidates.Count > 0)
-                DrawAtlasLabelChips(dl, labelCandidates, 0f, 0f, W, H, labelScale);
-        }
-
-        LastAtlasDrawMs = (float)Stopwatch.GetElapsedTime(sw).TotalMilliseconds;
-    }
-
-    private static void DrawAtlasRoutePolyline(ImDrawListPtr dl, IReadOnlyList<NumVec2> pts, uint col, float thickness, bool chevrons, float spacing, int hops, string label)
-    {
-        if (pts.Count < 2) return;
-        var dark = ColorU32(0, 0, 0, 0.62f);
-        for (var i = 1; i < pts.Count; i++) dl.AddLine(pts[i - 1], pts[i], dark, thickness + 4f);
-        for (var i = 1; i < pts.Count; i++) dl.AddLine(pts[i - 1], pts[i], col, thickness);
-        if (chevrons) DrawAtlasRouteChevrons(dl, pts, col, spacing);
-        var start = pts[0];
-        var startRadius = MathF.Max(3f, thickness * 1.3f);
-        dl.AddCircleFilled(start, startRadius, ColorU32(90, 238, 126, 0.95f), 12);
-        dl.AddCircle(start, startRadius, ColorU32(0, 0, 0, 0.72f), 12, MathF.Max(1f, startRadius * 0.35f));
-        var target = pts[^1];
-        if (hops > 0)
-        {
-            var text = $"{hops}->";
-            var sz = ImGui.CalcTextSize(text);
-            var min = new NumVec2(target.X - sz.X - 18f, target.Y - 10f);
-            var max = new NumVec2(target.X - 10f, target.Y + 10f);
-            dl.AddRectFilled(min, max, ColorU32(13, 13, 13, 0.82f), 5f);
-            dl.AddRect(min, max, col, 5f, 0, 1f);
-            dl.AddText(new NumVec2(min.X + 5f, min.Y + 2f), col, text);
-        }
-        if (!string.IsNullOrEmpty(label))
-            dl.AddText(new NumVec2(target.X + 12f, target.Y - 9f), ColorU32(235, 235, 235, 0.88f), label);
-    }
-
-    private static void DrawAtlasRouteChevrons(ImDrawListPtr dl, IReadOnlyList<NumVec2> pts, uint col, float spacing)
-    {
-        spacing = Math.Clamp(spacing, 8f, 80f);
-        var carry = spacing;
-        for (var i = 1; i < pts.Count; i++)
-        {
-            var a = pts[i - 1]; var b = pts[i];
-            var dx = b.X - a.X; var dy = b.Y - a.Y;
-            var len = MathF.Sqrt(dx * dx + dy * dy);
-            if (len < 1f) continue;
-            var ux = dx / len; var uy = dy / len;
-            var px = -uy; var py = ux;
-            for (var d = carry; d < len; d += spacing)
-            {
-                var cx = a.X + ux * d; var cy = a.Y + uy * d;
-                var tip = new NumVec2(cx + ux * 6f, cy + uy * 6f);
-                var l = new NumVec2(cx - ux * 4f + px * 4f, cy - uy * 4f + py * 4f);
-                var r = new NumVec2(cx - ux * 4f - px * 4f, cy - uy * 4f - py * 4f);
-                dl.AddTriangleFilled(tip, l, r, col);
-            }
-            carry = spacing - ((len - carry) % spacing);
-            if (carry <= 0 || carry > spacing) carry = spacing;
-        }
-    }
-
-    private static void DrawAtlasBadges(ImDrawListPtr dl, float cx, float y, IReadOnlyList<string> badges, uint border)
-    {
-        var shown = Math.Min(badges.Count, 4);
-        var widths = new float[shown];
-        var total = 0f;
-        for (var i = 0; i < shown; i++)
-        {
-            widths[i] = ImGui.CalcTextSize(badges[i]).X + 10f;
-            total += widths[i] + (i == 0 ? 0 : 4f);
-        }
-        var x = cx - total * 0.5f;
-        for (var i = 0; i < shown; i++)
-        {
-            var text = badges[i];
-            var w = widths[i];
-            var min = new NumVec2(x, y);
-            var max = new NumVec2(x + w, y + 16f);
-            dl.AddRectFilled(min, max, ColorU32(13, 13, 13, 0.78f), 4f);
-            dl.AddRect(min, max, border, 4f, 0, 1f);
-            dl.AddText(new NumVec2(x + 5f, y + 1f), ColorU32(245, 245, 245, 0.9f), text);
-            x += w + 4f;
-        }
-    }
-
-    private static void DrawAtlasArrow(ImDrawListPtr dl, float sx, float sy, float cx, float cy, float W, float H, uint col, string? label)
-    {
-        float dx = sx - cx, dy = sy - cy;
-        float len = MathF.Sqrt(dx * dx + dy * dy); if (len < 1f) return;
-        float ux = dx / len, uy = dy / len;
-        const float margin = 46f;
-        float tX = MathF.Abs(ux) > 1e-4f ? (W * 0.5f - margin) / MathF.Abs(ux) : 1e9f;
-        float tY = MathF.Abs(uy) > 1e-4f ? (H * 0.5f - margin) / MathF.Abs(uy) : 1e9f;
-        float t = MathF.Min(tX, tY);
-        float ex = cx + ux * t, ey = cy + uy * t;
-        float px = -uy, py = ux;
-        var tip = new NumVec2(ex + ux * 11f, ey + uy * 11f);
-        var bl = new NumVec2(ex - ux * 9f + px * 10f, ey - uy * 9f + py * 10f);
-        var br = new NumVec2(ex - ux * 9f - px * 10f, ey - uy * 9f - py * 10f);
-        dl.AddTriangleFilled(tip, bl, br, col);
-        if (label != null)
-            dl.AddText(new NumVec2(ex - ux * 56f - 95f, ey - uy * 18f - 8f), ColorU32(255, 255, 255, 0.9f), label);
-    }
 
     // ── Map overlay ──
 
@@ -3126,11 +2905,29 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
             float routeSpacing = s.AtlasRouteChevronSpacing;
             ImGui.SetNextItemWidth(180f);
-            if (ImGui.SliderFloat("Chevron spacing", ref routeSpacing, 8f, 80f, "%.0f"))
+            if (ImGui.SliderFloat("Chevron spacing", ref routeSpacing, 1f, 16f, "%.0f"))
             {
-                s.AtlasRouteChevronSpacing = Math.Clamp(routeSpacing, 8f, 80f);
+                s.AtlasRouteChevronSpacing = Math.Clamp(routeSpacing, 1f, 16f);
             }
             ImGuiTheme.Tooltip(SettingHints.Atlas.ChevronSpacing);
+
+            float nudgeY = s.AtlasAnchorNudgeY;
+            ImGui.SetNextItemWidth(180f);
+            if (ImGui.SliderFloat("Label nudge Y", ref nudgeY, -40f, 80f, "%.0f"))
+                s.AtlasAnchorNudgeY = Math.Clamp(nudgeY, -80f, 120f);
+            ImGuiTheme.Tooltip(SettingHints.Atlas.AnchorNudgeY);
+
+            float scaleMul = s.AtlasScaleMultiplier;
+            ImGui.SetNextItemWidth(180f);
+            if (ImGui.SliderFloat("UI scale", ref scaleMul, 0.5f, 2f, "%.2f"))
+                s.AtlasScaleMultiplier = Math.Clamp(scaleMul, 0.5f, 4f);
+            ImGuiTheme.Tooltip(SettingHints.Atlas.ScaleMultiplier);
+
+            float biomeTh = s.AtlasBiomeBorderThickness;
+            ImGui.SetNextItemWidth(180f);
+            if (ImGui.SliderFloat("Biome border", ref biomeTh, 1f, 6f, "%.1f"))
+                s.AtlasBiomeBorderThickness = Math.Clamp(biomeTh, 1f, 6f);
+            ImGuiTheme.Tooltip(SettingHints.Atlas.BiomeBorderThickness);
         }
         ImGuiTheme.EndAccordionSection(displayOpen);
 
@@ -3155,6 +2952,30 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             bool hav = s.AtlasHideAvailableMaps;
             if (ImGui.Checkbox("Hide available maps", ref hav)) { s.AtlasHideAvailableMaps = hav; }
             ImGuiTheme.Tooltip(SettingHints.Atlas.HideAvailable);
+
+            bool sns = s.AtlasShowNodeSprites;
+            if (ImGui.Checkbox("Node sprites", ref sns)) { s.AtlasShowNodeSprites = sns; }
+            ImGuiTheme.Tooltip(SettingHints.Atlas.ShowNodeSprites);
+
+            bool dls = s.AtlasDrawLinesSearchQuery;
+            if (ImGui.Checkbox("Route search matches", ref dls)) { s.AtlasDrawLinesSearchQuery = dls; }
+            ImGuiTheme.Tooltip(SettingHints.Atlas.DrawLinesSearchQuery);
+
+            bool du = s.AtlasDrawLinesToUniqueMaps;
+            if (ImGui.Checkbox("Route unique maps", ref du)) { s.AtlasDrawLinesToUniqueMaps = du; }
+            ImGuiTheme.Tooltip(SettingHints.Atlas.DrawLinesToUniqueMaps);
+
+            bool pl = s.AtlasPathToLineageMaps;
+            if (ImGui.Checkbox("Route lineage maps", ref pl)) { s.AtlasPathToLineageMaps = pl; }
+            ImGuiTheme.Tooltip(SettingHints.Atlas.PathToLineageMaps);
+
+            bool pa = s.AtlasPathToArbiterMaps;
+            if (ImGui.Checkbox("Route arbiter maps", ref pa)) { s.AtlasPathToArbiterMaps = pa; }
+            ImGuiTheme.Tooltip(SettingHints.Atlas.PathToArbiterMaps);
+
+            bool sci = s.AtlasShowContentIcons;
+            if (ImGui.Checkbox("Content icons", ref sci)) { s.AtlasShowContentIcons = sci; }
+            ImGuiTheme.Tooltip(SettingHints.Atlas.ShowContentIcons);
         }
         ImGuiTheme.EndAccordionSection(searchOpen);
 

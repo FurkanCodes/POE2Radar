@@ -109,6 +109,9 @@ public sealed class RadarSettings
     // ── One-time: atlas display settings upgrade (AtlasDrawAll → AtlasShowOnScreenNodes). ──
     public bool AtlasDisplayMigrated { get; set; } = false;
 
+    // One-time: GameHelper-style atlas visuals (hide filters, thin routes, label pills).
+    public bool AtlasGhStyleMigrated { get; set; } = false;
+
     // One-time: low-impact cadence defaults (lower read rate by default without removing features).
     public bool PerformanceDefaultsMigrated { get; set; } = false;
 
@@ -227,19 +230,35 @@ public sealed class RadarSettings
     public bool AtlasUseCurrentStart { get; set; } = true;
     public string AtlasLanguage { get; set; } = "english";
     public string AtlasSearchQuery { get; set; } = "";
-    public bool AtlasHideCompletedMaps { get; set; } = false;
-    public bool AtlasHideNotAccessibleMaps { get; set; } = false;
-    public bool AtlasHideAvailableMaps { get; set; } = false;
+    public bool AtlasHideCompletedMaps { get; set; } = true;
+    public bool AtlasHideNotAccessibleMaps { get; set; } = true;
+    public bool AtlasHideAvailableMaps { get; set; } = true;
     public bool AtlasShowBiomeBorders { get; set; } = true;
     public bool AtlasShowContentBadges { get; set; } = true;
     public bool AtlasShowContentCount { get; set; } = true;
     public bool AtlasShowContentTokens { get; set; } = false;
     public bool AtlasShowRouteChevrons { get; set; } = true;
-    public float AtlasRouteLineThickness { get; set; } = 3.5f;
-    public float AtlasRouteChevronSpacing { get; set; } = 28f;
+    public float AtlasRouteLineThickness { get; set; } = 1f;
+    public float AtlasRouteChevronSpacing { get; set; } = 8f;
     public float AtlasSearchRange { get; set; } = 1f;
     public float AtlasLabelOffsetX { get; set; } = 0f;
     public float AtlasLabelOffsetY { get; set; } = 0f;
+    public float AtlasAnchorNudgeY { get; set; } = 28f;
+    public float AtlasBaseWidth { get; set; } = 1920f;
+    public float AtlasBaseHeight { get; set; } = 1080f;
+    public float AtlasScaleMultiplier { get; set; } = 1f;
+    public float AtlasBiomeBorderThickness { get; set; } = 2f;
+    public bool AtlasShowNodeSprites { get; set; } = false;
+    public bool AtlasDrawLinesSearchQuery { get; set; } = true;
+    public bool AtlasDrawLinesToUniqueMaps { get; set; } = false;
+    public bool AtlasPathToLineageMaps { get; set; } = false;
+    public bool AtlasPathToArbiterMaps { get; set; } = false;
+    public bool AtlasShowContentIcons { get; set; } = false;
+    public float AtlasContentIconSize { get; set; } = 32f;
+    public bool AtlasUseUniversalFont { get; set; } = true;
+    public string AtlasDefaultBackgroundColor { get; set; } = "#000000";
+    public string AtlasDefaultFontColor { get; set; } = "#FFFFFF";
+    public List<AtlasContentGroupSettings> AtlasContentGroups { get; set; } = new();
     public List<AtlasMapGroupSettings> AtlasMapGroups { get; set; } = BuildDefaultAtlasMapGroups();
     public List<AtlasRouteGroupSettings> AtlasRouteGroups { get; set; } = BuildDefaultAtlasRouteGroups();
 
@@ -420,6 +439,19 @@ public sealed class RadarSettings
         {
             if (AtlasDrawAll) AtlasShowOnScreenNodes = true;
             AtlasDisplayMigrated = true;
+            changed = true;
+        }
+
+        if (!AtlasGhStyleMigrated)
+        {
+            AtlasHideCompletedMaps = true;
+            AtlasHideNotAccessibleMaps = true;
+            AtlasHideAvailableMaps = true;
+            AtlasShowNodeSprites = false;
+            AtlasAnchorNudgeY = 28f;
+            AtlasRouteLineThickness = 1f;
+            AtlasRouteChevronSpacing = 8f;
+            AtlasGhStyleMigrated = true;
             changed = true;
         }
 
@@ -604,6 +636,22 @@ public sealed class AtlasRouteEntrySettings
     public string Color { get; set; } = "#58A6FF";
     public bool DrawPath { get; set; } = true;
     public int MaxHops { get; set; } = 25;
+}
+
+public sealed class AtlasContentGroupSettings
+{
+    public string Name { get; set; } = "";
+    public bool DrawPaths { get; set; } = true;
+    public float LineThickness { get; set; } = 1f;
+    public List<AtlasContentRouteEntrySettings> Contents { get; set; } = new();
+}
+
+public sealed class AtlasContentRouteEntrySettings
+{
+    public string ContentKey { get; set; } = "";
+    public string Color { get; set; } = "#FFD933";
+    public bool DrawPath { get; set; } = true;
+    public int MaxHops { get; set; } = 0;
 }
 
 /// <summary>

@@ -4,28 +4,35 @@ using System.Text.Json;
 namespace POE2Radar.Core.Game;
 
 /// <summary>
-/// Atlas display/catalog metadata adapted to POE2Radar's data model. This intentionally keeps the
-/// catalog native to this repository: map names come from the embedded <c>world_areas.json</c>, while
-/// atlas-specific groups, biomes, content badges, and route targets are curated here.
+/// Atlas display/catalog metadata. Map codes come from embedded <c>world_areas.json</c>; content/biome
+/// chip colors and translations are loaded from GH-compatible embedded JSON under <c>Resources/</c>.
 /// </summary>
 public sealed class AtlasCatalog
 {
     public readonly record struct MapInfo(string Code, string Name, string Type, string[] Tags, string Group);
-    public readonly record struct BiomeInfo(byte Id, string Name, string Color, bool Show);
-    public readonly record struct ContentInfo(string Key, string Label, string ShortLabel, string Color, string Description, bool Flag);
+    public readonly record struct BiomeInfo(byte Id, string Name, string Color, float Alpha, bool Show);
+    public readonly record struct ContentInfo(
+        string Key, string Label, string Abbrev,
+        byte BgR, byte BgG, byte BgB, float BgA,
+        byte FgR, byte FgG, byte FgB, float FgA,
+        string Description, bool IsFlag, bool Show);
     public readonly record struct MapGroupInfo(string Name, string Color, string FontColor, string[] Maps);
     public readonly record struct RouteTargetInfo(string Name, string Match, string Color, int MaxHops, bool Enabled);
+    public readonly record struct MapContentMeta(string Name, string? IconBasename, string Description);
 
     private readonly Dictionary<string, MapInfo> _maps = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, ContentInfo> _content = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, ContentInfo> _contentByKey = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, ContentInfo> _contentByLabel = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, MapContentMeta> _mapContent = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Dictionary<string, (string Name, string Desc)>> _mapContentTranslations = new(StringComparer.OrdinalIgnoreCase);
 
     public static AtlasCatalog Shared { get; } = Load();
 
-    public IReadOnlyList<BiomeInfo> Biomes { get; private init; } = Array.Empty<BiomeInfo>();
+    public IReadOnlyList<BiomeInfo> Biomes { get; private set; } = Array.Empty<BiomeInfo>();
     public IReadOnlyList<MapGroupInfo> DefaultMapGroups { get; private init; } = Array.Empty<MapGroupInfo>();
     public IReadOnlyList<RouteTargetInfo> DefaultRouteTargets { get; private init; } = Array.Empty<RouteTargetInfo>();
     public IReadOnlyCollection<MapInfo> Maps => _maps.Values;
-    public IReadOnlyCollection<ContentInfo> Content => _content.Values;
+    public IReadOnlyCollection<ContentInfo> Content => _contentByKey.Values;
 
     public MapInfo? Map(string code)
         => !string.IsNullOrWhiteSpace(code) && _maps.TryGetValue(code, out var m) ? m : null;
@@ -33,31 +40,92 @@ public sealed class AtlasCatalog
     public string MapName(string code)
         => Map(code)?.Name ?? PrettifyMapCode(code);
 
+    public BiomeInfo Biome(byte id)
+    {
+        foreach (var b in Biomes)
+            if (b.Id == id) return b;
+        return new BiomeInfo(id, "Unknown", "#8a93a0", 0.9f, true);
+    }
+
     public ContentInfo? ContentInfoFor(string key)
     {
         if (string.IsNullOrWhiteSpace(key)) return null;
-        if (_content.TryGetValue(key, out var exact)) return exact;
-        foreach (var c in _content.Values)
-            if (key.Contains(c.Key, StringComparison.OrdinalIgnoreCase) || key.Contains(c.Label, StringComparison.OrdinalIgnoreCase))
+        if (_contentByKey.TryGetValue(key, out var exact)) return exact;
+        var norm = NormalizeName(key);
+        if (_contentByLabel.TryGetValue(norm, out var byLabel)) return byLabel;
+        foreach (var c in _contentByKey.Values)
+        {
+            if (key.Contains(c.Key, StringComparison.OrdinalIgnoreCase)
+                || key.Contains(c.Label, StringComparison.OrdinalIgnoreCase)
+                || (c.Abbrev.Length > 1 && key.Contains(c.Abbrev, StringComparison.OrdinalIgnoreCase)))
                 return c;
+        }
         return null;
     }
 
-    public string LocalizedMapName(string code, string language)
+    public void CategorizeContentTags(
+        IEnumerable<string> rawNames,
+        out List<ContentInfo> flags,
+        out List<ContentInfo> contents)
     {
-        // world_areas.json currently stores English names only. Keep the language argument in the public
-        // shape so adding translated catalogs later does not change callers.
-        return MapName(code);
+        flags = [];
+        contents = [];
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var raw in rawNames)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) continue;
+            var info = ContentInfoFor(raw);
+            if (info is null || !info.Value.Show) continue;
+            var ci = info.Value;
+            if (!seen.Add(ci.Key)) continue;
+            if (ci.IsFlag) flags.Add(ci);
+            else contents.Add(ci);
+        }
     }
+
+    public string LocalizedMapName(string code, string language)
+        => MapName(code);
+
+    public string LocalizedContentName(string contentName, string language)
+    {
+        if (string.IsNullOrWhiteSpace(contentName)) return contentName;
+        var lang = NormalizeLanguage(language);
+        if (_mapContentTranslations.TryGetValue(contentName, out var langs)
+            && langs.TryGetValue(lang, out var tr)
+            && !string.IsNullOrWhiteSpace(tr.Name))
+            return tr.Name;
+        if (_mapContent.TryGetValue(contentName, out var meta) && !string.IsNullOrWhiteSpace(meta.Name))
+            return meta.Name;
+        return contentName;
+    }
+
+    public string? LocalizedContentDescription(string contentName, string language)
+    {
+        if (string.IsNullOrWhiteSpace(contentName)) return null;
+        var lang = NormalizeLanguage(language);
+        if (_mapContentTranslations.TryGetValue(contentName, out var langs)
+            && langs.TryGetValue(lang, out var tr)
+            && !string.IsNullOrWhiteSpace(tr.Desc))
+            return tr.Desc;
+        if (_mapContent.TryGetValue(contentName, out var meta) && !string.IsNullOrWhiteSpace(meta.Description))
+            return meta.Description;
+        return null;
+    }
+
+    public string? ContentIconBasename(string contentName)
+        => _mapContent.TryGetValue(contentName, out var meta) ? meta.IconBasename : null;
 
     private static AtlasCatalog Load()
     {
         var cat = new AtlasCatalog
         {
-            Biomes = BuildBiomes(),
+            Biomes = LoadBiomesFromResource(),
             DefaultMapGroups = BuildMapGroups(),
             DefaultRouteTargets = BuildRouteTargets(),
         };
+
+        cat.LoadContentJson();
+        cat.LoadMapContentJson();
 
         try
         {
@@ -82,12 +150,166 @@ public sealed class AtlasCatalog
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"AtlasCatalog load failed: {ex.Message}");
+            Console.Error.WriteLine($"AtlasCatalog world_areas load failed: {ex.Message}");
         }
 
-        foreach (var c in BuildContent())
-            cat._content[c.Key] = c;
         return cat;
+    }
+
+    private void LoadContentJson()
+    {
+        try
+        {
+            using var s = OpenResource("atlas_content.json");
+            if (s is null) return;
+            var doc = JsonDocument.Parse(s);
+            foreach (var prop in doc.RootElement.EnumerateObject())
+            {
+                var v = prop.Value;
+                var label = v.TryGetProperty("Label", out var l) ? l.GetString() ?? prop.Name : prop.Name;
+                var abbrev = v.TryGetProperty("Abbrev", out var a) ? a.GetString() ?? label[..Math.Min(1, label.Length)] : label[..Math.Min(1, label.Length)];
+                var isFlag = v.TryGetProperty("IsFlag", out var f) && f.GetBoolean();
+                var show = !v.TryGetProperty("Show", out var sh) || sh.GetBoolean();
+                ParseColor(v, "BackgroundColor", out var bgR, out var bgG, out var bgB, out var bgA);
+                ParseColor(v, "FontColor", out var fgR, out var fgG, out var fgB, out var fgA);
+                var info = new ContentInfo(prop.Name, label, abbrev, bgR, bgG, bgB, bgA, fgR, fgG, fgB, fgA, label, isFlag, show);
+                _contentByKey[prop.Name] = info;
+                _contentByLabel[NormalizeName(label)] = info;
+                if (!string.IsNullOrEmpty(abbrev))
+                    _contentByLabel[NormalizeName(abbrev)] = info;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"AtlasCatalog content load failed: {ex.Message}");
+        }
+    }
+
+    private void LoadMapContentJson()
+    {
+        try
+        {
+            using var s = OpenResource("atlas_mapcontent.json");
+            if (s is null) return;
+            var doc = JsonDocument.Parse(s);
+            foreach (var prop in doc.RootElement.EnumerateObject())
+            {
+                var v = prop.Value;
+                var name = v.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
+                if (string.IsNullOrWhiteSpace(name)) continue;
+                var icon = v.TryGetProperty("icon", out var ic) ? ic.GetString() : null;
+                var desc = v.TryGetProperty("desc", out var d) ? d.GetString() ?? "" : "";
+                _mapContent[name] = new MapContentMeta(name, icon, desc);
+
+                if (!v.TryGetProperty("translates", out var tr) || tr.ValueKind != JsonValueKind.Object)
+                    continue;
+                var langMap = new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase);
+                foreach (var langProp in tr.EnumerateObject())
+                {
+                    var lv = langProp.Value;
+                    var tName = lv.TryGetProperty("name", out var tn) ? tn.GetString() ?? "" : "";
+                    var tDesc = lv.TryGetProperty("desc", out var td) ? td.GetString() ?? "" : "";
+                    langMap[langProp.Name] = (tName, tDesc);
+                }
+                _mapContentTranslations[name] = langMap;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"AtlasCatalog mapcontent load failed: {ex.Message}");
+        }
+    }
+
+    private static BiomeInfo[] LoadBiomesFromResource()
+    {
+        try
+        {
+            using var s = OpenStaticResource("atlas_biome.json");
+            if (s is null) return BuildBiomesFallback();
+            var doc = JsonDocument.Parse(s);
+            var list = new List<BiomeInfo>();
+            foreach (var prop in doc.RootElement.EnumerateObject())
+            {
+                if (!byte.TryParse(prop.Name, out var id)) continue;
+                var v = prop.Value;
+                var label = v.TryGetProperty("Label", out var l) ? l.GetString() ?? "Unknown" : "Unknown";
+                var show = !v.TryGetProperty("Show", out var sh) || sh.GetBoolean();
+                ParseColor(v, "BorderColor", out var r, out var g, out var b, out var a);
+                list.Add(new BiomeInfo(id, label, RgbToHex(r, g, b), a, show));
+            }
+            return list.Count > 0 ? list.ToArray() : BuildBiomesFallback();
+        }
+        catch
+        {
+            return BuildBiomesFallback();
+        }
+    }
+
+    private static BiomeInfo[] BuildBiomesFallback() =>
+    [
+        new(0, "Water", "#5FA5F8", 0.9f, true),
+        new(1, "Mountain", "#FDF4E3", 0.9f, true),
+        new(2, "Grass", "#33DE00", 0.9f, true),
+        new(3, "Forest", "#196B23", 0.9f, true),
+        new(4, "Swamp", "#494847", 0.9f, true),
+        new(5, "Desert", "#FBC561", 0.9f, true),
+        new(6, "Ezomyte City", "#F66161", 0.9f, true),
+        new(7, "Faridun City", "#F66161", 0.9f, true),
+        new(8, "Vaal City", "#F66161", 0.9f, true),
+        new(9, "Breach City", "#991ACC", 0.9f, true),
+        new(10, "Ocean", "#044782", 0.9f, true),
+        new(11, "Island", "#479687", 0.9f, true),
+        new(12, "Oriath City", "#F66161", 0.9f, true),
+    ];
+
+    private Stream? OpenResource(string fileName) => OpenStaticResource(fileName);
+
+    private static Stream? OpenStaticResource(string fileName)
+    {
+        var asm = Assembly.GetExecutingAssembly();
+        var res = asm.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith(fileName, StringComparison.OrdinalIgnoreCase));
+        return res != null ? asm.GetManifestResourceStream(res) : null;
+    }
+
+    private static void ParseColor(JsonElement parent, string propName, out byte r, out byte g, out byte b, out float a)
+    {
+        r = g = b = 0;
+        a = 1f;
+        if (!parent.TryGetProperty(propName, out var arr) || arr.ValueKind != JsonValueKind.Array) return;
+        var i = 0;
+        float rf = 0, gf = 0, bf = 0, af = 1f;
+        foreach (var el in arr.EnumerateArray())
+        {
+            var v = (float)el.GetDouble();
+            switch (i++)
+            {
+                case 0: rf = v; break;
+                case 1: gf = v; break;
+                case 2: bf = v; break;
+                case 3: af = v; break;
+            }
+        }
+        r = (byte)Math.Clamp(rf * 255f, 0, 255);
+        g = (byte)Math.Clamp(gf * 255f, 0, 255);
+        b = (byte)Math.Clamp(bf * 255f, 0, 255);
+        a = Math.Clamp(af, 0f, 1f);
+    }
+
+    private static string RgbToHex(byte r, byte g, byte b)
+        => $"#{r:X2}{g:X2}{b:X2}";
+
+    private static string NormalizeName(string s)
+        => s.Trim().ToLowerInvariant();
+
+    private static string NormalizeLanguage(string language)
+    {
+        if (string.IsNullOrWhiteSpace(language)) return "english";
+        return language.Trim().ToLowerInvariant() switch
+        {
+            "zh" or "zh-cn" or "chinese" => "chinese",
+            "zh-tw" or "traditional chinese" => "traditional chinese",
+            _ => language.Trim().ToLowerInvariant(),
+        };
     }
 
     private static MapInfo BuildMapInfo(string code, string name)
@@ -121,69 +343,35 @@ public sealed class AtlasCatalog
         return new MapInfo(code, name, type, tags.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(), group);
     }
 
-    private static BiomeInfo[] BuildBiomes() =>
-    [
-        new(0, "Unknown", "#8a93a0", true),
-        new(1, "Grass", "#66d17a", true),
-        new(2, "Sand", "#d7b46a", true),
-        new(3, "Swamp", "#55a37b", true),
-        new(4, "Forest", "#3fb56a", true),
-        new(5, "Snow", "#bde7ff", true),
-        new(6, "Stone", "#a7a7a7", true),
-        new(7, "Volcanic", "#e05a3a", true),
-        new(8, "Coast", "#58c7d8", true),
-        new(9, "Cave", "#9c7a55", true),
-        new(10, "Vaal", "#c0395a", true),
-        new(11, "Water", "#3ca0ff", true),
-        new(12, "Desert", "#d98a2b", true),
-    ];
-
-    private static ContentInfo[] BuildContent() =>
-    [
-        new("Powerful Map Boss", "Powerful Map Boss", "Boss", "#e0533a", "Map contains a powerful boss reward modifier.", true),
-        new("Breach", "Breach", "Br", "#7c5cff", "Map contains Breach content.", true),
-        new("Delirium", "Delirium", "De", "#b86cff", "Map contains Delirium content.", true),
-        new("Ritual", "Ritual", "Ri", "#d946ef", "Map contains Ritual altars.", true),
-        new("Expedition", "Expedition", "Ex", "#d98a2b", "Map contains Expedition content.", true),
-        new("Abyss", "Abyss", "Ab", "#55a37b", "Map contains Abyss content.", true),
-        new("Irradiated", "Irradiated", "+1", "#f6c343", "Map has an irradiated area-level bonus.", true),
-        new("Corruption", "Corruption", "Cor", "#c0395a", "Map contains corruption content.", true),
-        new("Grand Mirror", "Grand Mirror", "Mir", "#3ca0ff", "Map contains a Grand Mirror.", true),
-        new("Vaal Beacons", "Vaal Beacons", "Vaal", "#c0395a", "Map contains Vaal Beacons.", true),
-        new("Indomitable Essence", "Indomitable Essence", "Ess", "#58c7d8", "Map contains Essence content.", false),
-        new("Strongbox", "Strongbox", "Box", "#2fb6a8", "Map contains strongboxes.", false),
-        new("Shrine", "Shrine", "Shr", "#e0b341", "Map contains shrines.", false),
-        new("Hideout", "Hideout", "HO", "#8a93a0", "Map can contain a hideout.", true),
-    ];
-
     private static MapGroupInfo[] BuildMapGroups() =>
     [
-        new("Expedition unique", "#8b2f2f", "#ffffff", ["Moor of Fallen Skies"]),
-        new("Expedition bosses", "#a15d2a", "#ffffff", ["Sprawling Jungle", "Secluded Temple", "Obscure Island", "Mournful Cliffside"]),
-        new("Unique maps low tier", "#5943a8", "#ffffff", ["Fractured Lake", "Ezomyte Megaliths", "Moment of Zen", "Silent Cave", "Vaults of Kamasa", "Viridian Wildwood"]),
-        new("Unique maps top tier", "#d98a2b", "#ffffff", ["Castaway", "Untainted Paradise"]),
-        new("Citadels", "#e0b341", "#1b1400", ["Copper Citadel", "Iron Citadel", "Stone Citadel", "Jade Citadel"]),
-        new("Halls", "#d946ef", "#ffffff", ["Matriarch Halls", "Patriarch Halls"]),
-        new("Anomaly maps", "#2fb6a8", "#031615", ["Jade Isles", "Sealed Vault", "Sacred Reservoir", "Derelict Mansion"]),
+        new("Expedition unique", "#000000", "#0000FF", ["Moor of Fallen Skies"]),
+        new("Expedition bosses", "#000000", "#0000FF", ["Sprawling Jungle", "Secluded Temple", "Obscure Island", "Mournful Cliffside"]),
+        new("Unique maps low tier", "#000000", "#F97405", ["The Fractured Lake", "The Ezomyte Megaliths", "Merchant's Campsite", "Jado's Campsite",
+            "Moment of Zen", "The Voyage", "The Silent Cave", "Vaults of Kamasa", "The Viridian Wildwood"]),
+        new("Unique maps top tier", "#CECF59", "#E9E9E9", ["Castaway", "Untainted Paradise"]),
+        new("Citadels", "#626265", "#FFF400", ["The Copper Citadel", "The Iron Citadel", "The Stone Citadel"]),
+        new("Halls", "#626265", "#FFF400", ["The Matriarch Halls", "The Patriarch Halls"]),
+        new("Anomaly maps", "#0E3614", "#FFFFFF", ["The Jade Isles", "Sealed Vault", "Sacred Reservoir", "Derelict Mansion"]),
     ];
 
     private static RouteTargetInfo[] BuildRouteTargets() =>
     [
-        new("Stone Citadel", "map:Stone Citadel", "#e0b341", 25, true),
-        new("Iron Citadel", "map:Iron Citadel", "#e0b341", 25, true),
-        new("Copper Citadel", "map:Copper Citadel", "#e0b341", 25, true),
-        new("Patriarch Halls", "map:Patriarch Halls", "#e0b341", 25, true),
-        new("Matriarch Halls", "map:Matriarch Halls", "#e0b341", 25, true),
-        new("Jade Citadel", "map:Jade Citadel", "#6ee787", 25, true),
-        new("Derelict Mansion", "map:Derelict Mansion", "#6ee787", 25, true),
-        new("Cavern City", "map:Cavern City", "#6ee787", 25, true),
-        new("Vaal Vault", "map:Vaal Vault", "#6ee787", 25, true),
+        new("Stone Citadel", "map:Stone Citadel", "#FFF164", 25, true),
+        new("Iron Citadel", "map:Iron Citadel", "#FFF164", 25, true),
+        new("Copper Citadel", "map:Copper Citadel", "#FFF164", 25, true),
+        new("Patriarch Halls", "map:Patriarch Halls", "#FFF164", 25, true),
+        new("Matriarch Halls", "map:Matriarch Halls", "#FFF164", 25, true),
+        new("Jade Citadel", "map:Jade Citadel", "#048E3B", 25, true),
+        new("Derelict Mansion", "map:Derelict Mansion", "#048E3B", 25, true),
+        new("Cavern City", "map:Cavern City", "#048E3B", 25, true),
+        new("Vaal Vault", "map:Vaal Vault", "#048E3B", 25, true),
         new("Untainted Paradise", "map:Untainted Paradise", "#ff9e42", 25, false),
         new("Castaway", "map:Castaway", "#ff9e42", 25, false),
         new("Moor of Fallen Skies", "map:Moor of Fallen Skies", "#e0533a", 25, false),
-        new("All unique maps", "type:unique", "#d946ef", 0, false),
-        new("Lineage maps", "tag:lineage", "#6ee787", 0, false),
-        new("Arbiter maps", "tag:arbiter", "#e0b341", 0, false),
+        new("All unique maps", "type:unique", "#FF00FF", 0, false),
+        new("Lineage maps", "tag:lineage", "#00E000", 0, false),
+        new("Arbiter maps", "tag:arbiter", "#FF0000", 0, false),
     ];
 
     public static string PrettifyMapCode(string code)

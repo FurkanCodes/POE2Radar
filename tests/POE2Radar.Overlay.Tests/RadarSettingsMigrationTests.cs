@@ -174,4 +174,34 @@ public sealed class RadarSettingsMigrationTests
         Assert.True(s.ShowGroundWaypoints);
         Assert.Equal(1.0f, s.LargeMapScaleMultiplier);
     }
+
+    [Fact]
+    public void Migrate_AppliesAtlasGhStyleDefaultsOnce()
+    {
+        var s = new RadarSettings
+        {
+            AtlasGhStyleMigrated = false,
+            AtlasHideCompletedMaps = false,
+            AtlasHideNotAccessibleMaps = false,
+            AtlasHideAvailableMaps = false,
+            AtlasShowNodeSprites = true,
+            AtlasRouteLineThickness = 3.5f,
+            AtlasRouteChevronSpacing = 28f,
+            AtlasAnchorNudgeY = 0f,
+        };
+
+        var changed = s.Migrate();
+
+        Assert.True(changed);
+        Assert.True(s.AtlasGhStyleMigrated);
+        Assert.True(s.AtlasHideCompletedMaps);
+        Assert.True(s.AtlasHideNotAccessibleMaps);
+        Assert.True(s.AtlasHideAvailableMaps);
+        Assert.False(s.AtlasShowNodeSprites);
+        Assert.Equal(1f, s.AtlasRouteLineThickness);
+        Assert.Equal(8f, s.AtlasRouteChevronSpacing);
+        Assert.Equal(28f, s.AtlasAnchorNudgeY);
+
+        Assert.False(s.Migrate());
+    }
 }

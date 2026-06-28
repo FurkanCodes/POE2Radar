@@ -181,6 +181,17 @@ internal static class SettingHints
         public const string ColTrack = "Draw a ring and route to matching nodes.";
         public const string ColArrow = "Show an edge arrow when the node is off-screen.";
         public const string ColColor = "Highlight ring color for tracked tags.";
+        public const string ShowNodeSprites = "Draw extra icon sprites on atlas nodes (off matches GameHelper's clean look).";
+        public const string AnchorNudgeY = "Vertical offset for map name pills below each node center.";
+        public const string ScaleMultiplier = "Overall atlas label and chip scale for your resolution.";
+        public const string BiomeBorderThickness = "Thickness of the colored border around map name pills.";
+        public const string DrawLinesSearchQuery = "Draw route lines to maps matching the search box.";
+        public const string DrawLinesToUniqueMaps = "Draw route lines to reachable unique maps.";
+        public const string PathToLineageMaps = "Draw route lines to lineage maps.";
+        public const string PathToArbiterMaps = "Draw route lines to arbiter maps.";
+        public const string ShowContentIcons = "Show content icons above map names when PNGs exist in atlas-content-icons.";
+        public const string ContentIconSize = "Height of content icons above map names.";
+        public const string UseUniversalFont = "Scale atlas labels for non-English map and content names.";
     }
 
     internal static class Hotkeys

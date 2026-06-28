@@ -664,6 +664,20 @@ public sealed class ApiServer : IDisposable
         atlasSearchRange = _settings.AtlasSearchRange,
         atlasLabelOffsetX = _settings.AtlasLabelOffsetX,
         atlasLabelOffsetY = _settings.AtlasLabelOffsetY,
+        atlasAnchorNudgeY = _settings.AtlasAnchorNudgeY,
+        atlasBaseWidth = _settings.AtlasBaseWidth,
+        atlasBaseHeight = _settings.AtlasBaseHeight,
+        atlasScaleMultiplier = _settings.AtlasScaleMultiplier,
+        atlasBiomeBorderThickness = _settings.AtlasBiomeBorderThickness,
+        atlasShowNodeSprites = _settings.AtlasShowNodeSprites,
+        atlasDrawLinesSearchQuery = _settings.AtlasDrawLinesSearchQuery,
+        atlasDrawLinesToUniqueMaps = _settings.AtlasDrawLinesToUniqueMaps,
+        atlasPathToLineageMaps = _settings.AtlasPathToLineageMaps,
+        atlasPathToArbiterMaps = _settings.AtlasPathToArbiterMaps,
+        atlasShowContentIcons = _settings.AtlasShowContentIcons,
+        atlasContentIconSize = _settings.AtlasContentIconSize,
+        atlasUseUniversalFont = _settings.AtlasUseUniversalFont,
+        atlasContentGroups = _settings.AtlasContentGroups,
         atlasMapGroups = _settings.AtlasMapGroups,
         atlasRouteGroups = _settings.AtlasRouteGroups,
         hideEntityHotkey = _settings.HideEntityHotkey,
@@ -800,6 +814,21 @@ public sealed class ApiServer : IDisposable
                     _settings.AtlasLabelOffsetX = Math.Clamp(alox, -80f, 80f); applied.Add(p.Name); break;
                 case "atlasLabelOffsetY" when TryFloat(p.Value, out var aloy):
                     _settings.AtlasLabelOffsetY = Math.Clamp(aloy, -80f, 80f); applied.Add(p.Name); break;
+                case "atlasAnchorNudgeY" when TryFloat(p.Value, out var aan):
+                    _settings.AtlasAnchorNudgeY = Math.Clamp(aan, -80f, 120f); applied.Add(p.Name); break;
+                case "atlasScaleMultiplier" when TryFloat(p.Value, out var asm):
+                    _settings.AtlasScaleMultiplier = Math.Clamp(asm, 0.5f, 4f); applied.Add(p.Name); break;
+                case "atlasBiomeBorderThickness" when TryFloat(p.Value, out var abt):
+                    _settings.AtlasBiomeBorderThickness = Math.Clamp(abt, 1f, 6f); applied.Add(p.Name); break;
+                case "atlasShowNodeSprites" when TryBool(p.Value, out var ans): _settings.AtlasShowNodeSprites = ans; applied.Add(p.Name); break;
+                case "atlasDrawLinesSearchQuery" when TryBool(p.Value, out var adls): _settings.AtlasDrawLinesSearchQuery = adls; applied.Add(p.Name); break;
+                case "atlasDrawLinesToUniqueMaps" when TryBool(p.Value, out var adlu): _settings.AtlasDrawLinesToUniqueMaps = adlu; applied.Add(p.Name); break;
+                case "atlasPathToLineageMaps" when TryBool(p.Value, out var aptl): _settings.AtlasPathToLineageMaps = aptl; applied.Add(p.Name); break;
+                case "atlasPathToArbiterMaps" when TryBool(p.Value, out var apta): _settings.AtlasPathToArbiterMaps = apta; applied.Add(p.Name); break;
+                case "atlasShowContentIcons" when TryBool(p.Value, out var asci): _settings.AtlasShowContentIcons = asci; applied.Add(p.Name); break;
+                case "atlasContentIconSize" when TryFloat(p.Value, out var acis):
+                    _settings.AtlasContentIconSize = Math.Clamp(acis, 16f, 64f); applied.Add(p.Name); break;
+                case "atlasUseUniversalFont" when TryBool(p.Value, out var auf): _settings.AtlasUseUniversalFont = auf; applied.Add(p.Name); break;
                 case "atlasIconScale" when TryFloat(p.Value, out var ais):
                     _settings.AtlasIconScale = Math.Clamp(ais, 0.25f, 4f);
                     applied.Add(p.Name);

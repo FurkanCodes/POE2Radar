@@ -175,6 +175,16 @@ public enum AtlasEndgameTier : byte
     Pinnacle = 6,
 }
 
+/// <summary>Colored content chip for atlas overlay (GameHelper DrawSquares style).</summary>
+public readonly record struct AtlasContentChip(
+    string Abbrev,
+    byte BgR, byte BgG, byte BgB, float BgA,
+    byte FgR, byte FgG, byte FgB, float FgA)
+{
+    public static AtlasContentChip FromInfo(AtlasCatalog.ContentInfo c)
+        => new(c.Abbrev, c.BgR, c.BgG, c.BgB, c.BgA, c.FgR, c.FgG, c.FgB, c.FgA);
+}
+
 /// <summary>One atlas node to draw. <see cref="X"/>/<see cref="Y"/> keep canvas-space RelativePos for API
 /// compatibility; <see cref="ScreenX"/>/<see cref="ScreenY"/> are live game UI screen-space centers.</summary>
 public readonly record struct AtlasMark(
@@ -190,14 +200,26 @@ public readonly record struct AtlasMark(
     bool Arrow = false,
     AtlasEndgameTier EndgameTier = AtlasEndgameTier.None,
     string? BiomeColor = null,
+    float BiomeAlpha = 0.9f,
     string? LabelBg = null,
     string? LabelFg = null,
     IReadOnlyList<string>? Badges = null,
     int ContentCount = 0,
-    string? Tooltip = null);
+    string? Tooltip = null,
+    bool Completed = false,
+    IReadOnlyList<AtlasContentChip>? FlagChips = null,
+    IReadOnlyList<AtlasContentChip>? ContentChips = null,
+    IReadOnlyList<string>? ContentNames = null,
+    int RouteHops = 0);
 
 /// <summary>One atlas route polyline with display metadata for multi-target search/content routes.</summary>
-public readonly record struct AtlasRouteLine(IReadOnlyList<NumVec2> Points, string Label, string Color, int Hops);
+public readonly record struct AtlasRouteLine(
+    IReadOnlyList<NumVec2> Points,
+    string Label,
+    string Color,
+    int Hops,
+    float Thickness = 1f,
+    int PhaseIndex = 0);
 
 /// <summary>Distinct atlas tag or map name for the overlay Settings → Atlas filter picker.</summary>
 public readonly record struct AtlasTagCatalogEntry(string Key, string Kind, int Count);
@@ -309,6 +331,17 @@ public sealed record RenderContext(
     bool AtlasShowContentTokens = false,
     float AtlasLabelOffsetX = 0f,
     float AtlasLabelOffsetY = 0f,
+    float AtlasAnchorNudgeY = 28f,
+    float AtlasUiScale = 1f,
+    float AtlasBiomeBorderThickness = 2f,
+    bool AtlasShowNodeSprites = false,
+    bool AtlasDrawLinesSearchQuery = true,
+    bool AtlasShowContentIcons = false,
+    float AtlasContentIconSize = 32f,
+    bool AtlasUseUniversalFont = true,
+    string AtlasDefaultBackgroundColor = "#000000",
+    string AtlasDefaultFontColor = "#FFFFFF",
+    string AtlasLanguage = "english",
     IReadOnlyList<AtlasTagCatalogEntry>? AtlasTagCatalog = null,
     // Atlas canvas→screen homography coefficients (h0..h7; h8=1). Shear/persp 0 ⇒ plain affine.
     float AtlasScale = 0.5f,   // h0
