@@ -323,6 +323,9 @@ public sealed class RadarSettings
     /// <summary>One-time: enable Ritual Prices side window.</summary>
     public bool RitualPricesWindowMigrated { get; set; }
 
+    /// <summary>One-time: reconcile Atlas built-in route targets with the GameHelper target list.</summary>
+    public bool AtlasRouteTargetsGhParityMigrated { get; set; }
+
     // ── HTTP API. ──
     public int ApiPort { get; set; } = 7777;
 
@@ -536,6 +539,13 @@ public sealed class RadarSettings
             changed = true;
         }
 
+        if (!AtlasRouteTargetsGhParityMigrated)
+        {
+            ReconcileBuiltInAtlasRouteTargets();
+            AtlasRouteTargetsGhParityMigrated = true;
+            changed = true;
+        }
+
         return changed;
     }
 
@@ -558,7 +568,7 @@ public sealed class RadarSettings
                 Name = "Map Targets",
                 Locked = true,
                 DrawPaths = true,
-                LineThickness = 3.5f,
+                LineThickness = 1.5f,
                 Entries = AtlasCatalog.Shared.DefaultRouteTargets
                     .Select(t => new AtlasRouteEntrySettings
                     {
@@ -571,6 +581,35 @@ public sealed class RadarSettings
                     .ToList(),
             }
         };
+
+    private void ReconcileBuiltInAtlasRouteTargets()
+    {
+        var seeded = BuildDefaultAtlasRouteGroups()[0];
+        var existing = AtlasRouteGroups.FirstOrDefault(g => g.Locked)
+            ?? AtlasRouteGroups.FirstOrDefault(g => string.Equals(g.Name, seeded.Name, StringComparison.OrdinalIgnoreCase));
+        if (existing is null)
+        {
+            AtlasRouteGroups.Insert(0, seeded);
+            return;
+        }
+
+        existing.Name = seeded.Name;
+        existing.Locked = true;
+        existing.DrawPaths = true;
+        existing.LineThickness = 1.5f;
+
+        var previous = existing.Entries
+            .GroupBy(e => e.Match, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        existing.Entries = seeded.Entries.Select(seed =>
+        {
+            if (!previous.TryGetValue(seed.Match, out var old)) return seed;
+            seed.DrawPath = old.DrawPath;
+            seed.Color = string.IsNullOrWhiteSpace(old.Color) ? seed.Color : old.Color;
+            seed.MaxHops = old.MaxHops;
+            return seed;
+        }).ToList();
+    }
 
     /// <summary>Persist current settings to disk. Never throws on IO error — logs and continues.</summary>
     public void Save()

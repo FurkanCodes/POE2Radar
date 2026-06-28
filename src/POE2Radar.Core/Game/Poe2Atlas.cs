@@ -544,12 +544,10 @@ public sealed class Poe2Atlas
             _reader.TryReadStruct<uint>(el + Poe2.UiElement.Flags, out var uiFlags);
             var visible = ((uiFlags >> Poe2.UiElement.FlagVisibleBit) & 1) != 0;
             var old = _nodeSnapshot[idx];
-            var data = ReadNodeData(el);
-            var flags = data.Resolved ? AtlasNodeState.FlagsFromStatus(data.Status) : directFlags;
             var screen = TryScreenRect(el, winW, winH, projectionElements, projectionParents, out var rect)
                 ? rect
                 : (old.ScreenX, old.ScreenY, old.ScreenW, old.ScreenH);
-            _nodeSnapshot[idx] = old with { X = x, Y = y, Scale = scale, Flags = flags, Visible = visible,
+            _nodeSnapshot[idx] = old with { X = x, Y = y, Scale = scale, Flags = directFlags, Visible = visible,
                 ScreenX = screen.Item1, ScreenY = screen.Item2, ScreenW = screen.Item3, ScreenH = screen.Item4 };
         }
         if (matched < 8) { Invalidate(); return false; }
@@ -896,6 +894,8 @@ public sealed class Poe2Atlas
 
         foreach (var tokenName in ReadContentTokenNames(el))
             AddUnique(tags, tokenName);
+        foreach (var badgeName in ReadBadgeContentNames(el))
+            AddUnique(tags, badgeName);
 
         // Rolled content lives on the EndgameMapAtlas row at +0x310 (null ⇒ none).
         var row = Ptr(el + 0x310);
@@ -957,6 +957,76 @@ public sealed class Poe2Atlas
                 AddUnique(names, name);
         }
         return names;
+    }
+
+    private List<string> ReadBadgeContentNames(nint el)
+    {
+        var names = new List<string>(4);
+        // Fast path: GameHelper layout (child[0] → child[0] → badge icons).
+        var nodeChild = ChildAt(el, 0);
+        var contentContainer = ChildAt(nodeChild, 0);
+        if (contentContainer != 0)
+            CollectBadgeNamesFromContainer(contentContainer, names);
+
+        // Gamepad UI can insert extra wrappers — shallow BFS for badge ids @ +0x188.
+        if (names.Count == 0)
+            CollectBadgeNamesBfs(el, names);
+        return names;
+    }
+
+    private void CollectBadgeNamesFromContainer(nint contentContainer, List<string> names)
+    {
+        var first = Ptr(contentContainer + Poe2.UiElement.Children);
+        if (first == 0 || !_reader.TryReadStruct<nint>(contentContainer + Poe2.UiElement.ChildrenEnd, out var last))
+            return;
+        var count = ((long)last - (long)first) / 8;
+        if (count is <= 0 or > 16) return;
+
+        for (long i = 0; i < count; i++)
+        {
+            var badge = Ptr(first + (nint)(i * 8));
+            TryAddBadgeName(badge, names);
+        }
+    }
+
+    private void CollectBadgeNamesBfs(nint root, List<string> names)
+    {
+        var queue = new Queue<(nint El, int Depth)>();
+        var visited = new HashSet<nint>();
+        queue.Enqueue((root, 0));
+        while (queue.Count > 0 && names.Count < 16 && visited.Count < 48)
+        {
+            var (cur, depth) = queue.Dequeue();
+            if (cur == 0 || !visited.Add(cur) || depth > 5) continue;
+            if (cur != root)
+                TryAddBadgeName(cur, names);
+
+            var first = Ptr(cur + Poe2.UiElement.Children);
+            if (first == 0 || !_reader.TryReadStruct<nint>(cur + Poe2.UiElement.ChildrenEnd, out var last))
+                continue;
+            var count = ((long)last - (long)first) / 8;
+            if (count is <= 0 or > 32) continue;
+            for (long i = 0; i < count; i++)
+                queue.Enqueue((Ptr(first + (nint)(i * 8)), depth + 1));
+        }
+    }
+
+    private void TryAddBadgeName(nint badge, List<string> names)
+    {
+        if (badge == 0) return;
+        if (!_reader.TryReadStruct<uint>(badge + 0x188, out var id)) return;
+        if (AtlasCatalog.Shared.MapContentNameForBadgeId(id) is { Length: > 0 } name)
+            AddUnique(names, name);
+    }
+
+    private nint ChildAt(nint el, int index)
+    {
+        if (el == 0 || index < 0) return 0;
+        var first = Ptr(el + Poe2.UiElement.Children);
+        if (first == 0 || !_reader.TryReadStruct<nint>(el + Poe2.UiElement.ChildrenEnd, out var last)) return 0;
+        var count = ((long)last - (long)first) / 8;
+        if (index >= count || count is <= 0 or > 10000) return 0;
+        return Ptr(first + (nint)(index * 8));
     }
 
     private static bool TryContentTokenName(uint token, out string name)
@@ -1153,13 +1223,11 @@ public sealed class Poe2Atlas
     private bool TryResolveGameHelperNodeList(nint inGameState, out nint nodeList)
     {
         nodeList = 0;
-        if (_cachedUiManager != 0
-            && AtlasPanelLocator.TryResolveNodeListFromManager(_reader, _cachedUiManager, out nodeList))
-            return true;
-
         if (!AtlasPanelLocator.TryResolveNodeList(_reader, inGameState, out nodeList, out var mgr))
             return false;
 
+        if (_cachedUiManager != 0 && mgr != _cachedUiManager)
+            Invalidate();
         _cachedUiManager = mgr;
         return true;
     }

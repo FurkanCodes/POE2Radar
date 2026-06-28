@@ -24,6 +24,8 @@ public sealed class AtlasCatalog
     private readonly Dictionary<string, ContentInfo> _contentByKey = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ContentInfo> _contentByLabel = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, MapContentMeta> _mapContent = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<uint, MapContentMeta> _mapContentByBadgeId = new();
+    private readonly Dictionary<string, Dictionary<string, string>> _mapTranslations = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Dictionary<string, (string Name, string Desc)>> _mapContentTranslations = new(StringComparer.OrdinalIgnoreCase);
 
     public static AtlasCatalog Shared { get; } = Load();
@@ -33,6 +35,7 @@ public sealed class AtlasCatalog
     public IReadOnlyList<RouteTargetInfo> DefaultRouteTargets { get; private init; } = Array.Empty<RouteTargetInfo>();
     public IReadOnlyCollection<MapInfo> Maps => _maps.Values;
     public IReadOnlyCollection<ContentInfo> Content => _contentByKey.Values;
+    public IReadOnlyCollection<MapContentMeta> MapContents => _mapContent.Values;
 
     public MapInfo? Map(string code)
         => !string.IsNullOrWhiteSpace(code) && _maps.TryGetValue(code, out var m) ? m : null;
@@ -84,7 +87,15 @@ public sealed class AtlasCatalog
     }
 
     public string LocalizedMapName(string code, string language)
-        => MapName(code);
+    {
+        var lang = NormalizeLanguage(language);
+        if (!string.IsNullOrWhiteSpace(code)
+            && _mapTranslations.TryGetValue(code, out var langs)
+            && langs.TryGetValue(lang, out var name)
+            && !string.IsNullOrWhiteSpace(name))
+            return name;
+        return MapName(code);
+    }
 
     public string LocalizedContentName(string contentName, string language)
     {
@@ -115,6 +126,15 @@ public sealed class AtlasCatalog
     public string? ContentIconBasename(string contentName)
         => _mapContent.TryGetValue(contentName, out var meta) ? meta.IconBasename : null;
 
+    public MapContentMeta? MapContentInfoFor(string contentName)
+        => !string.IsNullOrWhiteSpace(contentName) && _mapContent.TryGetValue(contentName, out var meta) ? meta : null;
+
+    public string? MapContentNameForBadgeId(uint badgeId)
+    {
+        var key = badgeId & 0xFFFFu;
+        return key != 0 && _mapContentByBadgeId.TryGetValue(key, out var meta) ? meta.Name : null;
+    }
+
     private static AtlasCatalog Load()
     {
         var cat = new AtlasCatalog
@@ -126,6 +146,7 @@ public sealed class AtlasCatalog
 
         cat.LoadContentJson();
         cat.LoadMapContentJson();
+        cat.LoadMapsJson();
 
         try
         {
@@ -142,8 +163,11 @@ public sealed class AtlasCatalog
                         if (!prop.Name.StartsWith("Map", StringComparison.Ordinal)) continue;
                         var v = prop.Value;
                         var name = v.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
-                        var info = BuildMapInfo(prop.Name, string.IsNullOrWhiteSpace(name) ? PrettifyMapCode(prop.Name) : name);
-                        cat._maps[prop.Name] = info;
+                        if (!cat._maps.ContainsKey(prop.Name))
+                        {
+                            var info = BuildMapInfo(prop.Name, string.IsNullOrWhiteSpace(name) ? PrettifyMapCode(prop.Name) : name);
+                            cat._maps[prop.Name] = info;
+                        }
                     }
                 }
             }
@@ -199,7 +223,10 @@ public sealed class AtlasCatalog
                 if (string.IsNullOrWhiteSpace(name)) continue;
                 var icon = v.TryGetProperty("icon", out var ic) ? ic.GetString() : null;
                 var desc = v.TryGetProperty("desc", out var d) ? d.GetString() ?? "" : "";
-                _mapContent[name] = new MapContentMeta(name, icon, desc);
+                var meta = new MapContentMeta(name, icon, desc);
+                _mapContent[name] = meta;
+                if (uint.TryParse(prop.Name, out var id))
+                    _mapContentByBadgeId[id] = meta;
 
                 if (!v.TryGetProperty("translates", out var tr) || tr.ValueKind != JsonValueKind.Object)
                     continue;
@@ -217,6 +244,43 @@ public sealed class AtlasCatalog
         catch (Exception ex)
         {
             Console.Error.WriteLine($"AtlasCatalog mapcontent load failed: {ex.Message}");
+        }
+    }
+
+    private void LoadMapsJson()
+    {
+        try
+        {
+            using var s = OpenResource("atlas_maps.json");
+            if (s is null) return;
+            var doc = JsonDocument.Parse(s);
+            foreach (var prop in doc.RootElement.EnumerateObject())
+            {
+                var code = prop.Name;
+                var v = prop.Value;
+                var name = v.TryGetProperty("name", out var n) ? n.GetString() ?? PrettifyMapCode(code) : PrettifyMapCode(code);
+                var type = v.TryGetProperty("type", out var ty) ? ty.GetString() ?? "normal" : "normal";
+                var group = v.TryGetProperty("group", out var gr) ? gr.GetString() ?? "map" : "map";
+                var tags = v.TryGetProperty("tags", out var ta) && ta.ValueKind == JsonValueKind.Array
+                    ? ta.EnumerateArray().Select(e => e.GetString() ?? "").Where(t => !string.IsNullOrWhiteSpace(t)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray()
+                    : Array.Empty<string>();
+                _maps[code] = new MapInfo(code, name, type, tags, group);
+
+                if (!v.TryGetProperty("translates", out var tr) || tr.ValueKind != JsonValueKind.Object)
+                    continue;
+                var langMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var langProp in tr.EnumerateObject())
+                {
+                    var tName = langProp.Value.GetString() ?? "";
+                    if (!string.IsNullOrWhiteSpace(tName))
+                        langMap[NormalizeLanguage(langProp.Name)] = tName;
+                }
+                if (langMap.Count > 0) _mapTranslations[code] = langMap;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"AtlasCatalog maps load failed: {ex.Message}");
         }
     }
 
@@ -357,18 +421,22 @@ public sealed class AtlasCatalog
 
     private static RouteTargetInfo[] BuildRouteTargets() =>
     [
-        new("Stone Citadel", "map:Stone Citadel", "#FFF164", 25, true),
-        new("Iron Citadel", "map:Iron Citadel", "#FFF164", 25, true),
-        new("Copper Citadel", "map:Copper Citadel", "#FFF164", 25, true),
-        new("Patriarch Halls", "map:Patriarch Halls", "#FFF164", 25, true),
-        new("Matriarch Halls", "map:Matriarch Halls", "#FFF164", 25, true),
-        new("Jade Citadel", "map:Jade Citadel", "#048E3B", 25, true),
-        new("Derelict Mansion", "map:Derelict Mansion", "#048E3B", 25, true),
-        new("Cavern City", "map:Cavern City", "#048E3B", 25, true),
-        new("Vaal Vault", "map:Vaal Vault", "#048E3B", 25, true),
-        new("Untainted Paradise", "map:Untainted Paradise", "#ff9e42", 25, false),
-        new("Castaway", "map:Castaway", "#ff9e42", 25, false),
-        new("Moor of Fallen Skies", "map:Moor of Fallen Skies", "#e0533a", 25, false),
+        new("The Stone Citadel", "id:MapUberBoss_StoneCitadel", "#FFF164", 25, true),
+        new("The Iron Citadel", "id:MapUberBoss_IronCitadel", "#FFF164", 25, true),
+        new("The Copper Citadel", "id:MapUberBoss_CopperCitadel", "#FFF164", 25, true),
+        new("The Patriarch Halls", "id:MapMothersoul_Male", "#FFF164", 25, true),
+        new("The Matriarch Halls", "id:MapMothersoul_Female", "#FFF164", 25, true),
+        new("Derelict Mansion", "id:MapDerelictMansion", "#048E3B", 25, true),
+        new("Sacred Reservoir", "id:MapCavernCity", "#048E3B", 25, true),
+        new("Sealed Vault", "id:MapVaalVault", "#048E3B", 25, true),
+        new("The Jade Isles", "id:MapUberBoss_JadeCitadel", "#048E3B", 25, true),
+        new("Untainted Paradise", "id:MapUniqueUntaintedParadise", "#ff9e42", 25, false),
+        new("Castaway", "id:MapUniqueCastaway", "#ff9e42", 25, false),
+        new("Sprawling Jungle", "id:ExpeditionSubArea_MedvedBoss", "#fff8da", 25, false),
+        new("Mournful Cliffside", "id:ExpeditionSubArea_VoranaBoss", "#fff8da", 25, false),
+        new("Obscure Island", "id:ExpeditionSubArea_OlrothBoss", "#fff8da", 25, false),
+        new("Secluded Temple", "id:ExpeditionSubArea_UhtredBoss", "#fff8da", 25, false),
+        new("Moor of Fallen Skies", "id:ExpeditionLogBook_Heath", "#ff0000", 25, false),
         new("All unique maps", "type:unique", "#FF00FF", 0, false),
         new("Lineage maps", "tag:lineage", "#00E000", 0, false),
         new("Arbiter maps", "tag:arbiter", "#FF0000", 0, false),

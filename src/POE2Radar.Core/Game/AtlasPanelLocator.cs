@@ -38,29 +38,91 @@ public static class AtlasPanelLocator
         return IsHierarchicallyVisible(reader, list);
     }
 
-    /// <summary>Try keyboard then gamepad UiRootStruct managers; each tries KBM then controller chains.</summary>
-    public static bool TryResolveNodeList(MemoryReader reader, nint inGameState, out nint nodeList, out nint uiManager)
+    /// <summary>
+    /// Probe every UiRootStruct manager candidate (keyboard, gamepad, and nested GameUi / GameUiController
+    /// branches) and pick the best visible node-list canvas. When a controller is plugged in the game keeps
+    /// parallel HUD trees — child count alone is not enough; we also score rolled-content signals (+0x310).
+    /// </summary>
+    public static bool TryResolveNodeList(MemoryReader reader, nint inGameState, out nint nodeList, out nint uiManager, nint preferManager = 0)
     {
         nodeList = 0;
         uiManager = 0;
         if (inGameState == 0) return false;
 
+        Span<nint> managers = stackalloc nint[8];
+        var managerCount = FillManagerCandidates(reader, inGameState, managers, preferManager);
+
+        var bestScore = -1;
+        for (var i = 0; i < managerCount; i++)
+        {
+            var mgr = managers[i];
+            if (!TryResolveNodeListFromManager(reader, mgr, out var list)) continue;
+            var score = ScoreNodeList(reader, list);
+            if (score < bestScore) continue;
+            if (score == bestScore && mgr != preferManager) continue;
+            bestScore = score;
+            nodeList = list;
+            uiManager = mgr;
+        }
+
+        return nodeList != 0;
+    }
+
+    private static int FillManagerCandidates(MemoryReader reader, nint inGameState, Span<nint> dest, nint preferManager)
+    {
+        var count = 0;
+        if (preferManager != 0)
+            AddUnique(dest, ref count, preferManager);
+
         var kb = SafePtr(reader, inGameState + Poe2.InGameState.KeyboardUiRootStructPtr);
         var pad = SafePtr(reader, inGameState + Poe2.InGameState.GamepadUiRootStructPtr);
+        AddUnique(dest, ref count, kb);
+        if (pad != kb)
+            AddUnique(dest, ref count, pad);
 
-        if (kb != 0 && TryResolveNodeListFromManager(reader, kb, out nodeList))
+        foreach (var root in new[] { kb, pad })
         {
-            uiManager = kb;
-            return true;
+            if (root == 0) continue;
+            AddUnique(dest, ref count, SafePtr(reader, root + Poe2.UiRootStruct.GameUiPtr));
+            AddUnique(dest, ref count, SafePtr(reader, root + Poe2.UiRootStruct.GameUiControllerPtr));
         }
 
-        if (pad != 0 && pad != kb && TryResolveNodeListFromManager(reader, pad, out nodeList))
-        {
-            uiManager = pad;
-            return true;
-        }
+        return count;
+    }
 
-        return false;
+    private static void AddUnique(Span<nint> dest, ref int count, nint value)
+    {
+        if (value == 0 || count >= dest.Length) return;
+        for (var i = 0; i < count; i++)
+            if (dest[i] == value) return;
+        dest[count++] = value;
+    }
+
+    /// <summary>Prefer visible canvases with more children and more nodes carrying live rolled content.</summary>
+    internal static int ScoreNodeList(MemoryReader reader, nint list)
+    {
+        if (list == 0 || !IsHierarchicallyVisible(reader, list)) return 0;
+        var score = 1000;
+        var first = SafePtr(reader, list + Poe2.UiElement.Children);
+        if (first == 0 || !reader.TryReadStruct<nint>(list + Poe2.UiElement.ChildrenEnd, out var last))
+            return score;
+
+        var count = ((long)last - (long)first) / 8;
+        if (count is <= 0 or > 20000) return score;
+        score += (int)Math.Min(count, 1500);
+
+        var sampled = 0;
+        var contentHits = 0;
+        for (long i = 0; i < count && sampled < 96; i++)
+        {
+            var child = SafePtr(reader, first + (nint)(i * 8));
+            if (child == 0) continue;
+            sampled++;
+            if (SafePtr(reader, child + Poe2.AtlasNode.Content) != 0)
+                contentHits++;
+        }
+        score += contentHits * 40;
+        return score;
     }
 
     public static bool TryResolveNodeListFromManager(MemoryReader reader, nint uiManager, out nint nodeList)

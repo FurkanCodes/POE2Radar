@@ -2280,7 +2280,7 @@ function renderAtlas(){
   const st=$('#atlasStatus'); const nd=d.nodes;
   if(!(nd&&nd.total)) st.textContent = d.note ? 'scanning…' : 'atlas closed — open it in-game + Refresh';
   else st.textContent = nd.total+' nodes · '+nd.hasContent+' with content · '
-        +(d.allTags?.length||0)+' content / '+(d.allMaps?.length||0)+' map filters';
+        +(d.mapContentCatalog?.length||d.allTags?.length||0)+' content / '+(d.allMaps?.length||0)+' map filters';
   // Seed active rules from the overlay (once): tracked + arrow sets. Then render the filter table.
   if(atlasHl===null){ atlasHl=new Set((d.highlightTags||[]).map(t=>t.toLowerCase())); atlasArrow=new Set((d.arrowTags||[]).map(t=>t.toLowerCase())); }
   renderAtlasHighlight(d);
@@ -2296,15 +2296,22 @@ const biomeName=i=>(i>=0&&i<BIOMES.length)?BIOMES[i]:('biome '+i);
 // Highlight-rule chips: one per distinct content tag on the atlas. Click to toggle → ONLY matching maps
 // are drawn in-game. Active set is pushed to the overlay (persisted there).
 // Classify a filter row into a category for the table (and grouping/colour).
-function catContent(t){ const s=t.toLowerCase(); if(/not shown|\[dnt\]/.test(s))return'Hidden'; if(/boss/.test(s))return'Boss'; if(/influence/.test(s))return'Influence'; return'Mechanic'; }
+function catContent(t){ const s=t.toLowerCase(); if(/not shown|\[dnt\]/.test(s))return'Hidden'; if(/boss|beast|trialmaster/.test(s))return'Boss'; if(/influence/.test(s))return'Influence'; return'Mechanic'; }
 function catMap(t){ const s=t.toLowerCase(); if(/citadel/.test(s))return'Citadel'; if(/tower/.test(s))return'Tower'; if(/temple/.test(s))return'Temple'; if(/vaal/.test(s))return'Vaal'; return'Map'; }
 // Per-category colour (badge tint).
 const CATCOL={Boss:'#e0533a',Mechanic:'#3ca0ff',Influence:'#a06cff',Hidden:'#ff5db1',Citadel:'#e0b341',Tower:'#2fb6a8',Temple:'#d98a2b',Vaal:'#c0395a',Map:'#8a93a0'};
 function catBadge(cat){ const c=CATCOL[cat]||'#8a93a0'; return '<span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600;background:'+c+'26;color:'+c+';border:1px solid '+c+'66">'+esc(cat)+'</span>'; }
 // Build the unified filter list (content + map) with {title,count,cat,group}.
 function atlasFilterRows(d){
-  const rows=[];
-  (d.allTags||[]).forEach(t=>rows.push({title:t.tag,count:t.count,group:'Content',cat:catContent(t.tag)}));
+  const rows=[], seen=new Set();
+  (d.allTags||[]).forEach(t=>{
+    const title=t.tag||'', key=title.toLowerCase(); if(!title||seen.has(key)) return;
+    seen.add(key); rows.push({title,count:t.count||0,group:'Content',cat:catContent(title),desc:''});
+  });
+  (d.mapContentCatalog||[]).forEach(c=>{
+    const title=c.name||'', key=title.toLowerCase(); if(!title||seen.has(key)) return;
+    seen.add(key); rows.push({title,count:0,group:'Content catalog',cat:catContent(title),desc:c.description||''});
+  });
   (d.allMaps||[]).forEach(t=>rows.push({title:t.tag,count:t.count,group:'Map',cat:catMap(t.tag)}));
   return rows;
 }
@@ -2314,7 +2321,7 @@ function renderAtlasHighlight(d){
   let rows=atlasFilterRows(d);
   if(rows.length===0){ box.innerHTML='<span class="hint-row" style="padding:8px;display:block">No filters yet (open the Atlas + Refresh).</span>'; updateHlCount(); return; }
   const flt=($('#atlasHlFilter')?.value||'').trim().toLowerCase();
-  if(flt) rows=rows.filter(r=>r.title.toLowerCase().includes(flt)||r.cat.toLowerCase().includes(flt)||r.group.toLowerCase().includes(flt));
+  if(flt) rows=rows.filter(r=>r.title.toLowerCase().includes(flt)||r.cat.toLowerCase().includes(flt)||r.group.toLowerCase().includes(flt)||(r.desc||'').toLowerCase().includes(flt));
   if(atlasHlSelOnly) rows=rows.filter(r=>atlasHl.has(r.title.toLowerCase())||atlasArrow.has(r.title.toLowerCase()));
   const k=atlasHlSort.key, dir=atlasHlSort.dir;
   rows.sort((a,b)=>{ let v= k==='count' ? a.count-b.count : (''+a[k]).localeCompare(''+b[k]); return v*dir || a.title.localeCompare(b.title); });
@@ -2396,14 +2403,17 @@ function renderAtlasNodes(d, f){
 async function postAtlasSel(){ try{ await fetch('/api/atlas-select',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({els:[...atlasSel]})}); }catch(e){} }
 
 function renderAtlasCatalog(d, f){
-  let list=d.atlasCatalog||d.catalog||[];
+  let list=[
+    ...((d.atlasCatalog||d.catalog||[]).map(m=>({...m,rowType:'Map'}))),
+    ...((d.mapContentCatalog||[]).map(c=>({name:c.name,code:c.icon||'',type:'Content',tags:c.description?[c.description]:[],rowType:'Content'})))
+  ];
   if(f) list=list.filter(m=>(m.name||'').toLowerCase().includes(f)||(m.code||'').toLowerCase().includes(f)||(m.type||'').toLowerCase().includes(f)||((m.tags||[]).join(' ').toLowerCase().includes(f)));
   if(list.length===0){ $('#atlasList').innerHTML='<div class="hint-row" style="padding:8px">No catalog rows.</div>'; return; }
-  const head='<div class="arow ahead nrow"><span>Map</span><span>Code</span><span>Type</span><span>Tags</span></div>';
+  const head='<div class="arow ahead nrow"><span>Name</span><span>Code/Icon</span><span>Type</span><span>Tags / description</span></div>';
   const body=list.slice(0,1200).map(m=>'<div class="arow nrow">'
     +'<span>'+esc(m.name||'—')+'</span><span class="amono">'+esc(m.code||'')+'</span>'
-    +'<span>'+esc(m.type||m.kind||'')+'</span><span>'+((m.tags||[]).map(t=>'<span class="ntag tc">'+esc(t)+'</span>').join(' ')||'—')+'</span></div>').join('');
-  $('#atlasList').innerHTML=head+body+'<div class="hint-row" style="padding:8px">Showing '+Math.min(list.length,1200)+' of '+list.length+' catalog maps.</div>';
+    +'<span>'+esc(m.rowType||m.type||m.kind||'')+'</span><span>'+((m.tags||[]).map(t=>'<span class="ntag tc">'+esc(t)+'</span>').join(' ')||'—')+'</span></div>').join('');
+  $('#atlasList').innerHTML=head+body+'<div class="hint-row" style="padding:8px">Showing '+Math.min(list.length,1200)+' of '+list.length+' catalog rows.</div>';
 }
 
 function renderAtlasRegion(d, f){

@@ -20,6 +20,7 @@
     <EmbeddedResource Include="Game\Resources\atlas_content.json" />
     <EmbeddedResource Include="Game\Resources\atlas_biome.json" />
     <EmbeddedResource Include="Game\Resources\atlas_mapcontent.json" />
+    <EmbeddedResource Include="Game\Resources\atlas_maps.json" />
   </ItemGroup>
 
 </Project>

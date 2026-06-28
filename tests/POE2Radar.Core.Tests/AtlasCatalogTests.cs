@@ -20,6 +20,16 @@ public sealed class AtlasCatalogTests
     }
 
     [Fact]
+    public void Shared_LoadsGameHelperMapMetadata()
+    {
+        var map = AtlasCatalog.Shared.Map("MapAzmerianRanges");
+
+        Assert.NotNull(map);
+        Assert.Equal("map", map?.Group);
+        Assert.Contains("craft", map?.Tags ?? []);
+    }
+
+    [Fact]
     public void Shared_ExposesDefaultTargetRoutes()
     {
         Assert.Contains(AtlasCatalog.Shared.DefaultRouteTargets, t => t.Name.Contains("Patriarch Halls"));
@@ -32,5 +42,21 @@ public sealed class AtlasCatalogTests
         var info = AtlasCatalog.Shared.ContentInfoFor("map_atlas_node_has_breach");
         Assert.NotNull(info);
         Assert.Equal("Br", info?.Abbrev);
+    }
+
+    [Fact]
+    public void Shared_ExposesGameHelperMapContentCatalog()
+    {
+        var beast = AtlasCatalog.Shared.MapContents.FirstOrDefault(c => c.Name == "Great Beast");
+
+        Assert.Equal("Great Beast", beast.Name);
+        Assert.Contains("Hilda", beast.Description);
+        Assert.NotNull(AtlasCatalog.Shared.MapContentInfoFor("Great Beast"));
+    }
+
+    [Fact]
+    public void MapContentNameForBadgeId_ResolvesGreatBeast()
+    {
+        Assert.Equal("Great Beast", AtlasCatalog.Shared.MapContentNameForBadgeId(0x0002006F));
     }
 }

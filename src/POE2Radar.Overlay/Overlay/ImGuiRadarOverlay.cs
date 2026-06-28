@@ -54,6 +54,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private string _typeSearch = "";
     private string _ruleSearch = "";
     private string _atlasTagFilter = "";
+    private string _atlasTargetGroupName = "";
+    private string _atlasAddContentFilter = "";
+    private string _atlasAddMapFilter = "";
     private readonly Dictionary<string, string> _atlasGroupMapBuffers = new(StringComparer.Ordinal);
     private readonly List<MapLabelCandidate> _atlasLabelScratch = new(256);
     private readonly Dictionary<string, ScreenPointState> _screenPoints = new(StringComparer.Ordinal);
@@ -3022,7 +3025,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         }
         ImGuiTheme.EndAccordionSection(displayOpen);
 
-        bool searchOpen = ImGuiTheme.BeginAccordionSection("AtlasSearch", "Search and filters",
+        bool searchOpen = ImGuiTheme.BeginAccordionSection("AtlasSearch", "Search Maps",
             "Hide nodes by completion state; comma-separated search.");
         if (searchOpen)
         {
@@ -3105,43 +3108,16 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         ImGuiTheme.EndAccordionSection(stylesOpen);
 
         bool farmingOpen = ImGuiTheme.BeginAccordionSection("AtlasFarming", "Target farming",
-            "Per-content route groups and hop limits.");
+            "GameHelper-style target groups, content/map pickers, and route paths.",
+            defaultOpen: true);
         if (farmingOpen)
         {
-            foreach (var group in s.AtlasRouteGroups)
-            {
-                ImGui.PushID("atlasRouteGroup_" + group.Name);
-                bool draw = group.DrawPaths;
-                if (ImGui.Checkbox(group.Name, ref draw)) { group.DrawPaths = draw; }
-                ImGuiTheme.Tooltip(SettingHints.Atlas.RouteGroupDraw);
-                float thick = group.LineThickness;
-                ImGui.SetNextItemWidth(160f);
-                if (ImGui.SliderFloat("Line thickness", ref thick, 1f, 8f, "%.1f")) { group.LineThickness = Math.Clamp(thick, 1f, 8f); }
-                ImGuiTheme.Tooltip(SettingHints.Atlas.RouteGroupThickness);
-                foreach (var e in group.Entries)
-                {
-                    ImGui.PushID(e.Match);
-                    bool on = e.DrawPath;
-                    if (ImGui.Checkbox(e.Name, ref on)) { e.DrawPath = on; }
-                    ImGuiTheme.Tooltip(SettingHints.Atlas.RouteEntryDraw);
-                    ImGui.SameLine();
-                    int maxHops = e.MaxHops;
-                    ImGui.SetNextItemWidth(80f);
-                    if (ImGui.InputInt("max hops", ref maxHops)) { e.MaxHops = Math.Clamp(maxHops, 0, 1000); }
-                    ImGuiTheme.Tooltip(SettingHints.Atlas.RouteMaxHops);
-                    ImGui.SameLine();
-                    var col = ParseHexColor(e.Color);
-                    if (ImGui.ColorEdit3("color", ref col, ImGuiColorEditFlags.NoInputs)) { e.Color = FormatHexColor3(col); }
-                    ImGuiTheme.Tooltip(SettingHints.Atlas.RouteEntryColor);
-                    ImGui.PopID();
-                }
-                ImGui.PopID();
-            }
+            DrawAtlasTargetFarming(s);
         }
         ImGuiTheme.EndAccordionSection(farmingOpen);
 
-        bool hlOpen = ImGuiTheme.BeginAccordionSection("AtlasHighlights", "Highlights",
-            "Track filters, citadel defaults, and tag catalog.");
+        bool hlOpen = ImGuiTheme.BeginAccordionSection("AtlasAdvancedHighlights", "Advanced highlights",
+            "Optional legacy track filters, citadel defaults, and tag catalog.");
         if (hlOpen)
         {
             if (s.AtlasHighlightTags is { Count: > 0 })
@@ -3251,6 +3227,226 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         }
         ImGuiTheme.EndAccordionSection(hlOpen);
     }
+
+    private void DrawAtlasTargetFarming(RadarSettings s)
+    {
+        ImGui.SetNextItemWidth(-UiW(8f));
+        ImGui.InputTextWithHint("##atlasTargetGroupName", "group name", ref _atlasTargetGroupName, 128);
+        ImGui.SameLine();
+        if (ImGui.Button("Add content group"))
+        {
+            s.AtlasRouteGroups.Add(new AtlasRouteGroupSettings
+            {
+                Name = string.IsNullOrWhiteSpace(_atlasTargetGroupName) ? "Content Group" : _atlasTargetGroupName.Trim(),
+                DrawPaths = true,
+                LineThickness = 1f,
+            });
+            _atlasTargetGroupName = "";
+        }
+        ImGuiTheme.Tooltip("Create a target-farming group. Add content like Great Beast, or add specific maps.");
+
+        for (var gi = 0; gi < s.AtlasRouteGroups.Count; gi++)
+        {
+            var group = s.AtlasRouteGroups[gi];
+            ImGui.PushID($"atlasTargetGroup_{gi}");
+            var title = group.Locked ? $"{group.Name} (built-in)" : group.Name.Length > 0 ? group.Name : "Content Group";
+            if (group.Locked && s.AtlasRouteGroups.Count == 1)
+                ImGui.SetNextItemOpen(true, ImGuiCond.Always);
+
+            if (ImGui.TreeNodeEx("##group", ImGuiTreeNodeFlags.DefaultOpen, title))
+            {
+                DrawAtlasTargetGroupBody(s, group, gi);
+                ImGui.TreePop();
+            }
+            ImGui.PopID();
+        }
+    }
+
+    private void DrawAtlasTargetGroupBody(RadarSettings s, AtlasRouteGroupSettings group, int groupIndex)
+    {
+        bool draw = group.DrawPaths;
+        if (ImGui.Checkbox("Draw paths", ref draw)) group.DrawPaths = draw;
+        ImGuiTheme.Tooltip(SettingHints.Atlas.RouteGroupDraw);
+
+        var thick = group.LineThickness;
+        ImGui.SetNextItemWidth(UiW(7f));
+        if (ImGui.SliderFloat("Line thickness", ref thick, 1f, 8f, "%.3f"))
+            group.LineThickness = Math.Clamp(thick, 1f, 8f);
+        ImGuiTheme.Tooltip(SettingHints.Atlas.RouteGroupThickness);
+
+        if (!group.Locked)
+        {
+            ImGui.SameLine();
+            if (ImGui.Button("Delete group"))
+            {
+                s.AtlasRouteGroups.RemoveAt(groupIndex);
+                return;
+            }
+            DrawAtlasAddTargetPickers(group, groupIndex);
+        }
+
+        for (var i = 0; i < group.Entries.Count; i++)
+        {
+            var entry = group.Entries[i];
+            ImGui.PushID($"entry_{i}_{entry.Match}");
+            DrawAtlasTargetEntryRow(group, entry, i);
+            ImGui.PopID();
+        }
+    }
+
+    private void DrawAtlasAddTargetPickers(AtlasRouteGroupSettings group, int groupIndex)
+    {
+        ImGui.SetNextItemWidth(UiW(8f));
+        if (ImGui.BeginCombo($"##atlasAddContent_{groupIndex}", "Add content..."))
+        {
+            ImGui.SetNextItemWidth(-1f);
+            ImGui.InputTextWithHint($"##atlasAddContentFilter_{groupIndex}", "filter...", ref _atlasAddContentFilter, 64);
+            var filter = _atlasAddContentFilter.Trim();
+            foreach (var content in AtlasCatalog.Shared.MapContents
+                         .Where(c => !string.IsNullOrWhiteSpace(c.Name))
+                         .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                if (group.Entries.Any(e => AtlasRouteMatchEquals(e.Match, "content", content.Name))) continue;
+                var label = AtlasCatalog.Shared.LocalizedContentName(content.Name, _settings.AtlasLanguage);
+                var desc = AtlasCatalog.Shared.LocalizedContentDescription(content.Name, _settings.AtlasLanguage) ?? content.Description;
+                if (filter.Length > 0
+                    && !label.Contains(filter, StringComparison.OrdinalIgnoreCase)
+                    && !content.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
+                    && !desc.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var display = string.IsNullOrWhiteSpace(desc) ? label : $"{label} - {TruncateAtlasText(desc, 72)}";
+                if (ImGui.Selectable($"{display}##content_{content.Name}"))
+                {
+                    group.Entries.Add(new AtlasRouteEntrySettings
+                    {
+                        Name = content.Name,
+                        Match = "content:" + content.Name,
+                        Color = "#FFD933",
+                        DrawPath = true,
+                        MaxHops = 0,
+                    });
+                    _atlasAddContentFilter = "";
+                }
+            }
+            ImGui.EndCombo();
+        }
+        ImGuiTheme.Tooltip("Add a content target such as Great Beast. Routes draw to matching Atlas nodes.");
+
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(UiW(8f));
+        if (ImGui.BeginCombo($"##atlasAddMap_{groupIndex}", "Add map..."))
+        {
+            ImGui.SetNextItemWidth(-1f);
+            ImGui.InputTextWithHint($"##atlasAddMapFilter_{groupIndex}", "filter...", ref _atlasAddMapFilter, 64);
+            var filter = _atlasAddMapFilter.Trim();
+            foreach (var map in AtlasCatalog.Shared.Maps
+                         .GroupBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
+                         .Select(g => g.First())
+                         .OrderBy(m => m.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                if (string.IsNullOrWhiteSpace(map.Name)) continue;
+                if (group.Entries.Any(e => AtlasRouteMatchEquals(e.Match, "name", map.Name))) continue;
+                var localized = AtlasCatalog.Shared.LocalizedMapName(map.Code, _settings.AtlasLanguage);
+                if (filter.Length > 0
+                    && !localized.Contains(filter, StringComparison.OrdinalIgnoreCase)
+                    && !map.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
+                    && !map.Code.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (ImGui.Selectable($"{localized}##map_{map.Name}"))
+                {
+                    group.Entries.Add(new AtlasRouteEntrySettings
+                    {
+                        Name = map.Name,
+                        Match = "name:" + map.Name,
+                        Color = "#FFD933",
+                        DrawPath = true,
+                        MaxHops = 0,
+                    });
+                    _atlasAddMapFilter = "";
+                }
+            }
+            ImGui.EndCombo();
+        }
+        ImGuiTheme.Tooltip("Add a map target by display name.");
+    }
+
+    private void DrawAtlasTargetEntryRow(AtlasRouteGroupSettings group, AtlasRouteEntrySettings entry, int entryIndex)
+    {
+        bool on = entry.DrawPath;
+        if (ImGui.Checkbox("##draw", ref on)) entry.DrawPath = on;
+        ImGuiTheme.Tooltip(SettingHints.Atlas.RouteEntryDraw);
+
+        ImGui.SameLine();
+        var col = ParseHexColor(entry.Color);
+        if (ImGui.ColorEdit3("##color", ref col, ImGuiColorEditFlags.NoInputs))
+            entry.Color = FormatHexColor3(col);
+        ImGuiTheme.Tooltip(SettingHints.Atlas.RouteEntryColor);
+
+        ImGui.SameLine();
+        int maxHops = entry.MaxHops;
+        ImGui.SetNextItemWidth(UiW(3f));
+        if (ImGui.DragInt("##hops", ref maxHops, 0.1f, 0, 1000))
+            entry.MaxHops = Math.Clamp(maxHops, 0, 1000);
+        ImGuiTheme.Tooltip(SettingHints.Atlas.RouteMaxHops);
+
+        ImGui.SameLine();
+        var label = AtlasRouteEntryDisplayName(entry);
+        if (DrawAtlasContentIconInline(AtlasRouteEntryContentName(entry)))
+            ImGui.SameLine();
+        ImGui.TextUnformatted(label);
+        var desc = entry.Match.StartsWith("content:", StringComparison.OrdinalIgnoreCase)
+            ? AtlasCatalog.Shared.LocalizedContentDescription(AtlasRouteEntryContentName(entry), _settings.AtlasLanguage)
+            : null;
+        if (!string.IsNullOrWhiteSpace(desc)) ImGuiTheme.Tooltip(desc);
+
+        if (!group.Locked)
+        {
+            ImGui.SameLine();
+            if (ImGui.SmallButton("X"))
+                group.Entries.RemoveAt(entryIndex);
+        }
+    }
+
+    private bool DrawAtlasContentIconInline(string contentName)
+    {
+        if (string.IsNullOrWhiteSpace(contentName)) return false;
+        var basename = AtlasCatalog.Shared.ContentIconBasename(contentName);
+        if (string.IsNullOrWhiteSpace(basename)) return false;
+        var path = System.IO.Path.Combine(AppContext.BaseDirectory, "atlas-content-icons", basename + ".png");
+        if (!_textures.TryGet(this, path, out var tex)) return false;
+        var h = ImGui.GetFontSize();
+        var w = h * tex.Width / Math.Max(1f, tex.Height);
+        ImGui.Image(tex.Id, new NumVec2(w, h));
+        return true;
+    }
+
+    private static string AtlasRouteEntryContentName(AtlasRouteEntrySettings entry)
+        => entry.Match.StartsWith("content:", StringComparison.OrdinalIgnoreCase)
+            ? entry.Match["content:".Length..]
+            : entry.Name;
+
+    private string AtlasRouteEntryDisplayName(AtlasRouteEntrySettings entry)
+    {
+        if (entry.Match.StartsWith("content:", StringComparison.OrdinalIgnoreCase))
+        {
+            var name = entry.Match["content:".Length..];
+            return AtlasCatalog.Shared.LocalizedContentName(name, _settings.AtlasLanguage);
+        }
+        if (entry.Match.StartsWith("id:", StringComparison.OrdinalIgnoreCase))
+        {
+            var code = entry.Match["id:".Length..];
+            return AtlasCatalog.Shared.LocalizedMapName(code, _settings.AtlasLanguage);
+        }
+        if (entry.Match.StartsWith("name:", StringComparison.OrdinalIgnoreCase))
+            return entry.Match["name:".Length..];
+        return string.IsNullOrWhiteSpace(entry.Name) ? entry.Match : entry.Name;
+    }
+
+    private static bool AtlasRouteMatchEquals(string match, string kind, string value)
+        => string.Equals(match, $"{kind}:{value}", StringComparison.OrdinalIgnoreCase);
+
+    private static string TruncateAtlasText(string value, int maxLength)
+        => value.Length <= maxLength ? value : value[..maxLength].TrimEnd() + "...";
 
     private void SeedAtlasCitadelDefaults(RadarSettings s)
     {

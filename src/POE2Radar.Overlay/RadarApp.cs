@@ -2408,6 +2408,7 @@ public sealed partial class RadarApp : IDisposable
             atlasCatalog = AtlasCatalog.Shared.Maps.Select(m => new { code = m.Code, name = m.Name, type = m.Type, tags = m.Tags, group = m.Group }),
             biomes = AtlasCatalog.Shared.Biomes.Select(b => new { id = b.Id, name = b.Name, color = b.Color, show = b.Show }),
             contentCatalog = AtlasCatalog.Shared.Content.Select(c => new { key = c.Key, label = c.Label, abbrev = c.Abbrev, isFlag = c.IsFlag, description = c.Description }),
+            mapContentCatalog = AtlasCatalog.Shared.MapContents.Select(c => new { name = c.Name, icon = c.IconBasename, description = c.Description }),
             mapGroups = _settings.AtlasMapGroups,
             routeGroups = _settings.AtlasRouteGroups,
             nodes = new
@@ -2602,6 +2603,11 @@ public sealed partial class RadarApp : IDisposable
             }
 
             var tagCounts = new Dictionary<string, (string Kind, int Count)>(StringComparer.OrdinalIgnoreCase);
+            foreach (var c in AtlasCatalog.Shared.MapContents)
+            {
+                if (!string.IsNullOrWhiteSpace(c.Name))
+                    tagCounts[c.Name] = ("content", 0);
+            }
             foreach (var n in nodes)
             {
                 if (!string.IsNullOrEmpty(n.MapName))
@@ -2814,6 +2820,18 @@ public sealed partial class RadarApp : IDisposable
                 targets.Add(new AtlasRouteTarget(n, n.MapName.Length > 0 ? n.MapName : "Search match", "#FFFFFF", 0));
         }
 
+        if (_settings.AtlasHighlightTags is { Count: > 0 } highlightTags)
+        {
+            var trackedRules = new HashSet<string>(highlightTags.Where(t => !string.IsNullOrWhiteSpace(t)), StringComparer.OrdinalIgnoreCase);
+            foreach (var n in nodes.Where(n => !n.Completed && AtlasTrackedRuleMatches(n, trackedRules, out _)).Take(128))
+            {
+                AtlasTrackedRuleMatches(n, trackedRules, out var matched);
+                var label = matched.Length > 0 ? matched : n.MapName.Length > 0 ? n.MapName : "Tracked";
+                var color = _settings.AtlasHighlightColors.TryGetValue(label, out var c) ? c : "#58A6FF";
+                targets.Add(new AtlasRouteTarget(n, label, color, 0));
+            }
+        }
+
         if (_settings.AtlasDrawLinesToUniqueMaps)
         {
             foreach (var n in nodes.Where(n => !n.Completed && AtlasRouteEntryMatches(n, "type:unique")).Take(64))
@@ -2937,19 +2955,31 @@ public sealed partial class RadarApp : IDisposable
             "tag" => (map?.Tags.Any(t => string.Equals(t, value, StringComparison.OrdinalIgnoreCase)) ?? false)
                 || (node.Tags is { Count: > 0 } && node.Tags.Any(t => t.Contains(value, StringComparison.OrdinalIgnoreCase))),
             "type" => string.Equals(map?.Type, value, StringComparison.OrdinalIgnoreCase),
-            "content" => node.Tags is { Count: > 0 } && node.Tags.Any(t => t.Contains(value, StringComparison.OrdinalIgnoreCase)),
+            "content" => ContentLabelMatches(node, value),
             _ => !string.IsNullOrEmpty(node.MapName) && node.MapName.Contains(value, StringComparison.OrdinalIgnoreCase),
         };
     }
 
     private static bool NodeHasContentKey(in Poe2Atlas.AtlasNodeLive node, string contentKey)
     {
+        if (string.IsNullOrWhiteSpace(contentKey)) return false;
+        if (ContentLabelMatches(node, contentKey)) return true;
+        if (AtlasCatalog.Shared.ContentInfoFor(contentKey) is { } ci && ContentLabelMatches(node, ci.Label))
+            return true;
+        return AtlasCatalog.Shared.MapContentInfoFor(contentKey) is not null
+            && ContentLabelMatches(node, contentKey);
+    }
+
+    private static bool ContentLabelMatches(in Poe2Atlas.AtlasNodeLive node, string label)
+    {
+        if (string.IsNullOrWhiteSpace(label)) return false;
         if (node.Tags is { Count: > 0 })
             foreach (var t in node.Tags)
-                if (t.Contains(contentKey, StringComparison.OrdinalIgnoreCase)) return true;
-        return AtlasCatalog.Shared.ContentInfoFor(contentKey) is { } ci
-            && node.Tags is { Count: > 0 }
-            && node.Tags.Any(t => t.Contains(ci.Label, StringComparison.OrdinalIgnoreCase));
+                if (t.Contains(label, StringComparison.OrdinalIgnoreCase)) return true;
+        if (node.Badges is { Count: > 0 })
+            foreach (var b in node.Badges)
+                if (b.Contains(label, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
     }
 
     /// <summary>Resolve the F10 START/END grid coords to canvas-space (relPos) points for the markers, and —

@@ -42,6 +42,69 @@ public sealed class AtlasPanelLocatorTests
     }
 
     [Fact]
+    public void TryResolveNodeList_PrefersGamepadManager_WhenLiveCanvasHasMoreNodes()
+    {
+        using var process = ProcessHandle.AttachToProcess(Environment.ProcessId, Process.GetCurrentProcess().ProcessName);
+        var reader = new MemoryReader(process);
+        using var ui = new FakeUiMemory();
+
+        nint BuildChain(int nodeChildCount)
+        {
+            var manager = ui.Element(visible: true, directChildren: 1);
+            var panel = ui.ElementWithFlags(PanelFp | VisibleMask, visible: true, parent: manager);
+            var gate = ui.ElementWithFlags(GateFp | VisibleMask, visible: true, parent: panel);
+            var nodeList = ui.ElementWithFlags(NodeListFp | VisibleMask, visible: true, parent: gate, directChildren: nodeChildCount);
+            ui.SetChildren(manager, 1, (0, panel));
+            ui.SetChildren(panel, 1, (0, gate));
+            ui.SetChildren(gate, 1, (0, nodeList));
+            for (var i = 0; i < nodeChildCount; i++)
+                ui.SetChildren(nodeList, nodeChildCount, (i, ui.Element(visible: true, parent: nodeList)));
+            return manager;
+        }
+
+        var kbManager = BuildChain(2);
+        var padManager = BuildChain(400);
+
+        var igs = ui.Alloc(0x400);
+        ui.WritePtr(igs + Poe2.InGameState.KeyboardUiRootStructPtr, kbManager);
+        ui.WritePtr(igs + Poe2.InGameState.GamepadUiRootStructPtr, padManager);
+
+        Assert.True(AtlasPanelLocator.TryResolveNodeList(reader, igs, out var resolved, out var mgr));
+        Assert.Equal(padManager, mgr);
+        Assert.Equal(1000 + 400, AtlasPanelLocator.ScoreNodeList(reader, resolved));
+    }
+
+    [Fact]
+    public void TryResolveNodeList_FindsControllerChain()
+    {
+        using var process = ProcessHandle.AttachToProcess(Environment.ProcessId, Process.GetCurrentProcess().ProcessName);
+        var reader = new MemoryReader(process);
+        using var ui = new FakeUiMemory();
+
+        const uint MapNodeFp = 0x00542EF3;
+        var manager = ui.Element(visible: true, directChildren: 2);
+        var gate0 = ui.ElementWithFlags(GateFp | VisibleMask, visible: true, parent: manager);
+        var mapNode = ui.ElementWithFlags(MapNodeFp | VisibleMask, visible: true, parent: gate0);
+        var gate1 = ui.ElementWithFlags(GateFp | VisibleMask, visible: true, parent: mapNode);
+        var panel = ui.ElementWithFlags(PanelFp | VisibleMask, visible: true, parent: gate1);
+        var gate2 = ui.ElementWithFlags(GateFp | VisibleMask, visible: true, parent: panel);
+        var nodeList = ui.ElementWithFlags(NodeListFp | VisibleMask, visible: true, parent: gate2, directChildren: 3);
+        ui.SetChildren(manager, 2, (0, gate0), (1, ui.Element(visible: false)));
+        ui.SetChildren(gate0, 1, (0, mapNode));
+        ui.SetChildren(mapNode, 1, (0, gate1));
+        ui.SetChildren(gate1, 1, (0, panel));
+        ui.SetChildren(panel, 1, (0, gate2));
+        ui.SetChildren(gate2, 1, (0, nodeList));
+
+        var igs = ui.Alloc(0x400);
+        ui.WritePtr(igs + Poe2.InGameState.GamepadUiRootStructPtr, manager);
+
+        Assert.True(AtlasPanelLocator.TryResolveNodeList(reader, igs, out var resolved, out var mgr));
+        Assert.Equal(nodeList, resolved);
+        Assert.Equal(manager, mgr);
+    }
+
+    [Fact]
     public void IsAtlasOpen_ReturnsFalse_WhenNodeListHidden()
     {
         using var process = ProcessHandle.AttachToProcess(Environment.ProcessId, Process.GetCurrentProcess().ProcessName);

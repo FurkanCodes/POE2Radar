@@ -206,6 +206,47 @@ public sealed class RadarSettingsMigrationTests
     }
 
     [Fact]
+    public void Migrate_ReconcilesAtlasBuiltInTargetsToGameHelperList()
+    {
+        var s = new RadarSettings
+        {
+            AtlasRouteTargetsGhParityMigrated = false,
+            AtlasRouteGroups =
+            [
+                new AtlasRouteGroupSettings
+                {
+                    Name = "Map Targets",
+                    Locked = true,
+                    LineThickness = 3.5f,
+                    Entries =
+                    [
+                        new AtlasRouteEntrySettings { Name = "Old", Match = "map:Jade Citadel" },
+                    ],
+                },
+                new AtlasRouteGroupSettings
+                {
+                    Name = "Great Beast",
+                    Entries =
+                    [
+                        new AtlasRouteEntrySettings { Name = "Great Beast", Match = "content:Great Beast" },
+                    ],
+                },
+            ],
+        };
+
+        var changed = s.Migrate();
+        var builtIn = s.AtlasRouteGroups.Single(g => g.Locked);
+
+        Assert.True(changed);
+        Assert.True(s.AtlasRouteTargetsGhParityMigrated);
+        Assert.Equal(1.5f, builtIn.LineThickness);
+        Assert.Contains(builtIn.Entries, e => e.Name == "The Jade Isles" && e.Match == "id:MapUberBoss_JadeCitadel");
+        Assert.Contains(builtIn.Entries, e => e.Name == "Sprawling Jungle" && e.Match == "id:ExpeditionSubArea_MedvedBoss");
+        Assert.Contains(s.AtlasRouteGroups, g => !g.Locked && g.Name == "Great Beast");
+        Assert.False(s.Migrate());
+    }
+
+    [Fact]
     public void Migrate_DisablesAutoShowMonolithWithGamepadOnce()
     {
         var s = new RadarSettings
