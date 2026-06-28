@@ -105,6 +105,19 @@ if (HasFlag(args, "--map-scan-frames"))
 if (HasFlag(args, "--watch-expedition"))
     return RunWatchExpedition(process, reader);
 
+if (HasFlag(args, "--runecraft-panel"))
+{
+    var (rcW, rcH) = TryGameClientSize(process.ProcessId);
+    return RunecraftResearchProbes.Run(
+        process,
+        reader,
+        LootResearchProbes.ResolveGameStateSlot(process, reader),
+        HasFlag(args, "--watch"),
+        TryGetIntArg(args, "--ms") ?? 500,
+        rcW,
+        rcH);
+}
+
 if (HasFlag(args, "--watch"))
     return RunWatch(process, reader);
 

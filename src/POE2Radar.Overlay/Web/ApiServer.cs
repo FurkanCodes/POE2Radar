@@ -63,6 +63,8 @@ public sealed class ApiServer : IDisposable
     private readonly Action<IReadOnlyList<(string tag, string color, bool track, bool arrow)>>? _atlasHighlight;
     private readonly Func<object>? _ritual;
     private readonly Action<string>? _ritualApply;
+    private readonly Func<object>? _runecraft;
+    private readonly Action<string>? _runecraftApply;
     // Version/update info provider ({current, latest, updateAvailable, url}) for the dashboard banner.
     private readonly Func<object>? _version;
     private volatile bool _running;
@@ -86,6 +88,8 @@ public sealed class ApiServer : IDisposable
         Action<IReadOnlyList<(string tag, string color, bool track, bool arrow)>>? atlasHighlight = null,
         Func<object>? ritualProvider = null,
         Action<string>? ritualApply = null,
+        Func<object>? runecraftProvider = null,
+        Action<string>? runecraftApply = null,
         Func<object>? versionProvider = null,
         int port = 7777)
     {
@@ -95,6 +99,8 @@ public sealed class ApiServer : IDisposable
         _atlasHighlight = atlasHighlight;
         _ritual = ritualProvider;
         _ritualApply = ritualApply;
+        _runecraft = runecraftProvider;
+        _runecraftApply = runecraftApply;
         _version = versionProvider;
         _settings = settings;
         _navGet = navGet;
@@ -331,6 +337,29 @@ public sealed class ApiServer : IDisposable
                     }
                     _ritualApply?.Invoke(ReadBody(ctx));
                     Write(ctx, 200, JsonSerializer.Serialize(new { ok = true, ritual = _ritual?.Invoke() }, Json));
+                }
+                else
+                {
+                    Write(ctx, 405, JsonSerializer.Serialize(new { error = "method not allowed" }, Json));
+                }
+                break;
+            }
+
+            case "/api/runecraft":
+            {
+                if (ctx.Request.HttpMethod == "GET")
+                {
+                    Write(ctx, 200, JsonSerializer.Serialize(_runecraft?.Invoke() ?? new { enabled = false, note = "runecraft reader unavailable" }, Json));
+                }
+                else if (ctx.Request.HttpMethod == "POST")
+                {
+                    if (!IsLoopbackHost(ctx.Request))
+                    {
+                        Write(ctx, 403, JsonSerializer.Serialize(new { error = "forbidden host" }, Json));
+                        break;
+                    }
+                    _runecraftApply?.Invoke(ReadBody(ctx));
+                    Write(ctx, 200, JsonSerializer.Serialize(new { ok = true, runecraft = _runecraft?.Invoke() }, Json));
                 }
                 else
                 {

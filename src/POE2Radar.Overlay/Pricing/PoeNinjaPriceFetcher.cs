@@ -111,6 +111,7 @@ namespace POE2Radar.Overlay.Pricing
         private static Dictionary<string, double> flatPricesChaos = new(StringComparer.OrdinalIgnoreCase);
         private static Dictionary<string, List<UniquePriceListing>> uniqueListingsByName = new(StringComparer.OrdinalIgnoreCase);
         private static Dictionary<string, string> pathBasenameToItemName = new(StringComparer.OrdinalIgnoreCase);
+        private static Dictionary<string, double> artFlatPricesChaos = new(StringComparer.OrdinalIgnoreCase);
 
         private static bool isFetching;
         private static string pluginDir = string.Empty;
@@ -251,6 +252,75 @@ namespace POE2Radar.Overlay.Pricing
             lock (Gate)
             {
                 return chaosPerDivine;
+            }
+        }
+
+        public static double GetChaosPerExalted()
+        {
+            lock (Gate)
+            {
+                return chaosPerExalted;
+            }
+        }
+
+        public static bool TryGetExaltedByArtId(string artId, out double exalted)
+        {
+            exalted = 0;
+            if (string.IsNullOrWhiteSpace(artId)) return false;
+            lock (Gate)
+            {
+                if (TryChaosByArtIdUnlocked(artId, out var chaos) && chaos > 0 && chaosPerExalted > 0)
+                {
+                    exalted = chaos / chaosPerExalted;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public static bool TryGetExaltedByName(string name, out double exalted)
+        {
+            exalted = 0;
+            if (string.IsNullOrWhiteSpace(name)) return false;
+            lock (Gate)
+            {
+                if (!flatPricesChaos.TryGetValue(NormalizeKey(name), out var chaos) || chaos <= 0)
+                    return false;
+                if (chaosPerExalted <= 0) return false;
+                exalted = chaos / chaosPerExalted;
+                return true;
+            }
+        }
+
+        private static bool TryChaosByArtIdUnlocked(string artId, out double chaos)
+        {
+            chaos = 0;
+            var key = NormalizeKey(artId);
+            if (key.Length == 0) return false;
+            if (artFlatPricesChaos.TryGetValue(key, out chaos) && chaos > 0) return true;
+            if (flatPricesChaos.TryGetValue(key, out chaos) && chaos > 0) return true;
+            if (pathBasenameToItemName.TryGetValue(key, out var displayName) &&
+                flatPricesChaos.TryGetValue(NormalizeKey(displayName), out chaos) && chaos > 0)
+                return true;
+            return false;
+        }
+
+        private static void RebuildArtPriceIndex()
+        {
+            artFlatPricesChaos = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (artKey, displayName) in pathBasenameToItemName)
+            {
+                if (!flatPricesChaos.TryGetValue(NormalizeKey(displayName), out var chaos) || chaos <= 0)
+                    continue;
+                artFlatPricesChaos[artKey] = chaos;
+            }
+
+            foreach (var (nameKey, chaos) in flatPricesChaos)
+            {
+                if (chaos <= 0 || nameKey.Length < 4) continue;
+                if (!artFlatPricesChaos.ContainsKey(nameKey))
+                    artFlatPricesChaos[nameKey] = chaos;
             }
         }
 
@@ -571,6 +641,7 @@ namespace POE2Radar.Overlay.Pricing
                         DivineToExaltedRate = chaosPerDivine / chaosPerExalted;
                     LoadedItemCount = flat.Count + uniques.Values.Sum(v => v.Count);
                     lastFetchTime = DateTime.UtcNow;
+                    RebuildArtPriceIndex();
                 }
 
                 SaveCacheToDisk();
@@ -993,6 +1064,7 @@ namespace POE2Radar.Overlay.Pricing
                         DivineToExaltedRate = chaosPerDivine / chaosPerExalted;
                     lastFetchTime = snapshot.LastFetchUtc;
                     LoadedItemCount = flatPricesChaos.Count + uniqueListingsByName.Values.Sum(v => v.Count);
+                    RebuildArtPriceIndex();
                 }
 
                 return true;

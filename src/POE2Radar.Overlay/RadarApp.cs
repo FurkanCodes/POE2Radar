@@ -551,6 +551,7 @@ public sealed partial class RadarApp : IDisposable
         _api = new ApiServer(() => _state, _settings, GetNavSelection, ToggleNavTarget, ClearNavSelection,
                              _hidden, _displayRules, _zoneOverrides, _ruleEngine, _landmarkStore, CurrentTilePaths,
                              AtlasJson, SetAtlasSelection, SetAtlasHighlight, RitualApiJson, ApplyRitualApi,
+                             RunecraftApiJson, ApplyRunecraftApi,
                              VersionJson, _settings.ApiPort);
         try { _api.Start(); Console.WriteLine($"API on http://localhost:{_settings.ApiPort} (dashboard at /)"); }
         catch (Exception ex) { Console.Error.WriteLine($"API server disabled: {ex.Message}"); }
@@ -699,6 +700,11 @@ public sealed partial class RadarApp : IDisposable
             ClearRitualWindowSession(open: false);
 
         if (live.InGame)
+            RefreshRunecraft(live, snap, windowWidth, windowHeight, drawActive);
+        else
+            ClearRunecraftSession(open: false);
+
+        if (live.InGame)
         {
             BuildRenderPaths(live.PlayerGrid, snap);
             if (!_atlasOpen && _hpBarCadence.IsDue(PerformanceCadence.ClampHz(_settings.HpBarRefreshHz, 1, 30)))
@@ -831,6 +837,10 @@ public sealed partial class RadarApp : IDisposable
             HpBarTargets: _hpFrame,
             TerrainStyle: _settings.Terrain,
             RitualLabels: _ritualLabels,
+            RunecraftLabels: _runecraftLabels,
+            RunecraftMapLabels: _runecraftMapLabels,
+            RunecraftShowMonolithWindow: _settings.Runecraft.ShowMonolithWindow,
+            RunecraftMonolithRows: _runecraftMonolithRows,
             AtlasOpen: _atlasOpen,
             AtlasNodes: _atlasMarksPublish,
             AtlasShowOnScreenNodes: _settings.AtlasShowOnScreenNodes,

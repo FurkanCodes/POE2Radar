@@ -127,6 +127,42 @@ public readonly record struct RitualPriceLabel(
     NumVec2 DebugPos = default,
     float DebugFontSize = 0f);
 
+public readonly record struct RunecraftPriceLabel(
+    NumVec2 Pos,
+    NumVec2 Size,
+    string ValueText,
+    uint TextColor,
+    float FontPx,
+    bool Locked,
+    float ClipTop,
+    float ClipBottom,
+    bool HasClip,
+    float PriceLeftX,
+    float OffsetX);
+
+public readonly record struct RunecraftMapLabel(
+    NumVec2 ScreenPos,
+    string ValueText,
+    uint TextColor);
+
+public readonly record struct RunecraftMonolithCandidate(
+    string Reward,
+    int Count,
+    double UnitEx,
+    double TotalEx,
+    bool Priced,
+    string RunesTooltip,
+    int Size,
+    uint TotalColor);
+
+public readonly record struct RunecraftMonolithPanelRow(
+    long MonolithKey,
+    string Header,
+    double BestEx,
+    uint HeaderColor,
+    bool ShowAnchorWarning,
+    RunecraftMonolithCandidate[] Candidates);
+
 /// <summary>Endgame atlas tier for icon/label accent (Return of the Ancients / 0.5).</summary>
 public enum AtlasEndgameTier : byte
 {
@@ -245,6 +281,10 @@ public sealed record RenderContext(
     // Walkable-terrain bitmap colors/transparency (mirrored from RadarSettings).
     TerrainSettings TerrainStyle,
     RitualPriceLabel[] RitualLabels,
+    RunecraftPriceLabel[] RunecraftLabels,
+    RunecraftMapLabel[] RunecraftMapLabels,
+    bool RunecraftShowMonolithWindow,
+    RunecraftMonolithPanelRow[] RunecraftMonolithRows,
     // ── Unified display-rule engine (Phase 1). Resolves an entity to the first matching display rule
     // (or null → not drawn); the rule says hide or how to draw (shape/color/size/label). Replaces the
     // watched/mechanic/category dot decision in DrawMap. Null only if not wired (defensive). ──

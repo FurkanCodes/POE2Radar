@@ -223,4 +223,20 @@ internal static class SettingHints
         public const string RulesHide = "Matched entities are hidden on the radar.";
         public const string RulesPath = "Draw a walking path to matching entities.";
     }
+
+    internal static class Runecraft
+    {
+        public const string ShowOverlay = "Paint Exalted prices on each reward row while the Runeshape Combinations panel is open.";
+        public const string ColorMode = "Tint prices off, vs the median on screen, or vs fixed Exalted thresholds.";
+        public const string OverlayXOffset = "Slide price text left or right after the row's rune icons.";
+        public const string HighlightLockedRecipe = "Gold border on the sealed monolith's locked-in recipe row.";
+        public const string PriceSource = "Where to fetch public PoE2 price data from.";
+        public const string League = "League name sent to the price API.";
+        public const string RefreshIntervalMin = "How often to refresh cached prices in minutes.";
+        public const string ShowMapLabels = "Show each monolith's best reward value on the large map.";
+        public const string HideMapValueWhenPanelOpen = "Hide map value labels while the combinations panel is open.";
+        public const string MapLabelMinExalted = "Skip map labels below this Exalted value.";
+        public const string MapValueScaleMultiplier = "Scale monolith map labels to match your map zoom.";
+        public const string ShowMonolithWindow = "Open a list of nearby monolith candidate recipes and prices.";
+    }
 }

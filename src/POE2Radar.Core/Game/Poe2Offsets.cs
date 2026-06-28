@@ -317,6 +317,9 @@ public static class Poe2
     public static class StateMachine
     {
         public const int ListenerVec = 0x20; // ✓ StdVector of listener-node ptrs
+        public const int StatesPtr = 0x158; // ✓ ptr to state-name table
+        public const int StatesValues = 0x160; // ✓ StdVector<long> parallel to state names
+        public const int StateStructSize = 0xC0;
     }
 
     /// <summary>RuneStation heap object behind a runeshape monolith device. ✓ validated 2026-06-20.</summary>
@@ -327,6 +330,8 @@ public static class Poe2
         public const int AnchorHolder = 0x30;
         public const int HoleCount = 0x38;
         public const int AnchorPos = 0x3C;
+        public const int SelectedRecipe = 0x60; // ✓ locked/selected recipe row ptr (sealed monolith)
+        public const int PanelOpenListener = 0xB8; // ✓ in-module vtable while combinations panel open
         public const int ListenerSub = 0xA0; // ✓ listener node ptr = station + 0xA0 (2026-06-25 patch shifted +0x08, was 0x98; re-validated live: N=4 Tidal @ hole 3)
         public const int RuneStride = 0x68; // ✓ Expedition2Runes row stride (anchorIdx = (rowPtr-base)/stride). 2026-06-25 patch: 0x6C→0x68 (re-validated: delta 0x5B0/0x68 = 14 = Tidal)
         public const int RuneCount = 34;
@@ -393,6 +398,7 @@ public static class Poe2
         public const int PositionModifier = 0x0E0; // (GH2) parent position modifier, used when flags bit 0x0A is set (map path)
         public const int UiPositionModifier = 0xF0; // screen-rect path (GameHelper UiElementBase)
         public const int RelativePos    = 0x118; // ✓ StdTuple2D<float> position relative to parent (varies per atlas node)
+        public const int ScrollOffset   = 0x120; // ✓ StdTuple2D<float> scroll translation on viewport mask elements
         public const int LocalScaleMultiplier = 0x12C; // (GH2) UI element scale multiplier (map/minimap path)
         public const int LocalScaleMul = 0x130; // screen-rect path scale multiplier
         public const int ScaleIndex      = 0x130; // atlas zoom on node elements (map path)

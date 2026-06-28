@@ -305,6 +305,8 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                     DrawNameplates(dl, ctx);
                     DrawPathLabels(dl, ctx);
                     DrawRitualLabels(ImGui.GetForegroundDrawList(), ctx);
+                    DrawRunecraftLabels(ImGui.GetForegroundDrawList(), ctx);
+                    DrawRunecraftMapLabels(ImGui.GetForegroundDrawList(), ctx);
                     nameplatesMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                 }
 
@@ -313,6 +315,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
                 navMenuMs = Stopwatch.GetElapsedTime(navT).TotalMilliseconds;
                 DrawCursorInspect(dl, ctx);
             }
+
+            if (ctx is { Active: true, RunecraftShowMonolithWindow: true })
+                DrawRunecraftMonolithWindow(ctx);
 
             if (_settingsOpen && (ctx?.Active == true || _settings.AlwaysShowOverlay))
                 DrawSettingsPanel(ctx);
@@ -1038,6 +1043,153 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
         }
     }
 
+    private void DrawRunecraftLabels(ImDrawListPtr dl, RenderContext ctx)
+    {
+        if (ctx.RunecraftLabels is not { Length: > 0 } labels) return;
+
+        var font = ImGui.GetFont();
+        float ambient = Math.Max(1f, ImGui.GetFontSize());
+        const uint shadow = 0xCC000000u;
+        const uint plate = 0xE6000000u;
+        const uint gold = 0xFF00D7FFu;
+
+        foreach (var label in labels)
+        {
+            if (label.HasClip)
+            {
+                float centreY = label.Pos.Y + label.Size.Y * 0.5f;
+                if (centreY < label.ClipTop || centreY > label.ClipBottom) continue;
+            }
+
+            float k = label.FontPx / ambient;
+            var ts = ImGui.CalcTextSize(label.ValueText) * k;
+            float x = label.PriceLeftX + label.OffsetX;
+            float y = label.Pos.Y + (label.Size.Y - ts.Y) * 0.5f;
+            var at = new NumVec2(x, y);
+            var bgPad = new NumVec2(4f * k, 2f * k);
+            dl.AddRectFilled(at - bgPad, at + ts + bgPad, plate, 3f * k);
+            if (label.Locked)
+                dl.AddRect(at - bgPad, at + ts + bgPad, gold, 3f * k, ImDrawFlags.None, 2f * k);
+            dl.AddText(font, label.FontPx, at + new NumVec2(1f, 1f), shadow, label.ValueText);
+            dl.AddText(font, label.FontPx, at, label.TextColor, label.ValueText);
+        }
+    }
+
+    private void DrawRunecraftMapLabels(ImDrawListPtr dl, RenderContext ctx)
+    {
+        if (ctx.RunecraftMapLabels is not { Length: > 0 } labels) return;
+        if (ctx.MapFrame.IsMinimap) return;
+
+        var font = ImGui.GetFont();
+        float ambient = Math.Max(1f, ImGui.GetFontSize());
+        float fontPx = ambient * 1.5f;
+        float k = fontPx / ambient;
+        const uint shadow = 0xCC000000u;
+        var bgCol = ImGui.GetStyle().Colors[(int)ImGuiCol.WindowBg];
+        bgCol.W = 0.55f;
+        uint monoBg = ImGui.GetColorU32(bgCol);
+
+        foreach (var label in labels)
+        {
+            var text = label.ValueText;
+            var ts = ImGui.CalcTextSize(text) * k;
+            var at = new NumVec2(label.ScreenPos.X - ts.X * 0.5f, label.ScreenPos.Y + 6f);
+            var pad = new NumVec2(3f, 1f);
+            dl.AddRectFilled(at - pad, at + ts + pad, monoBg, 2f);
+            dl.AddText(font, fontPx, at + new NumVec2(1f, 1f), shadow, text);
+            dl.AddText(font, fontPx, at, label.TextColor, text);
+        }
+    }
+
+    private void DrawRunecraftMonolithWindow(RenderContext ctx)
+    {
+        if (!ctx.RunecraftShowMonolithWindow) return;
+        if (ctx.RunecraftMonolithRows is not { Length: > 0 } rows) return;
+
+        ImGui.SetNextWindowSizeConstraints(new NumVec2(260, 0), new NumVec2(640, 900));
+        if (!ImGui.Begin("Monolith Rewards", ImGuiWindowFlags.AlwaysAutoResize)) { ImGui.End(); return; }
+
+        foreach (var row in rows)
+        {
+            var hdr = $"{row.Header} · best {row.BestEx:F0} ex###rch{row.MonolithKey}";
+            if (row.HeaderColor != 0xFFFFFFFFu)
+                ImGui.PushStyleColor(ImGuiCol.Text, row.HeaderColor);
+            var open = ImGui.CollapsingHeader(hdr);
+            if (row.HeaderColor != 0xFFFFFFFFu)
+                ImGui.PopStyleColor();
+            if (!open) continue;
+
+            if (row.ShowAnchorWarning)
+            {
+                ImGui.TextDisabled("  anchor not resolved (station unavailable)");
+                continue;
+            }
+
+            if (!ImGui.BeginTable($"rcm{row.MonolithKey}", 4,
+                    ImGuiTableFlags.RowBg | ImGuiTableFlags.Borders | ImGuiTableFlags.SizingStretchProp,
+                    new NumVec2(430f, 0f)))
+                continue;
+
+            ImGui.TableSetupColumn("Reward", ImGuiTableColumnFlags.WidthStretch);
+            ImGui.TableSetupColumn("×", ImGuiTableColumnFlags.WidthFixed, 26f);
+            ImGui.TableSetupColumn("Unit", ImGuiTableColumnFlags.WidthFixed, 72f);
+            ImGui.TableSetupColumn("Total", ImGuiTableColumnFlags.WidthFixed, 76f);
+            ImGui.TableHeadersRow();
+
+            if (row.Candidates.Length == 0)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableSetColumnIndex(0);
+                ImGui.TextDisabled("(nothing above threshold)");
+            }
+            else
+            {
+                foreach (var c in row.Candidates)
+                {
+                    ImGui.TableNextRow();
+                    ImGui.TableSetColumnIndex(0);
+                    ImGui.Text(c.Reward);
+                    if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                        ImGui.SetTooltip(c.RunesTooltip);
+
+                    ImGui.TableSetColumnIndex(1);
+                    ImGui.Text(c.Count.ToString());
+
+                    ImGui.TableSetColumnIndex(2);
+                    if (c.Priced)
+                        DrawExaltedPriceInline(c.UnitEx, 0xFFFFFFFFu);
+                    else
+                        ImGui.TextDisabled("—");
+
+                    ImGui.TableSetColumnIndex(3);
+                    if (c.Priced)
+                        DrawExaltedPriceInline(c.TotalEx, c.TotalColor);
+                    else
+                        ImGui.TextDisabled("—");
+                }
+            }
+
+            ImGui.EndTable();
+        }
+
+        ImGui.End();
+    }
+
+    private void DrawExaltedPriceInline(double value, uint textColor)
+    {
+        var text = value >= 10 ? value.ToString("F0") : value.ToString("F1");
+        ImGui.PushStyleColor(ImGuiCol.Text, textColor);
+        ImGui.TextUnformatted(text);
+        ImGui.PopStyleColor();
+        ImGui.SameLine(0, 3f);
+        float iconH = ImGui.GetTextLineHeight();
+        if (_textures.TryGet(this, RitualCurrencyIcons.PathFor("exalted.png"), out var tex) && tex.Height > 0)
+        {
+            float iconW = iconH * tex.Width / (float)tex.Height;
+            ImGui.Image(tex.Id, new NumVec2(iconW, iconH));
+        }
+    }
+
     private static uint ColorFromU(uint u)
         => ColorU32((byte)((u >> 16) & 0xFF), (byte)((u >> 8) & 0xFF), (byte)(u & 0xFF), ((u >> 24) & 0xFF) / 255f);
 
@@ -1556,6 +1708,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             BeginSettingsTab("HP Bars", () => DrawHpBarsTab(s));
             BeginSettingsTab("Flask", () => DrawFlaskTab(s));
             BeginSettingsTab("Ritual", () => DrawRitualTab(s, ctx));
+            BeginSettingsTab("Runecraft", () => DrawRunecraftTab(s, ctx));
             BeginSettingsTab("Atlas", () => DrawAtlasTab(s));
             BeginSettingsTab("Hotkeys", () => DrawHotkeysTab(s));
             ImGui.EndTabBar();
@@ -2769,6 +2922,108 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             ImGui.TextUnformatted($"Labels this frame: {ctx?.RitualLabels.Length ?? 0}");
         }
         ImGuiTheme.EndAccordionSection(diagnosticsOpen);
+    }
+
+    private void DrawRunecraftTab(RadarSettings s, RenderContext? ctx)
+    {
+        var rc = s.Runecraft;
+
+        var panelOpen = ImGuiTheme.BeginAccordionSection("RunecraftPanel", "Combinations panel",
+            defaultOpen: true);
+        if (panelOpen)
+        {
+            bool show = rc.ShowOverlay;
+            if (ImGui.Checkbox("Show price overlay", ref show)) rc.ShowOverlay = show;
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.ShowOverlay);
+
+            var colorMode = Math.Clamp(rc.ColorMode, 0, 2);
+            ImGui.SetNextItemWidth(UiW(12f));
+            if (ImGui.Combo("Price color", ref colorMode, "Off\0Relative (vs median)\0Absolute (Ex thresholds)\0"))
+                rc.ColorMode = colorMode;
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.ColorMode);
+
+            var ox = rc.OverlayXOffset;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Price X offset", ref ox, -400f, 400f, "%.0f px"))
+                rc.OverlayXOffset = ox;
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.OverlayXOffset);
+
+            bool locked = rc.HighlightLockedRecipe;
+            if (ImGui.Checkbox("Highlight locked recipe", ref locked)) rc.HighlightLockedRecipe = locked;
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.HighlightLockedRecipe);
+        }
+        ImGuiTheme.EndAccordionSection(panelOpen);
+
+        var pricingOpen = ImGuiTheme.BeginAccordionSection("RunecraftPricing", "Pricing",
+            defaultOpen: true);
+        if (pricingOpen)
+        {
+            var source = Math.Clamp(rc.PriceSource, 0, 1);
+            ImGui.SetNextItemWidth(UiW(9f));
+            if (ImGui.Combo("Price source", ref source, "poe.ninja\0poe2scout\0"))
+                rc.PriceSource = source;
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.PriceSource);
+
+            var league = rc.League ?? "";
+            ImGui.SetNextItemWidth(UiW(14f));
+            if (ImGui.InputText("League", ref league, 96))
+                rc.League = league;
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.League);
+
+            var refresh = Math.Max(1, rc.RefreshIntervalMin);
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Refresh minutes", ref refresh, 1, 60))
+                rc.RefreshIntervalMin = refresh;
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.RefreshIntervalMin);
+
+            if (ImGui.Button("Refresh prices"))
+            {
+                var dir = System.IO.Path.Combine(AppContext.BaseDirectory, "RitualHelper");
+                Directory.CreateDirectory(dir);
+                PoeNinjaPriceFetcher.Configure(Math.Clamp(rc.PriceSource, 0, 1), rc.League ?? "", refresh);
+                PoeNinjaPriceFetcher.ForceRefresh(dir, ignoreCooldown: true);
+            }
+        }
+        ImGuiTheme.EndAccordionSection(pricingOpen);
+
+        var mapOpen = ImGuiTheme.BeginAccordionSection("RunecraftMap", "Map labels",
+            defaultOpen: false);
+        if (mapOpen)
+        {
+            bool map = rc.ShowMapLabels;
+            if (ImGui.Checkbox("Draw value on large map", ref map)) rc.ShowMapLabels = map;
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.ShowMapLabels);
+
+            bool hide = rc.HideMapValueWhenPanelOpen;
+            if (ImGui.Checkbox("Hide map values when panel open", ref hide)) rc.HideMapValueWhenPanelOpen = hide;
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.HideMapValueWhenPanelOpen);
+
+            var minEx = rc.MapLabelMinExalted;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Min map label (ex)", ref minEx, 0f, 50f, "%.0f"))
+                rc.MapLabelMinExalted = Math.Clamp(minEx, 0f, 1000f);
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.MapLabelMinExalted);
+
+            var scale = rc.MapValueScaleMultiplier;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Map value scale", ref scale, 0.1f, 3f, "%.2f"))
+                rc.MapValueScaleMultiplier = Math.Clamp(scale, 0.1f, 3f);
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.MapValueScaleMultiplier);
+        }
+        ImGuiTheme.EndAccordionSection(mapOpen);
+
+        var monoOpen = ImGuiTheme.BeginAccordionSection("RunecraftMonolith", "Monolith window",
+            defaultOpen: false);
+        if (monoOpen)
+        {
+            bool win = rc.ShowMonolithWindow;
+            if (ImGui.Checkbox("Show monolith rewards window", ref win)) rc.ShowMonolithWindow = win;
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.ShowMonolithWindow);
+
+            ImGui.TextUnformatted($"Panel labels: {ctx?.RunecraftLabels.Length ?? 0}");
+            ImGui.TextUnformatted($"Monolith rows: {ctx?.RunecraftMonolithRows.Length ?? 0}");
+        }
+        ImGuiTheme.EndAccordionSection(monoOpen);
     }
 
     private void DrawAtlasTab(RadarSettings s)

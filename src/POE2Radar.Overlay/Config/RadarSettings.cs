@@ -125,6 +125,7 @@ public sealed class RadarSettings
     public bool ServerIconPortalMigrated { get; set; } = false;
 
     public RitualSettings Ritual { get; set; } = new();
+    public RunecraftSettings Runecraft { get; set; } = new();
 
     // ── Global multiplier on map icon sprite scale (PNG from icons.png). ──
     public float GlobalIconScale { get; set; } = 1.25f;
@@ -551,6 +552,27 @@ public sealed class RitualSettings
     public float PriceOffsetY { get; set; } = -5f;
     public string PriceTextColor { get; set; } = "#FFEB8C";
     public float MinDisplayExalted { get; set; } = 50f;
+}
+
+public sealed class RunecraftSettings
+{
+    public bool ShowOverlay { get; set; } = true;
+    public int PriceSource { get; set; } = 1;
+    public string League { get; set; } = "Runes of Aldur";
+    public int RefreshIntervalMin { get; set; } = 5;
+    public int ColorMode { get; set; } = 1; // 0 off, 1 relative, 2 absolute
+    public float OverlayXOffset { get; set; } = 0f;
+    public bool ShowMapLabels { get; set; } = true;
+    public float MapLabelMinExalted { get; set; } = 1f;
+    public bool HideMapValueWhenPanelOpen { get; set; } = true;
+    public bool ShowMonolithWindow { get; set; } = false;
+    public float MonolithRewardsMinExalted { get; set; } = 0f;
+    public float MonolithHighlightThreshold { get; set; } = 0f;
+    public float MapValueScaleMultiplier { get; set; } = 1f;
+    public float MapValueXOffset { get; set; } = 0f;
+    public float MapValueYOffset { get; set; } = 0f;
+    public bool HighlightLockedRecipe { get; set; } = true;
+    public bool DiagnosePricing { get; set; } = false;
 }
 
 public sealed class AtlasRouteGroupSettings
