@@ -120,6 +120,8 @@ public sealed partial class RadarApp : IDisposable
     private nint _gameHwnd;
     private string _mapDiag = "";
     private volatile bool _shutdown;
+    private DateTime _lastGameFocusUtc = DateTime.MinValue;
+    private const int OverlayFocusLossGraceMs = 500;
 
     // ── Auto-flask (opt-in input). Foreground + in-game gated; F8 master kill-switch.
     //    Flask keys are configurable in RadarSettings (LifeKey/ManaKey). ──
@@ -688,7 +690,10 @@ public sealed partial class RadarApp : IDisposable
         if (windowWidth <= 0 || windowHeight <= 0)
             ResolveGameClientSize(out windowWidth, out windowHeight);
         var realActive = IsGameFocused();
-        var drawActive = realActive || _settings.AlwaysShowOverlay;
+        var focusNow = DateTime.UtcNow;
+        if (realActive)
+            _lastGameFocusUtc = focusNow;
+        var drawActive = ShouldDrawOverlay(realActive, _settings.AlwaysShowOverlay, focusNow, _lastGameFocusUtc, OverlayFocusLossGraceMs);
 
         if (_liveCadence.IsDue(PerformanceCadence.ClampHz(_settings.LiveRefreshHz, 5, 120)))
             _liveFrame = RefreshLiveFrame(snap, windowWidth, windowHeight, drawActive, realActive);
@@ -3061,6 +3066,20 @@ public sealed partial class RadarApp : IDisposable
     private bool IsGameFocused()
         => OverlayNative.IsGameFocused(_gameHwnd, _process.ProcessId);
 
+    internal static bool ShouldDrawOverlay(
+        bool realActive,
+        bool alwaysShowOverlay,
+        DateTime nowUtc,
+        DateTime lastGameFocusUtc,
+        int focusLossGraceMs)
+    {
+        if (alwaysShowOverlay || realActive)
+            return true;
+        if (lastGameFocusUtc == DateTime.MinValue)
+            return false;
+        return (nowUtc - lastGameFocusUtc).TotalMilliseconds <= Math.Max(0, focusLossGraceMs);
+    }
+
     private void ResolveGameClientSize(out int width, out int height)
     {
         width = OverlayWidth;
@@ -3227,4 +3246,3 @@ public sealed partial class RadarApp : IDisposable
         try { _imguiThread?.Join(1000); } catch { }
     }
 }
-

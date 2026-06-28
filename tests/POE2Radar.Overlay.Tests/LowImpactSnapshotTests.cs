@@ -39,6 +39,23 @@ public sealed class LowImpactSnapshotTests
         Assert.Empty(source);
     }
 
+    [Theory]
+    [InlineData(true, false, 1000, true)]
+    [InlineData(false, true, 10000, true)]
+    [InlineData(false, false, 250, true)]
+    [InlineData(false, false, 750, false)]
+    public void ShouldDrawOverlay_HoldsBriefFocusLosses(
+        bool realActive,
+        bool alwaysShow,
+        int focusLostMs,
+        bool expected)
+    {
+        var now = DateTime.UtcNow;
+        var lastFocus = now.AddMilliseconds(-focusLostMs);
+
+        Assert.Equal(expected, RadarApp.ShouldDrawOverlay(realActive, alwaysShow, now, lastFocus, 500));
+    }
+
     private static PropertyInfo Property(PropertyInfo[] properties, string name)
         => properties.Single(p => p.Name == name);
 }
