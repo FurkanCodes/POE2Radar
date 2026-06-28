@@ -59,4 +59,18 @@ public sealed class RitualPricingTests
         int liveRefreshHz,
         int expected)
         => Assert.Equal(expected, RadarApp.RitualScanHz(wasWindowOpen, showPricesWindow, liveRefreshHz));
+
+    [Theory]
+    [InlineData(true, 8, 0, 1, true)]
+    [InlineData(true, 0, 3, 4, true)]
+    [InlineData(true, 8, 0, 5, false)]
+    [InlineData(false, 8, 3, 1, false)]
+    [InlineData(true, 0, 0, 1, false)]
+    public void ShouldHoldRitualReadMiss_PreservesOnlyShortLivedPopulatedSessions(
+        bool wasWindowOpen,
+        int rows,
+        int labels,
+        int missStreak,
+        bool expected)
+        => Assert.Equal(expected, RadarApp.ShouldHoldRitualReadMiss(wasWindowOpen, rows, labels, missStreak));
 }

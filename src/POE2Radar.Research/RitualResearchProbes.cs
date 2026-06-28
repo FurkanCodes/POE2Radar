@@ -105,6 +105,7 @@ internal static class RitualResearchProbes
                 Console.WriteLine(
                     $"    grid@0x{grid.Grid:X} tiles={grid.TileCount} items@4F8={grid.ItemCountAt4F8} " +
                     $"best={grid.BestItemCount}@+0x{grid.BestItemOffset:X} visible={grid.Visible} " +
+                    $"rect=({grid.Rect.X:F0},{grid.Rect.Y:F0} {grid.Rect.W:F0}x{grid.Rect.H:F0}) " +
                     $"shopCtx={grid.PassesShopContext} strict={grid.PassesStrictValidation}");
             }
         }

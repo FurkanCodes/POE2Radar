@@ -108,7 +108,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
     public ImGuiRadarOverlay(Action<Action> enqueue, Action<string> toggleTarget, Action<string> setCorner,
         Action addNearest, Action clearPaths, RadarSettings settings)
-        : base("POE2Radar", true, 3840, 2160)
+        : base("POE2Radar Radar", true, 3840, 2160)
     {
         _enqueue = enqueue;
         _toggleTarget = toggleTarget;

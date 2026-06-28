@@ -27,12 +27,12 @@ public sealed partial class RadarApp
     private nint _ritualAreaInstance;
     private readonly PerformanceCadence _ritualIdleCadence = new();
     private bool _ritualPadConnected;
-    private int _ritualClosedStreak;
+    private int _ritualReadMissStreak;
     private readonly Dictionary<nint, Poe2Live.UiRect> _ritualTileRects = new();
 
     private const int RitualIdleScanHz = 6;
     private const int RitualPricesWindowIdleHz = 12;
-    private const int RitualCloseStreakMax = 6;
+    private const int RitualTransientMissGrace = 4;
 
     private sealed record RitualRuntimeStatus(
         bool Open,
@@ -70,7 +70,7 @@ public sealed partial class RadarApp
         if (live.AreaInstance != _ritualAreaInstance)
         {
             _ritualAreaInstance = live.AreaInstance;
-            _ritualClosedStreak = 0;
+            _ritualReadMissStreak = 0;
             _live.InvalidateRitualUiCache();
             ClearRitualWindowSession(open: false);
             _ritualPanelRows = [];
@@ -86,7 +86,7 @@ public sealed partial class RadarApp
         if (padConnected != _ritualPadConnected)
         {
             _ritualPadConnected = padConnected;
-            _ritualClosedStreak = 0;
+            _ritualReadMissStreak = 0;
             _live.InvalidateRitualUiCache();
             ClearRitualWindowSession(open: false);
             _ritualPanelRows = [];
@@ -103,10 +103,10 @@ public sealed partial class RadarApp
 
         if (!rewards.IsOpen)
         {
-            if (_wasRitualWindowOpen
-                && (_ritualPanelRows.Length > 0 || _ritualLabels.Length > 0)
-                && ++_ritualClosedStreak < RitualCloseStreakMax)
+            var missStreak = _ritualReadMissStreak + 1;
+            if (ShouldHoldRitualReadMiss(_wasRitualWindowOpen, _ritualPanelRows.Length, _ritualLabels.Length, missStreak))
             {
+                _ritualReadMissStreak = missStreak;
                 _ritualStatus = _ritualStatus with
                 {
                     Open = true,
@@ -114,12 +114,13 @@ public sealed partial class RadarApp
                     Branch = rewards.Branch.ToString(),
                     LastScanMs = scanMs,
                     LastSeenUtc = now,
-                    Note = rewards.Note,
+                    Note = string.IsNullOrWhiteSpace(rewards.Note) ? "transient miss grace" : rewards.Note,
                 };
+                FlushPendingRitualSound();
                 return;
             }
 
-            _ritualClosedStreak = 0;
+            _ritualReadMissStreak = 0;
             ClearRitualWindowSession(open: false);
             _ritualPanelRows = [];
             _ritualTileRects.Clear();
@@ -140,7 +141,7 @@ public sealed partial class RadarApp
             return;
         }
 
-        _ritualClosedStreak = 0;
+        _ritualReadMissStreak = 0;
         _wasRitualWindowOpen = true;
         PoeNinjaPriceFetcher.RefreshIfNeeded();
 
@@ -203,6 +204,11 @@ public sealed partial class RadarApp
         _ = liveRefreshHz;
         return wasWindowOpen ? RitualPricesWindowIdleHz : RitualIdleScanHz;
     }
+
+    internal static bool ShouldHoldRitualReadMiss(bool wasWindowOpen, int panelRowCount, int labelCount, int missStreak)
+        => wasWindowOpen
+           && (panelRowCount > 0 || labelCount > 0)
+           && missStreak is > 0 and <= RitualTransientMissGrace;
 
     private bool NeedsRitualWork(bool drawActive)
     {
@@ -454,6 +460,8 @@ public sealed partial class RadarApp
         }
 
         _wasRitualWindowOpen = open;
+        if (!open)
+            _ritualReadMissStreak = 0;
         if (_ritualLabels.Length > 0)
             _ritualLabels = [];
         if (!open)

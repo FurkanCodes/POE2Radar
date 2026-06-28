@@ -5,7 +5,7 @@ namespace POE2Radar.Core.Game;
 
 public sealed partial class Poe2Live
 {
-    private static readonly string[] RitualSignatureTexts = ["Rituals Remaining", "tribute to the king"];
+    private static readonly string[] RitualSignatureTexts = ["Rituals Remaining", "Ritual Remaining", "tribute to the king"];
     private static readonly char[] PathSeparators = ['/', '\\'];
 
     private nint _ritualGridAddr;
@@ -127,7 +127,7 @@ public sealed partial class Poe2Live
             {
                 var root = roots[i];
                 if (!TryFastRitualGrid(root, out var grid)) continue;
-                if (!IsValidRewardGrid(grid)) continue;
+                if (!IsValidRewardGrid(grid, BranchHasRitualSignature(root))) continue;
 
                 RememberRitualGrid(grid, root, gameUi, controllerGameUi);
                 var read = BuildRitualRead(grid, root, gameUi, controllerGameUi, "fast", windowWidth, windowHeight);
@@ -135,7 +135,7 @@ public sealed partial class Poe2Live
             }
         }
 
-        if (TryScanRitualGridThrottled(roots, rootCount, out var scanGrid, out var scanRoot))
+        if (TryScanRitualGridThrottled(roots, rootCount, windowWidth, windowHeight, out var scanGrid, out var scanRoot))
         {
             RememberRitualGrid(scanGrid, scanRoot, gameUi, controllerGameUi);
             var read = BuildRitualRead(scanGrid, scanRoot, gameUi, controllerGameUi, "bfs", windowWidth, windowHeight);
@@ -149,7 +149,7 @@ public sealed partial class Poe2Live
                 var root = roots[i];
                 if (!TryFastRitualGrid(root, out var grid)) continue;
                 if (!IsVisibleUiElement(grid)) continue;
-                if (!IsRitualGridInActiveShop(grid)) continue;
+                if (!IsRitualGridInActiveShop(grid) && !BranchHasRitualSignature(root)) continue;
                 if (!TryCountRewardGridItems(grid, out var tileCount, out var itemCount)) continue;
 
                 if (tileCount <= 1 && itemCount <= 1) continue;
@@ -240,6 +240,7 @@ public sealed partial class Poe2Live
         int ItemCountAt4F8,
         int BestItemCount,
         int BestItemOffset,
+        UiRect Rect,
         bool Visible,
         bool PassesShopContext,
         bool PassesStrictValidation);
@@ -273,12 +274,17 @@ public sealed partial class Poe2Live
 
         var reports = new RitualDeepBranchReport[rootCount];
         for (var i = 0; i < rootCount; i++)
-            reports[i] = DeepProbeRitualBranch(roots[i], gameUi, controllerGameUi);
+            reports[i] = DeepProbeRitualBranch(roots[i], gameUi, controllerGameUi, windowWidth, windowHeight);
 
         return reports;
     }
 
-    private RitualDeepBranchReport DeepProbeRitualBranch(nint root, nint gameUi, nint controllerGameUi)
+    private RitualDeepBranchReport DeepProbeRitualBranch(
+        nint root,
+        nint gameUi,
+        nint controllerGameUi,
+        float windowWidth,
+        float windowHeight)
     {
         var branch = UiBranchCandidates.BranchForRoot(root, gameUi, controllerGameUi).ToString();
         if (root == 0)
@@ -357,15 +363,20 @@ public sealed partial class Poe2Live
 
             if (items4F8 == 0 && bestItems == 0) continue;
 
+            var rect = TryProjectUiRect(el, windowWidth, windowHeight, out var projectedRect)
+                ? projectedRect
+                : default;
+
             gridCandidates.Add(new RitualDeepGridCandidate(
                 el,
                 tiles.Length,
                 items4F8,
                 bestItems,
                 bestOffset,
+                rect,
                 IsVisibleUiElement(el),
-                IsRitualGridInActiveShop(el),
-                IsValidRewardGrid(el)));
+                IsRitualGridInActiveShop(el, root),
+                IsValidRewardGrid(el, BranchHasRitualSignature(root))));
         }
 
         gridCandidates.Sort((a, b) => b.BestItemCount.CompareTo(a.BestItemCount));
@@ -380,6 +391,7 @@ public sealed partial class Poe2Live
             fastGrid,
             textHits.Count == 0 ? [] : textHits.ToArray(),
             gridCandidates.Count == 0 ? [] : gridCandidates.ToArray());
+
     }
 
     private bool LooksLikeEntity(nint address)
@@ -424,6 +436,8 @@ public sealed partial class Poe2Live
     private bool TryScanRitualGridThrottled(
         ReadOnlySpan<nint> roots,
         int rootCount,
+        float windowWidth,
+        float windowHeight,
         out nint grid,
         out nint root)
     {
@@ -449,8 +463,9 @@ public sealed partial class Poe2Live
             var scanRoot = roots[i];
             if (scanRoot == 0) continue;
 
-            var scanGrid = FindRitualRewardGrid(scanRoot);
-            if (scanGrid == 0 || !IsValidRewardGrid(scanGrid))
+            var branchHasRitualSignature = BranchHasRitualSignature(scanRoot);
+            var scanGrid = FindRitualRewardGrid(scanRoot, windowWidth, windowHeight);
+            if (scanGrid == 0 || !IsValidRewardGrid(scanGrid, branchHasRitualSignature))
                 continue;
 
             _ritualGridAddr = scanGrid;
@@ -468,16 +483,16 @@ public sealed partial class Poe2Live
     /// visible, 1–16 tiles, at least two item entities, mostly populated, and the ritual shop
     /// signature text must be visible in a parent context (rejects the 1-tile ghost left when closed).
     /// </summary>
-    private bool IsValidRewardGrid(nint grid)
+    private bool IsValidRewardGrid(nint grid, bool branchHasRitualSignature = false)
     {
         if (!IsVisibleUiElement(grid)) return false;
         if (!TryCountRewardGridItems(grid, out var tileCount, out var itemCount)) return false;
         if (itemCount < 2 || itemCount * 2 < tileCount) return false;
-        return IsRitualGridInActiveShop(grid);
+        return IsRitualGridInActiveShop(grid) || branchHasRitualSignature;
     }
 
     /// <summary>True when a visible ancestor sibling still shows "Rituals Remaining" / tribute text.</summary>
-    private bool IsRitualGridInActiveShop(nint grid)
+    private bool IsRitualGridInActiveShop(nint grid, nint branchRoot = 0)
     {
         var cur = grid;
         for (var up = 0; up < 10; up++)
@@ -495,7 +510,7 @@ public sealed partial class Poe2Live
             cur = parent;
         }
 
-        return false;
+        return branchRoot != 0 && BranchHasRitualSignature(branchRoot);
     }
 
     private bool TryCountRewardGridItems(nint grid, out int tileCount, out int itemCount)
@@ -510,7 +525,8 @@ public sealed partial class Poe2Live
         tileCount = tiles.Length;
         foreach (var tile in tiles)
         {
-            if (Ptr(tile + Poe2.RitualUi.TileItemEntity) != 0)
+            var item = Ptr(tile + Poe2.RitualUi.TileItemEntity);
+            if (item != 0 && LooksLikeEntity(item))
                 itemCount++;
         }
 
@@ -522,6 +538,14 @@ public sealed partial class Poe2Live
         grid = 0;
         if (root == 0) return false;
         var children = ReadChildren(root, maxCount: 256);
+        bool? branchHasRitualSignature = null;
+        bool IsValidInBranch(nint candidate)
+        {
+            if (IsValidRewardGrid(candidate)) return true;
+            branchHasRitualSignature ??= BranchHasRitualSignature(root);
+            return IsValidRewardGrid(candidate, branchHasRitualSignature.Value);
+        }
+
         if (children.Length > 76)
         {
             var child76Children = ReadChildren(children[76], maxCount: 128);
@@ -535,7 +559,7 @@ public sealed partial class Poe2Live
         // Controller / compact GameUi layouts use fewer top-level children than the GH2 [76][13] chain.
         foreach (var child in children)
         {
-            if (IsValidRewardGrid(child))
+            if (IsValidInBranch(child))
             {
                 grid = child;
                 return true;
@@ -543,7 +567,7 @@ public sealed partial class Poe2Live
 
             foreach (var grandchild in ReadChildren(child, maxCount: 64))
             {
-                if (!IsValidRewardGrid(grandchild)) continue;
+                if (!IsValidInBranch(grandchild)) continue;
                 grid = grandchild;
                 return true;
             }
@@ -570,7 +594,7 @@ public sealed partial class Poe2Live
         {
             if (tile == 0 || !IsVisibleUiElement(tile)) continue;
             var item = Ptr(tile + Poe2.RitualUi.TileItemEntity);
-            if (item == 0) continue;
+            if (item == 0 || !LooksLikeEntity(item)) continue;
 
             UiRect rect = default;
             if (requireScreenRect)
@@ -709,11 +733,12 @@ public sealed partial class Poe2Live
         return value.ToString("0.##", CultureInfo.InvariantCulture);
     }
 
-    private nint FindRitualRewardGrid(nint root, int minPopulatedItems = 2)
+    private nint FindRitualRewardGrid(nint root, float windowWidth, float windowHeight, int minPopulatedItems = 2)
     {
         if (root == 0) return 0;
 
         minPopulatedItems = Math.Max(1, minPopulatedItems);
+        var branchHasRitualSignature = BranchHasRitualSignature(root);
         var queue = new Queue<nint>();
         var visited = new HashSet<nint>();
         queue.Enqueue(root);
@@ -733,9 +758,14 @@ public sealed partial class Poe2Live
             if (!TryCountRewardGridItems(el, out var tileCount, out var itemCount)) continue;
             if (itemCount < minPopulatedItems) continue;
             if (minPopulatedItems >= 2 && itemCount * 2 < tileCount) continue;
-            if (!IsRitualGridInActiveShop(el)) continue;
+            if (!IsRitualGridInActiveShop(el) && !branchHasRitualSignature) continue;
 
             var score = itemCount * 100 + tileCount;
+            if (TryProjectUiRect(el, windowWidth, windowHeight, out var rect))
+            {
+                score += (int)Math.Clamp(rect.H * 3f, 0f, 3000f);
+                score += (int)Math.Clamp((windowWidth - rect.X) * 0.35f, 0f, 1200f);
+            }
             if (score <= bestScore) continue;
             bestScore = score;
             best = el;
@@ -744,12 +774,49 @@ public sealed partial class Poe2Live
         return best;
     }
 
+    private bool TryProjectUiRect(nint element, float windowWidth, float windowHeight, out UiRect rect)
+    {
+        rect = default;
+        var elementCache = new Dictionary<nint, UiElementProjection.Element>(64);
+        var parentCache = new Dictionary<nint, UiElementProjection.Point>(32);
+        if (!UiElementProjection.TryGetRect(element, TryReadProjectionElement, windowWidth, windowHeight, elementCache, parentCache, out var projected))
+            return false;
+
+        rect = new UiRect(projected.X, projected.Y, projected.W, projected.H);
+        return true;
+
+        bool TryReadProjectionElement(nint address, out UiElementProjection.Element uiElement)
+            => UiElementProjection.TryRead(_reader, address, out uiElement);
+    }
+
     private bool MatchesRitualSignature(nint element)
     {
         var text = ReadStdWString(element + Poe2.UiElement.Text);
         if (text.Length < 6) return false;
         foreach (var sig in RitualSignatureTexts)
             if (text.Contains(sig, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
+    private bool BranchHasRitualSignature(nint root)
+    {
+        if (root == 0) return false;
+
+        var queue = new Queue<nint>();
+        var visited = new HashSet<nint>();
+        queue.Enqueue(root);
+
+        while (queue.Count > 0 && visited.Count < 25000)
+        {
+            var el = queue.Dequeue();
+            if (el == 0 || !visited.Add(el)) continue;
+            if (el != root && !IsVisibleUiElement(el)) continue;
+            if (MatchesRitualSignature(el)) return true;
+
+            foreach (var child in ReadChildren(el, maxCount: 8192))
+                queue.Enqueue(child);
+        }
+
         return false;
     }
 

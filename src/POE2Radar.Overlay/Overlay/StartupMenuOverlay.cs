@@ -31,7 +31,7 @@ internal sealed class StartupMenuOverlay : ClickableTransparentOverlay.Overlay
     public AttachResult? Result => _started;
 
     public StartupMenuOverlay(RadarSettings settings)
-        : base("POE2Radar", true, 3840, 2160)
+        : base("POE2Radar Startup", true, 3840, 2160)
     {
         _settings = settings;
         VSync = true;
