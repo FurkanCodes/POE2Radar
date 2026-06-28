@@ -388,6 +388,7 @@ public sealed partial class RadarApp
             v.Best,
             headerColor,
             showAnchorWarning,
+            v.PanelOpen,
             candidates.ToArray());
     }
 

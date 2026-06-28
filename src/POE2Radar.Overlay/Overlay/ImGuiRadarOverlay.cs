@@ -58,6 +58,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private readonly List<MapLabelCandidate> _atlasLabelScratch = new(256);
     private readonly Dictionary<string, ScreenPointState> _screenPoints = new(StringComparer.Ordinal);
     private readonly HashSet<string> _screenKeysThisFrame = new(StringComparer.Ordinal);
+    private readonly HashSet<long> _runecraftAutoOpenedMonoliths = new();
     private long _renderStamp;
     private long _lastRenderStamp;
     private int _spritePickerRuleIndex = -1;
@@ -901,11 +902,26 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         foreach (var row in rows)
         {
             var hdr = $"{row.Header} · best {row.BestEx:F0} ex###rch{row.MonolithKey}";
+            var highlightOpen = row.PanelOpen;
+            if (highlightOpen)
+            {
+                _runecraftAutoOpenedMonoliths.Add(row.MonolithKey);
+                ImGui.SetNextItemOpen(true, ImGuiCond.Always);
+                ImGui.PushStyleColor(ImGuiCol.Header, new Vector4(0.95f, 0.72f, 0.14f, 0.42f));
+                ImGui.PushStyleColor(ImGuiCol.HeaderHovered, new Vector4(1.0f, 0.78f, 0.20f, 0.55f));
+                ImGui.PushStyleColor(ImGuiCol.HeaderActive, new Vector4(1.0f, 0.68f, 0.12f, 0.72f));
+            }
+            else if (_runecraftAutoOpenedMonoliths.Remove(row.MonolithKey))
+            {
+                ImGui.SetNextItemOpen(false, ImGuiCond.Always);
+            }
             if (row.HeaderColor != 0xFFFFFFFFu)
                 ImGui.PushStyleColor(ImGuiCol.Text, row.HeaderColor);
             var open = ImGui.CollapsingHeader(hdr);
             if (row.HeaderColor != 0xFFFFFFFFu)
                 ImGui.PopStyleColor();
+            if (highlightOpen)
+                ImGui.PopStyleColor(3);
             if (!open) continue;
 
             if (row.ShowAnchorWarning)

@@ -170,6 +170,7 @@ public readonly record struct RunecraftMonolithPanelRow(
     double BestEx,
     uint HeaderColor,
     bool ShowAnchorWarning,
+    bool PanelOpen,
     RunecraftMonolithCandidate[] Candidates);
 
 /// <summary>Endgame atlas tier for icon/label accent (Return of the Ancients / 0.5).</summary>
