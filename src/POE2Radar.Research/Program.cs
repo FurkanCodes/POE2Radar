@@ -86,6 +86,16 @@ if (HasFlag(args, "--map-probe"))
 if (HasFlag(args, "--ritual-probe"))
 {
     var (ritW, ritH) = TryGameClientSize(process.ProcessId);
+    if (HasFlag(args, "--deep"))
+    {
+        return RitualResearchProbes.RunDeep(
+            process,
+            reader,
+            LootResearchProbes.ResolveGameStateSlot(process, reader),
+            ritW,
+            ritH);
+    }
+
     return RitualResearchProbes.Run(
         process,
         reader,

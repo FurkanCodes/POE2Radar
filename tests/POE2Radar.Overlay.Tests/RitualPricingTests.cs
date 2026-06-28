@@ -12,6 +12,7 @@ public sealed class RitualPricingTests
         var ritual = new RadarSettings().Ritual;
 
         Assert.True(ritual.ShowOverlay);
+        Assert.True(ritual.ShowPricesWindow);
         Assert.Equal(PoeNinjaPriceFetcher.SourcePoe2Scout, ritual.PriceSource);
         Assert.Equal("Runes of Aldur", ritual.League);
         Assert.Equal(5, ritual.RefreshIntervalMin);
@@ -45,4 +46,17 @@ public sealed class RitualPricingTests
         Assert.False(RitualPriceMath.PassesMinExalted(4.9, 50f));
         Assert.True(RitualPriceMath.PassesMinExalted(0.01, 0f));
     }
+
+    [Theory]
+    [InlineData(false, true, 30, 6)]
+    [InlineData(false, true, 120, 6)]
+    [InlineData(false, false, 30, 6)]
+    [InlineData(true, true, 30, 12)]
+    [InlineData(true, true, 120, 12)]
+    public void RitualIdleScanHz_DoesNotFollowLiveRefreshWhenShopClosed(
+        bool wasWindowOpen,
+        bool showPricesWindow,
+        int liveRefreshHz,
+        int expected)
+        => Assert.Equal(expected, RadarApp.RitualScanHz(wasWindowOpen, showPricesWindow, liveRefreshHz));
 }

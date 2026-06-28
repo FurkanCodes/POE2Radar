@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using POE2Radar.Core.Game;
+using POE2Radar.Overlay.Input;
 using POE2Radar.Overlay.Pricing;
 using NumVec2 = System.Numerics.Vector2;
 
@@ -15,6 +16,7 @@ public sealed partial class RadarApp
     private bool _ritualInitialized;
     private string _ritualPricingConfigKey = "";
     private RitualPriceLabel[] _ritualLabels = [];
+    private RitualPanelRow[] _ritualPanelRows = [];
     private DateTime _nextRitualRecomputeUtc = DateTime.MinValue;
     private bool _wasRitualWindowOpen;
     private readonly Dictionary<string, double> _ritualSessionStablePriceChaos = new(StringComparer.OrdinalIgnoreCase);
@@ -23,7 +25,14 @@ public sealed partial class RadarApp
     private Dictionary<string, string>? _ritualNameCache;
     private RitualRuntimeStatus _ritualStatus = RitualRuntimeStatus.Empty;
     private nint _ritualAreaInstance;
-    private int _ritualEmptyOpenStreak;
+    private readonly PerformanceCadence _ritualIdleCadence = new();
+    private bool _ritualPadConnected;
+    private int _ritualClosedStreak;
+    private readonly Dictionary<nint, Poe2Live.UiRect> _ritualTileRects = new();
+
+    private const int RitualIdleScanHz = 6;
+    private const int RitualPricesWindowIdleHz = 12;
+    private const int RitualCloseStreakMax = 6;
 
     private sealed record RitualRuntimeStatus(
         bool Open,
@@ -42,28 +51,45 @@ public sealed partial class RadarApp
             false, "", "", "", "0x0", 0, 0, 0, 0, DateTime.MinValue, "");
     }
 
-    private void RefreshRitualLabels(LiveFrameState live, int windowWidth, int windowHeight)
+    private void RefreshRitual(LiveFrameState live, int windowWidth, int windowHeight, bool drawActive)
     {
-        if (!_settings.Ritual.ShowOverlay && !_settings.Ritual.DebugMode && !_settings.Ritual.DiagnosePricing)
+        if (!NeedsRitualWork(drawActive))
         {
             ClearRitualWindowSession(open: false);
+            _ritualPanelRows = [];
             return;
         }
 
         if (!live.InGame || windowWidth <= 0 || windowHeight <= 0)
         {
             ClearRitualWindowSession(open: false);
+            _ritualPanelRows = [];
             return;
         }
-
-        InitializeRitualPricing(live);
 
         if (live.AreaInstance != _ritualAreaInstance)
         {
             _ritualAreaInstance = live.AreaInstance;
+            _ritualClosedStreak = 0;
             _live.InvalidateRitualUiCache();
-            _ritualEmptyOpenStreak = 0;
             ClearRitualWindowSession(open: false);
+            _ritualPanelRows = [];
+        }
+
+        var scanHz = RitualScanHz(_wasRitualWindowOpen, _settings.Ritual.ShowPricesWindow, _settings.LiveRefreshHz);
+        if (!_ritualIdleCadence.IsDue(scanHz))
+            return;
+
+        InitializeRitualPricing(live);
+
+        var padConnected = GamepadInput.IsConnected(_settings.GamepadUserIndex);
+        if (padConnected != _ritualPadConnected)
+        {
+            _ritualPadConnected = padConnected;
+            _ritualClosedStreak = 0;
+            _live.InvalidateRitualUiCache();
+            ClearRitualWindowSession(open: false);
+            _ritualPanelRows = [];
         }
 
         var now = DateTime.UtcNow;
@@ -77,8 +103,26 @@ public sealed partial class RadarApp
 
         if (!rewards.IsOpen)
         {
+            if (_wasRitualWindowOpen
+                && (_ritualPanelRows.Length > 0 || _ritualLabels.Length > 0)
+                && ++_ritualClosedStreak < RitualCloseStreakMax)
+            {
+                _ritualStatus = _ritualStatus with
+                {
+                    Open = true,
+                    Source = rewards.Source,
+                    Branch = rewards.Branch.ToString(),
+                    LastScanMs = scanMs,
+                    LastSeenUtc = now,
+                    Note = rewards.Note,
+                };
+                return;
+            }
+
+            _ritualClosedStreak = 0;
             ClearRitualWindowSession(open: false);
-            _ritualEmptyOpenStreak = 0;
+            _ritualPanelRows = [];
+            _ritualTileRects.Clear();
             _ritualStatus = _ritualStatus with
             {
                 Open = false,
@@ -96,29 +140,12 @@ public sealed partial class RadarApp
             return;
         }
 
+        _ritualClosedStreak = 0;
         _wasRitualWindowOpen = true;
         PoeNinjaPriceFetcher.RefreshIfNeeded();
 
-        if (rewards.Slots.Length == 0 && _ritualLabels.Length == 0)
-        {
-            if (++_ritualEmptyOpenStreak >= 20)
-            {
-                _live.InvalidateRitualUiCache();
-                _ritualEmptyOpenStreak = 0;
-                rewards = _live.ReadRitualRewards(
-                    live.InGameState,
-                    windowWidth,
-                    windowHeight,
-                    _settings.Ritual.ForceBfsFallback);
-            }
-        }
-        else
-        {
-            _ritualEmptyOpenStreak = 0;
-        }
-
         var intervalMs = _imguiOverlay?.IsSettingsOpen == true ? 200 : 120;
-        if (now < _nextRitualRecomputeUtc && _ritualLabels.Length > 0)
+        if (now < _nextRitualRecomputeUtc && (_ritualLabels.Length > 0 || _ritualPanelRows.Length > 0))
         {
             _ritualStatus = new RitualRuntimeStatus(
                 true,
@@ -139,8 +166,19 @@ public sealed partial class RadarApp
         _nextRitualRecomputeUtc = now.AddMilliseconds(intervalMs);
 
         var recomputeStart = Stopwatch.GetTimestamp();
-        var labels = BuildRitualLabels(rewards);
-        _ritualLabels = labels;
+        var panelRows = BuildRitualPanelRows(rewards);
+        if (panelRows.Length > 0 || _ritualPanelRows.Length == 0)
+            _ritualPanelRows = panelRows;
+
+        if (_settings.Ritual.ShowOverlay && drawActive)
+        {
+            var labelSlots = MergeRitualLabelSlots(rewards, windowWidth, windowHeight);
+            var labels = BuildRitualLabels(labelSlots);
+            if (labels.Length > 0 || _ritualLabels.Length == 0)
+                _ritualLabels = labels;
+        }
+        else if (_ritualLabels.Length > 0)
+            _ritualLabels = [];
         var recomputeMs = ElapsedMs(recomputeStart);
 
         _ritualStatus = new RitualRuntimeStatus(
@@ -150,7 +188,7 @@ public sealed partial class RadarApp
             rewards.Branch.ToString(),
             $"0x{rewards.GridAddress:X}",
             rewards.Slots.Length,
-            labels.Length,
+            _ritualLabels.Length,
             scanMs,
             recomputeMs,
             now,
@@ -158,6 +196,25 @@ public sealed partial class RadarApp
 
         FlushPendingRitualSound();
     }
+
+    internal static int RitualScanHz(bool wasWindowOpen, bool showPricesWindow, int liveRefreshHz)
+    {
+        _ = showPricesWindow;
+        _ = liveRefreshHz;
+        return wasWindowOpen ? RitualPricesWindowIdleHz : RitualIdleScanHz;
+    }
+
+    private bool NeedsRitualWork(bool drawActive)
+    {
+        var r = _settings.Ritual;
+        if (r.DiagnosePricing || r.DebugMode) return drawActive;
+        if (r.ShowPricesWindow) return true;
+        if (r.ShowOverlay && drawActive) return true;
+        return false;
+    }
+
+    private bool RitualShowPricesWindow()
+        => _settings.Ritual.ShowPricesWindow;
 
     private void InitializeRitualPricing(LiveFrameState live)
     {
@@ -203,20 +260,25 @@ public sealed partial class RadarApp
         return "Runes of Aldur";
     }
 
-    private RitualPriceLabel[] BuildRitualLabels(Poe2Live.RitualRewardsRead rewards)
+    private RitualPriceLabel[] BuildRitualLabels(Poe2Live.RitualRewardSlot[] slots)
     {
-        if (rewards.Slots.Length == 0)
+        if (slots.Length == 0)
             return [];
 
         var s = _settings.Ritual;
-        var result = new List<RitualPriceLabel>(rewards.Slots.Length);
+        var result = new List<RitualPriceLabel>(slots.Length);
         var baseFontSize = Math.Max(10f, _settings.UiFontSize);
         var fontSize = baseFontSize * Math.Clamp(s.PriceFontScale, 0.4f, 4f);
         var diagFontSize = fontSize * 0.8f;
         var textColor = PackColor(s.PriceTextColor);
 
-        foreach (var slot in rewards.Slots)
+        foreach (var slot in slots)
         {
+            if (slot.Rect.W <= 1f || slot.Rect.H <= 1f)
+                continue;
+            if (IsRitualPlaceholderSlot(slot))
+                continue;
+
             var itemName = ResolveRitualItemDisplayName(slot);
             var scoutText = slot.ModLines.Length > 0
                 ? BuildScoutText(itemName, InferBaseTypeFromMetadataPath(slot.FullItemPath))
@@ -285,6 +347,102 @@ public sealed partial class RadarApp
         return result.Count == 0 ? [] : result.ToArray();
     }
 
+    private RitualPanelRow[] BuildRitualPanelRows(Poe2Live.RitualRewardsRead rewards)
+    {
+        if (rewards.Slots.Length == 0)
+            return [];
+
+        var s = _settings.Ritual;
+        var rows = new List<RitualPanelRow>(rewards.Slots.Length);
+        var textColor = PackColor(s.PriceTextColor);
+
+        foreach (var slot in rewards.Slots)
+        {
+            if (IsRitualPlaceholderSlot(slot))
+                continue;
+
+            var itemName = ResolveRitualItemDisplayName(slot);
+            if (string.IsNullOrWhiteSpace(itemName))
+                itemName = slot.InternalName;
+            if (string.IsNullOrWhiteSpace(itemName))
+                continue;
+
+            var scoutText = slot.ModLines.Length > 0
+                ? BuildScoutText(itemName, InferBaseTypeFromMetadataPath(slot.FullItemPath))
+                : "";
+
+            var price = PoeNinjaPriceFetcher.GetPrice(
+                itemName,
+                slot.ModLines,
+                slot.InternalName,
+                slot.FullItemPath,
+                scoutText);
+
+            if (price is null)
+            {
+                rows.Add(new RitualPanelRow(
+                    itemName, "", "", textColor, 0, false, slot.Rarity.ToString()));
+                continue;
+            }
+
+            var priceChaos = StabilizeRitualSessionPrice(slot.InternalName, price.PriceChaos);
+            var display = RitualPriceMath.Format(priceChaos, s.DisplayCurrency);
+            if (s.PlayValueAlert && display.DivineValue >= s.AlertMinDivine)
+            {
+                var alertKey = string.IsNullOrEmpty(slot.InternalName) ? itemName : slot.InternalName;
+                if (_ritualAlertedItemsThisSession.Add(alertKey))
+                    _pendingRitualSound = Math.Clamp(s.AlertSound, 0, 4);
+            }
+
+            rows.Add(new RitualPanelRow(
+                itemName,
+                display.ValueText,
+                display.IconFile,
+                textColor,
+                display.DivineValue,
+                true,
+                slot.Rarity.ToString()));
+        }
+
+        if (rows.Count == 0)
+            return [];
+
+        rows.Sort((a, b) => b.SortDivine.CompareTo(a.SortDivine));
+        return rows.ToArray();
+    }
+
+    private Poe2Live.RitualRewardSlot[] MergeRitualLabelSlots(
+        Poe2Live.RitualRewardsRead rewards,
+        int windowWidth,
+        int windowHeight)
+    {
+        if (rewards.Slots.Length == 0)
+            return [];
+
+        if (rewards.GridAddress != 0)
+        {
+            foreach (var slot in _live.ReadRitualOverlaySlots(rewards.GridAddress, windowWidth, windowHeight))
+            {
+                if (slot.Rect.W > 1f && slot.Rect.H > 1f)
+                    _ritualTileRects[slot.TileElement] = slot.Rect;
+            }
+        }
+
+        if (_ritualTileRects.Count == 0)
+            return rewards.Slots;
+
+        var merged = new Poe2Live.RitualRewardSlot[rewards.Slots.Length];
+        for (var i = 0; i < rewards.Slots.Length; i++)
+        {
+            var slot = rewards.Slots[i];
+            merged[i] = _ritualTileRects.TryGetValue(slot.TileElement, out var rect)
+                ? slot with { Rect = rect }
+                : slot;
+        }
+
+        return merged;
+    }
+
     private void ClearRitualWindowSession(bool open)
     {
         if (!open && _wasRitualWindowOpen)
@@ -298,6 +456,12 @@ public sealed partial class RadarApp
         _wasRitualWindowOpen = open;
         if (_ritualLabels.Length > 0)
             _ritualLabels = [];
+        if (!open)
+        {
+            if (_ritualPanelRows.Length > 0)
+                _ritualPanelRows = [];
+            _ritualTileRects.Clear();
+        }
     }
 
     private double StabilizeRitualSessionPrice(string internalNameOnly, double priceChaos)
@@ -454,6 +618,9 @@ public sealed partial class RadarApp
         return spaced.Trim();
     }
 
+    private static bool IsRitualPlaceholderSlot(Poe2Live.RitualRewardSlot slot)
+        => slot.InternalName.StartsWith("HiddenItem", StringComparison.OrdinalIgnoreCase);
+
     private static string NonEmpty(string value) => string.IsNullOrWhiteSpace(value) ? "<none>" : value;
 
     private object RitualApiJson()
@@ -487,6 +654,7 @@ public sealed partial class RadarApp
 
             var r = _settings.Ritual;
             if (TryGetBool(root, "showOverlay", out var show)) r.ShowOverlay = show;
+            if (TryGetBool(root, "showPricesWindow", out var win)) r.ShowPricesWindow = win;
             if (TryGetBool(root, "playValueAlert", out var alert)) r.PlayValueAlert = alert;
             if (TryGetBool(root, "debugMode", out var debug)) r.DebugMode = debug;
             if (TryGetBool(root, "diagnosePricing", out var diag)) r.DiagnosePricing = diag;

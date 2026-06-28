@@ -43,16 +43,37 @@ public static class GamepadInput
     private static ushort _bindBaseline;
     private static bool _enabled;
     private static uint _userIndex;
+    private static bool _connected;
+    private static int _connectedProbeSlot = -1;
+    private static DateTime _nextConnectedProbeUtc = DateTime.MinValue;
 
     public static void Configure(bool enabled, int userIndex)
     {
         _enabled = enabled;
         _userIndex = (uint)Math.Clamp(userIndex, 0, 3);
+        if (!enabled)
+        {
+            _buttons = 0;
+            _connected = false;
+        }
     }
 
     /// <summary>True when an Xbox-compatible controller is connected on the given slot.</summary>
     public static bool IsConnected(int userIndex = 0)
-        => TryReadButtons((uint)Math.Clamp(userIndex, 0, 3), out _);
+    {
+        var slot = Math.Clamp(userIndex, 0, 3);
+        if (_enabled && slot == (int)_userIndex)
+            return _connected;
+
+        var now = DateTime.UtcNow;
+        if (slot != _connectedProbeSlot || now >= _nextConnectedProbeUtc)
+        {
+            _connectedProbeSlot = slot;
+            _nextConnectedProbeUtc = now.AddMilliseconds(250);
+            _connected = TryReadButtons((uint)slot, out _);
+        }
+        return _connected;
+    }
 
     public static string ButtonName(ushort mask)
     {
@@ -65,9 +86,23 @@ public static class GamepadInput
 
     public static void Poll()
     {
-        if (!_enabled) { _buttons = 0; return; }
-        if (!TryReadButtons(out var cur)) { _buttons = 0; return; }
+        if (!_enabled) { _buttons = 0; _connected = false; return; }
+        if (!TryReadButtons(out var cur)) { _buttons = 0; _connected = false; return; }
+        _connected = true;
         _buttons = cur;
+    }
+
+    /// <summary>Refresh cached connection state without full button poll (monolith window gate).</summary>
+    public static void ProbeConnection(int userIndex = 0)
+    {
+        var slot = Math.Clamp(userIndex, 0, 3);
+        var now = DateTime.UtcNow;
+        if (slot == _connectedProbeSlot && now < _nextConnectedProbeUtc)
+            return;
+
+        _connected = TryReadButtons((uint)slot, out _);
+        _connectedProbeSlot = slot;
+        _nextConnectedProbeUtc = now.AddMilliseconds(250);
     }
 
     public static bool IsButtonDown(ushort mask)

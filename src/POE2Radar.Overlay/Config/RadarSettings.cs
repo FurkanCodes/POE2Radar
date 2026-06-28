@@ -317,6 +317,12 @@ public sealed class RadarSettings
     /// <summary>One-time: enable monolith rewards window (controller-friendly recipe list).</summary>
     public bool RunecraftMonolithWindowMigrated { get; set; }
 
+    /// <summary>One-time: disable pad auto-open monolith window default (CPU).</summary>
+    public bool RunecraftAutoMonolithCpuMigrated { get; set; }
+
+    /// <summary>One-time: enable Ritual Prices side window.</summary>
+    public bool RitualPricesWindowMigrated { get; set; }
+
     // ── HTTP API. ──
     public int ApiPort { get; set; } = 7777;
 
@@ -505,6 +511,20 @@ public sealed class RadarSettings
             changed = true;
         }
 
+        if (!RunecraftAutoMonolithCpuMigrated)
+        {
+            Runecraft.AutoShowMonolithWithGamepad = false;
+            RunecraftAutoMonolithCpuMigrated = true;
+            changed = true;
+        }
+
+        if (!RitualPricesWindowMigrated)
+        {
+            Ritual.ShowPricesWindow = true;
+            RitualPricesWindowMigrated = true;
+            changed = true;
+        }
+
         if (AtlasMapGroups.Count == 0)
         {
             AtlasMapGroups = BuildDefaultAtlasMapGroups();
@@ -584,6 +604,8 @@ public sealed class RitualSettings
     public int RefreshIntervalMin { get; set; } = 5;
     public int DisplayCurrency { get; set; } = 1; // 0 = Divine, 1 = Exalted, 2 = Chaos
     public bool ShowOverlay { get; set; } = true;
+    /// <summary>ImGui side window listing ritual shop rewards with names and prices.</summary>
+    public bool ShowPricesWindow { get; set; } = true;
     public bool PlayValueAlert { get; set; } = true;
     public float AlertMinDivine { get; set; } = 1f;
     public int AlertSound { get; set; } = 0;
@@ -610,7 +632,7 @@ public sealed class RunecraftSettings
     public bool HideMapValueWhenPanelOpen { get; set; } = true;
     public bool ShowMonolithWindow { get; set; } = true;
     /// <summary>When off, still open the monolith window while a gamepad is connected.</summary>
-    public bool AutoShowMonolithWithGamepad { get; set; } = true;
+    public bool AutoShowMonolithWithGamepad { get; set; } = false;
     public float MonolithRewardsMinExalted { get; set; } = 0f;
     public float MonolithHighlightThreshold { get; set; } = 0f;
     public float MapValueScaleMultiplier { get; set; } = 1f;

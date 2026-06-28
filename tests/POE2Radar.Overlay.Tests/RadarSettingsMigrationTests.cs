@@ -204,4 +204,46 @@ public sealed class RadarSettingsMigrationTests
 
         Assert.False(s.Migrate());
     }
+
+    [Fact]
+    public void Migrate_DisablesAutoShowMonolithWithGamepadOnce()
+    {
+        var s = new RadarSettings
+        {
+            RunecraftAutoMonolithCpuMigrated = false,
+            Runecraft = { AutoShowMonolithWithGamepad = true },
+        };
+
+        var changed = s.Migrate();
+
+        Assert.True(changed);
+        Assert.True(s.RunecraftAutoMonolithCpuMigrated);
+        Assert.False(s.Runecraft.AutoShowMonolithWithGamepad);
+        Assert.False(s.Migrate());
+    }
+
+    [Fact]
+    public void NewRunecraftSettings_AutoShowMonolithWithGamepadDefaultsOff()
+    {
+        var s = new RadarSettings();
+        s.Migrate();
+        Assert.False(s.Runecraft.AutoShowMonolithWithGamepad);
+    }
+
+    [Fact]
+    public void Migrate_EnablesRitualPricesWindowOnce()
+    {
+        var s = new RadarSettings
+        {
+            RitualPricesWindowMigrated = false,
+            Ritual = { ShowPricesWindow = false },
+        };
+
+        var changed = s.Migrate();
+
+        Assert.True(changed);
+        Assert.True(s.RitualPricesWindowMigrated);
+        Assert.True(s.Ritual.ShowPricesWindow);
+        Assert.False(s.Migrate());
+    }
 }

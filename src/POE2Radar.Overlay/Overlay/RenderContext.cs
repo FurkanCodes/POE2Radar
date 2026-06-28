@@ -127,6 +127,15 @@ public readonly record struct RitualPriceLabel(
     NumVec2 DebugPos = default,
     float DebugFontSize = 0f);
 
+public readonly record struct RitualPanelRow(
+    string ItemName,
+    string PriceText,
+    string IconFile,
+    uint TextColor,
+    double SortDivine,
+    bool HasPrice,
+    string Rarity);
+
 public readonly record struct RunecraftPriceLabel(
     NumVec2 Pos,
     NumVec2 Size,
@@ -303,6 +312,9 @@ public sealed record RenderContext(
     // Walkable-terrain bitmap colors/transparency (mirrored from RadarSettings).
     TerrainSettings TerrainStyle,
     RitualPriceLabel[] RitualLabels,
+    bool RitualShowPricesWindow,
+    bool RitualShopOpen,
+    RitualPanelRow[] RitualPanelRows,
     RunecraftPriceLabel[] RunecraftLabels,
     RunecraftMapLabel[] RunecraftMapLabels,
     bool RunecraftShowMonolithWindow,

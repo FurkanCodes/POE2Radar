@@ -235,6 +235,16 @@ internal static class SettingHints
         public const string RulesPath = "Draw a walking path to matching entities.";
     }
 
+    internal static class Ritual
+    {
+        public const string ShowOverlay = "Paint prices on each tribute row in-game while the Ritual shop is open.";
+        public const string ShowPricesWindow = "List tribute rewards with names and prices in a side window (like Monolith Rewards).";
+        public const string PriceSource = "Where to fetch public PoE2 price data from.";
+        public const string League = "League name sent to the price API.";
+        public const string RefreshIntervalMin = "How often to refresh cached prices in minutes.";
+        public const string MinDisplayExalted = "Hide rewards priced below this Exalted value in the window and overlay.";
+    }
+
     internal static class Runecraft
     {
         public const string ShowOverlay = "Paint Exalted prices on each reward row while the Runeshape Combinations panel is open.";
@@ -249,6 +259,6 @@ internal static class SettingHints
         public const string MapLabelMinExalted = "Skip map labels below this Exalted value.";
         public const string MapValueScaleMultiplier = "Scale monolith map labels to match your map zoom.";
         public const string ShowMonolithWindow = "Open a list of nearby monolith candidate recipes and prices.";
-        public const string AutoShowMonolithWithGamepad = "Keep the monolith rewards window open while a controller is connected, even if the checkbox above is off.";
+        public const string AutoShowMonolithWithGamepad = "Open the monolith rewards window while a controller is connected. Uses a light background scan — turn off if you want minimum CPU.";
     }
 }

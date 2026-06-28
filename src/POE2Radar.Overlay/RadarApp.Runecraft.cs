@@ -28,6 +28,14 @@ public sealed partial class RadarApp
     private RunecraftRuntimeStatus _runecraftStatus = RunecraftRuntimeStatus.Empty;
     private string _lockedPanelMetaId = "";
     private string _lockedPanelName = "";
+    private readonly PerformanceCadence _runecraftTickCadence = new();
+    private readonly PerformanceCadence _runecraftHudIdleCadence = new();
+    private bool _runecraftMonolithWindowActive;
+
+    private const int RunecraftMonolithOnlyTickHz = 8;
+    private const int RunecraftHudIdleScanHz = 6;
+    private const int RunecraftMonolithScanMs = 1500;
+    private const int RunecraftMonolithScanMsActive = 750;
 
     private sealed record RunecraftRuntimeStatus(
         bool PanelOpen,
@@ -42,21 +50,47 @@ public sealed partial class RadarApp
     }
 
     private bool RunecraftMonolithWindowActive()
+        => _runecraftMonolithWindowActive;
+
+    private void RefreshRunecraftMonolithWindowGate()
     {
         var r = _settings.Runecraft;
-        if (r.ShowMonolithWindow) return true;
-        if (!r.AutoShowMonolithWithGamepad) return false;
-        return GamepadInput.IsConnected(_settings.GamepadUserIndex);
+        _runecraftMonolithWindowActive = r.ShowMonolithWindow
+            || (r.AutoShowMonolithWithGamepad && GamepadInput.IsConnected(_settings.GamepadUserIndex));
     }
+
+    private bool NeedsRunecraftWork(bool drawActive)
+    {
+        if (_settings.Runecraft.DiagnosePricing) return drawActive;
+        if (!drawActive) return false;
+        if (_settings.Runecraft.ShowOverlay) return true;
+        if (_settings.Runecraft.ShowMapLabels) return true;
+        if (_settings.Runecraft.ShowMonolithWindow) return true;
+        // Pad auto-open only: entity scans at monolith-only cadence, no HUD overlay reads.
+        return RunecraftMonolithWindowActive() && !_settings.Runecraft.ShowMonolithWindow;
+    }
+
+    private bool NeedsRunecraftMonolithScans()
+        => _settings.Runecraft.ShowMonolithWindow || RunecraftMonolithWindowActive();
+
+    private bool RunecraftMonolithOnlyMode()
+        => !_settings.Runecraft.ShowOverlay
+           && !_settings.Runecraft.ShowMapLabels
+           && NeedsRunecraftMonolithScans();
 
     private void RefreshRunecraft(LiveFrameState live, WorldSnapshot snap, int windowWidth, int windowHeight, bool drawActive)
     {
-        if (!_settings.Runecraft.ShowOverlay && !_settings.Runecraft.ShowMapLabels &&
-            !RunecraftMonolithWindowActive() && !_settings.Runecraft.DiagnosePricing)
+        RefreshRunecraftMonolithWindowGate();
+
+        if (!NeedsRunecraftWork(drawActive))
         {
             ClearRunecraftSession(open: false);
+            _runecraftMonolithWindowActive = false;
             return;
         }
+
+        if (RunecraftMonolithOnlyMode() && !_runecraftTickCadence.IsDue(RunecraftMonolithOnlyTickHz))
+            return;
 
         if (!live.InGame || windowWidth <= 0 || windowHeight <= 0)
         {
@@ -74,17 +108,32 @@ public sealed partial class RadarApp
             ClearRunecraftSession(open: false);
         }
 
-        var panel = drawActive && _settings.Runecraft.ShowOverlay
-            ? _live.ReadRuneshapePanel(live.InGameState, windowWidth, windowHeight)
-            : Poe2Live.RunecraftPanelRead.Closed;
+        var wantHudOverlay = drawActive && _settings.Runecraft.ShowOverlay;
+        var readHudThisTick = wantHudOverlay
+            && (_wasRunecraftPanelOpen || _runecraftHudIdleCadence.IsDue(RunecraftHudIdleScanHz));
 
         var now = DateTime.UtcNow;
-        if (now >= _nextMonolithScanUtc)
+        if (NeedsRunecraftMonolithScans())
         {
-            _nextMonolithScanUtc = now.AddMilliseconds(750);
-            ScanRunecraftMonoliths(live, snap);
-            ResolveLockedPanelReward();
+            var scanIntervalMs = RunecraftMonolithOnlyMode() ? RunecraftMonolithScanMs : RunecraftMonolithScanMsActive;
+            if (now >= _nextMonolithScanUtc)
+            {
+                _nextMonolithScanUtc = now.AddMilliseconds(scanIntervalMs);
+                ScanRunecraftMonoliths(live, snap);
+                ResolveLockedPanelReward();
+            }
         }
+
+        if (wantHudOverlay && !readHudThisTick)
+        {
+            if (_settings.Runecraft.ShowMapLabels)
+                RefreshRunecraftMapLabels(live, _wasRunecraftPanelOpen, windowWidth, windowHeight, drawActive);
+            return;
+        }
+
+        var panel = readHudThisTick
+            ? _live.ReadRuneshapePanel(live.InGameState, windowWidth, windowHeight)
+            : Poe2Live.RunecraftPanelRead.Closed;
 
         if (!panel.IsOpen)
         {

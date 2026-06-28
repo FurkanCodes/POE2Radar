@@ -68,6 +68,50 @@ internal static class RitualResearchProbes
             Console.WriteLine("  WARN Visible fast grid with items but reader closed — likely ghost tile (panel closed) or missing shop signature.");
     }
 
+    public static int RunDeep(
+        ProcessHandle process,
+        MemoryReader reader,
+        nint gameStateSlot,
+        int clientWidth,
+        int clientHeight)
+    {
+        var live = new Poe2Live(reader, gameStateSlot);
+        var w = clientWidth > 0 ? clientWidth : 1920;
+        var h = clientHeight > 0 ? clientHeight : 1080;
+
+        if (!live.TryResolve(out var igs, out _, out _))
+        {
+            Console.WriteLine("Not in game — open PoE2 and open the Ritual tribute shop.");
+            return 1;
+        }
+
+        var forceRead = live.ReadRitualRewards(igs, w, h, forceBfsFallback: true);
+        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] client {w:F0}x{h:F0}");
+        Console.WriteLine(
+            $"  ReadRitualRewards(forceBfs) → open={forceRead.IsOpen} source={forceRead.Source} " +
+            $"grid=0x{forceRead.GridAddress:X} slots={forceRead.Slots.Length}");
+        foreach (var slot in forceRead.Slots.Take(6))
+            Console.WriteLine($"    slot {slot.InternalName} {slot.Rarity} base={slot.BaseItemName}");
+
+        foreach (var branch in live.DeepProbeRitualUi(igs, w, h))
+        {
+            Console.WriteLine(
+                $"  [{branch.Branch}] root=0x{branch.Root:X} children={branch.RootChildCount} " +
+                $"fast76children={branch.Fast76ChildCount} fastGrid=0x{branch.FastGrid:X}");
+            foreach (var hit in branch.TextHits.Take(8))
+                Console.WriteLine($"    text{(hit.MatchesSignature ? "*" : "")}: \"{hit.Text}\" @0x{hit.Element:X}");
+            foreach (var grid in branch.GridCandidates)
+            {
+                Console.WriteLine(
+                    $"    grid@0x{grid.Grid:X} tiles={grid.TileCount} items@4F8={grid.ItemCountAt4F8} " +
+                    $"best={grid.BestItemCount}@+0x{grid.BestItemOffset:X} visible={grid.Visible} " +
+                    $"shopCtx={grid.PassesShopContext} strict={grid.PassesStrictValidation}");
+            }
+        }
+
+        return 0;
+    }
+
     private static string FormatUtc(DateTime utc)
         => utc == DateTime.MinValue ? "ready" : utc.ToString("HH:mm:ss.fff");
 }

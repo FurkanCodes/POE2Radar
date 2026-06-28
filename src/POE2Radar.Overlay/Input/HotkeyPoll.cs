@@ -9,8 +9,12 @@ public static class HotkeyPoll
     public static void BeginTick(RadarSettings settings)
     {
         var pollPad = settings.GamepadHotkeysEnabled || UsesGamepadBindings(settings);
+        var probePad = pollPad || settings.Runecraft.AutoShowMonolithWithGamepad;
         GamepadInput.Configure(pollPad, settings.GamepadUserIndex);
-        if (pollPad) GamepadInput.Poll();
+        if (pollPad)
+            GamepadInput.Poll();
+        else if (probePad)
+            GamepadInput.ProbeConnection(settings.GamepadUserIndex);
     }
 
     private static bool UsesGamepadBindings(RadarSettings s)

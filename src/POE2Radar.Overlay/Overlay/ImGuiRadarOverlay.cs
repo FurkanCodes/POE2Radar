@@ -319,6 +319,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             if (ctx is { Active: true, RunecraftShowMonolithWindow: true })
                 DrawRunecraftMonolithWindow(ctx);
 
+            if (ctx is { Active: true, RitualShowPricesWindow: true })
+                DrawRitualPricesWindow(ctx);
+
             if (_settingsOpen && (ctx?.Active == true || _settings.AlwaysShowOverlay))
                 DrawSettingsPanel(ctx);
             else if (_settingsPanelWasOpen)
@@ -959,6 +962,71 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         }
 
         ImGui.End();
+    }
+
+    private void DrawRitualPricesWindow(RenderContext ctx)
+    {
+        if (!ctx.RitualShowPricesWindow) return;
+
+        ImGui.SetNextWindowSizeConstraints(new NumVec2(280, 0), new NumVec2(720, 900));
+        if (!ImGui.Begin("Ritual Prices", ImGuiWindowFlags.AlwaysAutoResize)) { ImGui.End(); return; }
+
+        var rows = ctx.RitualPanelRows ?? [];
+        if (rows.Length > 0)
+        {
+            if (!ImGui.BeginTable("ritualPrices", 2,
+                    ImGuiTableFlags.RowBg | ImGuiTableFlags.Borders | ImGuiTableFlags.SizingStretchProp,
+                    new NumVec2(480f, 0f)))
+            {
+                ImGui.End();
+                return;
+            }
+
+            ImGui.TableSetupColumn("Item", ImGuiTableColumnFlags.WidthStretch);
+            ImGui.TableSetupColumn("Price", ImGuiTableColumnFlags.WidthFixed, 96f);
+            ImGui.TableHeadersRow();
+
+            foreach (var row in rows)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableSetColumnIndex(0);
+                ImGui.TextUnformatted(row.ItemName);
+                if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                    ImGui.SetTooltip(row.Rarity);
+
+                ImGui.TableSetColumnIndex(1);
+                if (row.HasPrice)
+                    DrawRitualPriceInline(row.PriceText, row.IconFile, row.TextColor);
+                else
+                    ImGui.TextDisabled("—");
+            }
+
+            ImGui.EndTable();
+            ImGui.End();
+            return;
+        }
+
+        if (ctx.RitualShopOpen)
+            ImGui.TextDisabled("Resolving tribute prices…");
+        else
+            ImGui.TextDisabled("Open the Ritual tribute shop in-game to see rewards.");
+
+        ImGui.End();
+    }
+
+    private void DrawRitualPriceInline(string priceText, string iconFile, uint textColor)
+    {
+        ImGui.PushStyleColor(ImGuiCol.Text, textColor);
+        ImGui.TextUnformatted(priceText);
+        ImGui.PopStyleColor();
+        if (string.IsNullOrEmpty(iconFile)) return;
+        ImGui.SameLine(0, 3f);
+        float iconH = ImGui.GetTextLineHeight();
+        if (_textures.TryGet(this, RitualCurrencyIcons.PathFor(iconFile), out var tex) && tex.Height > 0)
+        {
+            float iconW = iconH * tex.Width / (float)tex.Height;
+            ImGui.Image(tex.Id, new NumVec2(iconW, iconH));
+        }
     }
 
     private void DrawExaltedPriceInline(double value, uint textColor)
@@ -2581,7 +2649,12 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         if (pricingOpen)
         {
             bool show = r.ShowOverlay;
-            if (ImGui.Checkbox("Show price labels", ref show)) r.ShowOverlay = show;
+            if (ImGui.Checkbox("In-game price labels", ref show)) r.ShowOverlay = show;
+            ImGuiTheme.Tooltip(SettingHints.Ritual.ShowOverlay);
+
+            bool pricesWin = r.ShowPricesWindow;
+            if (ImGui.Checkbox("Ritual prices window", ref pricesWin)) r.ShowPricesWindow = pricesWin;
+            ImGuiTheme.Tooltip(SettingHints.Ritual.ShowPricesWindow);
 
             var source = Math.Clamp(r.PriceSource, 0, 1);
             ImGui.SetNextItemWidth(UiW(9f));
@@ -2706,6 +2779,8 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             ImGui.TextUnformatted($"Fetching: {(PoeNinjaPriceFetcher.IsFetching ? "yes" : "no")}");
             ImGui.TextUnformatted($"Last fetch: {fetchAge}");
             ImGui.TextUnformatted($"Labels this frame: {ctx?.RitualLabels.Length ?? 0}");
+            ImGui.TextUnformatted($"Window rows: {ctx?.RitualPanelRows.Length ?? 0}");
+            ImGui.TextUnformatted(ctx?.RitualShopOpen == true ? "Shop: open" : "Shop: closed");
         }
         ImGuiTheme.EndAccordionSection(diagnosticsOpen);
     }

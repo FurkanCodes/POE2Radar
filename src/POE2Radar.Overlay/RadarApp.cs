@@ -680,6 +680,7 @@ public sealed partial class RadarApp : IDisposable
         while (_commandQueue.TryDequeue(out var action)) action();
 
         HandleHotkeys();
+        RefreshRunecraftMonolithWindowGate();
 
         var snap = _snapshot;
         var windowWidth = OverlayWidth;
@@ -696,8 +697,8 @@ public sealed partial class RadarApp : IDisposable
         if (live.InGame)
             live = RefreshHudLock(live, windowWidth, windowHeight, drawActive, _atlasOpen);
 
-        if (live.InGame && drawActive)
-            RefreshRitualLabels(live, windowWidth, windowHeight);
+        if (live.InGame)
+            RefreshRitual(live, windowWidth, windowHeight, drawActive);
         else
             ClearRitualWindowSession(open: false);
 
@@ -839,6 +840,9 @@ public sealed partial class RadarApp : IDisposable
             HpBarTargets: _hpFrame,
             TerrainStyle: _settings.Terrain,
             RitualLabels: _ritualLabels,
+            RitualShowPricesWindow: RitualShowPricesWindow(),
+            RitualShopOpen: _ritualStatus.Open,
+            RitualPanelRows: _ritualPanelRows,
             RunecraftLabels: _runecraftLabels,
             RunecraftMapLabels: _runecraftMapLabels,
             RunecraftShowMonolithWindow: RunecraftMonolithWindowActive(),
