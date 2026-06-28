@@ -50,6 +50,10 @@ public static class GamepadInput
         _userIndex = (uint)Math.Clamp(userIndex, 0, 3);
     }
 
+    /// <summary>True when an Xbox-compatible controller is connected on the given slot.</summary>
+    public static bool IsConnected(int userIndex = 0)
+        => TryReadButtons((uint)Math.Clamp(userIndex, 0, 3), out _);
+
     public static string ButtonName(ushort mask)
     {
         foreach (var (m, name) in BindOrder)
@@ -95,9 +99,12 @@ public static class GamepadInput
     }
 
     private static bool TryReadButtons(out ushort buttons)
+        => TryReadButtons(_userIndex, out buttons);
+
+    private static bool TryReadButtons(uint userIndex, out ushort buttons)
     {
         var state = new XINPUT_STATE();
-        if (XInputGetState(_userIndex, ref state) != 0)
+        if (XInputGetState(userIndex, ref state) != 0)
         {
             buttons = 0;
             return false;

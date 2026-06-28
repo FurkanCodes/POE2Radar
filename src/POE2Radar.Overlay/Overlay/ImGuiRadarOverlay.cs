@@ -1104,10 +1104,17 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
     private void DrawRunecraftMonolithWindow(RenderContext ctx)
     {
         if (!ctx.RunecraftShowMonolithWindow) return;
-        if (ctx.RunecraftMonolithRows is not { Length: > 0 } rows) return;
+        var rows = ctx.RunecraftMonolithRows ?? [];
 
         ImGui.SetNextWindowSizeConstraints(new NumVec2(260, 0), new NumVec2(640, 900));
         if (!ImGui.Begin("Monolith Rewards", ImGuiWindowFlags.AlwaysAutoResize)) { ImGui.End(); return; }
+
+        if (rows.Length == 0)
+        {
+            ImGui.TextDisabled("No monoliths nearby.");
+            ImGui.End();
+            return;
+        }
 
         foreach (var row in rows)
         {
@@ -1469,7 +1476,7 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
 
     private void DrawPathLabels(ImDrawListPtr dl, RenderContext ctx)
     {
-        if (ctx.SelectedPaths.Length == 0 || !AnyPathLayerEnabled(ctx)) return;
+        if (ctx.SelectedPaths.Length == 0 || !ctx.ShowPathWorld || !ctx.ShowGroundWaypoints) return;
         if (ShouldDrawLargeMapOverlay(ctx.Map)) return;
         float W = ctx.WindowWidth, H = ctx.WindowHeight;
         if (ctx.CameraMatrix is not { Length: >= 16 } m) return;
@@ -3019,6 +3026,9 @@ public sealed class ImGuiRadarOverlay : ClickableTransparentOverlay.Overlay
             bool win = rc.ShowMonolithWindow;
             if (ImGui.Checkbox("Show monolith rewards window", ref win)) rc.ShowMonolithWindow = win;
             ImGuiTheme.Tooltip(SettingHints.Runecraft.ShowMonolithWindow);
+            bool autoWin = rc.AutoShowMonolithWithGamepad;
+            if (ImGui.Checkbox("Auto-open with controller", ref autoWin)) rc.AutoShowMonolithWithGamepad = autoWin;
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.AutoShowMonolithWithGamepad);
 
             ImGui.TextUnformatted($"Panel labels: {ctx?.RunecraftLabels.Length ?? 0}");
             ImGui.TextUnformatted($"Monolith rows: {ctx?.RunecraftMonolithRows.Length ?? 0}");

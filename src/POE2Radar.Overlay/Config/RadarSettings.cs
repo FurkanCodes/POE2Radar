@@ -295,6 +295,9 @@ public sealed class RadarSettings
     /// <summary>One-time: rare chests use triangle icon + yellow Rare label; hide normal/magic chests.</summary>
     public bool RareChestDisplayMigrated { get; set; }
 
+    /// <summary>One-time: enable monolith rewards window (controller-friendly recipe list).</summary>
+    public bool RunecraftMonolithWindowMigrated { get; set; }
+
     // ── HTTP API. ──
     public int ApiPort { get; set; } = 7777;
 
@@ -462,6 +465,14 @@ public sealed class RadarSettings
             changed = true;
         }
 
+        if (!RunecraftMonolithWindowMigrated)
+        {
+            Runecraft.ShowMonolithWindow = true;
+            Runecraft.AutoShowMonolithWithGamepad = true;
+            RunecraftMonolithWindowMigrated = true;
+            changed = true;
+        }
+
         if (AtlasMapGroups.Count == 0)
         {
             AtlasMapGroups = BuildDefaultAtlasMapGroups();
@@ -565,7 +576,9 @@ public sealed class RunecraftSettings
     public bool ShowMapLabels { get; set; } = true;
     public float MapLabelMinExalted { get; set; } = 1f;
     public bool HideMapValueWhenPanelOpen { get; set; } = true;
-    public bool ShowMonolithWindow { get; set; } = false;
+    public bool ShowMonolithWindow { get; set; } = true;
+    /// <summary>When off, still open the monolith window while a gamepad is connected.</summary>
+    public bool AutoShowMonolithWithGamepad { get; set; } = true;
     public float MonolithRewardsMinExalted { get; set; } = 0f;
     public float MonolithHighlightThreshold { get; set; } = 0f;
     public float MapValueScaleMultiplier { get; set; } = 1f;

@@ -238,5 +238,6 @@ internal static class SettingHints
         public const string MapLabelMinExalted = "Skip map labels below this Exalted value.";
         public const string MapValueScaleMultiplier = "Scale monolith map labels to match your map zoom.";
         public const string ShowMonolithWindow = "Open a list of nearby monolith candidate recipes and prices.";
+        public const string AutoShowMonolithWithGamepad = "Keep the monolith rewards window open while a controller is connected, even if the checkbox above is off.";
     }
 }

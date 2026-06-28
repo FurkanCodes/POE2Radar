@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using POE2Radar.Core.Game;
+using POE2Radar.Overlay.Input;
 using POE2Radar.Overlay.Pricing;
 using NumVec2 = System.Numerics.Vector2;
 
@@ -40,10 +41,18 @@ public sealed partial class RadarApp
         public static readonly RunecraftRuntimeStatus Empty = new(false, "", 0, 0, 0, "", "");
     }
 
+    private bool RunecraftMonolithWindowActive()
+    {
+        var r = _settings.Runecraft;
+        if (r.ShowMonolithWindow) return true;
+        if (!r.AutoShowMonolithWithGamepad) return false;
+        return GamepadInput.IsConnected(_settings.GamepadUserIndex);
+    }
+
     private void RefreshRunecraft(LiveFrameState live, WorldSnapshot snap, int windowWidth, int windowHeight, bool drawActive)
     {
         if (!_settings.Runecraft.ShowOverlay && !_settings.Runecraft.ShowMapLabels &&
-            !_settings.Runecraft.ShowMonolithWindow && !_settings.Runecraft.DiagnosePricing)
+            !RunecraftMonolithWindowActive() && !_settings.Runecraft.DiagnosePricing)
         {
             ClearRunecraftSession(open: false);
             return;
@@ -547,6 +556,7 @@ public sealed partial class RadarApp
             if (TryGetBool(root, "hideMapValueWhenPanelOpen", out var hideMap)) r.HideMapValueWhenPanelOpen = hideMap;
             if (TryGetBool(root, "highlightLockedRecipe", out var hl)) r.HighlightLockedRecipe = hl;
             if (TryGetBool(root, "showMonolithWindow", out var win)) r.ShowMonolithWindow = win;
+            if (TryGetBool(root, "autoShowMonolithWithGamepad", out var autoWin)) r.AutoShowMonolithWithGamepad = autoWin;
             if (TryGetBool(root, "diagnosePricing", out var diag)) r.DiagnosePricing = diag;
             if (TryGetInt(root, "priceSource", out var source)) r.PriceSource = Math.Clamp(source, 0, 1);
             if (TryGetInt(root, "refreshIntervalMin", out var refresh)) r.RefreshIntervalMin = Math.Max(1, refresh);

@@ -839,7 +839,7 @@ public sealed partial class RadarApp : IDisposable
             RitualLabels: _ritualLabels,
             RunecraftLabels: _runecraftLabels,
             RunecraftMapLabels: _runecraftMapLabels,
-            RunecraftShowMonolithWindow: _settings.Runecraft.ShowMonolithWindow,
+            RunecraftShowMonolithWindow: RunecraftMonolithWindowActive(),
             RunecraftMonolithRows: _runecraftMonolithRows,
             AtlasOpen: _atlasOpen,
             AtlasNodes: _atlasMarksPublish,
