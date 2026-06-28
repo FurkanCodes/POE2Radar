@@ -988,11 +988,16 @@ public sealed partial class Poe2Live
         return true;
     }
 
-    /// <summary>Locate GameUi / GameUiController anchors when the hardcoded UiRootStruct offset reads 0.</summary>
+    /// <summary>Locate GameUi / GameUiController UiRootStruct managers (atlas/map HUD anchors).</summary>
     private void DiscoverGameUiAnchors(nint inGameState, out nint gameUi, out nint controllerGameUi)
     {
+        gameUi = Ptr(inGameState + Poe2.InGameState.KeyboardUiRootStructPtr);
+        controllerGameUi = Ptr(inGameState + Poe2.InGameState.GamepadUiRootStructPtr);
+        if (LooksLikeUiManager(gameUi) || LooksLikeUiManager(controllerGameUi))
+            return;
+
         gameUi = controllerGameUi = 0;
-        var uiRootStruct = Ptr(inGameState + Poe2.InGameState.UiRootStructPtr);
+        var uiRootStruct = Ptr(inGameState + Poe2.InGameState.KeyboardUiRootStructPtr);
         if (uiRootStruct != 0)
         {
             gameUi = Ptr(uiRootStruct + Poe2.UiRootStruct.GameUiPtr);
@@ -1006,19 +1011,29 @@ public sealed partial class Poe2Live
             if (s == 0) continue;
             var g = Ptr(s + Poe2.UiRootStruct.GameUiPtr);
             var c = Ptr(s + Poe2.UiRootStruct.GameUiControllerPtr);
-            if (gameUi == 0 && HasMapParentChain(g)) gameUi = g;
-            if (controllerGameUi == 0 && HasMapParentChain(c)) controllerGameUi = c;
+            if (gameUi == 0 && (HasMapParentChain(g) || LooksLikeUiManager(g))) gameUi = g != 0 ? g : s;
+            if (controllerGameUi == 0 && (HasMapParentChain(c) || LooksLikeUiManager(c))) controllerGameUi = c != 0 ? c : s;
             if (gameUi != 0 && controllerGameUi != 0) return;
         }
 
         for (var o = 0; o < 0x3000; o += 8)
         {
             var p = Ptr(inGameState + o);
-            if (!HasMapParentChain(p)) continue;
+            if (!HasMapParentChain(p) && !LooksLikeUiManager(p)) continue;
             if (gameUi == 0) gameUi = p;
             else if (controllerGameUi == 0 && p != gameUi) controllerGameUi = p;
             if (gameUi != 0 && controllerGameUi != 0) break;
         }
+    }
+
+    private bool LooksLikeUiManager(nint el)
+    {
+        if (el == 0) return false;
+        var first = Ptr(el + Poe2.UiElement.Children);
+        if (first == 0) return false;
+        if (!_reader.TryReadStruct<nint>(el + Poe2.UiElement.ChildrenEnd, out var last)) return false;
+        var n = ((long)last - (long)first) / 8;
+        return n is > 0 and <= 5000;
     }
 
     private bool TryReadDirectMaps(nint inGameState, int windowWidth, int windowHeight, out MapViews maps)

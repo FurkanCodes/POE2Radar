@@ -1,12 +1,13 @@
 namespace POE2Radar.Core.Game;
 
-/// <summary>Auto-locate the live UiRoot when the hardcoded <see cref="Poe2.InGameState.UiRoot"/>
-/// offset drifts (reads 0). Same self-ref + children validation as <c>--find-map</c> in Research.</summary>
+/// <summary>Resolve the outer UiElement tree via <see cref="Poe2.UiRootStruct.UiRootPtr"/> inside the
+/// keyboard/gamepad manager structs at <see cref="Poe2.InGameState.KeyboardUiRootStructPtr"/> /
+/// <see cref="Poe2.InGameState.GamepadUiRootStructPtr"/>. Falls back to legacy direct reads + scan.</summary>
 internal static class UiRootResolver
 {
     private static nint _cachedForIgs;
     private static nint _cachedRoot;
-    private static int _cachedOffset = Poe2.InGameState.UiRoot;
+    private static int _cachedOffset = Poe2.InGameState.KeyboardUiRootStructPtr;
 
     public static int CachedOffset => _cachedOffset;
 
@@ -16,12 +17,33 @@ internal static class UiRootResolver
         if (_cachedForIgs == inGameState && _cachedRoot != 0)
             return _cachedRoot;
 
+        var kbStruct = SafePtr(reader, inGameState + Poe2.InGameState.KeyboardUiRootStructPtr);
+        if (kbStruct != 0)
+        {
+            var fromKb = SafePtr(reader, kbStruct + Poe2.UiRootStruct.UiRootPtr);
+            if (IsUiRoot(reader, fromKb))
+            {
+                Cache(inGameState, fromKb, Poe2.InGameState.KeyboardUiRootStructPtr);
+                return fromKb;
+            }
+        }
+
+        var padStruct = SafePtr(reader, inGameState + Poe2.InGameState.GamepadUiRootStructPtr);
+        if (padStruct != 0)
+        {
+            var fromPad = SafePtr(reader, padStruct + Poe2.UiRootStruct.UiRootPtr);
+            if (IsUiRoot(reader, fromPad))
+            {
+                Cache(inGameState, fromPad, Poe2.InGameState.GamepadUiRootStructPtr);
+                return fromPad;
+            }
+        }
+
+        // Legacy: +0x2F0 pointed directly at a self-ref UiElement (pre-0.5.x).
         var atFixed = SafePtr(reader, inGameState + Poe2.InGameState.UiRoot);
         if (IsUiRoot(reader, atFixed))
         {
-            _cachedForIgs = inGameState;
-            _cachedRoot = atFixed;
-            _cachedOffset = Poe2.InGameState.UiRoot;
+            Cache(inGameState, atFixed, Poe2.InGameState.UiRoot);
             return atFixed;
         }
 
@@ -29,9 +51,7 @@ internal static class UiRootResolver
         {
             var p = SafePtr(reader, inGameState + o);
             if (!IsUiRoot(reader, p)) continue;
-            _cachedForIgs = inGameState;
-            _cachedRoot = p;
-            _cachedOffset = o;
+            Cache(inGameState, p, o);
             return p;
         }
 
@@ -47,6 +67,13 @@ internal static class UiRootResolver
             _cachedForIgs = 0;
             _cachedRoot = 0;
         }
+    }
+
+    private static void Cache(nint inGameState, nint root, int offset)
+    {
+        _cachedForIgs = inGameState;
+        _cachedRoot = root;
+        _cachedOffset = offset;
     }
 
     private static bool IsUiRoot(MemoryReader reader, nint el)

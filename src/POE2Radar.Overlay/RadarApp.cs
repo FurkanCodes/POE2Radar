@@ -2522,10 +2522,10 @@ public sealed partial class RadarApp : IDisposable
             if (_settings.ShowPerfStats)
             {
                 var d = _atlas.GetAtlasPanelDiag(inGameState);
-                if (d.HardcodedOpen && !d.ResolvedOpen)
-                    LogAtlasDiagOnce($"panel gate mismatch: hardcoded child {d.HardcodedIndex} open but resolved index {d.Index} closed — index drift was blocking atlas overlay");
-                else if (!d.ResolvedOpen && d.Index >= 0 && d.Index != d.HardcodedIndex)
-                    LogAtlasDiagOnce($"atlas closed (resolved panel index {d.Index}, hardcoded {d.HardcodedIndex})");
+                if (!d.NodeListResolved)
+                    LogAtlasDiagOnce("atlas closed — UiRootStruct node-list fingerprint not found (open Endgame Atlas map)");
+                else if (!d.NodeListOpen)
+                    LogAtlasDiagOnce($"atlas closed — node list 0x{d.NodeList:X} not hierarchically visible");
             }
             if (_atlasOpen || _atlasMarksPublish.Count > 0) CloseAtlasSession();
             return;
@@ -2557,7 +2557,7 @@ public sealed partial class RadarApp : IDisposable
                 var d = _atlas.GetAtlasPanelDiag(inGameState);
                 var why = _atlas.LastDetectFailure ?? "unknown";
                 LogAtlasDiagOnce(
-                    $"ReadNodes returned 0 while panel open (resolvedIndex={d.Index} detectAttempts={_atlas.AtlasNodeDetectRetry}) — {why}");
+                    $"ReadNodes returned 0 while panel open (nodeList=0x{d.NodeList:X} manager=0x{d.UiManager:X} detectAttempts={_atlas.AtlasNodeDetectRetry}) — {why}");
             }
             if (detecting || (_atlasOpen && transient)) return;
             if (_atlasOpen || _atlasMarksPublish.Count > 0) CloseAtlasSession();

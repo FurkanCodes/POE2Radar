@@ -2550,23 +2550,26 @@ static int RunAtlasProbe(ProcessHandle process, MemoryReader reader)
 {
     var (_, igs, _, _) = ResolveChain(process, reader);
     if (igs == 0) { Console.Error.WriteLine("no chain (in game?)."); return 1; }
-    var uiRoot = SafePtr(reader, igs + Poe2.InGameState.UiRoot);
-    if (uiRoot == 0) uiRoot = SafePtr(reader, igs + 0x2F0);
+    var kbStruct = SafePtr(reader, igs + Poe2.InGameState.KeyboardUiRootStructPtr);
+    var uiRoot = kbStruct != 0 ? SafePtr(reader, kbStruct + Poe2.UiRootStruct.UiRootPtr) : 0;
+    if (uiRoot == 0) uiRoot = SafePtr(reader, igs + Poe2.InGameState.UiRoot);
     var root = SafePtr(reader, uiRoot + Poe2.UiElement.Parent) is var tr && tr != 0 ? tr : uiRoot;
     Console.WriteLine("ATLAS PROJECTION PROBE — recovery + validation\n==============================================");
 
-    // [0] Atlas panel open-gate: hardcoded UiRoot child index vs auto-discovered resolver.
-    AtlasPanelResolver.RecordSample(reader, uiRoot);
-    var panelDiag = AtlasPanelResolver.GetDiag(reader, uiRoot);
-    Console.WriteLine("[0] ATLAS PANEL GATE (UiRoot direct child):");
-    Console.WriteLine($"    hardcoded index +0x{Poe2.AtlasPanel.UiRootChildIndex:X} ({Poe2.AtlasPanel.UiRootChildIndex})  open={panelDiag.HardcodedOpen}  children={panelDiag.ChildCount}");
-    Console.WriteLine($"    resolved  index {panelDiag.Index}  open={panelDiag.ResolvedOpen}  toggleScore={panelDiag.ToggleScore}");
-    if (panelDiag.Index >= 0 && panelDiag.Index != panelDiag.HardcodedIndex)
-        Console.WriteLine($"    ⚠ INDEX DRIFT: hardcoded {panelDiag.HardcodedIndex} ≠ resolved {panelDiag.Index} — overlay uses resolver; update Poe2Offsets if stable.");
-    if (panelDiag.HardcodedOpen != panelDiag.ResolvedOpen)
-        Console.WriteLine($"    ⚠ GATE MISMATCH: hardcodedOpen={panelDiag.HardcodedOpen} resolvedOpen={panelDiag.ResolvedOpen} — this is why overlay showed nothing when index drifted.");
-    if (!panelDiag.ResolvedOpen)
-        Console.WriteLine("    NOTE: resolved gate is CLOSED — open the Endgame Atlas MAP view, then re-run.");
+    var fpDiag = AtlasPanelLocator.GetDiag(reader, igs);
+    Console.WriteLine("[0] ATLAS PANEL GATE (UiRootStruct fingerprint — overlay uses this):");
+    Console.WriteLine($"    manager=0x{fpDiag.UiManager:X}  nodeList=0x{fpDiag.NodeList:X}  resolved={fpDiag.NodeListResolved}  open={fpDiag.NodeListOpen}");
+    if (!fpDiag.NodeListOpen)
+        Console.WriteLine("    NOTE: fingerprint gate is CLOSED — open the Endgame Atlas MAP view, then re-run.");
+
+    // Legacy child-index resolver (pre-0.5.x); kept for drift comparison only.
+    if (uiRoot != 0)
+    {
+        AtlasPanelResolver.RecordSample(reader, uiRoot);
+        var panelDiag = AtlasPanelResolver.GetDiag(reader, uiRoot);
+        Console.WriteLine("[0b] LEGACY UiRoot child-index gate (deprecated):");
+        Console.WriteLine($"    hardcoded index {panelDiag.HardcodedIndex}  open={panelDiag.HardcodedOpen}  resolved index {panelDiag.Index}  open={panelDiag.ResolvedOpen}");
+    }
 
     // 1) BFS the UI tree, group by vtable, pick the atlas-node class = the vtable whose instances spread
     //    across the most distinct biome values (generic elements are all biome 0).

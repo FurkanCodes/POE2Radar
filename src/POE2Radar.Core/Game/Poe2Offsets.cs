@@ -42,17 +42,22 @@ public static class Poe2
     public static class InGameState
     {
         public const int AreaInstanceData = 0x290; // ✓ → AreaInstance (validated: target holds the local player)
-        public const int UiRoot           = 0x2F0; // ✓ → root UiElement (self-ref; children are UI elements)
+        /// <summary>Keyboard/mouse <see cref="UiRootStruct"/> manager — atlas fingerprint walk starts here
+        /// (GameHelper <c>GameUi.Address</c>). Dereference <see cref="UiRootStruct.UiRootPtr"/> for the
+        /// outer UiElement tree.</summary>
+        public const int KeyboardUiRootStructPtr = 0x2F0; // ✓ live 0.5.x (was mislabeled direct UiRoot)
+        public const int GamepadUiRootStructPtr  = 0x318; // ✓ controller UiRootStruct
+        public const int UiRoot = KeyboardUiRootStructPtr; // legacy alias — prefer <see cref="UiRootResolver"/>
+        public const int UiRootStructPtr = KeyboardUiRootStructPtr; // legacy name
         public const int Camera           = 0x368; // ✓ → Camera object (Zoom @ +0x528 == 1.0 confirmed)
         public const int WorldData        = 0x310; // (GH2-drift) → WorldData (area name + camera) — TBD
-        public const int UiRootStructPtr  = 0x340; // (GH2-drift) reads 0 here — TBD
     }
 
     public static class UiRootStruct
     {
-        public const int UiRootPtr           = 0x5A8; // (GH2)
-        public const int GameUiPtr           = 0xBF0; // (GH2)
-        public const int GameUiControllerPtr = 0xBF8; // (GH2)
+        public const int UiRootPtr           = 0x340; // ✓ live 0.5.x (was GH2 0x5A8)
+        public const int GameUiPtr           = 0xBE0; // (GH2) inner HUD branch inside the manager
+        public const int GameUiControllerPtr = 0xBE8; // (GH2) controller HUD branch
     }
 
     /// <summary>

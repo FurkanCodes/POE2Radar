@@ -343,36 +343,21 @@ public sealed class Poe2Atlas
     // is the node the player is currently in (the route's true start).
     private nint _currentMarker;
     private readonly List<nint> _currentMarkerCandidates = new();
+    private nint _cachedUiManager;
 
-    private const uint GhAtlasPanelFlags = 0x00562EF5;
-    private const uint GhAtlasGateFlags = 0x00502EF1;
-    private const uint GhAtlasNodeListFlags = 0x00502EF3;
-    private const uint GhAtlasMapNodeFlags = 0x00542EF3;
-    private const uint GhVisibleMask = 0x800u;
-    private static readonly uint[] GhKbMouseNodeListChain = [GhAtlasPanelFlags, GhAtlasGateFlags, GhAtlasNodeListFlags];
-    private static readonly uint[] GhControllerNodeListChain =
-        [GhAtlasGateFlags, GhAtlasMapNodeFlags, GhAtlasGateFlags, GhAtlasPanelFlags, GhAtlasGateFlags, GhAtlasNodeListFlags];
-
-    /// <summary>Cheap "is the Atlas screen open?" check (the persistent panel's visible bit, ~4 reads) —
-    /// the same gate <see cref="ReadNodes"/> uses internally, exposed so callers can tell a TRANSIENT empty
-    /// read (atlas open, a node read just hiccupped) from the atlas genuinely being closed. Lets the overlay
-    /// hold its last marks through a read miss instead of blanking (the off-screen-arrow flicker).</summary>
+    /// <summary>Cheap "is the Atlas screen open?" — fingerprint-resolved node list + hierarchical visible bit.</summary>
     public bool IsAtlasOpen(nint inGameState)
     {
-        var uiRoot = UiRootResolver.Resolve(_reader, inGameState);
-        if (uiRoot == 0) return false;
-        AtlasPanelResolver.RecordSample(_reader, uiRoot);
-        return AtlasPanelResolver.IsPanelOpen(_reader, uiRoot);
+        if (inGameState == 0) return false;
+        return AtlasPanelLocator.IsAtlasOpen(_reader, inGameState);
     }
 
-    /// <summary>Atlas panel discovery diagnostics (hardcoded child index vs resolved index).</summary>
-    public AtlasPanelResolver.PanelDiag GetAtlasPanelDiag(nint inGameState)
+    /// <summary>Atlas panel discovery diagnostics (fingerprint node-list path).</summary>
+    public AtlasPanelLocator.PanelDiag GetAtlasPanelDiag(nint inGameState)
     {
-        var uiRoot = UiRootResolver.Resolve(_reader, inGameState);
-        if (uiRoot == 0)
-            return new AtlasPanelResolver.PanelDiag(false, -1, Poe2.AtlasPanel.UiRootChildIndex, false, false, 0, 0);
-        AtlasPanelResolver.RecordSample(_reader, uiRoot);
-        return AtlasPanelResolver.GetDiag(_reader, uiRoot);
+        if (inGameState == 0)
+            return new AtlasPanelLocator.PanelDiag(false, false, 0, 0);
+        return AtlasPanelLocator.GetDiag(_reader, inGameState);
     }
 
     /// <summary>Throttled node-class re-detect counter (0..29) — exposed for atlas failure logging.</summary>
@@ -393,13 +378,12 @@ public sealed class Poe2Atlas
 
     public List<AtlasNodeLive> ReadNodes(nint inGameState, AtlasNodeReadMode mode = AtlasNodeReadMode.Full, float winW = 0, float winH = 0)
     {
-        var uiRoot = UiRootResolver.Resolve(_reader, inGameState);
-        if (uiRoot == 0) return new List<AtlasNodeLive>();
+        if (inGameState == 0) return new List<AtlasNodeLive>();
 
         lock (_nodeLock) // called from both the tick thread (BuildAtlasMarks) and the API thread (AtlasJson)
         {
             // Panel closed → drop snapshot immediately (don't hold stale nodes for hiddenTicks self-heal).
-            if (!AtlasPanelOpen(uiRoot))
+            if (!AtlasPanelOpen(inGameState))
             {
                 if (_nodeSnapshot.Count > 0 || _nodeCanvas != 0) Invalidate();
                 return new List<AtlasNodeLive>();
@@ -453,12 +437,12 @@ public sealed class Poe2Atlas
             // gate on the atlas panel's visible bit (a persistent UiRoot child; ~4 reads). Closed → bail
             // cheaply. Fail-safe: any read failure reads as closed, so a drifted index degrades to
             // feature-off, never back to a per-tick BFS.
-            if (!AtlasPanelOpen(uiRoot)) return nodes;
+            if (!AtlasPanelOpen(inGameState)) return nodes;
 
             // Panel is open but we have no canvas cache — run detection every tick. BFS is scoped to the
-            // resolved atlas panel subtree (not the full 50k UI tree), so this stays cheap enough.
+            // UiRootStruct manager subtree when fingerprint init fails, so this stays cheap enough.
             _nodeRetry++;
-            if (!DetectNodeClass(uiRoot))
+            if (!DetectNodeClass(inGameState))
                 return nodes;
             if (HierarchicallyVisible(_nodeCanvas) && ReadCanvasNodes(_nodeCanvas, nodes, winW, winH))
                 _nodeSnapshot = new List<AtlasNodeLive>(nodes);
@@ -655,19 +639,17 @@ public sealed class Poe2Atlas
 
     public void NotifyPanelOpened(nint inGameState)
     {
-        var uiRoot = UiRootResolver.Resolve(_reader, inGameState);
-        if (uiRoot != 0)
-            AtlasPanelResolver.NotifyPanelOpened(uiRoot);
+        _cachedUiManager = 0;
     }
 
     private void Invalidate()
     {
         _nodeCanvas = 0; _nodeVtable = 0;
+        _cachedUiManager = 0;
         _tagCache.Clear(); _iconTypeCache.Clear(); _nodeSnapshot.Clear();
         _elementIndex.Clear();
         _graph.Clear(); _graphCanvas = 0; _currentMarker = 0; _currentMarkerCandidates.Clear();
         AllTagsResolved = false;
-        AtlasPanelResolver.Invalidate();
     }
 
     /// <summary>Drop the cached atlas node snapshot and tag/graph caches when the Atlas UI closes.</summary>
@@ -1034,9 +1016,9 @@ public sealed class Poe2Atlas
         return string.Join(' ', parts);
     }
 
-    /// <summary>Cheap "is the Atlas screen open?" gate — delegates to <see cref="AtlasPanelResolver"/>.</summary>
-    private bool AtlasPanelOpen(nint uiRoot)
-        => AtlasPanelResolver.IsPanelOpen(_reader, uiRoot);
+    /// <summary>Cheap "is the Atlas screen open?" gate — delegates to <see cref="AtlasPanelLocator"/>.</summary>
+    private bool AtlasPanelOpen(nint inGameState)
+        => AtlasPanelLocator.IsAtlasOpen(_reader, inGameState);
 
     /// <summary>True iff the element and all ancestors (via Parent +0xB8) have the local visible bit set
     /// — i.e. actually shown. Cheap (~6 reads); used to detect "the Atlas screen is open".</summary>
@@ -1057,19 +1039,21 @@ public sealed class Poe2Atlas
     /// <summary>BFS the atlas panel subtree; the atlas-node class is the vtable whose instances spread
     /// across many distinct biome values (0..12) — generic elements are all biome 0. Cache that vtable +
     /// the nodes' common parent (the canvas container).</summary>
-    private bool DetectNodeClass(nint uiRoot)
+    private bool DetectNodeClass(nint inGameState)
     {
         LastDetectFailure = null;
-        if (TryResolveGameHelperNodeList(uiRoot, out var ghNodeList) && TryInitializeNodeCanvas(ghNodeList))
+        if (TryResolveGameHelperNodeList(inGameState, out var ghNodeList) && TryInitializeNodeCanvas(ghNodeList))
             return true;
 
-        // Scope BFS to the resolved atlas panel — avoids walking 50k UI elements and ignores stray
-        // biome-ish classes elsewhere in the tree.
-        nint root;
-        if (AtlasPanelResolver.TryResolvePanel(_reader, uiRoot, out var panel, out _))
-            root = panel;
-        else
-            root = Ptr(uiRoot + Poe2.UiElement.Parent) is var tr && tr != 0 ? tr : uiRoot;
+        // Fingerprint missed — BFS under the UiRootStruct manager (not the outer UiRoot tree).
+        var root = _cachedUiManager;
+        if (root == 0 && AtlasPanelLocator.TryResolveNodeList(_reader, inGameState, out _, out root))
+            _cachedUiManager = root;
+        if (root == 0)
+        {
+            LastDetectFailure = "UiRootStruct manager not found (InGameState+0x2F0 / +0x318)";
+            return false;
+        }
 
         var queue = new Queue<nint>(); queue.Enqueue(root);
         var visited = new HashSet<nint>();
@@ -1166,44 +1150,22 @@ public sealed class Poe2Atlas
         return true;
     }
 
-    private bool TryResolveGameHelperNodeList(nint uiRoot, out nint nodeList)
+    private bool TryResolveGameHelperNodeList(nint inGameState, out nint nodeList)
     {
-        nodeList = WalkFlagsChain(uiRoot, GhKbMouseNodeListChain, gateStep: 1, step: 0);
-        if (nodeList != 0) return true;
-        nodeList = WalkFlagsChain(uiRoot, GhControllerNodeListChain, gateStep: 4, step: 0);
-        return nodeList != 0;
+        nodeList = 0;
+        if (_cachedUiManager != 0
+            && AtlasPanelLocator.TryResolveNodeListFromManager(_reader, _cachedUiManager, out nodeList))
+            return true;
+
+        if (!AtlasPanelLocator.TryResolveNodeList(_reader, inGameState, out nodeList, out var mgr))
+            return false;
+
+        _cachedUiManager = mgr;
+        return true;
     }
 
-    private nint WalkFlagsChain(nint parentAddr, IReadOnlyList<uint> flagsChain, int gateStep, int step)
-    {
-        if (step == flagsChain.Count) return parentAddr;
-        var first = Ptr(parentAddr + Poe2.UiElement.Children);
-        if (first == 0 || !_reader.TryReadStruct<nint>(parentAddr + Poe2.UiElement.ChildrenEnd, out var last))
-            return 0;
-        var count = ((long)last - (long)first) / 8;
-        if (count is <= 0 or > 5000) return 0;
-
-        var target = flagsChain[step] & ~GhVisibleMask;
-        for (var pass = 0; pass < 2; pass++)
-        {
-            var wantVisible = pass == 0;
-            for (long i = 0; i < count; i++)
-            {
-                var child = Ptr(first + (nint)(i * 8));
-                if (child == 0 || Ptr(child + Poe2.UiElement.Self) != child) continue;
-                if (!_reader.TryReadStruct<uint>(child + Poe2.UiElement.Flags, out var flags)) continue;
-                if ((flags & ~GhVisibleMask) != target) continue;
-                var visible = (flags & GhVisibleMask) != 0;
-                if (visible != wantVisible) continue;
-                if (step == gateStep && !visible) continue;
-
-                var deeper = WalkFlagsChain(child, flagsChain, gateStep, step + 1);
-                if (deeper != 0) return deeper;
-            }
-        }
-
-        return 0;
-    }
+    private const uint GhAtlasNodeListFlags = 0x00502EF3;
+    private const uint GhVisibleMask = 0x800u;
 
     private bool TryInitializeNodeCanvas(nint canvas)
     {
