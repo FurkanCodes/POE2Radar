@@ -369,6 +369,11 @@ public static class Poe2
         public const int Mods = 0xA0; // GH2: Details0.Mods vectors
     }
 
+    public static class StackComponent
+    {
+        public const int Count = 0x18; // GH2 StackOffsets.Count
+    }
+
     /// <summary>Ritual Favours UI item slot.</summary>
     public static class RitualUi
     {

@@ -173,6 +173,26 @@ public readonly record struct RunecraftMonolithPanelRow(
     bool PanelOpen,
     RunecraftMonolithCandidate[] Candidates);
 
+public readonly record struct StashValueLabel(
+    NumVec2 Pos,
+    NumVec2 Size,
+    string ValueText,
+    uint TextColor,
+    float FontSize,
+    bool Debug,
+    string DebugText,
+    bool HidePrice);
+
+public readonly record struct StashValueDebugInfo(
+    bool Active,
+    int SlotCount,
+    int LabelCount,
+    int ScannedNodes,
+    int CandidateSlots,
+    bool AnyHovered,
+    double LastScanMs,
+    string League);
+
 /// <summary>Endgame atlas tier for icon/label accent (Return of the Ancients / 0.5).</summary>
 public enum AtlasEndgameTier : byte
 {
@@ -320,6 +340,8 @@ public sealed record RenderContext(
     RunecraftMapLabel[] RunecraftMapLabels,
     bool RunecraftShowMonolithWindow,
     RunecraftMonolithPanelRow[] RunecraftMonolithRows,
+    StashValueLabel[] StashValueLabels,
+    StashValueDebugInfo StashValueDebug,
     // ── Unified display-rule engine (Phase 1). Resolves an entity to the first matching display rule
     // (or null → not drawn); the rule says hide or how to draw (shape/color/size/label). Replaces the
     // watched/mechanic/category dot decision in DrawMap. Null only if not wired (defensive). ──

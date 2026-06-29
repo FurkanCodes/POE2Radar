@@ -311,6 +311,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                     DrawRitualLabels(ImGui.GetForegroundDrawList(), ctx);
                     DrawRunecraftLabels(ImGui.GetForegroundDrawList(), ctx);
                     DrawRunecraftMapLabels(ImGui.GetForegroundDrawList(), ctx);
+                    DrawStashValueLabels(ImGui.GetForegroundDrawList(), ctx);
                     nameplatesMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                 }
 
@@ -325,6 +326,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
             if (ctx is { Active: true, RitualShowPricesWindow: true })
                 DrawRitualPricesWindow(ctx);
+
+            if (ctx is { Active: true } && _settings.StashValue.ShowDebugInfo)
+                DrawStashValueDebugWindow(ctx);
 
             if (_settingsOpen && (ctx?.Active == true || _settings.AlwaysShowOverlay))
                 DrawSettingsPanel(ctx);
@@ -829,6 +833,42 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         }
     }
 
+    private void DrawStashValueLabels(ImDrawListPtr dl, RenderContext ctx)
+    {
+        if (ctx.StashValueLabels is not { Length: > 0 } labels) return;
+
+        var font = ImGui.GetFont();
+        var currentFontSize = Math.Max(1f, ImGui.GetFontSize());
+        const uint shadowColor = 0xCC000000u;
+        const uint chipBg = 0xB0000000u;
+        const uint debugBox = 0xFFFF00FFu;
+
+        foreach (var label in labels)
+        {
+            var slotMin = new NumVec2(
+                label.Pos.X - _settings.StashValue.PriceOffsetX,
+                label.Pos.Y - label.Size.Y + label.FontSize - _settings.StashValue.PriceOffsetY);
+            var slotMax = slotMin + label.Size;
+
+            if (label.Debug)
+            {
+                dl.AddRect(slotMin, slotMax, debugBox, 0f, ImDrawFlags.None, 2f);
+                if (!string.IsNullOrEmpty(label.DebugText))
+                    dl.AddText(font, label.FontSize, slotMin, 0xFFFFFFFFu, label.DebugText);
+            }
+
+            if (label.HidePrice || string.IsNullOrEmpty(label.ValueText))
+                continue;
+
+            var k = label.FontSize / currentFontSize;
+            var textSize = ImGui.CalcTextSize(label.ValueText) * k;
+            var bgPad = new NumVec2(3f, 1f);
+            dl.AddRectFilled(label.Pos - bgPad, label.Pos + new NumVec2(textSize.X, label.FontSize) + bgPad, chipBg, 3f);
+            dl.AddText(font, label.FontSize, label.Pos + new NumVec2(1f, 1f), shadowColor, label.ValueText);
+            dl.AddText(font, label.FontSize, label.Pos, label.TextColor, label.ValueText);
+        }
+    }
+
     private void DrawRunecraftLabels(ImDrawListPtr dl, RenderContext ctx)
     {
         if (ctx.RunecraftLabels is not { Length: > 0 } labels) return;
@@ -1030,6 +1070,22 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         else
             ImGui.TextDisabled("Open the Ritual tribute shop in-game to see rewards.");
 
+        ImGui.End();
+    }
+
+    private static void DrawStashValueDebugWindow(RenderContext ctx)
+    {
+        ImGui.Begin("StashValue Debugger");
+        var d = ctx.StashValueDebug;
+        ImGui.TextUnformatted($"Active: {d.Active}");
+        ImGui.TextUnformatted($"Slots: {d.SlotCount}");
+        ImGui.TextUnformatted($"Labels: {d.LabelCount}");
+        ImGui.TextUnformatted($"Candidate item slots: {d.CandidateSlots}");
+        ImGui.TextUnformatted($"Scanned UI nodes: {d.ScannedNodes}");
+        ImGui.TextUnformatted($"Hovered: {d.AnyHovered}");
+        ImGui.TextUnformatted($"Scan ms: {d.LastScanMs:F2}");
+        ImGui.TextUnformatted($"League: {d.League}");
+        ImGui.TextUnformatted($"Loaded prices: {PoeNinjaPriceFetcher.LoadedItemCount}");
         ImGui.End();
     }
 
@@ -1580,6 +1636,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             BeginSettingsTab("Performance", () => DrawPerformanceTab(s));
             BeginSettingsTab("HP Bars", () => DrawHpBarsTab(s));
             BeginSettingsTab("Flask", () => DrawFlaskTab(s));
+            BeginSettingsTab("Stash Value", () => DrawStashValueTab(s, ctx));
             BeginSettingsTab("Ritual", () => DrawRitualTab(s, ctx));
             BeginSettingsTab("Runecraft", () => DrawRunecraftTab(s, ctx));
             BeginSettingsTab("Atlas", () => DrawAtlasTab(s));
@@ -2657,6 +2714,127 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             ImGui.BulletText("Keys are Win32 virtual-key codes (0x31 = '1', 0x32 = '2').");
         }
         ImGuiTheme.EndAccordionSection(statusOpen);
+    }
+
+    private void DrawStashValueTab(RadarSettings s, RenderContext? ctx)
+    {
+        var sv = s.StashValue;
+
+        var overlayOpen = ImGuiTheme.BeginAccordionSection("StashValueOverlay", "Overlay",
+            "Stash and inventory item value labels.");
+        if (overlayOpen)
+        {
+            var show = sv.ShowOverlay;
+            if (ImGui.Checkbox("Show stash item prices", ref show)) sv.ShowOverlay = show;
+
+            var inv = sv.ShowInventoryOverlay;
+            if (ImGui.Checkbox("Show inventory item prices", ref inv)) sv.ShowInventoryOverlay = inv;
+
+            var hover = sv.HidePriceOnHover;
+            if (ImGui.Checkbox("Hide price when hovering item", ref hover)) sv.HidePriceOnHover = hover;
+
+            var maxThreshold = sv.DisplayCurrency switch
+            {
+                0 => 100f,
+                1 => 200f,
+                _ => 1000f,
+            };
+            var currencyLabel = sv.DisplayCurrency switch
+            {
+                0 => "div",
+                1 => "ex",
+                _ => "c",
+            };
+            var min = Math.Clamp(sv.MinValueEx, 0f, maxThreshold);
+            ImGui.SetNextItemWidth(UiW(10f));
+            if (ImGui.SliderFloat($"Min Price Threshold ({currencyLabel})##stashValueThreshold", ref min, 0f, maxThreshold, $"%.2f {currencyLabel}"))
+                sv.MinValueEx = Math.Clamp(min, 0f, maxThreshold);
+
+            var debug = sv.ShowDebugInfo;
+            if (ImGui.Checkbox("Show Debug Info (Draw Boxes & Diagnostics)", ref debug)) sv.ShowDebugInfo = debug;
+        }
+        ImGuiTheme.EndAccordionSection(overlayOpen);
+
+        var currencyOpen = ImGuiTheme.BeginAccordionSection("StashValueCurrency", "Display Currency",
+            "Currency used for item value labels.");
+        if (currencyOpen)
+        {
+            if (ImGui.RadioButton("Chaos", sv.DisplayCurrency == 2)) sv.DisplayCurrency = 2;
+            ImGui.SameLine();
+            if (ImGui.RadioButton("Exalted", sv.DisplayCurrency == 1)) sv.DisplayCurrency = 1;
+            ImGui.SameLine();
+            if (ImGui.RadioButton("Divine", sv.DisplayCurrency == 0)) sv.DisplayCurrency = 0;
+        }
+        ImGuiTheme.EndAccordionSection(currencyOpen);
+
+        var styleOpen = ImGuiTheme.BeginAccordionSection("StashValueStyle", "Label style",
+            "Font scale, position and text colour.");
+        if (styleOpen)
+        {
+            var fs = sv.PriceFontScale;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Font Scale", ref fs, 0.5f, 2f, "%.2f")) sv.PriceFontScale = Math.Clamp(fs, 0.5f, 2f);
+
+            var ox = sv.PriceOffsetX;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Horizontal Offset", ref ox, -50f, 50f)) sv.PriceOffsetX = Math.Clamp(ox, -50f, 50f);
+
+            var oy = sv.PriceOffsetY;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Vertical Offset", ref oy, -50f, 50f)) sv.PriceOffsetY = Math.Clamp(oy, -50f, 50f);
+
+            var col = ParseHexColor(sv.PriceTextColor);
+            if (ImGui.ColorEdit3("Text Color", ref col, ImGuiColorEditFlags.NoInputs))
+                sv.PriceTextColor = FormatHexColor3(col);
+        }
+        ImGuiTheme.EndAccordionSection(styleOpen);
+
+        var priceOpen = ImGuiTheme.BeginAccordionSection("StashValuePriceSource", "Price Source",
+            "Market data source and league.");
+        if (priceOpen)
+        {
+            if (ImGui.RadioButton("poe2scout", sv.PriceSource == PoeNinjaPriceFetcher.SourcePoe2Scout))
+                sv.PriceSource = PoeNinjaPriceFetcher.SourcePoe2Scout;
+            ImGui.SameLine();
+            if (ImGui.RadioButton("poe.ninja", sv.PriceSource == PoeNinjaPriceFetcher.SourcePoeNinja))
+                sv.PriceSource = PoeNinjaPriceFetcher.SourcePoeNinja;
+
+            var league = sv.League ?? "";
+            ImGui.SetNextItemWidth(UiW(14f));
+            if (ImGui.InputText("League", ref league, 64))
+                sv.League = string.IsNullOrWhiteSpace(league) ? "Runes of Aldur" : league.Trim();
+
+            var refresh = sv.RefreshIntervalMin;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Refresh interval (min)", ref refresh, 1, 120))
+                sv.RefreshIntervalMin = Math.Clamp(refresh, 1, 120);
+
+            if (ImGui.Button("Refresh prices now"))
+            {
+                var dir = System.IO.Path.Combine(AppContext.BaseDirectory, "StashValue");
+                System.IO.Directory.CreateDirectory(dir);
+                PoeNinjaPriceFetcher.Configure(Math.Clamp(sv.PriceSource, 0, 1), sv.League ?? "", Math.Max(1, sv.RefreshIntervalMin));
+                PoeNinjaPriceFetcher.ForceRefresh(dir, ignoreCooldown: true);
+            }
+
+            ImGui.SameLine();
+            if (PoeNinjaPriceFetcher.IsFetching)
+            {
+                ImGui.TextColored(new Vector4(0.7f, 0.7f, 0.2f, 1f), "Loading...");
+            }
+            else if (PoeNinjaPriceFetcher.LastFetchUtc > DateTime.MinValue)
+            {
+                var mins = Math.Max(0, (int)(DateTime.UtcNow - PoeNinjaPriceFetcher.LastFetchUtc).TotalMinutes);
+                ImGui.TextColored(new Vector4(0.5f, 0.8f, 0.5f, 1f), $"{PoeNinjaPriceFetcher.LoadedItemCount} items | {mins} min ago");
+            }
+        }
+        ImGuiTheme.EndAccordionSection(priceOpen);
+
+        if (sv.ShowDebugInfo)
+        {
+            ImGui.Separator();
+            ImGui.TextUnformatted($"Labels this frame: {ctx?.StashValueLabels.Length ?? 0}");
+        }
     }
 
     private void DrawRitualTab(RadarSettings s, RenderContext? ctx)

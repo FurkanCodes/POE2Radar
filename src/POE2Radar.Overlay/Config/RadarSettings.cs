@@ -129,6 +129,7 @@ public sealed class RadarSettings
 
     public RitualSettings Ritual { get; set; } = new();
     public RunecraftSettings Runecraft { get; set; } = new();
+    public StashValueSettings StashValue { get; set; } = new();
 
     // ── Global multiplier on map icon sprite scale (PNG from icons.png). ──
     public float GlobalIconScale { get; set; } = 1.25f;
@@ -679,6 +680,23 @@ public sealed class RunecraftSettings
     public float MapValueYOffset { get; set; } = 0f;
     public bool HighlightLockedRecipe { get; set; } = true;
     public bool DiagnosePricing { get; set; } = false;
+}
+
+public sealed class StashValueSettings
+{
+    public bool ShowOverlay { get; set; } = true;
+    public bool ShowInventoryOverlay { get; set; } = false;
+    public bool ShowDebugInfo { get; set; } = false;
+    public float MinValueEx { get; set; } = 0f;
+    public bool HidePriceOnHover { get; set; } = true;
+    public int PriceSource { get; set; } = 1;
+    public string League { get; set; } = "Runes of Aldur";
+    public int RefreshIntervalMin { get; set; } = 5;
+    public int DisplayCurrency { get; set; } = 1;
+    public float PriceFontScale { get; set; } = 1f;
+    public float PriceOffsetX { get; set; } = 5f;
+    public float PriceOffsetY { get; set; } = -5f;
+    public string PriceTextColor { get; set; } = "#FFEB8C";
 }
 
 public sealed class AtlasRouteGroupSettings

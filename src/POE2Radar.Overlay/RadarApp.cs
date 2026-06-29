@@ -713,6 +713,11 @@ public sealed partial class RadarApp : IDisposable
             ClearRunecraftSession(open: false);
 
         if (live.InGame)
+            RefreshStashValue(live, windowWidth, windowHeight, drawActive);
+        else
+            ClearStashValue();
+
+        if (live.InGame)
         {
             BuildRenderPaths(live.PlayerGrid, snap);
             if (!_atlasOpen && _hpBarCadence.IsDue(PerformanceCadence.ClampHz(_settings.HpBarRefreshHz, 1, 30)))
@@ -852,6 +857,16 @@ public sealed partial class RadarApp : IDisposable
             RunecraftMapLabels: _runecraftMapLabels,
             RunecraftShowMonolithWindow: RunecraftMonolithWindowActive(),
             RunecraftMonolithRows: _runecraftMonolithRows,
+            StashValueLabels: _stashValueLabels,
+            StashValueDebug: new StashValueDebugInfo(
+                _stashValueStatus.Active,
+                _stashValueStatus.SlotCount,
+                _stashValueStatus.LabelCount,
+                _stashValueStatus.ScannedNodes,
+                _stashValueStatus.CandidateSlots,
+                _stashValueStatus.AnyHovered,
+                _stashValueStatus.LastScanMs,
+                _stashValueStatus.League),
             AtlasOpen: _atlasOpen,
             AtlasNodes: _atlasMarksPublish,
             AtlasShowOnScreenNodes: _settings.AtlasShowOnScreenNodes,
