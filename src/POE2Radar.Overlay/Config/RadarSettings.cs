@@ -59,8 +59,8 @@ public sealed class RadarSettings
     //    rule has Auto-path (Navigable) enabled. Manual F6/legend selections are never overridden. ──
     public bool AutoPathNavigable { get; set; } = false;
 
-    // ── In-game hotkey to toggle <see cref="AutoPathNavigable"/> (default F3 = 0x72). 0 = disabled. ──
-    public int AutoPathToggleHotkey { get; set; } = 0x72;
+    // ── In-game hotkey to toggle <see cref="AutoPathNavigable"/> (default F2 = 0x71). 0 = disabled. ──
+    public int AutoPathToggleHotkey { get; set; } = 0x71;
 
     // ── One-time guard: the nav model moved to "display rules are the single source of truth" (an entity
     //    auto-paths only via its rule's Navigable flag, not a hardcoded POI/unique clause). On the first
@@ -127,6 +127,9 @@ public sealed class RadarSettings
     // One-time: add server-icon portal rule.
     public bool ServerIconPortalMigrated { get; set; } = false;
 
+    // One-time: F3 is now the global render kill-switch; move auto-path off the old F3 default.
+    public bool RenderingHotkeyMigrated { get; set; } = false;
+
     public RitualSettings Ritual { get; set; } = new();
     public RunecraftSettings Runecraft { get; set; } = new();
     public StashValueSettings StashValue { get; set; } = new();
@@ -189,10 +192,6 @@ public sealed class RadarSettings
     public float ScaleMul { get; set; } = 1.0f;
     public float OffX { get; set; } = 0f;
     public float OffY { get; set; } = 0f;
-
-    // Draw the overlay even when PoE2 isn't the foreground window (e.g. while tweaking the dashboard).
-    // Auto-flask stays foreground-gated regardless (safety). Default off (overlay hides when unfocused).
-    public bool AlwaysShowOverlay { get; set; } = false;
 
     // NOTE: the atlas canvas→screen projection has NO stored settings — it's derived live from the game
     // window height (UIscale = winH/1600 × live zoom) in RadarApp.AtlasProjection, so it's resolution-
@@ -286,6 +285,7 @@ public sealed class RadarSettings
     public int TrackEntityHotkey { get; set; } = 0x73;
 
     // ── Path / overlay / atlas hotkeys (0 = disabled; gamepad uses 0x10000 | XINPUT button mask). ──
+    public int ToggleRenderingHotkey { get; set; } = 0x72;
     public int AddNearestPathHotkey { get; set; } = 0x75;
     public int ClearPathsHotkey { get; set; } = 0x76;
     public int AutoFlaskToggleHotkey { get; set; } = 0x77;
@@ -471,6 +471,15 @@ public sealed class RadarSettings
             ShowPathWorld = ShowPathMap = ShowPathMinimap = ShowPath;
             if (ShowPath) ShowGroundWaypoints = true;
             PathTogglesMigrated = true;
+            changed = true;
+        }
+
+        if (!RenderingHotkeyMigrated)
+        {
+            ToggleRenderingHotkey = 0x72; // F3
+            if (AutoPathToggleHotkey == 0x72)
+                AutoPathToggleHotkey = 0x71; // F2
+            RenderingHotkeyMigrated = true;
             changed = true;
         }
 

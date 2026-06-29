@@ -21,6 +21,7 @@ public static class HotkeyPoll
         => HotkeyCodes.IsGamepad(s.HideEntityHotkey)
         || HotkeyCodes.IsGamepad(s.TrackEntityHotkey)
         || HotkeyCodes.IsGamepad(s.AutoPathToggleHotkey)
+        || HotkeyCodes.IsGamepad(s.ToggleRenderingHotkey)
         || HotkeyCodes.IsGamepad(s.AddNearestPathHotkey)
         || HotkeyCodes.IsGamepad(s.ClearPathsHotkey)
         || HotkeyCodes.IsGamepad(s.AutoFlaskToggleHotkey)

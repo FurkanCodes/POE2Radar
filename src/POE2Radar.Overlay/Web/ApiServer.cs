@@ -619,7 +619,6 @@ public sealed class ApiServer : IDisposable
         entityDrawRadiusGrid = _settings.EntityDrawRadiusGrid,
         globalIconScale = _settings.GlobalIconScale,
         navMenuCorner = _settings.NavMenuCorner,
-        alwaysShowOverlay = _settings.AlwaysShowOverlay,
         useCuratedLandmarks = _settings.UseCuratedLandmarks,
         landmarkClusterGap = _settings.LandmarkClusterGap,
         showMonsters = _settings.ShowMonsters,
@@ -682,6 +681,7 @@ public sealed class ApiServer : IDisposable
         atlasRouteGroups = _settings.AtlasRouteGroups,
         hideEntityHotkey = _settings.HideEntityHotkey,
         trackEntityHotkey = _settings.TrackEntityHotkey,
+        toggleRenderingHotkey = _settings.ToggleRenderingHotkey,
         autoPathToggleHotkey = _settings.AutoPathToggleHotkey,
         addNearestPathHotkey = _settings.AddNearestPathHotkey,
         clearPathsHotkey = _settings.ClearPathsHotkey,
@@ -760,7 +760,6 @@ public sealed class ApiServer : IDisposable
                     _settings.NavMenuCorner = nc;
                     applied.Add(p.Name);
                     break;
-                case "alwaysShowOverlay" when TryBool(p.Value, out var b): _settings.AlwaysShowOverlay = b; applied.Add(p.Name); break;
                 case "useCuratedLandmarks" when TryBool(p.Value, out var b): _settings.UseCuratedLandmarks = b; applied.Add(p.Name); break;
                 case "landmarkClusterGap" when TryInt(p.Value, out var n): _settings.LandmarkClusterGap = Math.Clamp(n, 0, 64); applied.Add(p.Name); break;
                 case "largeMapScaleMultiplier" when TryFloat(p.Value, out var f): _settings.LargeMapScaleMultiplier = Math.Clamp(f, 0.01f, 2f); applied.Add(p.Name); break;
@@ -843,6 +842,10 @@ public sealed class ApiServer : IDisposable
                     break;
                 case "trackEntityHotkey" when TryInt(p.Value, out var tk):
                     _settings.TrackEntityHotkey = ClampHotkey(tk);
+                    applied.Add(p.Name);
+                    break;
+                case "toggleRenderingHotkey" when TryInt(p.Value, out var tr):
+                    _settings.ToggleRenderingHotkey = ClampHotkey(tr);
                     applied.Add(p.Name);
                     break;
                 case "autoPathToggleHotkey" when TryInt(p.Value, out var apk):

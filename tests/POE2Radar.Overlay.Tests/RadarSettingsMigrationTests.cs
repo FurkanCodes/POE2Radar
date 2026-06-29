@@ -287,4 +287,23 @@ public sealed class RadarSettingsMigrationTests
         Assert.True(s.Ritual.ShowPricesWindow);
         Assert.False(s.Migrate());
     }
+
+    [Fact]
+    public void Migrate_MovesGlobalRenderingToggleToF3()
+    {
+        var s = new RadarSettings
+        {
+            RenderingHotkeyMigrated = false,
+            ToggleRenderingHotkey = 0x71,
+            AutoPathToggleHotkey = 0x72,
+        };
+
+        var changed = s.Migrate();
+
+        Assert.True(changed);
+        Assert.True(s.RenderingHotkeyMigrated);
+        Assert.Equal(0x72, s.ToggleRenderingHotkey);
+        Assert.Equal(0x71, s.AutoPathToggleHotkey);
+        Assert.False(s.Migrate());
+    }
 }

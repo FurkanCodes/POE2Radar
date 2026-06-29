@@ -120,8 +120,7 @@ public sealed partial class RadarApp : IDisposable
     private nint _gameHwnd;
     private string _mapDiag = "";
     private volatile bool _shutdown;
-    private DateTime _lastGameFocusUtc = DateTime.MinValue;
-    private const int OverlayFocusLossGraceMs = 500;
+    private volatile bool _renderingEnabled = true;
 
     // ── Auto-flask (opt-in input). Foreground + in-game gated; F8 master kill-switch.
     //    Flask keys are configurable in RadarSettings (LifeKey/ManaKey). ──
@@ -131,6 +130,7 @@ public sealed partial class RadarApp : IDisposable
     private DateTime _nextQuitAt = DateTime.MinValue;
     private DateTime _nextPathKeyAt = DateTime.MinValue;
     private DateTime _nextAutoPathToggleAt = DateTime.MinValue;
+    private DateTime _nextRenderToggleAt = DateTime.MinValue;
     private DateTime _nextBrowserAt = DateTime.MinValue;
     private DateTime _nextSettingsAt = DateTime.MinValue;
     private bool _hideKeyWasDown;
@@ -691,10 +691,7 @@ public sealed partial class RadarApp : IDisposable
         if (windowWidth <= 0 || windowHeight <= 0)
             ResolveGameClientSize(out windowWidth, out windowHeight);
         var realActive = IsGameFocused();
-        var focusNow = DateTime.UtcNow;
-        if (realActive)
-            _lastGameFocusUtc = focusNow;
-        var drawActive = ShouldDrawOverlay(realActive, _settings.AlwaysShowOverlay, focusNow, _lastGameFocusUtc, OverlayFocusLossGraceMs);
+        var drawActive = ShouldDrawOverlay(_renderingEnabled);
 
         if (_liveCadence.IsDue(PerformanceCadence.ClampHz(_settings.LiveRefreshHz, 5, 120)))
             _liveFrame = RefreshLiveFrame(snap, windowWidth, windowHeight, drawActive, realActive);
@@ -1328,6 +1325,12 @@ public sealed partial class RadarApp : IDisposable
 
         if (HotkeyPressed(_settings.ToggleSettingsHotkey, ref _nextSettingsAt, requireGameFocus: true))
             _imguiOverlay?.ToggleSettings();
+
+        if (HotkeyPressed(_settings.ToggleRenderingHotkey, ref _nextRenderToggleAt))
+        {
+            _renderingEnabled = !_renderingEnabled;
+            Console.WriteLine($"\nOverlay rendering: {(_renderingEnabled ? "ON" : "OFF")}");
+        }
 
         if (DateTime.UtcNow >= _nextPathKeyAt)
         {
@@ -3118,19 +3121,7 @@ public sealed partial class RadarApp : IDisposable
     private bool IsGameFocused()
         => OverlayNative.IsGameFocused(_gameHwnd, _process.ProcessId);
 
-    internal static bool ShouldDrawOverlay(
-        bool realActive,
-        bool alwaysShowOverlay,
-        DateTime nowUtc,
-        DateTime lastGameFocusUtc,
-        int focusLossGraceMs)
-    {
-        if (alwaysShowOverlay || realActive)
-            return true;
-        if (lastGameFocusUtc == DateTime.MinValue)
-            return false;
-        return (nowUtc - lastGameFocusUtc).TotalMilliseconds <= Math.Max(0, focusLossGraceMs);
-    }
+    internal static bool ShouldDrawOverlay(bool renderingEnabled) => renderingEnabled;
 
     private void ResolveGameClientSize(out int width, out int height)
     {

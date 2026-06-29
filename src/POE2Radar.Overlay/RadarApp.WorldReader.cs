@@ -17,7 +17,7 @@ public sealed partial class RadarApp
         {
             try { RunWorldTick(); }
             catch (Exception ex) { Console.Error.WriteLine($"World tick: {ex.Message}"); }
-            var hz = _settings.LowImpactMode && !IsGameFocused() && !_settings.AlwaysShowOverlay
+            var hz = _settings.LowImpactMode && !IsGameFocused() && !_renderingEnabled
                 ? _settings.InactiveRefreshHz
                 : _settings.WorldRefreshHz;
             Thread.Sleep(PerformanceCadence.SleepMillisecondsForHz(PerformanceCadence.ClampHz(hz, 1, 60)));

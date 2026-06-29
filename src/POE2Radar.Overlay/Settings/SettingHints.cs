@@ -74,7 +74,6 @@ internal static class SettingHints
         public const string ShowPathMinimap = "Draw route lines on the corner minimap.";
         public const string HideJunk = "Hide cosmetic FX, daemons, and other noise dots on the map.";
         public const string CuratedLandmarks = "Use community-curated friendly names for landmarks instead of raw tile paths.";
-        public const string AlwaysShowOverlay = "Keep the overlay visible even when PoE2 is not the foreground window.";
         public const string LandmarkClusterGap = "Max tile distance for merging nearby landmarks into one marker (0 = disable clustering).";
         public const string DrawAllLandmarkPaths = "Draw path lines to every landmark tile (heavy; off by default).";
         public const string LargeMapScale = "Tab-map overlay scale — fine-tune pixel lock when the large map is open.";
@@ -202,6 +201,7 @@ internal static class SettingHints
         public const string Clear = "Remove this hotkey binding.";
         public const string HideEntity = "Hover an entity and press to add its type to Never show.";
         public const string TrackEntity = "Add the entity under your cursor to display rules and open settings.";
+        public const string ToggleRendering = "Show or hide every POE2Radar overlay surface until toggled again.";
         public const string AutoPathToggle = "Toggle continuous auto-pathing.";
         public const string AddNearestPath = "Add nearest navigation target to the path list.";
         public const string ClearPaths = "Clear all path targets.";

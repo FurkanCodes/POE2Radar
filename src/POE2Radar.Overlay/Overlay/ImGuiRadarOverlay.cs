@@ -135,7 +135,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
     public void UpdateContext(RenderContext ctx) => _ctx = ctx;
 
-    /// <summary>Show or hide the overlay HWND (map draw is also skipped when hidden).</summary>
+    /// <summary>Enable or suppress all POE2Radar draw calls while keeping the overlay backend alive.</summary>
     public void SetDrawEnabled(bool enabled)
     {
         var desired = enabled ? 1 : 0;
@@ -148,9 +148,10 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         if (window is null) return;
         var desired = Volatile.Read(ref _drawEnabled);
         if (Interlocked.Exchange(ref _appliedDrawEnabled, desired) == desired) return;
-        var enabled = desired != 0;
-        OverlayNative.ShowWindow(window.Handle, enabled ? OverlayNative.SW_SHOWNOACTIVATE : OverlayNative.SW_HIDE);
+        OverlayNative.ShowWindow(window.Handle, WindowShowCommandForDrawEnabled(desired != 0));
     }
+
+    internal static int WindowShowCommandForDrawEnabled(bool enabled) => OverlayNative.SW_SHOWNOACTIVATE;
 
     public void AttachEntityStores(DisplayRules displayRules, ZoneEntityOverrides zoneOverrides,
         DisplayRuleEngine ruleEngine, HiddenEntities hidden)
@@ -335,7 +336,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             if (ctx is { Active: true })
                 DrawLootTracker(ctx);
 
-            if (_settingsOpen && (ctx?.Active == true || _settings.AlwaysShowOverlay))
+            if (_settingsOpen && ctx?.Active == true)
                 DrawSettingsPanel(ctx);
             else if (_settingsPanelWasOpen)
                 FlushSettingsNow();
@@ -2556,9 +2557,6 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             bool cl = s.UseCuratedLandmarks; ImGui.Checkbox("Curated Landmarks", ref cl); s.UseCuratedLandmarks = cl;
             ImGuiTheme.Tooltip(SettingHints.Radar.CuratedLandmarks);
 
-            bool ao = s.AlwaysShowOverlay; ImGui.Checkbox("Always Show Overlay", ref ao); s.AlwaysShowOverlay = ao;
-            ImGuiTheme.Tooltip(SettingHints.Radar.AlwaysShowOverlay);
-
             int lcg = s.LandmarkClusterGap;
             ImGui.SetNextItemWidth(UiW());
             if (ImGui.SliderInt("Cluster Gap", ref lcg, 0, 64)) s.LandmarkClusterGap = lcg;
@@ -3992,6 +3990,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
             DrawHotkeyRow(s, "hideEntityHotkey", "Never show under cursor", SettingHints.Hotkeys.HideEntity);
             DrawHotkeyRow(s, "trackEntityHotkey", "Inspect under cursor", SettingHints.Hotkeys.TrackEntity);
+            DrawHotkeyRow(s, "toggleRenderingHotkey", "Toggle rendering", SettingHints.Hotkeys.ToggleRendering);
             DrawHotkeyRow(s, "autoPathToggleHotkey", "Auto-path toggle", SettingHints.Hotkeys.AutoPathToggle);
             DrawHotkeyRow(s, "addNearestPathHotkey", "Add nearest path", SettingHints.Hotkeys.AddNearestPath);
             DrawHotkeyRow(s, "clearPathsHotkey", "Clear paths", SettingHints.Hotkeys.ClearPaths);
@@ -4038,6 +4037,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     {
         "hideEntityHotkey" => s.HideEntityHotkey,
         "trackEntityHotkey" => s.TrackEntityHotkey,
+        "toggleRenderingHotkey" => s.ToggleRenderingHotkey,
         "autoPathToggleHotkey" => s.AutoPathToggleHotkey,
         "addNearestPathHotkey" => s.AddNearestPathHotkey,
         "clearPathsHotkey" => s.ClearPathsHotkey,
@@ -4055,6 +4055,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         {
             case "hideEntityHotkey": s.HideEntityHotkey = value; break;
             case "trackEntityHotkey": s.TrackEntityHotkey = value; break;
+            case "toggleRenderingHotkey": s.ToggleRenderingHotkey = value; break;
             case "autoPathToggleHotkey": s.AutoPathToggleHotkey = value; break;
             case "addNearestPathHotkey": s.AddNearestPathHotkey = value; break;
             case "clearPathsHotkey": s.ClearPathsHotkey = value; break;

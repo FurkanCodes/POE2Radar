@@ -21,7 +21,6 @@ internal static class DashboardHtml
         .Replace("{{H.ShowMonsters}}", H(SettingHints.Radar.ShowMonsters))
         .Replace("{{H.ShowTerrain}}", H(SettingHints.Radar.ShowTerrain))
         .Replace("{{H.ShowPlayerBlip}}", H(SettingHints.Radar.ShowPlayerBlip))
-        .Replace("{{H.AlwaysShowOverlay}}", H(SettingHints.Radar.AlwaysShowOverlay))
         .Replace("{{H.HideJunk}}", H(SettingHints.Radar.HideJunk))
         .Replace("{{H.CuratedLandmarks}}", H(SettingHints.Radar.CuratedLandmarks))
         .Replace("{{H.LandmarkClusterGap}}", H(SettingHints.Radar.LandmarkClusterGap))
@@ -104,6 +103,7 @@ internal static class DashboardHtml
         .Replace("{{H.PadSlot}}", H(SettingHints.Hotkeys.PadSlot))
         .Replace("{{H.HkHideEntity}}", H(SettingHints.Hotkeys.HideEntity))
         .Replace("{{H.HkTrackEntity}}", H(SettingHints.Hotkeys.TrackEntity))
+        .Replace("{{H.HkToggleRendering}}", H(SettingHints.Hotkeys.ToggleRendering))
         .Replace("{{H.HkAutoPath}}", H(SettingHints.Hotkeys.AutoPathToggle))
         .Replace("{{H.HkAddNearest}}", H(SettingHints.Hotkeys.AddNearestPath))
         .Replace("{{H.HkClearPaths}}", H(SettingHints.Hotkeys.ClearPaths))
@@ -806,8 +806,6 @@ internal static class DashboardHtml
               <label class="sw"><input type="checkbox" data-set="showTerrain"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.ShowPlayerBlip}}">Show player blip<small>dot at your position on the map</small></div>
               <label class="sw"><input type="checkbox" data-set="showPlayerBlip"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AlwaysShowOverlay}}">Always show overlay<small>draw when PoE2 isn&rsquo;t focused; auto-flask stays focus-gated</small></div>
-              <label class="sw"><input type="checkbox" data-set="alwaysShowOverlay"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.HideJunk}}">Hide map clutter<small>cosmetic FX, daemons, and noise dots</small></div>
               <label class="sw"><input type="checkbox" data-set="hideJunk"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.CuratedLandmarks}}">Curated landmark names<small>community labels (boss / reward / exits)</small></div>
@@ -1058,8 +1056,13 @@ internal static class DashboardHtml
                 <button type="button" class="chip" data-hk-bind="trackEntityHotkey">Bind</button>
                 <button type="button" class="chip" data-hk-pad="trackEntityHotkey">Pad</button>
                 <button type="button" class="chip" data-hk-clear="trackEntityHotkey">Clear</button></span></div>
-            <div class="row"><div class="rl" title="{{H.HkAutoPath}}">Auto-path toggle<small>continuous auto-pathing (default F3)</small></div>
-              <span class="hkctl"><span class="hk-display" data-hk="autoPathToggleHotkey">F3</span>
+            <div class="row"><div class="rl" title="{{H.HkToggleRendering}}">Toggle rendering<small>F3 default - hide/show every overlay</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="toggleRenderingHotkey">F3</span>
+                <button type="button" class="chip" data-hk-bind="toggleRenderingHotkey">Bind</button>
+                <button type="button" class="chip" data-hk-pad="toggleRenderingHotkey">Pad</button>
+                <button type="button" class="chip" data-hk-clear="toggleRenderingHotkey">Clear</button></span></div>
+            <div class="row"><div class="rl" title="{{H.HkAutoPath}}">Auto-path toggle<small>continuous auto-pathing (default F2)</small></div>
+              <span class="hkctl"><span class="hk-display" data-hk="autoPathToggleHotkey">F2</span>
                 <button type="button" class="chip" data-hk-bind="autoPathToggleHotkey">Bind</button>
                 <button type="button" class="chip" data-hk-pad="autoPathToggleHotkey">Pad</button>
                 <button type="button" class="chip" data-hk-clear="autoPathToggleHotkey">Clear</button></span></div>
