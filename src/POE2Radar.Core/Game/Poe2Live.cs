@@ -632,6 +632,7 @@ public sealed partial class Poe2Live
                 // sweep was removed — it surfaced decorative terrain (e.g. every "...Vault_Door..." tile)
                 // as noise; users now opt into any tile via Tile rules + the dashboard picker.
                 var keep = Curated(areaCode, p) != null
+                           || BuiltInLandmarkLabel(p) != null
                            || CustomLandmarkMatch?.Invoke(p) != null;
                 path = keep ? p : null;
                 pathCache[tgtFile] = path;
@@ -647,7 +648,9 @@ public sealed partial class Poe2Live
             var name = LandmarkName(path);
             // Curated label wins; else a non-empty user label; else null (derived name shows). Same
             // for every cluster of this path (they're the same feature type in different spots).
-            var curated = Curated(areaCode, path) ?? NonEmpty(CustomLandmarkMatch?.Invoke(path));
+            var curated = Curated(areaCode, path)
+                          ?? NonEmpty(CustomLandmarkMatch?.Invoke(path))
+                          ?? BuiltInLandmarkLabel(path);
             foreach (var cluster in ClusterTiles(cells, Math.Clamp(LandmarkClusterGap, 0, 64)))
             {
                 double sx = 0, sy = 0;
@@ -836,6 +839,17 @@ public sealed partial class Poe2Live
         var slash = path.LastIndexOf('/');
         var name = slash >= 0 ? path[(slash + 1)..] : path;
         return name.EndsWith(".tdt", StringComparison.OrdinalIgnoreCase) ? name[..^4] : name;
+    }
+
+    internal static string? BuiltInLandmarkLabel(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+        if (path.Contains("bossroom", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("boss_room", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("bossarena", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("boss_arena", StringComparison.OrdinalIgnoreCase))
+            return "Boss";
+        return null;
     }
 
     /// <summary>Read the packed walkable grid (one nibble per cell, 2 cells/byte) into a flat 0/1 array.</summary>
