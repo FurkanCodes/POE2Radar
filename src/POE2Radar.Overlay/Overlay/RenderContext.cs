@@ -193,6 +193,49 @@ public readonly record struct StashValueDebugInfo(
     double LastScanMs,
     string League);
 
+public readonly record struct LootTrackerRunRow(
+    string Name,
+    string TimeText,
+    string ProfitText,
+    double ProfitEx);
+
+public readonly record struct LootTrackerToast(
+    string Label,
+    long Count,
+    string ValueText,
+    float Alpha);
+
+public readonly record struct LootTrackerView(
+    bool Enabled,
+    bool OnMap,
+    string MapName,
+    string ActiveTimeText,
+    string ActiveProfitText,
+    double ActiveProfitEx,
+    long ActiveGold,
+    string ActiveGoldText,
+    long TotalGold,
+    string TotalGoldText,
+    int NormalKills,
+    int MagicKills,
+    int RareKills,
+    int UniqueKills,
+    int CompletedMaps,
+    string AverageTimeText,
+    string AverageProfitText,
+    string TotalProfitText,
+    string ProfitPerHourText,
+    string SessionTimeText,
+    LootTrackerRunRow[] RecentRuns,
+    LootTrackerToast[] Toasts,
+    int InventoryItemCount,
+    bool InventoryReadable,
+    string League)
+{
+    public static readonly LootTrackerView Empty = new(false, false, "", "", "", 0, 0, "", 0, "", 0, 0, 0, 0, 0,
+        "", "", "", "", "", [], [], 0, false, "");
+}
+
 /// <summary>Endgame atlas tier for icon/label accent (Return of the Ancients / 0.5).</summary>
 public enum AtlasEndgameTier : byte
 {
@@ -342,6 +385,7 @@ public sealed record RenderContext(
     RunecraftMonolithPanelRow[] RunecraftMonolithRows,
     StashValueLabel[] StashValueLabels,
     StashValueDebugInfo StashValueDebug,
+    LootTrackerView LootTracker,
     // ── Unified display-rule engine (Phase 1). Resolves an entity to the first matching display rule
     // (or null → not drawn); the rule says hide or how to draw (shape/color/size/label). Replaces the
     // watched/mechanic/category dot decision in DrawMap. Null only if not wired (defensive). ──

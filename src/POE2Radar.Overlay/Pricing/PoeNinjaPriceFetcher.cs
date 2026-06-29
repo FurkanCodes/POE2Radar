@@ -54,10 +54,10 @@ namespace POE2Radar.Overlay.Pricing
         public const int SourcePoeNinja = 0;
         public const int SourcePoe2Scout = 1;
 
-        // Bump whenever the cache shape or how the art->name index is built changes, so caches written
-        // by an older plugin version are discarded instead of trusted. (v2: art index now built from
-        // both poe.ninja + poe2scout icons.)
-        private const int CacheSchemaVersion = 2;
+        // Bump whenever the cache shape or price semantics change, so caches written by an older plugin
+        // version are discarded instead of trusted. (v3: poe.ninja PoE2 primaryValue is converted from
+        // core.primary using core.rates.chaos/exalted instead of inferred from tiny currency rows.)
+        private const int CacheSchemaVersion = 3;
 
         private static readonly string[] ScoutCurrencyCategories =
         {
@@ -74,12 +74,14 @@ namespace POE2Radar.Overlay.Pricing
         private static readonly string[] NinjaExchangeTypes =
         {
             "Ritual", "Currency", "Runes", "Idols", "Essences", "Fragments", "Abyss", "Breach",
-            "Delirium", "Expedition", "Ultimatum", "UncutGems",
+            "Delirium", "Expedition", "Ultimatum", "UncutGems", "LineageSupportGems", "SoulCores",
+            "Verisium",
         };
 
         private static readonly string[] NinjaStashTypes =
         {
-            "UniqueArmours", "UniqueAccessories", "UniqueCharms", "UniqueWeapons",
+            "UniqueArmours", "UniqueAccessories", "UniqueCharms", "UniqueWeapons", "UniqueJewels",
+            "UniqueTablets", "PrecursorTablets",
         };
 
         private static readonly HashSet<string> GenericLookupNames = new(StringComparer.OrdinalIgnoreCase)
@@ -662,6 +664,51 @@ namespace POE2Radar.Overlay.Pricing
             public double ExChaos { get; }
         }
 
+        private readonly struct NinjaRates
+        {
+            public NinjaRates(string primaryCurrency, double divChaos, double exChaos)
+            {
+                PrimaryCurrency = string.IsNullOrWhiteSpace(primaryCurrency) ? "divine" : primaryCurrency.Trim();
+                DivChaos = divChaos;
+                ExChaos = exChaos;
+            }
+
+            public string PrimaryCurrency { get; }
+            public double DivChaos { get; }
+            public double ExChaos { get; }
+            public double DivineToExalted => ExChaos > 0 && DivChaos > 0 ? DivChaos / ExChaos : 0;
+        }
+
+        private static NinjaRates ReadNinjaRates(JObject data, double fallbackDivChaos, double fallbackExChaos)
+        {
+            var core = data["core"];
+            var primary = core?["primary"]?.ToString() ?? "divine";
+            var rates = core?["rates"];
+
+            var divChaos = fallbackDivChaos;
+            var exChaos = fallbackExChaos;
+
+            var chaosPerDiv = rates?["chaos"]?.Value<double?>() ?? 0;
+            if (chaosPerDiv > 0)
+                divChaos = chaosPerDiv;
+
+            var divPerEx = rates?["exalted"]?.Value<double?>() ?? 0;
+            if (divPerEx > 0 && divChaos > 0)
+            {
+                exChaos = divChaos / divPerEx;
+                DivineToExaltedRate = divPerEx;
+            }
+
+            if (exChaos <= 0)
+            {
+                var exAsPrimary = rates?["exalted"]?.Value<double?>() ?? 0;
+                if (primary.Equals("chaos", StringComparison.OrdinalIgnoreCase) && exAsPrimary > 0)
+                    exChaos = exAsPrimary;
+            }
+
+            return new NinjaRates(primary, divChaos, exChaos);
+        }
+
         private static async Task<RatePair> FetchFromScoutAsync(
             Dictionary<string, double> flat,
             Dictionary<string, List<UniquePriceListing>> uniques,
@@ -903,7 +950,9 @@ namespace POE2Radar.Overlay.Pricing
             foreach (var type in NinjaStashTypes)
             {
                 var url = $"https://poe.ninja/poe2/api/economy/stash/current/item/overview?league={leagueParam}&type={type}";
-                exChaos = await FetchNinjaStashApi(url, flat, pathNames, divChaos, exChaos).ConfigureAwait(false);
+                var rates = await FetchNinjaStashApi(url, flat, pathNames, divChaos, exChaos).ConfigureAwait(false);
+                divChaos = rates.DivChaos;
+                exChaos = rates.ExChaos;
             }
 
             return new RatePair(divChaos, exChaos);
@@ -916,13 +965,9 @@ namespace POE2Radar.Overlay.Pricing
                 var response = await Http.GetStringAsync(url).ConfigureAwait(false);
                 var data = JObject.Parse(response);
 
-                var primaryCurrency = data["core"]?["primary"]?.ToString() ?? "divine";
-                var rateToken = data["core"]?["rates"]?["exalted"];
-                if (rateToken != null)
-                {
-                    var r = rateToken.Value<double>();
-                    if (r > 0) DivineToExaltedRate = r;
-                }
+                var rates = ReadNinjaRates(data, divChaos, exChaos);
+                divChaos = rates.DivChaos;
+                exChaos = rates.ExChaos;
 
                 var idToName = new Dictionary<string, string>();
                 var idToIcon = new Dictionary<string, string>();
@@ -949,15 +994,10 @@ namespace POE2Radar.Overlay.Pricing
                         var pval = line["primaryValue"]?.Value<double>() ?? 0.0;
                         if (pval <= 0) continue;
 
-                        var chaos = PrimaryValueToChaos(pval, primaryCurrency, divChaos, exChaos);
+                        var chaos = PrimaryValueToChaos(pval, rates.PrimaryCurrency, divChaos, exChaos);
                         AddFlatPrice(flat, name, chaos);
                         if (idToIcon.TryGetValue(id, out var iconUrl))
                             IndexPathName(pathNames, ExtractIconBasename(iconUrl), name);
-
-                        if (name.Contains("Divine", StringComparison.OrdinalIgnoreCase))
-                            divChaos = chaos;
-                        if (name.Contains("Exalted", StringComparison.OrdinalIgnoreCase))
-                            exChaos = chaos;
                     }
                 }
             }
@@ -966,20 +1006,16 @@ namespace POE2Radar.Overlay.Pricing
             return new RatePair(divChaos, exChaos);
         }
 
-        private static async Task<double> FetchNinjaStashApi(string url, Dictionary<string, double> flat, Dictionary<string, string> pathNames, double divChaos, double exChaos)
+        private static async Task<RatePair> FetchNinjaStashApi(string url, Dictionary<string, double> flat, Dictionary<string, string> pathNames, double divChaos, double exChaos)
         {
             try
             {
                 var response = await Http.GetStringAsync(url).ConfigureAwait(false);
                 var data = JObject.Parse(response);
 
-                var primaryCurrency = data["core"]?["primary"]?.ToString() ?? "exalted";
-                var rateToken = data["core"]?["rates"]?["exalted"];
-                if (rateToken != null)
-                {
-                    var r = rateToken.Value<double>();
-                    if (r > 0) DivineToExaltedRate = r;
-                }
+                var rates = ReadNinjaRates(data, divChaos, exChaos);
+                divChaos = rates.DivChaos;
+                exChaos = rates.ExChaos;
 
                 if (data["lines"] is JArray lines)
                 {
@@ -990,7 +1026,7 @@ namespace POE2Radar.Overlay.Pricing
                         var pval = line["primaryValue"]?.Value<double>() ?? 0.0;
                         if (string.IsNullOrEmpty(name) || pval <= 0) continue;
 
-                        var chaos = PrimaryValueToChaos(pval, primaryCurrency, divChaos, exChaos);
+                        var chaos = PrimaryValueToChaos(pval, rates.PrimaryCurrency, divChaos, exChaos);
                         var cacheKey = BuildStashCacheKey(name, baseType);
                         AddFlatPrice(flat, cacheKey, chaos);
                         var icon = line["icon"]?.ToString() ?? line["image"]?.ToString();
@@ -1000,7 +1036,7 @@ namespace POE2Radar.Overlay.Pricing
             }
             catch { }
 
-            return exChaos;
+            return new RatePair(divChaos, exChaos);
         }
 
         private static double PrimaryValueToChaos(double value, string primaryCurrency, double divChaos, double exChaos)
@@ -1008,7 +1044,13 @@ namespace POE2Radar.Overlay.Pricing
             if (primaryCurrency.Equals("divine", StringComparison.OrdinalIgnoreCase))
                 return value * (divChaos > 0 ? divChaos : 1.0);
 
-            return value * (exChaos > 0 ? exChaos : 0.1);
+            if (primaryCurrency.Equals("exalted", StringComparison.OrdinalIgnoreCase))
+                return value * (exChaos > 0 ? exChaos : 0.1);
+
+            if (primaryCurrency.Equals("chaos", StringComparison.OrdinalIgnoreCase))
+                return value;
+
+            return value * (divChaos > 0 ? divChaos : 1.0);
         }
 
         private static string BuildStashCacheKey(string name, string baseType)

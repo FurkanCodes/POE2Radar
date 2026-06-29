@@ -130,6 +130,7 @@ public sealed class RadarSettings
     public RitualSettings Ritual { get; set; } = new();
     public RunecraftSettings Runecraft { get; set; } = new();
     public StashValueSettings StashValue { get; set; } = new();
+    public LootTrackerSettings LootTracker { get; set; } = new();
 
     // ── Global multiplier on map icon sprite scale (PNG from icons.png). ──
     public float GlobalIconScale { get; set; } = 1.25f;
@@ -697,6 +698,27 @@ public sealed class StashValueSettings
     public float PriceOffsetX { get; set; } = 5f;
     public float PriceOffsetY { get; set; } = -5f;
     public string PriceTextColor { get; set; } = "#FFEB8C";
+}
+
+public sealed class LootTrackerSettings
+{
+    public bool Enabled { get; set; } = true;
+    public int PriceSource { get; set; } = 1; // 0 = poe.ninja, 1 = poe2scout
+    public string League { get; set; } = "Runes of Aldur";
+    public int RefreshIntervalMin { get; set; } = 5;
+    public int HistorySize { get; set; } = 50;
+    public int MaxSessions { get; set; } = 30;
+    public float BarBottomOffset { get; set; } = 5f;
+    public bool BarOnRight { get; set; } = true;
+    public float BarOpacity { get; set; } = 0.55f;
+    public bool ShowKills { get; set; } = true;
+    public float CompactHeight { get; set; } = 115f;
+    public float CompactWidth { get; set; } = 730f;
+    public float UiScale { get; set; } = 1.2f;
+    public bool ShowPickupToasts { get; set; } = false;
+    public float NotifyMinEx { get; set; } = 20f;
+    public float NotifyDurationSec { get; set; } = 2.5f;
+    public bool ShowPricesInDivineOnly { get; set; } = false;
 }
 
 public sealed class AtlasRouteGroupSettings

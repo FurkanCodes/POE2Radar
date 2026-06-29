@@ -39,6 +39,8 @@
     <None Include="Pricing\item_names.json" CopyToOutputDirectory="PreserveNewest" TargetPath="RitualHelper\item_names.json" />
     <None Include="Pricing\RitualHelper.GPLv3.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" TargetPath="RitualHelper\RitualHelper.GPLv3.LICENSE.txt" />
     <None Include="Runecraft\expedition2_recipes.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="LootTracker\metaArt.json" CopyToOutputDirectory="PreserveNewest" TargetPath="LootTracker\metaArt.json" />
+    <None Include="LootTracker\icons\*.png" CopyToOutputDirectory="PreserveNewest" TargetPath="LootTracker\icons\%(Filename)%(Extension)" ExcludeFromSingleFile="true" />
   </ItemGroup>
 
 </Project>

@@ -37,6 +37,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private readonly Action<string> _setCorner;
     private readonly Action _addNearest;
     private readonly Action _clearPaths;
+    private readonly Action _newLootSession;
     private readonly TextureRegistry _textures = new();
     private readonly TerrainTextureCache _terrainTextures = new();
     private readonly OverlayRenderMetrics _renderMetrics = new();
@@ -111,7 +112,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private readonly record struct ScreenPointState(NumVec2 Value, long SeenStamp);
 
     public ImGuiRadarOverlay(Action<Action> enqueue, Action<string> toggleTarget, Action<string> setCorner,
-        Action addNearest, Action clearPaths, RadarSettings settings)
+        Action addNearest, Action clearPaths, Action newLootSession, RadarSettings settings)
         : base("POE2Radar Radar", true, 3840, 2160)
     {
         _enqueue = enqueue;
@@ -119,6 +120,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         _setCorner = setCorner;
         _addNearest = addNearest;
         _clearPaths = clearPaths;
+        _newLootSession = newLootSession;
         _settings = settings;
         _settingsLock = new object();
         _navMenuCorner = settings.NavMenuCorner;
@@ -329,6 +331,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
             if (ctx is { Active: true } && _settings.StashValue.ShowDebugInfo)
                 DrawStashValueDebugWindow(ctx);
+
+            if (ctx is { Active: true })
+                DrawLootTracker(ctx);
 
             if (_settingsOpen && (ctx?.Active == true || _settings.AlwaysShowOverlay))
                 DrawSettingsPanel(ctx);
@@ -1089,6 +1094,185 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         ImGui.End();
     }
 
+    private void DrawLootTracker(RenderContext ctx)
+    {
+        var lt = ctx.LootTracker;
+        if (!lt.Enabled || !_settings.LootTracker.Enabled) return;
+
+        if (_settings.LootTracker.ShowPickupToasts && lt.Toasts is { Length: > 0 })
+            DrawLootTrackerToasts(ctx, lt);
+
+        if (lt.OnMap)
+            DrawLootTrackerMapBar(ctx, lt);
+    }
+
+    private void DrawLootTrackerMapBar(RenderContext ctx, LootTrackerView lt)
+    {
+        var s = _settings.LootTracker;
+        var margin = 8f;
+        var x = s.BarOnRight ? ctx.WindowWidth - margin : margin;
+        var y = ctx.WindowHeight - Math.Clamp(s.BarBottomOffset, 0f, 200f);
+        ImGui.SetNextWindowPos(new NumVec2(x, y), ImGuiCond.FirstUseEver, new NumVec2(s.BarOnRight ? 1f : 0f, 1f));
+        ImGui.SetNextWindowBgAlpha(Math.Clamp(s.BarOpacity, 0f, 1f));
+        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoResize |
+            ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoNav | ImGuiWindowFlags.AlwaysAutoResize |
+            ImGuiWindowFlags.NoFocusOnAppearing;
+
+        if (!ImGui.Begin("Loot Tracker##loottracker_bar", flags)) { ImGui.End(); return; }
+        ImGui.SetWindowFontScale(LootTrackerUiScale(ctx));
+        const float gap = 14f;
+        const float pad = 5f;
+
+        if (DrawLootIcon("Map")) ImGui.SameLine(0f, pad);
+        ImGui.TextUnformatted(string.IsNullOrWhiteSpace(lt.MapName) ? "Map" : lt.MapName);
+
+        ImGui.SameLine(0f, gap);
+        if (DrawLootIcon("Time")) ImGui.SameLine(0f, pad);
+        ImGui.TextUnformatted(lt.ActiveTimeText);
+
+        ImGui.SameLine(0f, gap);
+        ImGui.TextColored(lt.ActiveProfitEx >= 0 ? new Vector4(0.5f, 0.9f, 0.5f, 1f) : new Vector4(0.9f, 0.5f, 0.5f, 1f),
+            lt.ActiveProfitText);
+        ImGui.SameLine(0f, pad);
+        DrawLootIcon(_settings.LootTracker.ShowPricesInDivineOnly ? "Divine" : "Exalt");
+
+        ImGui.SameLine(0f, gap);
+        ImGui.TextColored(new Vector4(1.0f, 0.84f, 0.25f, 1f), $"Gold {lt.ActiveGoldText}");
+        ImGui.SameLine(0f, 6f);
+        ImGui.TextDisabled($"({lt.TotalGoldText})");
+
+        if (s.ShowKills)
+        {
+            ImGui.SameLine(0f, gap);
+            DrawLootKillStat("NormalMob", lt.NormalKills);
+            ImGui.SameLine(0f, gap);
+            DrawLootKillStat("MagicMob", lt.MagicKills);
+            ImGui.SameLine(0f, gap);
+            DrawLootKillStat("RareMob", lt.RareKills);
+            ImGui.SameLine(0f, gap);
+            DrawLootKillStat("UniqueMob", lt.UniqueKills);
+        }
+
+        ImGui.End();
+    }
+
+    private void DrawLootTrackerCompactBar(RenderContext ctx, LootTrackerView lt)
+    {
+        var s = _settings.LootTracker;
+        var h = Math.Clamp(s.CompactHeight, 60f, 400f);
+        var w = Math.Clamp(s.CompactWidth, 260f, Math.Max(260f, ctx.WindowWidth - 16f));
+        var x = s.BarOnRight ? ctx.WindowWidth - 8f : 8f;
+        var y = ctx.WindowHeight - Math.Clamp(s.BarBottomOffset, 0f, 200f);
+        ImGui.SetNextWindowPos(new NumVec2(x, y), ImGuiCond.Always, new NumVec2(s.BarOnRight ? 1f : 0f, 1f));
+        ImGui.SetNextWindowSize(new NumVec2(w, h), ImGuiCond.Always);
+        ImGui.SetNextWindowBgAlpha(Math.Clamp(s.BarOpacity, 0f, 1f));
+        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoNav |
+            ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoFocusOnAppearing |
+            ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoScrollbar;
+
+        if (!ImGui.Begin("##loottracker_compact", flags)) { ImGui.End(); return; }
+        var scale = LootTrackerUiScale(ctx);
+        ImGui.SetWindowFontScale(scale);
+        var colGap = 28f * scale;
+
+        ImGui.BeginGroup();
+        if (DrawLootIcon("Map")) ImGui.SameLine(0f, 5f);
+        ImGui.TextUnformatted($"Maps: {lt.CompletedMaps}");
+        if (DrawLootIcon("Time")) ImGui.SameLine(0f, 5f);
+        ImGui.TextUnformatted($"AVG Time: {lt.AverageTimeText}");
+        if (DrawLootIcon(_settings.LootTracker.ShowPricesInDivineOnly ? "Divine" : "Exalt")) ImGui.SameLine(0f, 5f);
+        ImGui.TextUnformatted($"AVG Profit: {lt.AverageProfitText}");
+        ImGui.EndGroup();
+
+        ImGui.SameLine(0f, colGap);
+        ImGui.BeginGroup();
+        ImGui.TextColored(new Vector4(0.5f, 0.9f, 0.5f, 1f), "Total");
+        ImGui.SameLine(0f, 5f);
+        if (DrawLootIcon(_settings.LootTracker.ShowPricesInDivineOnly ? "Divine" : "Exalt")) ImGui.SameLine(0f, 4f);
+        ImGui.TextColored(new Vector4(0.5f, 0.9f, 0.5f, 1f), lt.TotalProfitText);
+        if (DrawLootIcon(_settings.LootTracker.ShowPricesInDivineOnly ? "Divine" : "Exalt")) ImGui.SameLine(0f, 4f);
+        ImGui.TextUnformatted($"{lt.ProfitPerHourText} / hour");
+        if (DrawLootIcon("Time")) ImGui.SameLine(0f, 5f);
+        ImGui.TextUnformatted($"Session: {lt.SessionTimeText}");
+        ImGui.EndGroup();
+
+        ImGui.SameLine(0f, colGap);
+        ImGui.BeginGroup();
+        if (ImGui.BeginTable("loottracker_runs", 3,
+                ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY,
+                new NumVec2(0f, h - (24f * scale))))
+        {
+            ImGui.TableSetupColumn("Map");
+            ImGui.TableSetupColumn("Time", ImGuiTableColumnFlags.WidthFixed, 60f * scale);
+            ImGui.TableSetupColumn("Profit", ImGuiTableColumnFlags.WidthFixed, 90f * scale);
+            ImGui.TableHeadersRow();
+            foreach (var row in lt.RecentRuns ?? [])
+            {
+                ImGui.TableNextRow();
+                ImGui.TableSetColumnIndex(0);
+                ImGui.TextUnformatted(row.Name);
+                ImGui.TableSetColumnIndex(1);
+                ImGui.TextUnformatted(row.TimeText);
+                ImGui.TableSetColumnIndex(2);
+                ImGui.TextColored(row.ProfitEx >= 0 ? new Vector4(0.5f, 0.9f, 0.5f, 1f) : new Vector4(0.9f, 0.5f, 0.5f, 1f),
+                    row.ProfitText);
+            }
+            ImGui.EndTable();
+        }
+        ImGui.EndGroup();
+        ImGui.End();
+    }
+
+    private void DrawLootTrackerToasts(RenderContext ctx, LootTrackerView lt)
+    {
+        var s = _settings.LootTracker;
+        var x = s.BarOnRight ? ctx.WindowWidth - 8f : 8f;
+        var y = ctx.WindowHeight - Math.Clamp(s.BarBottomOffset, 0f, 200f) - 42f;
+        ImGui.SetNextWindowPos(new NumVec2(x, y), ImGuiCond.Always, new NumVec2(s.BarOnRight ? 1f : 0f, 1f));
+        ImGui.SetNextWindowBgAlpha(Math.Clamp(s.BarOpacity, 0f, 1f));
+        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs |
+            ImGuiWindowFlags.NoNav | ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.AlwaysAutoResize |
+            ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoMove;
+        if (!ImGui.Begin("##loottracker_toasts", flags)) { ImGui.End(); return; }
+        ImGui.SetWindowFontScale(LootTrackerUiScale(ctx));
+
+        foreach (var toast in lt.Toasts)
+        {
+            var a = Math.Clamp(toast.Alpha, 0f, 1f);
+            DrawLootIcon(_settings.LootTracker.ShowPricesInDivineOnly ? "Divine" : "Exalt");
+            ImGui.SameLine(0f, 5f);
+            ImGui.TextColored(new Vector4(0.92f, 0.92f, 0.92f, a),
+                toast.Count > 1 ? $"{toast.Label} x{toast.Count}" : toast.Label);
+            ImGui.SameLine(0f, 10f);
+            ImGui.TextColored(new Vector4(0.5f, 0.9f, 0.5f, a), $"+{toast.ValueText}");
+        }
+
+        ImGui.End();
+    }
+
+    private void DrawLootKillStat(string iconKey, int count)
+    {
+        ImGui.TextUnformatted(count.ToString());
+        ImGui.SameLine(0f, 4f);
+        DrawLootIcon(iconKey);
+    }
+
+    private bool DrawLootIcon(string key)
+    {
+        var path = System.IO.Path.Combine(AppContext.BaseDirectory, "LootTracker", "icons", key + ".png");
+        if (!_textures.TryGet(this, path, out var tex) || tex.Height <= 0) return false;
+        var h = ImGui.GetTextLineHeight();
+        var w = h * tex.Width / (float)tex.Height;
+        ImGui.Image(tex.Id, new NumVec2(w, h));
+        return true;
+    }
+
+    private float LootTrackerUiScale(RenderContext ctx)
+    {
+        var auto = ctx.WindowHeight > 0 ? ctx.WindowHeight / 1600f : 1f;
+        return Math.Clamp(auto * _settings.LootTracker.UiScale, 0.5f, 3f);
+    }
+
     private void DrawRitualPriceInline(string priceText, string iconFile, uint textColor)
     {
         ImGui.PushStyleColor(ImGuiCol.Text, textColor);
@@ -1637,6 +1821,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             BeginSettingsTab("HP Bars", () => DrawHpBarsTab(s));
             BeginSettingsTab("Flask", () => DrawFlaskTab(s));
             BeginSettingsTab("Stash Value", () => DrawStashValueTab(s, ctx));
+            BeginSettingsTab("Loot Tracker", () => DrawLootTrackerTab(s, ctx));
             BeginSettingsTab("Ritual", () => DrawRitualTab(s, ctx));
             BeginSettingsTab("Runecraft", () => DrawRunecraftTab(s, ctx));
             BeginSettingsTab("Atlas", () => DrawAtlasTab(s));
@@ -2835,6 +3020,119 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             ImGui.Separator();
             ImGui.TextUnformatted($"Labels this frame: {ctx?.StashValueLabels.Length ?? 0}");
         }
+    }
+
+    private void DrawLootTrackerTab(RadarSettings s, RenderContext? ctx)
+    {
+        var lt = s.LootTracker;
+
+        var generalOpen = ImGuiTheme.BeginAccordionSection("LootTrackerGeneral", "General", defaultOpen: true);
+        if (generalOpen)
+        {
+            var enabled = lt.Enabled;
+            if (ImGui.Checkbox("Enable Loot Tracker", ref enabled)) lt.Enabled = enabled;
+
+            if (ImGui.Button("New session"))
+                _enqueue(_newLootSession);
+
+            var kills = lt.ShowKills;
+            if (ImGui.Checkbox("Show kill counts", ref kills)) lt.ShowKills = kills;
+
+            var divine = lt.ShowPricesInDivineOnly;
+            if (ImGui.Checkbox("Show prices in Divine only", ref divine)) lt.ShowPricesInDivineOnly = divine;
+
+            var history = lt.HistorySize;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Run history", ref history, 1, 200)) lt.HistorySize = Math.Clamp(history, 1, 200);
+
+            var maxSessions = lt.MaxSessions;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Saved sessions", ref maxSessions, 1, 200)) lt.MaxSessions = Math.Clamp(maxSessions, 1, 200);
+
+            var live = ctx?.LootTracker ?? LootTrackerView.Empty;
+            ImGui.TextUnformatted($"Current: {(live.OnMap ? live.MapName : "inactive")}");
+            ImGui.TextUnformatted($"Inventory: {(live.OnMap && live.InventoryReadable ? $"{live.InventoryItemCount} entries" : "inactive")}");
+            ImGui.TextUnformatted($"Gold: {(live.OnMap ? live.TotalGoldText : "inactive")}");
+        }
+        ImGuiTheme.EndAccordionSection(generalOpen);
+
+        var barsOpen = ImGuiTheme.BeginAccordionSection("LootTrackerBars", "Bars", defaultOpen: true);
+        if (barsOpen)
+        {
+            var right = lt.BarOnRight;
+            if (ImGui.Checkbox("Anchor on right", ref right)) lt.BarOnRight = right;
+
+            var opacity = lt.BarOpacity;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Opacity", ref opacity, 0f, 1f, "%.2f")) lt.BarOpacity = Math.Clamp(opacity, 0f, 1f);
+
+            var bottom = lt.BarBottomOffset;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Bottom offset", ref bottom, 0f, 160f, "%.0f px")) lt.BarBottomOffset = Math.Clamp(bottom, 0f, 500f);
+
+            var scale = lt.UiScale;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("UI scale", ref scale, 0.5f, 3f, "%.2f")) lt.UiScale = Math.Clamp(scale, 0.5f, 3f);
+
+        }
+        ImGuiTheme.EndAccordionSection(barsOpen);
+
+        var toastsOpen = ImGuiTheme.BeginAccordionSection("LootTrackerToasts", "Pickup notifications", defaultOpen: false);
+        if (toastsOpen)
+        {
+            var show = lt.ShowPickupToasts;
+            if (ImGui.Checkbox("Show pickup toasts", ref show)) lt.ShowPickupToasts = show;
+
+            var min = lt.NotifyMinEx;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Minimum value", ref min, 0f, 500f, "%.0f Ex")) lt.NotifyMinEx = Math.Clamp(min, 0f, 100000f);
+
+            var dur = lt.NotifyDurationSec;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Duration", ref dur, 1f, 6f, "%.1f s")) lt.NotifyDurationSec = Math.Clamp(dur, 1f, 6f);
+        }
+        ImGuiTheme.EndAccordionSection(toastsOpen);
+
+        var pricingOpen = ImGuiTheme.BeginAccordionSection("LootTrackerPricing", "Price Source", defaultOpen: true);
+        if (pricingOpen)
+        {
+            if (ImGui.RadioButton("poe2scout", lt.PriceSource == PoeNinjaPriceFetcher.SourcePoe2Scout))
+                lt.PriceSource = PoeNinjaPriceFetcher.SourcePoe2Scout;
+            ImGui.SameLine();
+            if (ImGui.RadioButton("poe.ninja", lt.PriceSource == PoeNinjaPriceFetcher.SourcePoeNinja))
+                lt.PriceSource = PoeNinjaPriceFetcher.SourcePoeNinja;
+
+            var league = lt.League ?? "";
+            ImGui.SetNextItemWidth(UiW(14f));
+            if (ImGui.InputText("League", ref league, 96))
+                lt.League = string.IsNullOrWhiteSpace(league) ? "Runes of Aldur" : league.Trim();
+
+            var refresh = lt.RefreshIntervalMin;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Refresh interval (min)", ref refresh, 1, 120))
+                lt.RefreshIntervalMin = Math.Clamp(refresh, 1, 120);
+
+            if (ImGui.Button("Refresh prices now"))
+            {
+                var dir = System.IO.Path.Combine(AppContext.BaseDirectory, "LootTracker");
+                Directory.CreateDirectory(dir);
+                PoeNinjaPriceFetcher.Configure(Math.Clamp(lt.PriceSource, 0, 1), lt.League ?? "", Math.Max(1, lt.RefreshIntervalMin));
+                PoeNinjaPriceFetcher.ForceRefresh(dir, ignoreCooldown: true);
+            }
+
+            ImGui.SameLine();
+            if (PoeNinjaPriceFetcher.IsFetching)
+                ImGui.TextColored(new Vector4(0.7f, 0.7f, 0.2f, 1f), "Loading...");
+            else if (PoeNinjaPriceFetcher.LastFetchUtc > DateTime.MinValue)
+            {
+                var mins = Math.Max(0, (int)(DateTime.UtcNow - PoeNinjaPriceFetcher.LastFetchUtc).TotalMinutes);
+                ImGui.TextColored(new Vector4(0.5f, 0.8f, 0.5f, 1f), $"{PoeNinjaPriceFetcher.LoadedItemCount} items | {mins} min ago");
+            }
+
+            ImGui.TextUnformatted($"Chaos/Divine: {PoeNinjaPriceFetcher.GetChaosPerDivine():0.##}");
+            ImGui.TextUnformatted($"Divine/Exalted: {PoeNinjaPriceFetcher.DivineToExaltedRate:0.##}");
+        }
+        ImGuiTheme.EndAccordionSection(pricingOpen);
     }
 
     private void DrawRitualTab(RadarSettings s, RenderContext? ctx)

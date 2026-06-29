@@ -613,6 +613,7 @@ public sealed partial class RadarApp : IDisposable
             },
             () => AddNearestPathTarget(),
             () => ClearPathTargets(),
+            () => StartNewLootTrackerSession(),
             _settings);
 
     private void RestartImGuiOverlay()
@@ -716,6 +717,11 @@ public sealed partial class RadarApp : IDisposable
             RefreshStashValue(live, windowWidth, windowHeight, drawActive);
         else
             ClearStashValue();
+
+        if (live.InGame)
+            RefreshLootTracker(live, snap);
+        else
+            RefreshLootTracker(LiveFrameState.Empty, snap);
 
         if (live.InGame)
         {
@@ -867,6 +873,7 @@ public sealed partial class RadarApp : IDisposable
                 _stashValueStatus.AnyHovered,
                 _stashValueStatus.LastScanMs,
                 _stashValueStatus.League),
+            LootTracker: _lootTrackerView,
             AtlasOpen: _atlasOpen,
             AtlasNodes: _atlasMarksPublish,
             AtlasShowOnScreenNodes: _settings.AtlasShowOnScreenNodes,

@@ -393,7 +393,33 @@ public static class Poe2
     /// <summary>ServerData league name for price auto-detect. ✓ validated 2026-06-22.</summary>
     public static class ServerData
     {
+        public const int PlayerDataVector = 0x48; // GH LootTracker: vector<IntPtr>, [0] -> local player server data
         public const int League = 0x21E0;
+    }
+
+    /// <summary>MainInventory1 chain used by LootTracker-style inventory diffs.</summary>
+    public static class PlayerData
+    {
+        public const int Inventories = 0x320; // vector<InventoryArrayStruct>
+    }
+
+    public static class InventoryArrayEntry
+    {
+        public const int Stride = 0x18;
+        public const int Id = 0x00;
+        public const int InventoryPtr = 0x08;
+        public const int MainInventory1Id = 1;
+    }
+
+    public static class InventoryStruct
+    {
+        public const int TotalBoxes = 0x150; // int X, int Y
+        public const int ItemList = 0x170;   // vector<IntPtr invItem>
+    }
+
+    public static class InventoryItemStruct
+    {
+        public const int ItemEntity = 0x00;
     }
 
     /// <summary>UiElement base — ✓ validated live (GH2's offsets drifted: Self 0x30→0x8, Flags 0x1B8→0x180).
