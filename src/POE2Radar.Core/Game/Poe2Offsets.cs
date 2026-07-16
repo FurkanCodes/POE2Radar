@@ -63,17 +63,17 @@ public static class Poe2
     /// <summary>
     /// The big per-area container: area metadata, player, entity maps, terrain.
     /// <para>⚠ GameHelper2's internal offsets are DRIFTED in this build — confirmed by the live
-    /// probe (PlayerInfo moved from GH2's 0xA00 to ~0x598; LocalPlayer at 0x5B8). The values
+    /// probe (PlayerInfo moved from GH2's 0xA00 to ~0x5A0; LocalPlayer at 0x5C0). The values
     /// marked (GH2-drift) below must be re-discovered (see <c>--find-entities</c> / <c>--find-terrain</c>).</para>
     /// </summary>
     public static class AreaInstance
     {
         public const int AreaInfoPtr      = 0x0A0;  // ✓ → AreaInfo; +0x00 → UTF-16 "Code\0Name\0" (Code validated 'G1_town')
-        public const int LocalPlayer      = 0x5B8;  // ✓ → player Entity (2026-06-25 drift: was 0x5A0)
-        public const int ServerDataPtr    = 0x598;  // ✓ PlayerInfo base; +0x00 -> ServerData object, +0x20 -> LocalPlayer
-        public const int AwakeEntities    = 0x6D8;  // ✓ StdMap of live entities (id→EntityPtr); validated size=611
-        public const int SleepingEntities = 0x6E8;  // ✓ StdMap
-        public const int TerrainMetadata  = 0x8B8;  // ✓ TerrainStruct base (shifted with AreaInstance block)
+        public const int LocalPlayer      = 0x5C0;  // ✓ → player Entity (2026-07-17 drift: was 0x5B8)
+        public const int ServerDataPtr    = 0x5A0;  // ✓ PlayerInfo base; +0x00 -> ServerData object, +0x20 -> LocalPlayer (2026-07-17: was 0x598)
+        public const int AwakeEntities    = 0x6E0;  // ✓ StdMap of live entities (2026-07-17: was 0x6D8; validated size=112)
+        public const int SleepingEntities = 0x6F0;  // ✓ StdMap (2026-07-17: was 0x6E8; validated size=15)
+        public const int TerrainMetadata  = 0x8C0;  // ✓ TerrainStruct base (2026-07-17: was 0x8B8)
         public const int CurrentAreaLevel = 0x0C4;  // ✓ int — per-area, validated 27/32 (GH2's 0xBC drifted)
         public const int CurrentAreaHash  = 0x11C;  // ✓ uint — per-area random hash (GH2's 0xFC drifted; +0x120 paired seed)
     }
@@ -90,7 +90,7 @@ public static class Poe2
         public const int GridLimit = 5000;    // ✓ plausible grid upper bound
     }
 
-    /// <summary>Entity StdMap conventions. Maps live at AreaInstance+0x6D8 (Awake) / +0x6E8 (Sleeping).</summary>
+    /// <summary>Entity StdMap conventions. Maps live at AreaInstance+0x6E0 (Awake) / +0x6F0 (Sleeping).</summary>
     public static class EntityList
     {
         public const int StdMapSize = 0x10; // each StdMap is {Head ptr, int Size, pad} = 16 bytes
@@ -262,7 +262,7 @@ public static class Poe2
     }
 
     /// <summary>
-    /// TerrainStruct (base at AreaInstance+0x8B8). Validated live: TotalTiles (54,48) -> 2592 tiles
+    /// TerrainStruct (base at AreaInstance+0x8C0). Validated live: TotalTiles (54,48) -> 2592 tiles
     /// (matches TileDetails count); walkable grid 685584 bytes; BytesPerRow 621 → cellsPerRow 1242;
     /// grid 1242×1104 = (54×23)×(48×23). PoE2 has FOUR grid layers (0xD0/0xE8/0x100/0x118), so
     /// BytesPerRow sits at 0x130 — not GH2's 0x100.

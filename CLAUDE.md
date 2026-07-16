@@ -89,16 +89,16 @@ is rescaled by liveZoom/calibZoom each frame. See `resources/atlas-research-note
 ## Key facts (validated live; re-verify per patch)
 
 - Chain: AOB "Game States" → GameState → InGameState (active state) → `AreaInstance @ +0x290` →
-  `LocalPlayer @ +0x5A0`.
+  `LocalPlayer @ +0x5C0`.
 - AreaInstance: AreaInfo `+0xA0` (code), AreaLevel `+0xC4`, AreaHash `+0x11C`, AwakeEntities std::map
-  `+0x6C0` / Sleeping `+0x6D0`, TerrainStruct `+0x8A0` (walkable `+0xD0`, BytesPerRow `+0x130`).
+  `+0x6E0` / Sleeping `+0x6F0`, TerrainStruct `+0x8C0` (walkable `+0xD0`, BytesPerRow `+0x130`).
 - Entity: Details `+0x08`, ComponentList `+0x10`; component map via ComponentLookUp StdBucket.
   Rarity = ObjectMagicProperties `+0x144`; hostility = Positioned.Reaction `+0x1E0` (friendly = bit
-  pattern `(b&0x7F)==1`); grid = Render world `+0x138` / 10.87; Life HP `+0x1A8` / Mana `+0x1F8` / ES
-  `+0x230`; Player name `+0x1B0`, level `+0x204`.
+  pattern `(b&0x7F)==1`); grid = Render world `+0x138` / 10.87; Life HP `+0x1B0` / Mana `+0x208` / ES
+  `+0x248`; Player name `+0x1B0`, level `+0x204`.
 - Map UI: UiRoot `InGameState +0x2F0`; UiElement Self `+0x08`, Children `+0x10`, Flags `+0x180`
   (visible = bit `0x0B`); MapUiElement Shift `+0x368`, DefaultShift `+0x370` (= (0,-20)), Zoom `+0x3A8`.
-- **Still TBD:** camera world→screen matrix (for world-space nameplates); friendly area Name string.
+- **Still TBD:** friendly area Name string.
 
 ## Dependencies
 - `Vortice.Direct2D1` (overlay rendering). Targets `net10.0-windows`, x64.
