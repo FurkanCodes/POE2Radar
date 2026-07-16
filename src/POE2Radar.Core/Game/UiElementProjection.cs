@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace POE2Radar.Core.Game;
 
 /// <summary>
@@ -66,6 +68,39 @@ internal static class UiElementProjection
         element = new Element(self, parent, flags, x, y, modX, modY, mul, scaleIndex, w, h);
         return true;
     }
+
+    /// <summary>
+    /// Reads the projection fields in one cross-process call. The fields are sparse across the
+    /// UiElement base object, so this transfers more bytes than <see cref="TryRead"/>, but avoids
+    /// eleven kernel transitions per element on geometry-heavy overlay paths.
+    /// </summary>
+    internal static bool TryReadBatch(MemoryReader reader, nint address, out Element element)
+    {
+        element = default;
+        if (address == 0) return false;
+
+        const int start = Poe2.UiElement.Self;
+        const int end = Poe2.UiElement.SizeH + sizeof(float);
+        Span<byte> bytes = stackalloc byte[end - start];
+        if (reader.TryReadBytes(address + start, bytes) != bytes.Length) return false;
+
+        element = new Element(
+            Read<nint>(bytes, Poe2.UiElement.Self - start),
+            Read<nint>(bytes, Poe2.UiElement.Parent - start),
+            Read<uint>(bytes, Poe2.UiElement.Flags - start),
+            Read<float>(bytes, Poe2.UiElement.RelativePos - start),
+            Read<float>(bytes, Poe2.UiElement.RelativePos + 4 - start),
+            Read<float>(bytes, Poe2.UiElement.UiPositionModifier - start),
+            Read<float>(bytes, Poe2.UiElement.UiPositionModifier + 4 - start),
+            Read<float>(bytes, Poe2.UiElement.LocalScaleMul - start),
+            Read<byte>(bytes, Poe2.UiElement.UiScaleIndex - start),
+            Read<float>(bytes, Poe2.UiElement.SizeW - start),
+            Read<float>(bytes, Poe2.UiElement.SizeH - start));
+        return true;
+    }
+
+    private static T Read<T>(ReadOnlySpan<byte> bytes, int offset) where T : unmanaged
+        => MemoryMarshal.Read<T>(bytes[offset..]);
 
     internal static bool TryGetRect(
         nint address,

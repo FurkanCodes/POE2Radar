@@ -6,6 +6,24 @@ namespace POE2Radar.Core.Tests;
 public sealed class RunecraftLayoutTests
 {
     [Fact]
+    public void ControllerHint_PrioritizesControllerUiBranch()
+    {
+        Span<nint> roots = stackalloc nint[6];
+        var count = UiBranchCandidates.Fill(
+            roots,
+            gameUi: 0x1000,
+            controllerGameUi: 0x2000,
+            uiRoot: 0x3000,
+            fixedRoot: 0x4000,
+            hint: Poe2UiAnchors.BranchKind.Controller);
+
+        Assert.Equal(4, count);
+        Assert.Equal((nint)0x2000, roots[0]);
+        Assert.Equal(Poe2UiAnchors.BranchKind.Controller,
+            UiBranchCandidates.BranchForRoot(roots[0], 0x1000, 0x2000));
+    }
+
+    [Fact]
     public void PanelFingerprints_MatchGameHelperRunecraftHelper()
     {
         uint[] expected =

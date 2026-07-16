@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Globalization;
 using POE2Radar.Core.Game;
+using POE2Radar.Overlay.Input;
 using POE2Radar.Overlay.Pricing;
+using POE2Radar.Overlay.StashUtility;
 using NumVec2 = System.Numerics.Vector2;
 
 namespace POE2Radar.Overlay;
@@ -13,10 +15,17 @@ public sealed partial class RadarApp
     private bool _stashValueInitialized;
     private string _stashValuePricingConfigKey = "";
     private StashValueLabel[] _stashValueLabels = [];
+    private StashUtilityHighlight[] _stashUtilityHighlights = [];
+    private Poe2Live.StashValueSlot[] _stashValueSlots = [];
+    private HashSet<nint> _stashInventoryEntities = [];
     private StashValueRuntimeStatus _stashValueStatus = StashValueRuntimeStatus.Empty;
     private readonly PerformanceCadence _stashValueCadence = new();
+    private bool _stashUtilityPadConnected;
+    private bool _stashUtilityForceScan;
+    private int _stashUtilityReadMissStreak;
 
     private const int StashValueScanHz = 8;
+    private const int StashUtilityTransientMissGrace = 4;
 
     private sealed record StashValueRuntimeStatus(
         bool Active,
@@ -39,19 +48,54 @@ public sealed partial class RadarApp
             return;
         }
 
-        if (!_stashValueCadence.IsDue(StashValueScanHz))
-            return;
+        var padConnected = GamepadInput.IsConnected(_settings.GamepadUserIndex);
+        if (padConnected != _stashUtilityPadConnected)
+        {
+            _stashUtilityPadConnected = padConnected;
+            _stashUtilityForceScan = true;
+            _stashUtilityReadMissStreak = 0;
+            _live.InvalidateStashValueUiCache();
+        }
 
-        InitializeStashValuePricing(live);
-        PoeNinjaPriceFetcher.RefreshIfNeeded();
+        if (!_stashUtilityForceScan && !_stashValueCadence.IsDue(StashValueScanHz))
+            return;
+        _stashUtilityForceScan = false;
+
+        if (_settings.StashValue.ShowOverlay || _settings.StashValue.ShowInventoryOverlay || _settings.StashValue.ShowDebugInfo)
+        {
+            InitializeStashValuePricing(live);
+            PoeNinjaPriceFetcher.RefreshIfNeeded();
+        }
 
         TryGetCursorClient(out var cursor);
         var scanStart = Stopwatch.GetTimestamp();
         var read = _live.ReadStashValueSlots(live.InGameState, windowWidth, windowHeight, cursor);
+        if (ShouldHoldStashUtilityReadMiss(read.Slots.Length, _stashUtilityHighlights.Length, _stashUtilityReadMissStreak))
+        {
+            _stashUtilityReadMissStreak++;
+            return;
+        }
+        _stashUtilityReadMissStreak = read.Slots.Length == 0 ? _stashUtilityReadMissStreak + 1 : 0;
+
+        _stashValueSlots = read.Slots;
+        if (_settings.WaystoneAlchemy.Enabled)
+        {
+            var inventory = _live.ReadLootInventorySnapshot(live.AreaInstance);
+            _stashInventoryEntities = inventory.Ok
+                ? inventory.Items.Select(i => i.ItemEntity).ToHashSet()
+                : [];
+        }
+        else if (_stashInventoryEntities.Count > 0)
+        {
+            _stashInventoryEntities = [];
+        }
+
         var labels = BuildStashValueLabels(read);
+        var highlights = BuildStashUtilityHighlights(read);
         var scanMs = ElapsedMs(scanStart);
 
         _stashValueLabels = labels;
+        _stashUtilityHighlights = highlights;
         _stashValueStatus = new StashValueRuntimeStatus(
             true,
             read.Slots.Length,
@@ -67,13 +111,22 @@ public sealed partial class RadarApp
     {
         var s = _settings.StashValue;
         if (!drawActive) return false;
-        return s.ShowOverlay || s.ShowInventoryOverlay || s.ShowDebugInfo;
+        return s.ShowOverlay || s.ShowInventoryOverlay || s.ShowDebugInfo
+            || StashUtilityRules.IsEnabled(_settings.StashUtility)
+            || _settings.WaystoneAlchemy.Enabled;
     }
 
     private void ClearStashValue()
     {
         if (_stashValueLabels.Length > 0)
             _stashValueLabels = [];
+        if (_stashUtilityHighlights.Length > 0)
+            _stashUtilityHighlights = [];
+        if (_stashValueSlots.Length > 0)
+            _stashValueSlots = [];
+        if (_stashInventoryEntities.Count > 0)
+            _stashInventoryEntities = [];
+        _stashUtilityReadMissStreak = 0;
         if (_stashValueStatus.Active)
             _stashValueStatus = StashValueRuntimeStatus.Empty;
     }
@@ -222,4 +275,50 @@ public sealed partial class RadarApp
         "chaos" => value.ToString("0.#", CultureInfo.InvariantCulture) + " c",
         _ => value.ToString("0.#", CultureInfo.InvariantCulture) + " ex",
     };
+
+    private StashUtilityHighlight[] BuildStashUtilityHighlights(Poe2Live.StashValueRead read)
+    {
+        if (read.Slots.Length == 0 || !StashUtilityRules.IsEnabled(_settings.StashUtility)) return [];
+        var s = _settings.StashUtility;
+        var result = new List<StashUtilityHighlight>();
+
+        foreach (var slot in read.Slots)
+        {
+            if (!StashUtilityRules.TryEvaluate(slot, s, out var evaluation)) continue;
+            var tablet = evaluation.Kind == StashUtilityKind.Tablet;
+            var border = PackColor(tablet
+                ? (evaluation.Bad ? s.TabletBadColor : s.TabletGoodColor)
+                : (evaluation.Bad ? s.WaystoneBadColor : s.WaystoneGoodColor));
+            var great = PackColor(tablet ? s.TabletGreatColor : s.WaystoneGreatColor);
+            var rarity = PackColor(slot.Rarity switch
+            {
+                Poe2Live.Rarity.Magic => "#6699FF",
+                Poe2Live.Rarity.Rare => "#FFD900",
+                Poe2Live.Rarity.Unique => "#FF8000",
+                _ => "#CCCCCC",
+            });
+
+            result.Add(new StashUtilityHighlight(
+                new NumVec2(slot.Rect.X, slot.Rect.Y),
+                new NumVec2(slot.Rect.W, slot.Rect.H),
+                border,
+                great,
+                rarity,
+                Math.Clamp(s.BorderThickness, 1f, 10f),
+                Math.Clamp(s.BorderMargin, 0f, 20f),
+                evaluation.Bad ? Math.Clamp(s.BadBorderStyle, 0, 2) : Math.Clamp(s.GoodBorderStyle, 0, 2),
+                evaluation.Great,
+                s.ShowGreatArrow,
+                Math.Clamp(s.GreatArrowSize, 5f, 60f),
+                Math.Clamp(s.GreatArrowCorner, 0, 3),
+                s.ShowRarityCorner,
+                Math.Clamp(s.RarityCornerSize, 3f, 30f),
+                evaluation.Summary));
+        }
+
+        return result.Count == 0 ? [] : result.ToArray();
+    }
+
+    internal static bool ShouldHoldStashUtilityReadMiss(int slotCount, int priorHighlightCount, int missStreak)
+        => slotCount == 0 && priorHighlightCount > 0 && missStreak < StashUtilityTransientMissGrace;
 }

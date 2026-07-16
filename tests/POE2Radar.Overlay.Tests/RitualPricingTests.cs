@@ -61,6 +61,12 @@ public sealed class RitualPricingTests
         => Assert.Equal(expected, RadarApp.RitualScanHz(wasWindowOpen, showPricesWindow, liveRefreshHz));
 
     [Theory]
+    [InlineData(false, 500)]
+    [InlineData(true, 200)]
+    public void RitualPriceRecompute_UsesCachedReferenceCadence(bool settingsOpen, int expectedMs)
+        => Assert.Equal(expectedMs, RadarApp.RitualRecomputeIntervalMs(settingsOpen));
+
+    [Theory]
     [InlineData(true, 8, 0, 1, true)]
     [InlineData(true, 0, 3, 4, true)]
     [InlineData(true, 8, 0, 5, false)]

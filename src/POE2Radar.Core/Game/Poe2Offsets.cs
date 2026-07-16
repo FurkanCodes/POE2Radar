@@ -367,6 +367,12 @@ public static class Poe2
         public const int Identified = 0x90;
         public const int Rarity = 0x94;
         public const int Mods = 0xA0; // GH2: Details0.Mods vectors
+        public const int StatsFromMods = 0x148; // GH2: vector<StatArrayStruct>
+    }
+
+    public static class QualityComponent
+    {
+        public const int Value = 0x18; // GH2 QualityOffsets.ItemQuality
     }
 
     public static class StackComponent

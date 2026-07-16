@@ -3,6 +3,7 @@ namespace POE2Radar.Core.Game;
 public sealed partial class Poe2Live
 {
     public readonly record struct LootInventoryItem(
+        nint ItemEntity,
         string Key,
         string MetadataPath,
         string InternalName,
@@ -80,7 +81,7 @@ public sealed partial class Poe2Live
             ReadLootItemFacts(itemEntity, out var stack, out var rarity, out var renderArt, out var baseName);
             var internalName = LastPathSegment(metadata);
             var key = BuildLootItemKey(rarity, metadata, renderArt);
-            items.Add(new LootInventoryItem(key, metadata, internalName, rarity, renderArt, baseName, stack));
+            items.Add(new LootInventoryItem(itemEntity, key, metadata, internalName, rarity, renderArt, baseName, stack));
         }
 
         return new LootInventorySnapshot(true, inventory, boxesX, boxesY, items.ToArray());

@@ -14,6 +14,7 @@ using POE2Radar.Overlay.Native;
 using POE2Radar.Overlay.Navigation;
 using POE2Radar.Overlay.Pricing;
 using POE2Radar.Overlay.Settings;
+using POE2Radar.Overlay.StashUtility;
 using POE2Radar.Overlay.Web;
 using NumVec2 = System.Numerics.Vector2;
 using GameVec2 = POE2Radar.Core.Game.Vector2;
@@ -41,6 +42,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private readonly TextureRegistry _textures = new();
     private readonly TerrainTextureCache _terrainTextures = new();
     private readonly OverlayRenderMetrics _renderMetrics = new();
+    private readonly Dictionary<OverlayTextMeasureKey, NumVec2> _overlayTextMeasures = new();
 
     private bool _navMenuExpanded;
     private bool _settingsOpen;
@@ -54,6 +56,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private string _hidePatternInput = "";
     private string _typeSearch = "";
     private string _ruleSearch = "";
+    private string _stashUtilityModSearch = "";
     private string _atlasTagFilter = "";
     private string _atlasTargetGroupName = "";
     private string _atlasAddContentFilter = "";
@@ -110,6 +113,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     ];
 
     private readonly record struct ScreenPointState(NumVec2 Value, long SeenStamp);
+    private readonly record struct OverlayTextMeasureKey(string Text, float FontSize, float CurrentFontSize);
 
     public ImGuiRadarOverlay(Action<Action> enqueue, Action<string> toggleTarget, Action<string> setCorner,
         Action addNearest, Action clearPaths, Action newLootSession, RadarSettings settings)
@@ -193,6 +197,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         _appliedUiFontSize = s.UiFontSize;
         _appliedUiFontPath = s.UiFontPath;
         _appliedUiGlyphRange = s.UiFontGlyphRange;
+        _overlayTextMeasures.Clear();
     }
 
     public void SetGameBounds(int x, int y, int width, int height)
@@ -314,6 +319,8 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                     DrawRitualLabels(ImGui.GetForegroundDrawList(), ctx);
                     DrawRunecraftLabels(ImGui.GetForegroundDrawList(), ctx);
                     DrawRunecraftMapLabels(ImGui.GetForegroundDrawList(), ctx);
+                    DrawStashUtilityHighlights(ImGui.GetForegroundDrawList(), ctx);
+                    DrawWaystoneAlchemyHints(ImGui.GetForegroundDrawList(), ctx);
                     DrawStashValueLabels(ImGui.GetForegroundDrawList(), ctx);
                     nameplatesMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                 }
@@ -816,7 +823,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
                 var textWidth = label.TextWidth > 0
                     ? label.TextWidth
-                    : ImGui.CalcTextSize(label.ValueText).X * (label.FontSize / currentFontSize);
+                    : MeasureOverlayText(label.ValueText, label.FontSize, currentFontSize).X;
                 var iconPos = textPos + new NumVec2(textWidth + 3f, 0f);
                 var iconH = Math.Max(1f, label.IconHeight);
                 var iconW = Math.Max(1f, label.IconWidth);
@@ -837,6 +844,20 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                 dl.AddText(font, label.DebugFontSize, label.DebugPos, color, label.DebugText);
             }
         }
+    }
+
+    private NumVec2 MeasureOverlayText(string text, float fontSize, float currentFontSize)
+    {
+        var key = new OverlayTextMeasureKey(text, fontSize, currentFontSize);
+        if (_overlayTextMeasures.TryGetValue(key, out var size))
+            return size;
+
+        if (_overlayTextMeasures.Count >= 256)
+            _overlayTextMeasures.Clear();
+
+        size = ImGui.CalcTextSize(text) * (fontSize / currentFontSize);
+        _overlayTextMeasures[key] = size;
+        return size;
     }
 
     private void DrawStashValueLabels(ImDrawListPtr dl, RenderContext ctx)
@@ -875,6 +896,99 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         }
     }
 
+    private static void DrawStashUtilityHighlights(ImDrawListPtr dl, RenderContext ctx)
+    {
+        if (ctx.StashUtilityHighlights is not { Length: > 0 } highlights) return;
+
+        foreach (var item in highlights)
+        {
+            var scale = Math.Max(0.5f, item.Size.X / 52f);
+            var margin = item.BorderMargin * scale;
+            var half = item.BorderThickness * 0.5f;
+            var min = item.Pos + new NumVec2(margin + half, margin + half);
+            var max = item.Pos + item.Size - new NumVec2(margin + half, margin + half);
+            DrawStashUtilityRect(dl, min, max, item.BorderColor, item.BorderThickness, item.BorderStyle);
+
+            if (item.ShowRarityCorner)
+            {
+                var size = item.RarityCornerSize * scale;
+                var at = new NumVec2(max.X, min.Y);
+                dl.AddTriangleFilled(at - new NumVec2(size, 0f), at, at + new NumVec2(0f, size), item.RarityColor);
+            }
+
+            if (!item.Great || !item.ShowGreatArrow) continue;
+            var arrow = item.GreatArrowSize * scale;
+            var padding = 4f * scale + margin + item.BorderThickness;
+            NumVec2 tip = item.GreatArrowCorner switch
+            {
+                1 => item.Pos + new NumVec2(item.Size.X - padding - arrow * 0.5f, padding + (item.ShowRarityCorner ? item.RarityCornerSize * scale : 0f)),
+                2 => item.Pos + new NumVec2(padding + arrow * 0.5f, item.Size.Y - padding - arrow),
+                3 => item.Pos + new NumVec2(item.Size.X - padding - arrow * 0.5f, item.Size.Y - padding - arrow),
+                _ => item.Pos + new NumVec2(padding + arrow * 0.5f, padding),
+            };
+            var left = tip + new NumVec2(-arrow * 0.5f, arrow);
+            var right = tip + new NumVec2(arrow * 0.5f, arrow);
+            dl.AddTriangleFilled(tip, left, right, item.GreatColor);
+            dl.AddTriangle(tip, left, right, 0xFF000000u, Math.Max(1f, 1.5f * scale));
+        }
+    }
+
+    private void DrawWaystoneAlchemyHints(ImDrawListPtr dl, RenderContext ctx)
+    {
+        if (ctx.WaystoneAlchemyHints is not { Length: > 0 } hints) return;
+        var font = ImGui.GetFont();
+        var fontSize = Math.Max(11f, ImGui.GetFontSize() * 0.85f);
+        var ambient = Math.Max(1f, ImGui.GetFontSize());
+        foreach (var hint in hints)
+        {
+            var textSize = MeasureOverlayText(hint.Text, fontSize, ambient);
+            var at = new NumVec2(hint.Pos.X + (hint.Size.X - textSize.X) * 0.5f, hint.Pos.Y - textSize.Y - 3f);
+            dl.AddRectFilled(at - new NumVec2(3f, 1f), at + textSize + new NumVec2(3f, 1f), 0xD0000000u, 3f);
+            dl.AddText(font, fontSize, at, hint.Color, hint.Text);
+            if (hint.Active)
+                dl.AddRect(hint.Pos, hint.Pos + hint.Size, 0xFF00FFFFu, 2f, ImDrawFlags.None, 3f);
+        }
+    }
+
+    private static void DrawStashUtilityRect(
+        ImDrawListPtr dl,
+        NumVec2 min,
+        NumVec2 max,
+        uint color,
+        float thickness,
+        int style)
+    {
+        if (style == 0)
+        {
+            dl.AddRect(min, max, color, 3f, ImDrawFlags.RoundCornersAll, thickness);
+            return;
+        }
+
+        var segment = style == 1 ? 10f : 3f;
+        var gap = style == 1 ? 5f : 4f;
+        DrawStashUtilityLine(dl, new NumVec2(min.X, min.Y), new NumVec2(max.X, min.Y), color, thickness, segment, gap);
+        DrawStashUtilityLine(dl, new NumVec2(max.X, min.Y), new NumVec2(max.X, max.Y), color, thickness, segment, gap);
+        DrawStashUtilityLine(dl, new NumVec2(max.X, max.Y), new NumVec2(min.X, max.Y), color, thickness, segment, gap);
+        DrawStashUtilityLine(dl, new NumVec2(min.X, max.Y), new NumVec2(min.X, min.Y), color, thickness, segment, gap);
+    }
+
+    private static void DrawStashUtilityLine(
+        ImDrawListPtr dl,
+        NumVec2 start,
+        NumVec2 end,
+        uint color,
+        float thickness,
+        float segment,
+        float gap)
+    {
+        var delta = end - start;
+        var length = delta.Length();
+        if (length <= 0f) return;
+        var direction = delta / length;
+        for (var offset = 0f; offset < length; offset += segment + gap)
+            dl.AddLine(start + direction * offset, start + direction * Math.Min(length, offset + segment), color, thickness);
+    }
+
     private void DrawRunecraftLabels(ImDrawListPtr dl, RenderContext ctx)
     {
         if (ctx.RunecraftLabels is not { Length: > 0 } labels) return;
@@ -894,7 +1008,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             }
 
             float k = label.FontPx / ambient;
-            var ts = ImGui.CalcTextSize(label.ValueText) * k;
+            var ts = MeasureOverlayText(label.ValueText, label.FontPx, ambient);
             float x = label.PriceLeftX + label.OffsetX;
             float y = label.Pos.Y + (label.Size.Y - ts.Y) * 0.5f;
             var at = new NumVec2(x, y);
@@ -915,7 +1029,6 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         var font = ImGui.GetFont();
         float ambient = Math.Max(1f, ImGui.GetFontSize());
         float fontPx = ambient * 1.5f;
-        float k = fontPx / ambient;
         const uint shadow = 0xCC000000u;
         var bgCol = ImGui.GetStyle().Colors[(int)ImGuiCol.WindowBg];
         bgCol.W = 0.55f;
@@ -924,7 +1037,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         foreach (var label in labels)
         {
             var text = label.ValueText;
-            var ts = ImGui.CalcTextSize(text) * k;
+            var ts = MeasureOverlayText(text, fontPx, ambient);
             var at = new NumVec2(label.ScreenPos.X - ts.X * 0.5f, label.ScreenPos.Y + 6f);
             var pad = new NumVec2(3f, 1f);
             dl.AddRectFilled(at - pad, at + ts + pad, monoBg, 2f);
@@ -950,7 +1063,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
         foreach (var row in rows)
         {
-            var hdr = $"{row.Header} · best {row.BestEx:F0} ex###rch{row.MonolithKey}";
+            var hdr = $"{row.Header} · best {RunecraftPriceMath.FormatExalted(row.BestEx)}###rch{row.MonolithKey}";
             var highlightOpen = row.PanelOpen;
             if (highlightOpen)
             {
@@ -1822,6 +1935,8 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             BeginSettingsTab("HP Bars", () => DrawHpBarsTab(s));
             BeginSettingsTab("Flask", () => DrawFlaskTab(s));
             BeginSettingsTab("Stash Value", () => DrawStashValueTab(s, ctx));
+            BeginSettingsTab("Stash Utility", () => DrawStashUtilityTab(s, ctx));
+            BeginSettingsTab("Waystone Alchemy", () => DrawWaystoneAlchemyTab(s, ctx));
             BeginSettingsTab("Loot Tracker", () => DrawLootTrackerTab(s, ctx));
             BeginSettingsTab("Ritual", () => DrawRitualTab(s, ctx));
             BeginSettingsTab("Runecraft", () => DrawRunecraftTab(s, ctx));
@@ -3020,6 +3135,406 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         }
     }
 
+    private void DrawStashUtilityTab(RadarSettings settings, RenderContext? ctx)
+    {
+        var s = settings.StashUtility;
+        s.GoodWaystoneMods ??= new();
+        s.BadWaystoneMods ??= new();
+        s.GoodTabletMods ??= new();
+        s.BadTabletMods ??= new();
+        s.GodTabletMods ??= new();
+        s.TabletMinimumRolls ??= new();
+
+        var general = ImGuiTheme.BeginAccordionSection("StashUtilityGeneral", "General", defaultOpen: true);
+        if (general)
+        {
+            var waystones = s.EnableWaystones;
+            if (ImGui.Checkbox("Enable Waystone Manager", ref waystones)) s.EnableWaystones = waystones;
+            var tablets = s.EnableTablets;
+            if (ImGui.Checkbox("Enable Tablet Manager", ref tablets)) s.EnableTablets = tablets;
+            var stash = s.IncludeStash;
+            if (ImGui.Checkbox("Highlight active stash tab", ref stash)) s.IncludeStash = stash;
+            ImGui.SameLine();
+            var inventory = s.IncludeInventory;
+            if (ImGui.Checkbox("Highlight inventory", ref inventory)) s.IncludeInventory = inventory;
+            var redPriority = s.RedTakesPriority;
+            if (ImGui.Checkbox("Bad rules take priority", ref redPriority)) s.RedTakesPriority = redPriority;
+
+            ImGui.Spacing();
+            ImGui.TextUnformatted($"Highlights: {ctx?.StashUtilityHighlights.Length ?? 0}");
+            ImGui.TextUnformatted(GamepadInput.IsConnected(settings.GamepadUserIndex)
+                ? "Controller: connected · controller stash root active"
+                : "Controller: not connected · controller stash root ready");
+            ImGui.TextDisabled("The same scan checks keyboard/mouse and controller UI layouts.");
+        }
+        ImGuiTheme.EndAccordionSection(general);
+
+        var waystoneFilters = ImGuiTheme.BeginAccordionSection("StashUtilityWaystoneFilters", "Waystone Filters",
+            "Numerical requirements and GREAT thresholds.");
+        if (waystoneFilters)
+        {
+            var tier = Math.Clamp(s.MinTier, 1, 16);
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Minimum tier", ref tier, 1, 16)) s.MinTier = tier;
+            var hideNormal = s.HideNormalWaystones;
+            if (ImGui.Checkbox("Hide normal Waystones", ref hideNormal)) s.HideNormalWaystones = hideNormal;
+
+            (s.FilterMaxRevives, s.MaxRevives) = DrawStashUtilityFilter("Maximum revives", s.FilterMaxRevives, s.MaxRevives, 0, 5);
+            (s.FilterMinItemRarity, s.MinItemRarity) = DrawStashUtilityFilter("Minimum item rarity %", s.FilterMinItemRarity, s.MinItemRarity, 0, 250);
+            (s.FilterMinPackSize, s.MinPackSize) = DrawStashUtilityFilter("Minimum pack size %", s.FilterMinPackSize, s.MinPackSize, 0, 150);
+            (s.FilterMinMonsterRarity, s.MinMonsterRarity) = DrawStashUtilityFilter("Minimum monster rarity %", s.FilterMinMonsterRarity, s.MinMonsterRarity, 0, 150);
+            (s.FilterMinMonsterEffectiveness, s.MinMonsterEffectiveness) = DrawStashUtilityFilter("Minimum monster effectiveness %", s.FilterMinMonsterEffectiveness, s.MinMonsterEffectiveness, 0, 150);
+            (s.FilterMinDropChance, s.MinDropChance) = DrawStashUtilityFilter("Minimum Waystone drop chance %", s.FilterMinDropChance, s.MinDropChance, 0, 400);
+            (s.FilterMinExplicitMods, s.MinExplicitMods) = DrawStashUtilityFilter("Minimum explicit mods", s.FilterMinExplicitMods, s.MinExplicitMods, 0, 10);
+            (s.FilterMaxExplicitMods, s.MaxExplicitMods) = DrawStashUtilityFilter("Maximum explicit mods", s.FilterMaxExplicitMods, s.MaxExplicitMods, 0, 10);
+
+            ImGui.SeparatorText("GREAT requires every enabled condition");
+            (s.GreatByItemRarity, s.GreatItemRarity) = DrawStashUtilityFilter("GREAT item rarity %", s.GreatByItemRarity, s.GreatItemRarity, 0, 250);
+            (s.GreatByPackSize, s.GreatPackSize) = DrawStashUtilityFilter("GREAT pack size %", s.GreatByPackSize, s.GreatPackSize, 0, 150);
+            (s.GreatByDropChance, s.GreatDropChance) = DrawStashUtilityFilter("GREAT drop chance %", s.GreatByDropChance, s.GreatDropChance, 0, 400);
+            (s.GreatByExplicitMods, s.GreatExplicitMods) = DrawStashUtilityFilter("GREAT explicit mods", s.GreatByExplicitMods, s.GreatExplicitMods, 0, 10);
+        }
+        ImGuiTheme.EndAccordionSection(waystoneFilters);
+
+        var waystoneMods = ImGuiTheme.BeginAccordionSection("StashUtilityWaystoneMods", "Waystone Mod Rules",
+            "Mark dangerous mods red and preferred mods cyan.");
+        if (waystoneMods)
+        {
+            var all = s.RequireAllGoodWaystoneMods;
+            if (ImGui.Checkbox("Require all selected good mods", ref all)) s.RequireAllGoodWaystoneMods = all;
+            var gatedBad = s.BadOnlyWhenNumericalFiltersPass;
+            if (ImGui.Checkbox("Only show bad mods on otherwise qualifying Waystones", ref gatedBad)) s.BadOnlyWhenNumericalFiltersPass = gatedBad;
+            DrawStashUtilitySearch();
+            ImGui.BeginChild("StashUtilityWaystoneModList", new NumVec2(0, 330));
+            foreach (var def in StashUtilityCatalog.WaystoneMods.Where(MatchesStashUtilitySearch))
+                DrawWaystoneModRule(s, def);
+            ImGui.EndChild();
+        }
+        ImGuiTheme.EndAccordionSection(waystoneMods);
+
+        var tabletMods = ImGuiTheme.BeginAccordionSection("StashUtilityTabletMods", "Tablet Mod Rules",
+            "Separate editors for each in-game Tablet base type.");
+        if (tabletMods)
+        {
+            var minGood = Math.Clamp(s.MinTabletGoodMods, 1, 8);
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Good mods required", ref minGood, 1, 8)) s.MinTabletGoodMods = minGood;
+            var greatGood = Math.Clamp(s.GreatTabletGoodMods, 1, 8);
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Good mods for GREAT", ref greatGood, 1, 8)) s.GreatTabletGoodMods = greatGood;
+            var ignoreBad = Math.Clamp(s.GoodTabletModsToIgnoreBad, 1, 8);
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Good mods that override bad", ref ignoreBad, 1, 8)) s.GoodTabletModsToIgnoreBad = ignoreBad;
+            var hideBad = s.HideBadTablets;
+            if (ImGui.Checkbox("Do not highlight bad Tablets", ref hideBad)) s.HideBadTablets = hideBad;
+
+            ImGui.Spacing();
+            ImGui.TextDisabled("Choose the Tablet you are rolling. Universal selections are shared across Tablet tabs.");
+            if (ImGui.BeginTabBar("StashUtilityTabletTypes", ImGuiTabBarFlags.FittingPolicyScroll))
+            {
+                foreach (var group in StashUtilityCatalog.TabletGroups)
+                {
+                    var visible = ImGui.BeginTabItem(group.Name);
+                    ImGuiTheme.Tooltip(group.Description);
+                    if (!visible) continue;
+
+                    DrawTabletRuleGroup(s, group);
+                    ImGui.EndTabItem();
+                }
+                ImGui.EndTabBar();
+            }
+        }
+        ImGuiTheme.EndAccordionSection(tabletMods);
+
+        var visuals = ImGuiTheme.BeginAccordionSection("StashUtilityVisuals", "Visuals",
+            "Border styles, colours, rarity corner and GREAT arrow.");
+        if (visuals)
+        {
+            var thickness = s.BorderThickness;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Border thickness", ref thickness, 1f, 10f, "%.1f px")) s.BorderThickness = thickness;
+            var margin = s.BorderMargin;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Border margin", ref margin, 0f, 20f, "%.1f px")) s.BorderMargin = margin;
+            s.GoodBorderStyle = DrawStashUtilityStyleCombo("Good border", s.GoodBorderStyle);
+            s.BadBorderStyle = DrawStashUtilityStyleCombo("Bad border", s.BadBorderStyle);
+
+            var rarity = s.ShowRarityCorner;
+            if (ImGui.Checkbox("Rarity corner", ref rarity)) s.ShowRarityCorner = rarity;
+            if (s.ShowRarityCorner)
+            {
+                var raritySize = s.RarityCornerSize;
+                ImGui.SetNextItemWidth(UiW(8f));
+                if (ImGui.SliderFloat("Rarity corner size", ref raritySize, 3f, 30f, "%.0f px")) s.RarityCornerSize = raritySize;
+            }
+            var great = s.ShowGreatArrow;
+            if (ImGui.Checkbox("GREAT arrow", ref great)) s.ShowGreatArrow = great;
+            if (s.ShowGreatArrow)
+            {
+                var greatSize = s.GreatArrowSize;
+                ImGui.SetNextItemWidth(UiW(8f));
+                if (ImGui.SliderFloat("GREAT arrow size", ref greatSize, 5f, 60f, "%.0f px")) s.GreatArrowSize = greatSize;
+                s.GreatArrowCorner = DrawStashUtilityCornerCombo("GREAT arrow corner", s.GreatArrowCorner);
+            }
+
+            s.WaystoneGoodColor = DrawStashUtilityColor("Waystone good", s.WaystoneGoodColor);
+            s.WaystoneBadColor = DrawStashUtilityColor("Waystone bad", s.WaystoneBadColor);
+            s.WaystoneGreatColor = DrawStashUtilityColor("Waystone GREAT", s.WaystoneGreatColor);
+            s.TabletGoodColor = DrawStashUtilityColor("Tablet good", s.TabletGoodColor);
+            s.TabletBadColor = DrawStashUtilityColor("Tablet bad", s.TabletBadColor);
+            s.TabletGreatColor = DrawStashUtilityColor("Tablet GREAT", s.TabletGreatColor);
+        }
+        ImGuiTheme.EndAccordionSection(visuals);
+    }
+
+    private void DrawWaystoneAlchemyTab(RadarSettings settings, RenderContext? ctx)
+    {
+        var s = settings.WaystoneAlchemy;
+        var general = ImGuiTheme.BeginAccordionSection("WaystoneAlchemyGeneral", "Crafting Assistant", defaultOpen: true);
+        if (general)
+        {
+            var enabled = s.Enabled;
+            if (ImGui.Checkbox("Enable Waystone Alchemy", ref enabled)) s.Enabled = enabled;
+
+            if (ImGui.RadioButton("MANUAL / guided", s.Mode == 0)) s.Mode = 0;
+            ImGui.SameLine();
+            if (ImGui.RadioButton("AUTO", s.Mode == 1)) s.Mode = 1;
+
+            if (s.Mode == 1)
+            {
+                ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1f, 0.65f, 0.2f, 1f));
+                ImGui.TextWrapped("AUTO moves the cursor and applies currency. Keep PoE2 focused and use F8 immediately if anything looks wrong.");
+                ImGui.PopStyleColor();
+                var ack = s.AutoModeAcknowledged;
+                if (ImGui.Checkbox("I understand and enable automatic inventory clicks", ref ack)) s.AutoModeAcknowledged = ack;
+            }
+
+            var recipes = new[] { "Upgrade (Alchemy / Regal / Exalted)", "Corrupt rare Waystones", "Distilled Paranoia (guided)" };
+            s.Recipe = Math.Clamp(s.Recipe, 0, recipes.Length - 1);
+            ImGui.SetNextItemWidth(UiW(20f));
+            if (ImGui.BeginCombo("Recipe", recipes[s.Recipe]))
+            {
+                for (var i = 0; i < recipes.Length; i++)
+                    if (ImGui.Selectable(recipes[i], s.Recipe == i)) s.Recipe = i;
+                ImGui.EndCombo();
+            }
+            if (s.Recipe == 2)
+                ImGui.TextDisabled("Paranoia remains guided until the KBM and controller Instilling panels are mapped live.");
+
+            var tier = Math.Clamp(s.MinimumTier, 1, 16);
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Minimum tier", ref tier, 1, 16)) s.MinimumTier = tier;
+            var regal = s.UseRegalOnMagic;
+            if (ImGui.Checkbox("Regal identified Magic Waystones", ref regal)) s.UseRegalOnMagic = regal;
+            var exalt = s.ApplyExaltedToRare;
+            if (ImGui.Checkbox("Exalt identified Rare Waystones", ref exalt)) s.ApplyExaltedToRare = exalt;
+            if (s.ApplyExaltedToRare)
+            {
+                var mods = Math.Clamp(s.DesiredExplicitMods, 3, 6);
+                ImGui.SetNextItemWidth(UiW(8f));
+                if (ImGui.SliderInt("Stop at explicit mods", ref mods, 3, 6)) s.DesiredExplicitMods = mods;
+            }
+            var delay = Math.Clamp(s.ActionDelayMs, 150, 1500);
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Action delay", ref delay, 150, 1500, "%d ms")) s.ActionDelayMs = delay;
+        }
+        ImGuiTheme.EndAccordionSection(general);
+
+        var controls = ImGuiTheme.BeginAccordionSection("WaystoneAlchemyControls", "Controls", defaultOpen: true);
+        if (controls)
+        {
+            ImGui.TextDisabled("Bind accepts keyboard or Xbox controller buttons.");
+            DrawHotkeyRow(settings, "waystoneAlchemyRunHotkey", "Start / stop selected recipe", "Starts or stops Waystone crafting.");
+            DrawHotkeyRow(settings, "waystoneAlchemyStopHotkey", "Emergency stop", "Stops Waystone crafting immediately.");
+            ImGui.TextUnformatted($"Status: {ctx?.WaystoneAlchemyStatus ?? "Waiting for game"}");
+            ImGui.TextUnformatted(GamepadInput.IsConnected(settings.GamepadUserIndex)
+                ? "Controller: connected"
+                : "Controller: ready when connected");
+        }
+        ImGuiTheme.EndAccordionSection(controls);
+    }
+
+    private static (bool Enabled, int Value) DrawStashUtilityFilter(string label, bool enabled, int value, int min, int max)
+    {
+        ImGui.PushID(label);
+        ImGui.Checkbox("##enabled", ref enabled);
+        ImGui.SameLine();
+        ImGui.BeginDisabled(!enabled);
+        ImGui.SetNextItemWidth(UiW(8f));
+        ImGui.SliderInt(label, ref value, min, max);
+        ImGui.EndDisabled();
+        value = Math.Clamp(value, min, max);
+        ImGui.PopID();
+        return (enabled, value);
+    }
+
+    private void DrawStashUtilitySearch()
+    {
+        ImGui.SetNextItemWidth(UiW(18f));
+        ImGui.InputTextWithHint("##stashUtilitySearch", "Search modifier or category", ref _stashUtilityModSearch, 128);
+        ImGui.SameLine();
+        if (ImGui.SmallButton("Clear search")) _stashUtilityModSearch = "";
+    }
+
+    private bool MatchesStashUtilitySearch(StashUtilityModDefinition definition)
+        => string.IsNullOrWhiteSpace(_stashUtilityModSearch)
+           || definition.Name.Contains(_stashUtilityModSearch, StringComparison.OrdinalIgnoreCase)
+           || definition.Id.Contains(_stashUtilityModSearch, StringComparison.OrdinalIgnoreCase)
+           || definition.Category.Contains(_stashUtilityModSearch, StringComparison.OrdinalIgnoreCase);
+
+    private void DrawTabletRuleGroup(StashUtilitySettings settings, TabletRuleGroup group)
+    {
+        ImGui.Spacing();
+        ImGui.TextWrapped(group.Description);
+
+        var groupMods = StashUtilityCatalog.TabletModsFor(group).ToArray();
+        var goodCount = groupMods.Count(definition => ContainsSetting(settings.GoodTabletMods, definition.Id));
+        var badCount = groupMods.Count(definition => ContainsSetting(settings.BadTabletMods, definition.Id));
+        var godCount = groupMods.Count(definition => ContainsSetting(settings.GodTabletMods, definition.Id));
+        ImGui.TextDisabled($"Selected in this tab: {goodCount} Good  |  {badCount} Bad  |  {godCount} GOD");
+
+        DrawStashUtilitySearch();
+
+        var flags = ImGuiTableFlags.BordersInnerH
+                    | ImGuiTableFlags.BordersOuter
+                    | ImGuiTableFlags.RowBg
+                    | ImGuiTableFlags.ScrollY
+                    | ImGuiTableFlags.SizingStretchProp;
+        if (!ImGui.BeginTable($"StashUtilityTabletRules##{group.Name}", 5, flags, new NumVec2(0, 380)))
+            return;
+
+        var checkWidth = ImGui.GetFontSize() * 3.5f;
+        ImGui.TableSetupScrollFreeze(0, 1);
+        ImGui.TableSetupColumn("Modifier", ImGuiTableColumnFlags.WidthStretch);
+        ImGui.TableSetupColumn("Good", ImGuiTableColumnFlags.WidthFixed, checkWidth);
+        ImGui.TableSetupColumn("Bad", ImGuiTableColumnFlags.WidthFixed, checkWidth);
+        ImGui.TableSetupColumn("GOD", ImGuiTableColumnFlags.WidthFixed, checkWidth);
+        ImGui.TableSetupColumn("Minimum roll", ImGuiTableColumnFlags.WidthFixed, UiW(8f));
+        ImGui.TableHeadersRow();
+
+        foreach (var category in group.ModifierCategories)
+        {
+            var definitions = groupMods
+                .Where(definition => string.Equals(definition.Category, category, StringComparison.OrdinalIgnoreCase))
+                .Where(MatchesStashUtilitySearch)
+                .OrderBy(definition => definition.Name)
+                .ToArray();
+            if (definitions.Length == 0) continue;
+
+            ImGui.TableNextRow();
+            ImGui.TableSetColumnIndex(0);
+            ImGui.TextColored(new Vector4(0.35f, 0.78f, 1f, 1f),
+                StashUtilityCatalog.TabletCategoryHeading(group, category));
+            foreach (var definition in definitions)
+                DrawTabletModRule(settings, definition);
+        }
+
+        ImGui.EndTable();
+    }
+
+    private static void DrawWaystoneModRule(StashUtilitySettings settings, StashUtilityModDefinition definition)
+    {
+        ImGui.PushID(definition.Id);
+        ImGui.TextUnformatted(definition.Name);
+        var good = ContainsSetting(settings.GoodWaystoneMods, definition.Id);
+        if (ImGui.Checkbox("Good", ref good))
+        {
+            SetSetting(settings.GoodWaystoneMods, definition.Id, good);
+            if (good) SetSetting(settings.BadWaystoneMods, definition.Id, false);
+        }
+        ImGui.SameLine();
+        var bad = ContainsSetting(settings.BadWaystoneMods, definition.Id);
+        if (ImGui.Checkbox("Bad", ref bad))
+        {
+            SetSetting(settings.BadWaystoneMods, definition.Id, bad);
+            if (bad) SetSetting(settings.GoodWaystoneMods, definition.Id, false);
+        }
+        ImGui.SameLine();
+        ImGui.TextDisabled(definition.Id);
+        ImGui.PopID();
+    }
+
+    private static void DrawTabletModRule(StashUtilitySettings settings, StashUtilityModDefinition definition)
+    {
+        ImGui.PushID(definition.Id);
+        ImGui.TableNextRow();
+        ImGui.TableSetColumnIndex(0);
+        ImGui.TextUnformatted(definition.Name);
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip(definition.Id);
+
+        ImGui.TableSetColumnIndex(1);
+        var good = ContainsSetting(settings.GoodTabletMods, definition.Id);
+        if (ImGui.Checkbox("##good", ref good)) SetSetting(settings.GoodTabletMods, definition.Id, good);
+
+        ImGui.TableSetColumnIndex(2);
+        var bad = ContainsSetting(settings.BadTabletMods, definition.Id);
+        if (ImGui.Checkbox("##bad", ref bad)) SetSetting(settings.BadTabletMods, definition.Id, bad);
+
+        ImGui.TableSetColumnIndex(3);
+        var god = ContainsSetting(settings.GodTabletMods, definition.Id);
+        if (ImGui.Checkbox("##god", ref god)) SetSetting(settings.GodTabletMods, definition.Id, god);
+
+        ImGui.TableSetColumnIndex(4);
+        if ((good || god) && definition.MaxRoll > definition.MinRoll)
+        {
+            var minimum = settings.TabletMinimumRolls.TryGetValue(definition.Id, out var configured)
+                ? configured
+                : definition.MinRoll;
+            ImGui.SetNextItemWidth(-1f);
+            if (ImGui.SliderFloat("##minimum", ref minimum, definition.MinRoll, definition.MaxRoll, "%.0f"))
+                settings.TabletMinimumRolls[definition.Id] = minimum;
+        }
+        else
+        {
+            ImGui.TextDisabled(definition.MaxRoll > definition.MinRoll ? "Enable Good/GOD" : "Fixed");
+        }
+        ImGui.PopID();
+    }
+
+    private static bool ContainsSetting(IReadOnlyList<string> list, string value)
+        => list.Any(v => string.Equals(v, value, StringComparison.OrdinalIgnoreCase));
+
+    private static void SetSetting(List<string> list, string value, bool enabled)
+    {
+        list.RemoveAll(v => string.Equals(v, value, StringComparison.OrdinalIgnoreCase));
+        if (enabled) list.Add(value);
+    }
+
+    private static int DrawStashUtilityStyleCombo(string label, int value)
+    {
+        var names = new[] { "Solid", "Dashed", "Dotted" };
+        value = Math.Clamp(value, 0, names.Length - 1);
+        ImGui.SetNextItemWidth(UiW(9f));
+        if (ImGui.BeginCombo(label, names[value]))
+        {
+            for (var i = 0; i < names.Length; i++)
+                if (ImGui.Selectable(names[i], value == i)) value = i;
+            ImGui.EndCombo();
+        }
+        return value;
+    }
+
+    private static int DrawStashUtilityCornerCombo(string label, int value)
+    {
+        var names = new[] { "Top-left", "Top-right", "Bottom-left", "Bottom-right" };
+        value = Math.Clamp(value, 0, names.Length - 1);
+        ImGui.SetNextItemWidth(UiW(11f));
+        if (ImGui.BeginCombo(label, names[value]))
+        {
+            for (var i = 0; i < names.Length; i++)
+                if (ImGui.Selectable(names[i], value == i)) value = i;
+            ImGui.EndCombo();
+        }
+        return value;
+    }
+
+    private static string DrawStashUtilityColor(string label, string value)
+    {
+        var color = ParseHexColor(value);
+        if (ImGui.ColorEdit3(label, ref color, ImGuiColorEditFlags.NoInputs)) value = FormatHexColor3(color);
+        return value;
+    }
+
     private void DrawLootTrackerTab(RadarSettings s, RenderContext? ctx)
     {
         var lt = s.LootTracker;
@@ -3324,6 +3839,25 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                 rc.League = league;
             ImGuiTheme.Tooltip(SettingHints.Runecraft.League);
 
+            var leagues = LeagueProvider.Leagues.ToArray();
+            if (leagues.Length > 0)
+            {
+                var current = Array.FindIndex(leagues,
+                    option => string.Equals(option, rc.League, StringComparison.OrdinalIgnoreCase));
+                if (current < 0) current = 0;
+                ImGui.SetNextItemWidth(UiW(14f));
+                if (ImGui.BeginCombo("Known leagues", leagues[current]))
+                {
+                    foreach (var option in leagues)
+                    {
+                        var selected = string.Equals(option, rc.League, StringComparison.OrdinalIgnoreCase);
+                        if (ImGui.Selectable(option, selected))
+                            rc.League = option;
+                    }
+                    ImGui.EndCombo();
+                }
+            }
+
             var refresh = Math.Max(1, rc.RefreshIntervalMin);
             ImGui.SetNextItemWidth(UiW(8f));
             if (ImGui.SliderInt("Refresh minutes", ref refresh, 1, 60))
@@ -3363,6 +3897,18 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             if (ImGui.SliderFloat("Map value scale", ref scale, 0.1f, 3f, "%.2f"))
                 rc.MapValueScaleMultiplier = Math.Clamp(scale, 0.1f, 3f);
             ImGuiTheme.Tooltip(SettingHints.Runecraft.MapValueScaleMultiplier);
+
+            var mapX = rc.MapValueXOffset;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Map offset X", ref mapX, -200f, 200f, "%.0f px"))
+                rc.MapValueXOffset = Math.Clamp(mapX, -200f, 200f);
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.MapValueXOffset);
+
+            var mapY = rc.MapValueYOffset;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Map offset Y", ref mapY, -200f, 200f, "%.0f px"))
+                rc.MapValueYOffset = Math.Clamp(mapY, -200f, 200f);
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.MapValueYOffset);
         }
         ImGuiTheme.EndAccordionSection(mapOpen);
 
@@ -3377,10 +3923,41 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             if (ImGui.Checkbox("Auto-open with controller", ref autoWin)) rc.AutoShowMonolithWithGamepad = autoWin;
             ImGuiTheme.Tooltip(SettingHints.Runecraft.AutoShowMonolithWithGamepad);
 
+            var minReward = rc.MonolithRewardsMinExalted;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Min candidate value", ref minReward, 0f, 100f, "%.1f ex"))
+                rc.MonolithRewardsMinExalted = Math.Clamp(minReward, 0f, 100000f);
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.MonolithRewardsMinExalted);
+
+            var highlight = rc.MonolithHighlightThreshold;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Highlight best from", ref highlight, 0f, 500f, "%.0f ex"))
+                rc.MonolithHighlightThreshold = Math.Clamp(highlight, 0f, 100000f);
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.MonolithHighlightThreshold);
+
             ImGui.TextUnformatted($"Panel labels: {ctx?.RunecraftLabels.Length ?? 0}");
             ImGui.TextUnformatted($"Monolith rows: {ctx?.RunecraftMonolithRows.Length ?? 0}");
+            ImGui.TextUnformatted(GamepadInput.IsConnected(s.GamepadUserIndex)
+                ? "Controller: connected · controller UI branch enabled"
+                : "Controller: not connected · controller UI branch ready");
         }
         ImGuiTheme.EndAccordionSection(monoOpen);
+
+        var diagnosticsOpen = ImGuiTheme.BeginAccordionSection("RunecraftDiagnostics", "Diagnostics",
+            defaultOpen: false);
+        if (diagnosticsOpen)
+        {
+            var fetchAge = PoeNinjaPriceFetcher.LastFetchUtc == DateTime.MinValue
+                ? "never"
+                : $"{Math.Max(0, (DateTime.UtcNow - PoeNinjaPriceFetcher.LastFetchUtc).TotalSeconds):F0}s ago";
+            ImGui.TextUnformatted($"Loaded prices: {PoeNinjaPriceFetcher.LoadedItemCount}");
+            ImGui.TextUnformatted($"Fetching: {(PoeNinjaPriceFetcher.IsFetching ? "yes" : "no")}");
+            ImGui.TextUnformatted($"Last fetch: {fetchAge}");
+            ImGui.TextUnformatted($"Panel labels: {ctx?.RunecraftLabels.Length ?? 0}");
+            ImGui.TextUnformatted($"Nearby monoliths: {ctx?.RunecraftMonolithRows.Length ?? 0}");
+            ImGui.TextDisabled("Panel discovery checks both keyboard/mouse and controller UI roots.");
+        }
+        ImGuiTheme.EndAccordionSection(diagnosticsOpen);
     }
 
     private void DrawAtlasTab(RadarSettings s)
@@ -4046,6 +4623,8 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         "toggleSettingsHotkey" => s.ToggleSettingsHotkey,
         "openDashboardHotkey" => s.OpenDashboardHotkey,
         "quitHotkey" => s.QuitHotkey,
+        "waystoneAlchemyRunHotkey" => s.WaystoneAlchemy.RunHotkey,
+        "waystoneAlchemyStopHotkey" => s.WaystoneAlchemy.EmergencyStopHotkey,
         _ => 0,
     };
 
@@ -4064,6 +4643,8 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             case "toggleSettingsHotkey": s.ToggleSettingsHotkey = value; break;
             case "openDashboardHotkey": s.OpenDashboardHotkey = value; break;
             case "quitHotkey": s.QuitHotkey = value; break;
+            case "waystoneAlchemyRunHotkey": s.WaystoneAlchemy.RunHotkey = value; break;
+            case "waystoneAlchemyStopHotkey": s.WaystoneAlchemy.EmergencyStopHotkey = value; break;
         }
     }
 

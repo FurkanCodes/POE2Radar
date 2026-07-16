@@ -29,11 +29,15 @@ public sealed partial class RadarApp
     private string _lockedPanelMetaId = "";
     private string _lockedPanelName = "";
     private readonly PerformanceCadence _runecraftTickCadence = new();
-    private readonly PerformanceCadence _runecraftHudIdleCadence = new();
+    private readonly PerformanceCadence _runecraftHudCadence = new();
     private bool _runecraftMonolithWindowActive;
+    private bool _runecraftPadConnected;
+    private int _runecraftReadMissStreak;
 
     private const int RunecraftMonolithOnlyTickHz = 8;
-    private const int RunecraftHudIdleScanHz = 6;
+    private const int RunecraftHudClosedScanHz = 6;
+    private const int RunecraftHudOpenScanHz = 12;
+    private const int RunecraftTransientMissGrace = 4;
     private const int RunecraftMonolithScanMs = 1500;
     private const int RunecraftMonolithScanMsActive = 750;
 
@@ -104,13 +108,24 @@ public sealed partial class RadarApp
         if (live.AreaInstance != _runecraftAreaInstance)
         {
             _runecraftAreaInstance = live.AreaInstance;
+            _runecraftReadMissStreak = 0;
             _live.InvalidateRunecraftUiCache();
             ClearRunecraftSession(open: false);
         }
 
+        var forceHudRead = false;
+        var padConnected = GamepadInput.IsConnected(_settings.GamepadUserIndex);
+        if (padConnected != _runecraftPadConnected)
+        {
+            _runecraftPadConnected = padConnected;
+            _runecraftReadMissStreak = 0;
+            _live.InvalidateRunecraftUiCache();
+            forceHudRead = true;
+        }
+
         var wantHudOverlay = drawActive && _settings.Runecraft.ShowOverlay;
         var readHudThisTick = wantHudOverlay
-            && (_wasRunecraftPanelOpen || _runecraftHudIdleCadence.IsDue(RunecraftHudIdleScanHz));
+            && (forceHudRead || _runecraftHudCadence.IsDue(RunecraftPanelScanHz(_wasRunecraftPanelOpen)));
 
         var now = DateTime.UtcNow;
         if (NeedsRunecraftMonolithScans())
@@ -137,6 +152,26 @@ public sealed partial class RadarApp
 
         if (!panel.IsOpen)
         {
+            var missStreak = _runecraftReadMissStreak + 1;
+            if (ShouldHoldRunecraftReadMiss(
+                    _wasRunecraftPanelOpen,
+                    _runecraftStatus.RowCount,
+                    _runecraftLabels.Length,
+                    missStreak))
+            {
+                _runecraftReadMissStreak = missStreak;
+                _runecraftStatus = _runecraftStatus with
+                {
+                    PanelOpen = true,
+                    MonolithCount = _runecraftMonoliths.Count,
+                    League = EffectiveRunecraftLeague(live),
+                    Note = "transient miss grace",
+                };
+                RefreshRunecraftMapLabels(live, true, windowWidth, windowHeight, drawActive);
+                return;
+            }
+
+            _runecraftReadMissStreak = 0;
             ClearRunecraftSession(open: false);
             _runecraftStatus = new RunecraftRuntimeStatus(
                 false, "", 0, 0, _runecraftMonoliths.Count, EffectiveRunecraftLeague(live), "");
@@ -144,6 +179,7 @@ public sealed partial class RadarApp
             return;
         }
 
+        _runecraftReadMissStreak = 0;
         _wasRunecraftPanelOpen = true;
         PoeNinjaPriceFetcher.RefreshIfNeeded();
 
@@ -198,6 +234,18 @@ public sealed partial class RadarApp
 
         RefreshRunecraftMapLabels(live, true, windowWidth, windowHeight, drawActive);
     }
+
+    internal static int RunecraftPanelScanHz(bool wasPanelOpen)
+        => wasPanelOpen ? RunecraftHudOpenScanHz : RunecraftHudClosedScanHz;
+
+    internal static bool ShouldHoldRunecraftReadMiss(
+        bool wasPanelOpen,
+        int priorRowCount,
+        int labelCount,
+        int missStreak)
+        => wasPanelOpen
+           && (priorRowCount > 0 || labelCount > 0)
+           && missStreak is > 0 and <= RunecraftTransientMissGrace;
 
     private void RefreshRunecraftMapLabels(LiveFrameState live, bool panelOpen, int windowWidth, int windowHeight, bool drawActive)
     {
@@ -573,6 +621,8 @@ public sealed partial class RadarApp
         }
 
         _wasRunecraftPanelOpen = open;
+        if (!open)
+            _runecraftReadMissStreak = 0;
         if (_runecraftLabels.Length > 0) _runecraftLabels = [];
     }
 

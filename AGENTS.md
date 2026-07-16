@@ -1,8 +1,8 @@
 # POE2Radar — Contributor Guide
 
 External memory-reading **map/radar overlay for Path of Exile 2**. .NET 10, Windows, x64 only.
-Reads game state out of process (no injection) and draws an overlay; an opt-in auto-flask feature
-sends keystrokes. Forked from a PoE1 framework, since rewritten around the live PoE2 layout.
+Reads game state out of process (no injection) and draws an overlay; explicitly opt-in QoL features
+may send foreground-gated input. Forked from a PoE1 framework, since rewritten around the live PoE2 layout.
 
 ## Non-negotiable rules
 
@@ -12,10 +12,12 @@ sends keystrokes. Forked from a PoE1 framework, since rewritten around the live 
 **Stay external.** Memory access via `OpenProcess` + `ReadProcessMemory`. **Never** inject into the
 PoE2 process — no DLL injection, no function hooking, no packet manipulation.
 
-**Input/automation (opt-in).** The overlay may send keystrokes via `SendInput`
-(`Input/SendInputNative`) for auto-flask only. Rules: foreground-gated (only when PoE2 is focused),
-in-game-gated, per-action cooldowns, master kill-switch hotkey (F8). Keep automation minimal and
-clearly gated — a personal QoL tool, not a headless bot.
+**Input/automation (opt-in).** The overlay may send keyboard and mouse input via `SendInput` for
+explicitly enabled QoL features such as auto-flask and inventory crafting assistance. Rules:
+foreground-gated (only when PoE2 is focused), in-game/UI-context-gated, per-action cooldowns,
+state validation between actions, a visible running status, and an immediate emergency-stop hotkey.
+Automation must default off, must never run headlessly, and must stop on focus loss, UI closure,
+unexpected state, missing resources, or controller disconnect when controller-triggered.
 
 **Offset discovery lives in Research.** The overlay just reads; reverse-engineering/probes live in
 `POE2Radar.Research`. When a patch breaks reads, run the Research probes, re-validate, commit.
@@ -61,7 +63,7 @@ clearly gated — a personal QoL tool, not a headless bot.
   dashboard's shape picker; materialized to `icons/` folder on first run).
 - `Web/ApiServer.cs` — read-only HTTP API on `localhost:7777` (`/state`, `/entities`, `/landmarks`,
   `/api/icons` — the icon library for the dashboard's SVG-preview shape pickers).
-- `Input/SendInputNative.cs` — scancode `SendInput` for auto-flask.
+- `Input/SendInputNative.cs` — guarded keyboard/mouse `SendInput` for opt-in QoL actions.
 
 **Research** (`src/POE2Radar.Research/Program.cs`) — probes: `--hp` (value-scan), `--vitals`
 (dump the local player's Life component — what the configured Health/Mana/ES offsets read + every

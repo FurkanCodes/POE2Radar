@@ -258,7 +258,11 @@ internal static class SettingHints
         public const string HideMapValueWhenPanelOpen = "Hide map value labels while the combinations panel is open.";
         public const string MapLabelMinExalted = "Skip map labels below this Exalted value.";
         public const string MapValueScaleMultiplier = "Scale monolith map labels to match your map zoom.";
+        public const string MapValueXOffset = "Move monolith value labels horizontally on the large map.";
+        public const string MapValueYOffset = "Move monolith value labels vertically on the large map.";
         public const string ShowMonolithWindow = "Open a list of nearby monolith candidate recipes and prices.";
+        public const string MonolithRewardsMinExalted = "Hide candidate rewards whose total value is below this threshold; zero shows everything.";
+        public const string MonolithHighlightThreshold = "Tint high-value monolith headers when their best candidate reaches this value; zero disables threshold highlighting.";
         public const string AutoShowMonolithWithGamepad = "Open the monolith rewards window while a controller is connected. Uses a light background scan — turn off if you want minimum CPU.";
     }
 }

@@ -6,6 +6,26 @@ namespace POE2Radar.Overlay.Tests;
 public sealed class RunecraftPricingTests
 {
     [Theory]
+    [InlineData(false, 6)]
+    [InlineData(true, 12)]
+    public void PanelScanHz_IsBoundedForClosedAndOpenPanels(bool wasOpen, int expected)
+        => Assert.Equal(expected, RadarApp.RunecraftPanelScanHz(wasOpen));
+
+    [Theory]
+    [InlineData(true, 6, 3, 1, true)]
+    [InlineData(true, 6, 3, 4, true)]
+    [InlineData(true, 6, 3, 5, false)]
+    [InlineData(false, 6, 3, 1, false)]
+    [InlineData(true, 0, 0, 1, false)]
+    public void ShortPanelReadMisses_PreservePopulatedControllerSessions(
+        bool wasOpen,
+        int priorRows,
+        int labels,
+        int missStreak,
+        bool expected)
+        => Assert.Equal(expected, RadarApp.ShouldHoldRunecraftReadMiss(wasOpen, priorRows, labels, missStreak));
+
+    [Theory]
     [InlineData("6x Armourer's Scrap", 6, "Armourer's Scrap")]
     [InlineData("Деталь доспеха (6)", 6, "Деталь доспеха")]
     [InlineData("Orb of Alchemy", 1, "Orb of Alchemy")]

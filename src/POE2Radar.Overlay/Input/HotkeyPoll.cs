@@ -28,7 +28,9 @@ public static class HotkeyPoll
         || HotkeyCodes.IsGamepad(s.QuitHotkey)
         || HotkeyCodes.IsGamepad(s.AtlasPickHotkey)
         || HotkeyCodes.IsGamepad(s.ToggleSettingsHotkey)
-        || HotkeyCodes.IsGamepad(s.OpenDashboardHotkey);
+        || HotkeyCodes.IsGamepad(s.OpenDashboardHotkey)
+        || HotkeyCodes.IsGamepad(s.WaystoneAlchemy.RunHotkey)
+        || HotkeyCodes.IsGamepad(s.WaystoneAlchemy.EmergencyStopHotkey);
 
     public static bool IsDown(int binding)
     {

@@ -183,6 +183,30 @@ public readonly record struct StashValueLabel(
     string DebugText,
     bool HidePrice);
 
+public readonly record struct StashUtilityHighlight(
+    NumVec2 Pos,
+    NumVec2 Size,
+    uint BorderColor,
+    uint GreatColor,
+    uint RarityColor,
+    float BorderThickness,
+    float BorderMargin,
+    int BorderStyle,
+    bool Great,
+    bool ShowGreatArrow,
+    float GreatArrowSize,
+    int GreatArrowCorner,
+    bool ShowRarityCorner,
+    float RarityCornerSize,
+    string Tooltip);
+
+public readonly record struct WaystoneAlchemyHint(
+    NumVec2 Pos,
+    NumVec2 Size,
+    string Text,
+    uint Color,
+    bool Active);
+
 public readonly record struct StashValueDebugInfo(
     bool Active,
     int SlotCount,
@@ -384,6 +408,9 @@ public sealed record RenderContext(
     bool RunecraftShowMonolithWindow,
     RunecraftMonolithPanelRow[] RunecraftMonolithRows,
     StashValueLabel[] StashValueLabels,
+    StashUtilityHighlight[] StashUtilityHighlights,
+    WaystoneAlchemyHint[] WaystoneAlchemyHints,
+    string WaystoneAlchemyStatus,
     StashValueDebugInfo StashValueDebug,
     LootTrackerView LootTracker,
     // ── Unified display-rule engine (Phase 1). Resolves an entity to the first matching display rule

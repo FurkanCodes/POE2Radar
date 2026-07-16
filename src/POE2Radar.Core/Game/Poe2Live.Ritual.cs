@@ -54,7 +54,51 @@ public sealed partial class Poe2Live
 
     /// <summary>Reads ritual reward tiles with screen rects for in-game overlay labels.</summary>
     public RitualRewardSlot[] ReadRitualOverlaySlots(nint grid, float windowWidth, float windowHeight)
-        => grid == 0 ? [] : ReadRitualSlots(grid, windowWidth, windowHeight, requireScreenRect: true);
+    {
+        if (grid == 0 || !IsVisibleUiElement(grid)) return [];
+
+        var tiles = ReadChildren(grid, maxCount: 32);
+        if (tiles.Length is < 1 or > 16) return [];
+
+        // The metadata pass in ReadRitualRewards already populated every item fact used for
+        // pricing. This second pass exists only because screen-space tile geometry can move while
+        // the shop is open (controller selection/scrolling). Do not resolve item components or
+        // reread mods here: those cross-process reads used to duplicate the expensive metadata
+        // pass every time in-game price labels were enabled.
+        var elementCache = new Dictionary<nint, UiElementProjection.Element>(tiles.Length + 8);
+        var parentCache = new Dictionary<nint, UiElementProjection.Point>(8);
+        var slots = new List<RitualRewardSlot>(tiles.Length);
+        foreach (var tile in tiles)
+        {
+            if (tile == 0 || !TryReadProjectionElement(tile, out var tileElement)) continue;
+            if (tileElement.Self != tile
+                || (tileElement.Flags & (1u << Poe2.UiElement.FlagVisibleBit)) == 0)
+                continue;
+            elementCache[tile] = tileElement;
+
+            var item = Ptr(tile + Poe2.RitualUi.TileItemEntity);
+            if (item == 0) continue;
+
+            if (!UiElementProjection.TryGetRect(
+                    tile,
+                    TryReadProjectionElement,
+                    windowWidth,
+                    windowHeight,
+                    elementCache,
+                    parentCache,
+                    out var projected))
+                continue;
+
+            var rect = new UiRect(projected.X, projected.Y, projected.W, projected.H);
+            slots.Add(new RitualRewardSlot(
+                tile, item, rect, "", "", "", Rarity.Normal, "", []));
+        }
+
+        return slots.Count == 0 ? [] : slots.ToArray();
+
+        bool TryReadProjectionElement(nint address, out UiElementProjection.Element element)
+            => UiElementProjection.TryReadBatch(_reader, address, out element);
+    }
 
     /// <summary>
     /// Reads the visible Ritual Favours reward grid. Shop is considered open only when at least one

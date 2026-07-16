@@ -23,7 +23,22 @@ public sealed partial class Poe2Live
         Rarity Rarity,
         string ArtBasename,
         int StackCount,
-        string[] ModLines);
+        bool Identified,
+        bool Corrupted,
+        string[] ModLines,
+        StashItemMod[] Mods,
+        StashItemStats Stats);
+
+    public readonly record struct StashItemMod(string Id, float Value0, float Value1, bool Explicit);
+
+    public readonly record struct StashItemStats(
+        int ItemRarity,
+        int PackSize,
+        int MonsterRarity,
+        int MonsterEffectiveness,
+        int WaystoneDropChance,
+        int Quality,
+        bool HasMemoryStats);
 
     public readonly record struct StashValueRead(
         bool AnyHovered,
@@ -94,6 +109,13 @@ public sealed partial class Poe2Live
         return slots.Count == 0
             ? new StashValueRead(anyHovered, scanned, candidates, [])
             : new StashValueRead(anyHovered, scanned, candidates, slots.ToArray());
+    }
+
+    /// <summary>Forget the successful KBM/controller branch after an input-mode transition.</summary>
+    public void InvalidateStashValueUiCache()
+    {
+        _stashValueProbeHint = Poe2UiAnchors.BranchKind.None;
+        _stashValueLastRoot = 0;
     }
 
     private void ScanStashValueRoot(
@@ -169,10 +191,15 @@ public sealed partial class Poe2Live
         var baseName = "";
         var art = "";
         var stack = 1;
+        var identified = true;
+        var corrupted = false;
 
         var modsComp = ResolveComponent(item, "Mods");
         if (modsComp != 0 && _reader.TryReadStruct<int>(modsComp + Poe2.ModsComponent.Rarity, out var r) && r is >= 0 and <= 3)
             rarity = (Rarity)r;
+        if (modsComp != 0 && _reader.TryReadStruct<int>(modsComp + Poe2.ModsComponent.Identified, out var idf))
+            identified = idf != 0;
+        corrupted = ResolveComponent(item, "Corrupted") != 0;
 
         var baseComp = ResolveComponent(item, "Base");
         if (baseComp != 0)
@@ -195,8 +222,84 @@ public sealed partial class Poe2Live
         if (stackComp != 0 && _reader.TryReadStruct<int>(stackComp + Poe2.StackComponent.Count, out var count) && count > 1 && count < 1_000_000)
             stack = count;
 
-        var mods = ReadItemModLines(item, modsComp);
-        return new StashValueSlot(tile, item, rect, panel, hovered, fullPath, internalName, baseName, rarity, art, stack, mods);
+        var rawMods = ReadStashItemMods(modsComp);
+        var mods = rawMods.Length == 0
+            ? []
+            : rawMods.Select(m => FormatModLine(m.Id, m.Value0, m.Value1)).ToArray();
+        var stats = ReadStashItemStats(item, modsComp);
+        return new StashValueSlot(tile, item, rect, panel, hovered, fullPath, internalName, baseName, rarity, art, stack, identified, corrupted, mods, rawMods, stats);
+    }
+
+    private StashItemMod[] ReadStashItemMods(nint modsComp)
+    {
+        if (modsComp == 0) return [];
+        var result = new List<StashItemMod>(10);
+        Add(modsComp + Poe2.ModsComponent.Mods + Poe2.ModVectors.Implicit, false);
+        Add(modsComp + Poe2.ModsComponent.Mods + Poe2.ModVectors.Explicit, true);
+        Add(modsComp + Poe2.ModsComponent.Mods + Poe2.ModVectors.Enchant, false);
+        return result.Count == 0 ? [] : result.ToArray();
+
+        void Add(nint vectorAddress, bool explicitMod)
+        {
+            if (!_reader.TryReadStruct<StdVector>(vectorAddress, out var vec)) return;
+            var count = ((long)vec.Last - (long)vec.First) / Poe2.ModVectors.EntryStride;
+            if (vec.First == 0 || count is <= 0 or > 64) return;
+
+            ModArrayStruct[] entries;
+            try { entries = _reader.ReadArray<ModArrayStruct>(vec.First, (int)count); }
+            catch { return; }
+
+            foreach (var entry in entries)
+            {
+                if (entry.ModsPtr == 0) continue;
+                var id = ReadModTemplate(entry.ModsPtr).Trim();
+                if (id.Length == 0) continue;
+                var (v0, v1) = ReadModValues(entry.Values, entry.Value0);
+                result.Add(new StashItemMod(id, v0, v1, explicitMod));
+            }
+        }
+    }
+
+    private StashItemStats ReadStashItemStats(nint item, nint modsComp)
+    {
+        var rarity = 0;
+        var pack = 0;
+        var monsterRarity = 0;
+        var effectiveness = 0;
+        var dropChance = 0;
+        var hasMemoryStats = false;
+
+        if (modsComp != 0 && _reader.TryReadStruct<StdVector>(modsComp + Poe2.ModsComponent.StatsFromMods, out var vec))
+        {
+            var count = ((long)vec.Last - (long)vec.First) / 8;
+            if (vec.First != 0 && count is > 0 and <= 512)
+            {
+                hasMemoryStats = true;
+                try
+                {
+                    foreach (var stat in _reader.ReadArray<StatArrayStruct>(vec.First, (int)count))
+                    {
+                        switch (stat.Key)
+                        {
+                            case 8206: rarity = stat.Value; break;
+                            case 8207: pack = stat.Value; break;
+                            case 8208: monsterRarity = stat.Value; break;
+                            case 8209: effectiveness = stat.Value; break;
+                            case 8210: dropChance = stat.Value; break;
+                        }
+                    }
+                }
+                catch { /* transient vector mutation */ }
+            }
+        }
+
+        var quality = 0;
+        var qualityComp = ResolveComponent(item, "Quality");
+        if (qualityComp != 0)
+            _reader.TryReadStruct<int>(qualityComp + Poe2.QualityComponent.Value, out quality);
+
+        quality = Math.Clamp(quality, 0, 100);
+        return new StashItemStats(rarity, pack, monsterRarity, effectiveness, dropChance, quality, hasMemoryStats);
     }
 
     private static bool PointInRect(System.Numerics.Vector2 p, UiRect r)

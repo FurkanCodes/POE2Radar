@@ -18,7 +18,8 @@ namespace POE2Radar.Overlay;
 
 /// <summary>
 /// Drives the PoE2 radar: per-tick resolve chain → read player/entities/terrain/map → render.
-/// Read-only. Render, live-player, world-scan, HP-bar, and metrics work all use separate configurable
+/// Primarily read-side; explicitly enabled QoL features may send guarded input. Render, live-player,
+/// world-scan, HP-bar, and metrics work all use separate configurable
 /// cadences so the overlay can draw smoothly without multiplying memory reads.
 /// </summary>
 public sealed partial class RadarApp : IDisposable
@@ -715,6 +716,8 @@ public sealed partial class RadarApp : IDisposable
         else
             ClearStashValue();
 
+        RefreshWaystoneAlchemy(live, realActive);
+
         if (live.InGame)
             RefreshLootTracker(live, snap);
         else
@@ -861,6 +864,9 @@ public sealed partial class RadarApp : IDisposable
             RunecraftShowMonolithWindow: RunecraftMonolithWindowActive(),
             RunecraftMonolithRows: _runecraftMonolithRows,
             StashValueLabels: _stashValueLabels,
+            StashUtilityHighlights: _stashUtilityHighlights,
+            WaystoneAlchemyHints: _waystoneAlchemyHints,
+            WaystoneAlchemyStatus: _waystoneAlchemyStatus,
             StashValueDebug: new StashValueDebugInfo(
                 _stashValueStatus.Active,
                 _stashValueStatus.SlotCount,

@@ -33,6 +33,8 @@ public sealed partial class RadarApp
     private const int RitualIdleScanHz = 6;
     private const int RitualPricesWindowIdleHz = 12;
     private const int RitualTransientMissGrace = 4;
+    private const int RitualPriceRecomputeMs = 500;
+    private const int RitualSettingsPriceRecomputeMs = 200;
 
     private sealed record RitualRuntimeStatus(
         bool Open,
@@ -145,7 +147,7 @@ public sealed partial class RadarApp
         _wasRitualWindowOpen = true;
         PoeNinjaPriceFetcher.RefreshIfNeeded();
 
-        var intervalMs = _imguiOverlay?.IsSettingsOpen == true ? 200 : 120;
+        var intervalMs = RitualRecomputeIntervalMs(_imguiOverlay?.IsSettingsOpen == true);
         if (now < _nextRitualRecomputeUtc && (_ritualLabels.Length > 0 || _ritualPanelRows.Length > 0))
         {
             _ritualStatus = new RitualRuntimeStatus(
@@ -204,6 +206,9 @@ public sealed partial class RadarApp
         _ = liveRefreshHz;
         return wasWindowOpen ? RitualPricesWindowIdleHz : RitualIdleScanHz;
     }
+
+    internal static int RitualRecomputeIntervalMs(bool settingsOpen)
+        => settingsOpen ? RitualSettingsPriceRecomputeMs : RitualPriceRecomputeMs;
 
     internal static bool ShouldHoldRitualReadMiss(bool wasWindowOpen, int panelRowCount, int labelCount, int missStreak)
         => wasWindowOpen

@@ -59,3 +59,11 @@ public struct ModArrayStruct
     [FieldOffset(0x18)] public int Value0;
     [FieldOffset(0x28)] public nint ModsPtr;
 }
+
+/// <summary>One key/value entry in an item's Mods.StatsFromMods vector.</summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct StatArrayStruct
+{
+    public int Key;
+    public int Value;
+}

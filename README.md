@@ -24,6 +24,9 @@ quality-of-life feature.
   encounter) re-acquire their target automatically in each new zone.
 - **Auto-flask** (opt-in input) — presses the life/mana flask key below a HP/mana threshold.
   Hard-gated: only when PoE2 is the foreground window, with cooldowns and an **F8 kill-switch**.
+- **Waystone Alchemy** — controller-aware crafting guidance for Alchemy, Identification, Regal,
+  Exalted, Corruption, and Distilled Paranoia workflows. Optional AUTO mode applies supported currency
+  actions with foreground/UI gates and validates game state after every action; MANUAL mode only guides.
 - **Web dashboard** (`http://localhost:7777`, or **F12** in-game) — a local control panel: a
   searchable list of every entity/landmark you can click to navigate to, plus a settings tab
   (radar display toggles, monster HP-bar visibility, map calibration, auto-flask tuning). Served

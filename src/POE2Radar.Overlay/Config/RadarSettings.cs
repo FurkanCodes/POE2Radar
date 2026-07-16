@@ -133,6 +133,8 @@ public sealed class RadarSettings
     public RitualSettings Ritual { get; set; } = new();
     public RunecraftSettings Runecraft { get; set; } = new();
     public StashValueSettings StashValue { get; set; } = new();
+    public StashUtilitySettings StashUtility { get; set; } = new();
+    public WaystoneAlchemySettings WaystoneAlchemy { get; set; } = new();
     public LootTrackerSettings LootTracker { get; set; } = new();
 
     // ── Global multiplier on map icon sprite scale (PNG from icons.png). ──
@@ -707,6 +709,90 @@ public sealed class StashValueSettings
     public float PriceOffsetX { get; set; } = 5f;
     public float PriceOffsetY { get; set; } = -5f;
     public string PriceTextColor { get; set; } = "#FFEB8C";
+}
+
+public sealed class StashUtilitySettings
+{
+    public bool EnableWaystones { get; set; } = true;
+    public bool EnableTablets { get; set; } = true;
+    public bool IncludeStash { get; set; } = true;
+    public bool IncludeInventory { get; set; } = true;
+    public bool HideNormalWaystones { get; set; }
+
+    public int MinTier { get; set; } = 1;
+    public bool FilterMaxRevives { get; set; }
+    public int MaxRevives { get; set; }
+    public bool FilterMinItemRarity { get; set; }
+    public int MinItemRarity { get; set; }
+    public bool FilterMinPackSize { get; set; }
+    public int MinPackSize { get; set; }
+    public bool FilterMinMonsterRarity { get; set; }
+    public int MinMonsterRarity { get; set; }
+    public bool FilterMinMonsterEffectiveness { get; set; }
+    public int MinMonsterEffectiveness { get; set; }
+    public bool FilterMinDropChance { get; set; }
+    public int MinDropChance { get; set; }
+    public bool FilterMinExplicitMods { get; set; }
+    public int MinExplicitMods { get; set; }
+    public bool FilterMaxExplicitMods { get; set; }
+    public int MaxExplicitMods { get; set; } = 10;
+
+    public bool GreatByItemRarity { get; set; }
+    public int GreatItemRarity { get; set; } = 30;
+    public bool GreatByPackSize { get; set; }
+    public int GreatPackSize { get; set; } = 20;
+    public bool GreatByDropChance { get; set; }
+    public int GreatDropChance { get; set; } = 120;
+    public bool GreatByExplicitMods { get; set; }
+    public int GreatExplicitMods { get; set; } = 5;
+
+    public bool RequireAllGoodWaystoneMods { get; set; }
+    public bool BadOnlyWhenNumericalFiltersPass { get; set; }
+    public bool RedTakesPriority { get; set; } = true;
+    public List<string> GoodWaystoneMods { get; set; } = new();
+    public List<string> BadWaystoneMods { get; set; } = new();
+
+    public int MinTabletGoodMods { get; set; } = 1;
+    public int GreatTabletGoodMods { get; set; } = 2;
+    public int GoodTabletModsToIgnoreBad { get; set; } = 3;
+    public bool HideBadTablets { get; set; }
+    public List<string> GoodTabletMods { get; set; } = new();
+    public List<string> BadTabletMods { get; set; } = new();
+    public List<string> GodTabletMods { get; set; } = new();
+    public Dictionary<string, float> TabletMinimumRolls { get; set; } = new();
+
+    public float BorderThickness { get; set; } = 3f;
+    public float BorderMargin { get; set; } = 4f;
+    public int GoodBorderStyle { get; set; }
+    public int BadBorderStyle { get; set; }
+    public bool ShowRarityCorner { get; set; } = true;
+    public float RarityCornerSize { get; set; } = 10f;
+    public bool ShowGreatArrow { get; set; } = true;
+    public float GreatArrowSize { get; set; } = 20f;
+    public int GreatArrowCorner { get; set; }
+    public string WaystoneGoodColor { get; set; } = "#00D9FF";
+    public string WaystoneBadColor { get; set; } = "#FF4000";
+    public string WaystoneGreatColor { get; set; } = "#0AD407";
+    public string TabletGoodColor { get; set; } = "#D933FF";
+    public string TabletBadColor { get; set; } = "#BF0026";
+    public string TabletGreatColor { get; set; } = "#FFC800";
+}
+
+public sealed class WaystoneAlchemySettings
+{
+    public bool Enabled { get; set; }
+    /// <summary>0 = guided/manual, 1 = automatic clicks.</summary>
+    public int Mode { get; set; }
+    /// <summary>0 = upgrade, 1 = corrupt, 2 = Distilled Paranoia guidance.</summary>
+    public int Recipe { get; set; }
+    public int RunHotkey { get; set; }
+    public int EmergencyStopHotkey { get; set; } = 0x77; // F8
+    public int MinimumTier { get; set; } = 1;
+    public bool UseRegalOnMagic { get; set; } = true;
+    public bool ApplyExaltedToRare { get; set; } = true;
+    public int DesiredExplicitMods { get; set; } = 6;
+    public int ActionDelayMs { get; set; } = 350;
+    public bool AutoModeAcknowledged { get; set; }
 }
 
 public sealed class LootTrackerSettings
