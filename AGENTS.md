@@ -12,8 +12,7 @@ may send foreground-gated input. Forked from a PoE1 framework, since rewritten a
 **Stay external.** Memory access via `OpenProcess` + `ReadProcessMemory`. **Never** inject into the
 PoE2 process — no DLL injection, no function hooking, no packet manipulation.
 
-**Input/automation (opt-in).** The overlay may send keyboard and mouse input via `SendInput` for
-explicitly enabled QoL features such as auto-flask and inventory crafting assistance. Rules:
+**Input/automation (opt-in).** The overlay may send keyboard and mouse input via `SendInput` . Rules:
 foreground-gated (only when PoE2 is focused), in-game/UI-context-gated, per-action cooldowns,
 state validation between actions, a visible running status, and an immediate emergency-stop hotkey.
 Automation must default off, must never run headlessly, and must stop on focus loss, UI closure,

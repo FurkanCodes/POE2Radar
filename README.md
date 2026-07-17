@@ -24,6 +24,11 @@ quality-of-life feature.
   encounter) re-acquire their target automatically in each new zone.
 - **Auto-flask** (opt-in input) — presses the life/mana flask key below a HP/mana threshold.
   Hard-gated: only when PoE2 is the foreground window, with cooldowns and an **F8 kill-switch**.
+- **Pickup Helper** (opt-in input) — assist, hover-and-hold, nearby-and-hold, and press-once automatic
+  modes driven by labels that the active in-game loot filter actually shows. Supports keyboard or
+  XInput activation, blocks on game panels/focus loss/controller disconnect, and confirms each pickup
+  before continuing. Automatic mode reacquires moving labels after harmless misses and applies bounded
+  per-item backoff instead of stopping or click-spamming loot left behind.
 - **Waystone Alchemy** — controller-aware crafting guidance for Alchemy, Identification, Regal,
   Exalted, Corruption, and Distilled Paranoia workflows. Optional AUTO mode applies supported currency
   actions with foreground/UI gates and validates game state after every action; MANUAL mode only guides.

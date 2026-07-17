@@ -207,6 +207,13 @@ public readonly record struct WaystoneAlchemyHint(
     uint Color,
     bool Active);
 
+public readonly record struct PickupHint(
+    NumVec2 Pos,
+    NumVec2 Size,
+    string Label,
+    float Distance,
+    bool ShowHighlight);
+
 public readonly record struct StashValueDebugInfo(
     bool Active,
     int SlotCount,
@@ -446,6 +453,9 @@ public sealed record RenderContext(
     StashUtilityHighlight[] StashUtilityHighlights,
     WaystoneAlchemyHint[] WaystoneAlchemyHints,
     string WaystoneAlchemyStatus,
+    string PickupStatus,
+    bool PickupRunning,
+    PickupHint? PickupTarget,
     StashValueDebugInfo StashValueDebug,
     LootTrackerView LootTracker,
     // ── Unified display-rule engine (Phase 1). Resolves an entity to the first matching display rule

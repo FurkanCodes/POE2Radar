@@ -336,6 +336,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                     DrawRunecraftMapLabels(ImGui.GetForegroundDrawList(), ctx);
                     DrawStashUtilityHighlights(ImGui.GetForegroundDrawList(), ctx);
                     DrawWaystoneAlchemyHints(ImGui.GetForegroundDrawList(), ctx);
+                    DrawPickupTargetHint(ImGui.GetForegroundDrawList(), ctx);
                     DrawStashValueLabels(ImGui.GetForegroundDrawList(), ctx);
                     nameplatesMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                 }
@@ -975,6 +976,21 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             if (hint.Active)
                 dl.AddRect(hint.Pos, hint.Pos + hint.Size, 0xFF00FFFFu, 2f, ImDrawFlags.None, 3f);
         }
+    }
+
+    private static void DrawPickupTargetHint(ImDrawListPtr dl, RenderContext ctx)
+    {
+        if (ctx.PickupTarget is not { } hint || !hint.ShowHighlight) return;
+        var min = hint.Pos;
+        var max = hint.Pos + hint.Size;
+        if (hint.Size.X <= 6f || hint.Size.Y <= 6f)
+        {
+            dl.AddCircle((min + max) * 0.5f, 10f, 0xFF47E8A4u, 20, 2f);
+            return;
+        }
+
+        dl.AddRectFilled(min, max, 0x2838D899u, 3f);
+        dl.AddRect(min, max, 0xFF47E8A4u, 3f, ImDrawFlags.None, 2f);
     }
 
     private static void DrawStashUtilityRect(
@@ -2018,6 +2034,23 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             ImGui.SameLine(0f, 8f);
             TextColoredUnformatted(ImGuiTheme.Accent, $"{selected}/8 routes");
         }
+        if (!string.Equals(ctx.PickupStatus, "Disabled", StringComparison.Ordinal))
+        {
+            ImGui.SameLine(0f, 8f);
+            var pickupColor = ctx.PickupRunning
+                ? new Vector4(0.28f, 0.91f, 0.64f, 1f)
+                : new Vector4(0.75f, 0.80f, 0.86f, 1f);
+            var shortStatus = ctx.PickupStatus.StartsWith("PICKING", StringComparison.Ordinal) ? "PICKING" :
+                ctx.PickupStatus.StartsWith("TARGET", StringComparison.Ordinal) ? "TARGET" :
+                ctx.PickupStatus.StartsWith("PICKED", StringComparison.Ordinal) ? "PICKED" :
+                ctx.PickupStatus.StartsWith("MISSED", StringComparison.Ordinal) ? "RETRY" :
+                ctx.PickupStatus.StartsWith("ASSIST", StringComparison.Ordinal) ? "ASSIST" :
+                ctx.PickupStatus.StartsWith("AUTO armed", StringComparison.Ordinal) ? "ARMED" :
+                ctx.PickupStatus.StartsWith("READY", StringComparison.Ordinal) ? "READY" : "STOPPED";
+            TextColoredUnformatted(pickupColor, $"Pickup {shortStatus}");
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                ImGui.SetTooltip(ctx.PickupStatus);
+        }
         ImGui.SameLine(0f, 8f);
         if (DrawOverlayEyeButton(ctx.Active))
             _enqueue(() => _toggleRendering());
@@ -2263,6 +2296,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         DrawSettingsNavItem("Stash Value");
         DrawSettingsNavItem("Stash Utility");
         DrawSettingsNavItem("Waystone Alchemy");
+        DrawSettingsNavItem("Pickup Helper");
         DrawSettingsNavItem("Loot Tracker");
         DrawSettingsNavItem("Ritual");
         DrawSettingsNavItem("Runecraft");
@@ -2296,6 +2330,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             case "Stash Value": DrawStashValueTab(s, ctx); break;
             case "Stash Utility": DrawStashUtilityTab(s, ctx); break;
             case "Waystone Alchemy": DrawWaystoneAlchemyTab(s, ctx); break;
+            case "Pickup Helper": DrawPickupHelperTab(s, ctx); break;
             case "Loot Tracker": DrawLootTrackerTab(s, ctx); break;
             case "Ritual": DrawRitualTab(s, ctx); break;
             case "Runecraft": DrawRunecraftTab(s, ctx); break;
@@ -3722,6 +3757,118 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         ImGuiTheme.EndAccordionSection(controls);
     }
 
+    private void DrawPickupHelperTab(RadarSettings settings, RenderContext? ctx)
+    {
+        var s = settings.PickupHelper;
+        var general = ImGuiTheme.BeginAccordionSection("PickupHelperGeneral", "Filter-aware Pickup", defaultOpen: true);
+        if (general)
+        {
+            var enabled = s.Enabled;
+            if (ImGui.Checkbox("Enable Pickup Helper", ref enabled)) s.Enabled = enabled;
+            ImGui.TextWrapped("The game filter remains the source of truth. Nearby mode only targets labels that are currently visible in-game.");
+
+            var modes = new[]
+            {
+                "ASSIST / highlight only",
+                "HOVER + hold",
+                "NEARBY + hold",
+                "AUTOMATIC nearby",
+            };
+            s.Mode = Math.Clamp(s.Mode, 0, modes.Length - 1);
+            ImGui.SetNextItemWidth(UiW(18f));
+            if (ImGui.BeginCombo("Mode", modes[s.Mode]))
+            {
+                for (var i = 0; i < modes.Length; i++)
+                    if (ImGui.Selectable(modes[i], s.Mode == i)) s.Mode = i;
+                ImGui.EndCombo();
+            }
+
+            if (s.Mode is 2 or 3)
+            {
+                ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1f, 0.65f, 0.2f, 1f));
+                ImGui.TextWrapped(s.Mode == 3
+                    ? "Automatic mode: press activation once to start and again to stop. It keeps collecting the closest visible labels without moving your character."
+                    : "Nearby mode moves the mouse to the closest visible label while activation is held. It never moves your character and stops if pickup is not confirmed.");
+                ImGui.PopStyleColor();
+                var acknowledged = s.AutoModeAcknowledged;
+                if (ImGui.Checkbox("I understand and enable automatic label clicks", ref acknowledged))
+                    s.AutoModeAcknowledged = acknowledged;
+            }
+            else if (s.Mode == 1)
+            {
+                ImGui.TextDisabled("Hover mode follows the mouse cursor. Controller users should select Nearby mode.");
+            }
+
+            var distance = Math.Clamp(s.MaxPickupDistance, 5, 100);
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Maximum pickup range", ref distance, 5, 100, "%d grid"))
+                s.MaxPickupDistance = distance;
+
+            var minDelay = Math.Clamp(s.MinPickupDelayMs, 0, 500);
+            var maxDelay = Math.Clamp(s.MaxPickupDelayMs, minDelay, 750);
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Minimum delay", ref minDelay, 0, 500, "%d ms"))
+                s.MinPickupDelayMs = minDelay;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Maximum delay", ref maxDelay, minDelay, 750, "%d ms"))
+                s.MaxPickupDelayMs = maxDelay;
+
+            var cooldown = Math.Clamp(s.ClickCooldownMs, 100, 1000);
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Click cooldown", ref cooldown, 100, 1000, "%d ms"))
+                s.ClickCooldownMs = cooldown;
+            var timeout = Math.Clamp(s.ConfirmationTimeoutMs, 500, 4000);
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Confirmation timeout", ref timeout, 500, 4000, "%d ms"))
+                s.ConfirmationTimeoutMs = timeout;
+            if (s.Mode == 3)
+            {
+                ImGui.TextDisabled("A missed moving label is reacquired automatically; repeated misses cool down that item.");
+                var retry = Math.Clamp(s.MissRetryDelayMs, 100, 2000);
+                ImGui.SetNextItemWidth(UiW(8f));
+                if (ImGui.SliderInt("Miss retry delay", ref retry, 100, 2000, "%d ms"))
+                    s.MissRetryDelayMs = retry;
+                var misses = Math.Clamp(s.MaxMissesBeforeCooldown, 1, 8);
+                ImGui.SetNextItemWidth(UiW(8f));
+                if (ImGui.SliderInt("Misses before item cooldown", ref misses, 1, 8))
+                    s.MaxMissesBeforeCooldown = misses;
+                var missedCooldown = Math.Clamp(s.MissedItemCooldownMs, 500, 10_000);
+                ImGui.SetNextItemWidth(UiW(8f));
+                if (ImGui.SliderInt("Missed item cooldown", ref missedCooldown, 500, 10_000, "%d ms"))
+                    s.MissedItemCooldownMs = missedCooldown;
+            }
+
+            var highlight = s.ShowTargetHighlight;
+            if (ImGui.Checkbox("Highlight current target", ref highlight)) s.ShowTargetHighlight = highlight;
+            var pauseHidden = s.PauseWhileShowHiddenHeld;
+            if (ImGui.Checkbox("Pause while show-hidden-items is held", ref pauseHidden))
+                s.PauseWhileShowHiddenHeld = pauseHidden;
+        }
+        ImGuiTheme.EndAccordionSection(general);
+
+        var controls = ImGuiTheme.BeginAccordionSection("PickupHelperControls", "Controls and Safety", defaultOpen: true);
+        if (controls)
+        {
+            ImGui.TextDisabled(s.Mode == 3
+                ? "Bindings accept keyboard or Xbox controller buttons. Press activation once to start or stop."
+                : "Bindings accept keyboard or Xbox controller buttons. Hold activation to run.");
+            DrawHotkeyRow(
+                settings,
+                "pickupActivationHotkey",
+                s.Mode == 3 ? "Start / stop automatic pickup" : "Hold to pick up",
+                s.Mode == 3
+                    ? "Press once to start automatic nearby pickup; press again to stop."
+                    : "Runs Hover or Nearby mode only while held.");
+            DrawHotkeyRow(settings, "pickupEmergencyStopHotkey", "Emergency stop", "Stops immediately; release activation before restarting.");
+            DrawHotkeyRow(settings, "pickupShowHiddenHotkey", "Show hidden items key", "Pickup stops while this binding is held. Default: Alt.");
+            ImGui.TextUnformatted($"Status: {ctx?.PickupStatus ?? "Waiting for game"}");
+            ImGui.TextUnformatted(GamepadInput.IsConnected(settings.GamepadUserIndex)
+                ? "Controller: connected"
+                : "Controller: ready when connected");
+        }
+        ImGuiTheme.EndAccordionSection(controls);
+    }
+
     private static (bool Enabled, int Value) DrawStashUtilityFilter(string label, bool enabled, int value, int min, int max)
     {
         ImGui.PushID(label);
@@ -5076,6 +5223,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         "quitHotkey" => s.QuitHotkey,
         "waystoneAlchemyRunHotkey" => s.WaystoneAlchemy.RunHotkey,
         "waystoneAlchemyStopHotkey" => s.WaystoneAlchemy.EmergencyStopHotkey,
+        "pickupActivationHotkey" => s.PickupHelper.ActivationHotkey,
+        "pickupEmergencyStopHotkey" => s.PickupHelper.EmergencyStopHotkey,
+        "pickupShowHiddenHotkey" => s.PickupHelper.ShowHiddenItemsHotkey,
         _ => 0,
     };
 
@@ -5096,6 +5246,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             case "quitHotkey": s.QuitHotkey = value; break;
             case "waystoneAlchemyRunHotkey": s.WaystoneAlchemy.RunHotkey = value; break;
             case "waystoneAlchemyStopHotkey": s.WaystoneAlchemy.EmergencyStopHotkey = value; break;
+            case "pickupActivationHotkey": s.PickupHelper.ActivationHotkey = value; break;
+            case "pickupEmergencyStopHotkey": s.PickupHelper.EmergencyStopHotkey = value; break;
+            case "pickupShowHiddenHotkey": s.PickupHelper.ShowHiddenItemsHotkey = value; break;
         }
     }
 

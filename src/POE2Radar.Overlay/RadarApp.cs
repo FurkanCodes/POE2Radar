@@ -236,6 +236,7 @@ public sealed partial class RadarApp : IDisposable
         _reader = reader;
         _processMetrics = ProcessMetricsSampler.ForOverlay();
         _settings = RadarSettings.Load();
+        _pickupEngine = new Pickup.PickupEngine(ClickPickupTarget);
         Console.WriteLine($"Settings: {RadarSettings.FilePath}");
         Console.WriteLine($"Entity names: {EntityNameResolver.Shared.Count} mappings; zones: {ZoneGuide.Shared.Count}; zone bosses: {ZoneBossCatalog.Shared.Count}");
         _live = new Poe2Live(reader, gameStateSlot);
@@ -729,6 +730,7 @@ public sealed partial class RadarApp : IDisposable
             ClearStashValue();
 
         RefreshWaystoneAlchemy(live, realActive);
+        RefreshPickup(live, snap, windowWidth, windowHeight, realActive);
 
         if (live.InGame)
             RefreshLootTracker(live, snap);
@@ -880,6 +882,16 @@ public sealed partial class RadarApp : IDisposable
             StashUtilityHighlights: _stashUtilityHighlights,
             WaystoneAlchemyHints: _waystoneAlchemyHints,
             WaystoneAlchemyStatus: _waystoneAlchemyStatus,
+            PickupStatus: _pickupView.Status,
+            PickupRunning: _pickupView.Running,
+            PickupTarget: _pickupView.Target is { } pickupTarget
+                ? new PickupHint(
+                    new NumVec2(pickupTarget.X, pickupTarget.Y),
+                    new NumVec2(pickupTarget.Width, pickupTarget.Height),
+                    pickupTarget.Label,
+                    pickupTarget.Distance,
+                    _settings.PickupHelper.ShowTargetHighlight)
+                : null,
             StashValueDebug: new StashValueDebugInfo(
                 _stashValueStatus.Active,
                 _stashValueStatus.SlotCount,
@@ -1038,6 +1050,7 @@ public sealed partial class RadarApp : IDisposable
             _renderPathSnapshot.Length > 0 ||
             _hpFrame.Length > 0 ||
             _settings.HpBarNormal || _settings.HpBarMagic || _settings.HpBarRare || _settings.HpBarUnique ||
+            (_settings.PickupHelper.Enabled && _settings.PickupHelper.Mode != 1) ||
             _settings.TrackEntityHotkey > 0 || _settings.HideEntityHotkey > 0;
         _cameraMatrix = needsCamera ? CopyCameraMatrix(_live.CameraMatrix(inGameState)) : null;
 

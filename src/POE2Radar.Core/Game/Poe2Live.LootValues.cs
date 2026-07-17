@@ -5,6 +5,43 @@ public sealed partial class Poe2Live
     private string _league = "";
     private nint _leagueFor = -1;
 
+    /// <summary>The entity currently under the mouse cursor, or zero when none.</summary>
+    public nint MouseOverEntity(nint inGameState)
+    {
+        if (inGameState == 0) return 0;
+        var host = Ptr(inGameState + Poe2.InGameState.MouseOverHostPtr);
+        var sub = host == 0 ? 0 : Ptr(host + Poe2.MouseOver.HostSubPtr);
+        return sub == 0 ? 0 : Ptr(sub + Poe2.MouseOver.SubEntityPtr);
+    }
+
+    /// <summary>
+    /// Conservative world-action gate. Left/right inventory-style panels block pickup clicks on both
+    /// keyboard and controller UI managers. Unknown/unreadable state returns false so callers stop.
+    /// </summary>
+    public bool IsWorldInteractionUiClear(nint inGameState)
+    {
+        if (inGameState == 0) return false;
+        var keyboard = Ptr(inGameState + Poe2.InGameState.KeyboardUiRootStructPtr);
+        var gamepad = Ptr(inGameState + Poe2.InGameState.GamepadUiRootStructPtr);
+        var activeManager = keyboard != 0 ? keyboard : gamepad;
+        return activeManager != 0 && !ManagerHasVisibleSidePanel(activeManager);
+    }
+
+    private bool ManagerHasVisibleSidePanel(nint manager)
+    {
+        if (manager == 0) return false;
+        var left = Ptr(manager + Poe2.UiRootStruct.LeftPanelPtr);
+        var right = Ptr(manager + Poe2.UiRootStruct.RightPanelPtr);
+        return IsUiElementVisible(left) || IsUiElementVisible(right);
+    }
+
+    private bool IsUiElementVisible(nint element)
+    {
+        if (element == 0) return false;
+        return _reader.TryReadStruct<uint>(element + Poe2.UiElement.Flags, out var flags) &&
+               (flags & (1u << Poe2.UiElement.FlagVisibleBit)) != 0;
+    }
+
     /// <summary>Current league name (ServerData @ AreaInstance+ServerDataPtr -> std::wstring +0x21E0). Cached per area.</summary>
     public string LeagueName(nint areaInstance)
     {
@@ -106,6 +143,10 @@ public sealed partial class Poe2Live
         x = px * sw; y = py * sh; w = sz.X * sw; h = sz.Y * sh;
         return w > 1f && h > 1f;
     }
+
+    /// <summary>Full visible text for a UI element discovered by <see cref="ScanLootLabels"/>.</summary>
+    public string UiElementText(nint element)
+        => element == 0 ? string.Empty : ReadStdWString(element + Poe2.UiElement.Text);
 
     private static (float w, float h) UiScaleValue(byte idx, float mul, float winW, float winH)
     {

@@ -47,6 +47,7 @@ public static class Poe2
         /// outer UiElement tree.</summary>
         public const int KeyboardUiRootStructPtr = 0x2F0; // ✓ live 0.5.x (was mislabeled direct UiRoot)
         public const int GamepadUiRootStructPtr  = 0x318; // ✓ controller UiRootStruct
+        public const int MouseOverHostPtr        = 0x300; // ✓ host -> +0x3F0 -> +0xA8 hovered entity
         public const int UiRoot = KeyboardUiRootStructPtr; // legacy alias — prefer <see cref="UiRootResolver"/>
         public const int UiRootStructPtr = KeyboardUiRootStructPtr; // legacy name
         public const int Camera           = 0x368; // ✓ → Camera object (Zoom @ +0x528 == 1.0 confirmed)
@@ -58,6 +59,14 @@ public static class Poe2
         public const int UiRootPtr           = 0x340; // ✓ live 0.5.x (was GH2 0x5A8)
         public const int GameUiPtr           = 0xBE0; // (GH2) inner HUD branch inside the manager
         public const int GameUiControllerPtr = 0xBE8; // (GH2) controller HUD branch
+        public const int LeftPanelPtr        = 0x6D8; // (GH2) currently open left-side panel
+        public const int RightPanelPtr       = 0x6E0; // (GH2) currently open right-side panel
+    }
+
+    public static class MouseOver
+    {
+        public const int HostSubPtr = 0x3F0; // ✓ GameHelper PoE2 v0.5.4
+        public const int SubEntityPtr = 0xA8; // ✓ 0 when nothing is hovered
     }
 
     /// <summary>

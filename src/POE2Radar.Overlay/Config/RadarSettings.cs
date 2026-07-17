@@ -135,6 +135,7 @@ public sealed class RadarSettings
     public StashValueSettings StashValue { get; set; } = new();
     public StashUtilitySettings StashUtility { get; set; } = new();
     public WaystoneAlchemySettings WaystoneAlchemy { get; set; } = new();
+    public PickupHelperSettings PickupHelper { get; set; } = new();
     public LootTrackerSettings LootTracker { get; set; } = new();
 
     // ── Global multiplier on map icon sprite scale (PNG from icons.png). ──
@@ -823,6 +824,28 @@ public sealed class WaystoneAlchemySettings
     public int DesiredExplicitMods { get; set; } = 6;
     public int ActionDelayMs { get; set; } = 350;
     public bool AutoModeAcknowledged { get; set; }
+}
+
+public sealed class PickupHelperSettings
+{
+    public bool Enabled { get; set; }
+    /// <summary>0 = assist, 1 = hovered/held, 2 = nearby/held, 3 = nearby automatic toggle.</summary>
+    public int Mode { get; set; }
+    /// <summary>Keyboard VK or encoded XInput button. The action only runs while this binding is held.</summary>
+    public int ActivationHotkey { get; set; }
+    public int EmergencyStopHotkey { get; set; } = 0x77; // F8
+    public int MaxPickupDistance { get; set; } = 45;
+    public int MinPickupDelayMs { get; set; } = 35;
+    public int MaxPickupDelayMs { get; set; } = 110;
+    public int ClickCooldownMs { get; set; } = 180;
+    public int ConfirmationTimeoutMs { get; set; } = 1600;
+    public int MissRetryDelayMs { get; set; } = 300;
+    public int MaxMissesBeforeCooldown { get; set; } = 3;
+    public int MissedItemCooldownMs { get; set; } = 2000;
+    public bool AutoModeAcknowledged { get; set; }
+    public bool ShowTargetHighlight { get; set; } = true;
+    public bool PauseWhileShowHiddenHeld { get; set; } = true;
+    public int ShowHiddenItemsHotkey { get; set; } = 0x12; // Alt by default
 }
 
 public sealed class LootTrackerSettings
