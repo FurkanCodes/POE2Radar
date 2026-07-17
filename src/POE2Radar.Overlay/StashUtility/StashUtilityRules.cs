@@ -70,7 +70,8 @@ internal static partial class StashUtilityRules
         var drop = slot.Stats.WaystoneDropChance + slot.Stats.Quality;
         var explicitCount = slot.Mods.Count(m => m.Explicit);
         var revives = Math.Clamp(6 - explicitCount, 0, 5);
-        var matchedGood = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var matchedRequired = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var matchedGreat = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var bad = false;
 
         foreach (var mod in slot.Mods)
@@ -88,14 +89,20 @@ internal static partial class StashUtilityRules
                 effect += def.MonsterEffectiveness;
                 drop += def.DropChance;
             }
-            if (Contains(s.GoodWaystoneMods, def.Id)) matchedGood.Add(def.Id);
+            if (Contains(s.GoodWaystoneMods, def.Id)) matchedRequired.Add(def.Id);
+            if (Contains(s.GreatWaystoneMods, def.Id)) matchedGreat.Add(def.Id);
             if (Contains(s.BadWaystoneMods, def.Id)) bad = true;
         }
 
-        var selectedGood = s.GoodWaystoneMods ?? [];
-        var good = selectedGood.Count > 0 && (s.RequireAllGoodWaystoneMods
-            ? selectedGood.All(matchedGood.Contains)
-            : matchedGood.Count > 0);
+        var selectedRequired = s.GoodWaystoneMods ?? [];
+        var selectedGreat = s.GreatWaystoneMods ?? [];
+        var selectedBad = s.BadWaystoneMods ?? [];
+        var required = selectedRequired.Count > 0 && (s.RequireAllGoodWaystoneMods
+            ? selectedRequired.All(matchedRequired.Contains)
+            : matchedRequired.Count > 0);
+        var greatMod = selectedGreat.Count > 0 && (s.RequireAllGreatWaystoneMods
+            ? selectedGreat.All(matchedGreat.Contains)
+            : matchedGreat.Count > 0);
 
         var numerical = (!s.FilterMaxRevives || revives <= Math.Clamp(s.MaxRevives, 0, 5))
             && (!s.FilterMinItemRarity || rarity >= s.MinItemRarity)
@@ -106,12 +113,17 @@ internal static partial class StashUtilityRules
             && (!s.FilterMinExplicitMods || explicitCount >= s.MinExplicitMods)
             && (!s.FilterMaxExplicitMods || explicitCount <= s.MaxExplicitMods);
 
-        if (bad && s.BadOnlyWhenNumericalFiltersPass && !numerical) return false;
-        if (!bad && !numerical) return false;
-        if (!s.RedTakesPriority && good) bad = false;
+        var hasModRules = selectedRequired.Count > 0 || selectedGreat.Count > 0 || selectedBad.Count > 0;
+        var matchesSelectedRule = required || greatMod || bad;
+        var qualifies = numerical && (!hasModRules || matchesSelectedRule);
+        if (bad && !s.BadOnlyWhenNumericalFiltersPass)
+            qualifies = true;
+        if (!qualifies) return false;
+        if (!s.RedTakesPriority && (required || greatMod)) bad = false;
 
         var greatChecks = 0;
         var great = true;
+        Check(selectedGreat.Count > 0, greatMod);
         Check(s.GreatByItemRarity, rarity >= s.GreatItemRarity);
         Check(s.GreatByPackSize, pack >= s.GreatPackSize);
         Check(s.GreatByDropChance, drop >= s.GreatDropChance);
@@ -121,7 +133,7 @@ internal static partial class StashUtilityRules
         var summary = $"T{tier} · {revives} rev · {rarity}% rarity · {pack}% pack · {drop}% drops";
         evaluation = new StashUtilityEvaluation(
             StashUtilityKind.Waystone, bad, great, tier, revives, rarity, pack, monsterRarity,
-            effect, drop, explicitCount, matchedGood.Count, summary);
+            effect, drop, explicitCount, matchedRequired.Count, summary);
         return true;
 
         void Check(bool enabled, bool passes)
@@ -138,32 +150,44 @@ internal static partial class StashUtilityRules
         out StashUtilityEvaluation evaluation)
     {
         evaluation = default;
-        var goodCount = 0;
+        var matchedRequired = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var matchedGreat = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var bad = false;
-        var god = false;
 
         foreach (var mod in slot.Mods)
         {
             var definition = StashUtilityCatalog.MatchTablet(mod.Id);
             if (definition is not { } def) continue;
             var passesRoll = PassesMinimumRoll(mod, def, s.TabletMinimumRolls);
-            if (Contains(s.GodTabletMods, def.Id) && passesRoll) god = true;
+            if (Contains(s.GodTabletMods, def.Id) && passesRoll) matchedGreat.Add(def.Id);
             if (Contains(s.BadTabletMods, def.Id)) bad = true;
-            if (Contains(s.GoodTabletMods, def.Id) && passesRoll) goodCount++;
+            if (Contains(s.GoodTabletMods, def.Id) && passesRoll) matchedRequired.Add(def.Id);
         }
 
-        if (god || goodCount >= Math.Max(1, s.GoodTabletModsToIgnoreBad)) bad = false;
-        var good = god || goodCount >= Math.Max(1, s.MinTabletGoodMods);
-        if (!good && !bad) return false;
-        if (bad && s.HideBadTablets) return false;
-        if (!s.RedTakesPriority && good) bad = false;
+        var selectedRequired = s.GoodTabletMods ?? [];
+        var selectedGreat = s.GodTabletMods ?? [];
+        var selectedBad = s.BadTabletMods ?? [];
+        var required = selectedRequired.Count > 0 && (s.RequireAllGoodTabletMods
+            ? selectedRequired.All(matchedRequired.Contains)
+            : matchedRequired.Count > 0);
+        var great = selectedGreat.Count > 0 && (s.RequireAllGreatTabletMods
+            ? selectedGreat.All(matchedGreat.Contains)
+            : matchedGreat.Count > 0);
+        var otherRulesSelected = selectedRequired.Count > 0 || selectedGreat.Count > 0;
+        var badCanInclude = !s.BadTabletOnlyWhenOtherRulesPass || !otherRulesSelected || required || great;
+        var hasModRules = otherRulesSelected || selectedBad.Count > 0;
 
-        var great = god || goodCount >= Math.Max(1, s.GreatTabletGoodMods);
+        if (!hasModRules || (!required && !great && !(bad && badCanInclude))) return false;
+        if (!s.RedTakesPriority && (required || great)) bad = false;
+        if (bad && s.HideBadTablets) return false;
+
         var explicitCount = slot.Mods.Count(m => m.Explicit);
-        var summary = god ? $"GOD · {goodCount} good mods" : $"{goodCount} good mods";
+        var summary = great
+            ? $"GREAT · {matchedRequired.Count} required · {matchedGreat.Count} great"
+            : $"{matchedRequired.Count} required mods";
         evaluation = new StashUtilityEvaluation(
             StashUtilityKind.Tablet, bad, great, 0, 0, 0, 0, 0, 0, 0,
-            explicitCount, goodCount, summary);
+            explicitCount, matchedRequired.Count, summary);
         return true;
     }
 

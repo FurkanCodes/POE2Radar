@@ -54,6 +54,122 @@ public sealed class StashUtilityRulesTests
     }
 
     [Fact]
+    public void Waystone_SelectedRequiredJuiceFiltersOutNonMatchingItems()
+    {
+        var settings = new StashUtilitySettings
+        {
+            GoodWaystoneMods =
+            [
+                "MapMonsterDamageAsCold",
+                "MapPlayerEnfeeble",
+            ],
+        };
+
+        Assert.False(StashUtilityRules.TryEvaluate(
+            Waystone(mods:
+            [
+                new Poe2Live.StashItemMod("MapMonsterAdditionalProjectiles", 2, float.NaN, true),
+            ]),
+            settings,
+            out _));
+        Assert.True(StashUtilityRules.TryEvaluate(
+            Waystone(mods:
+            [
+                new Poe2Live.StashItemMod("MapMonsterDamageAsCold", 14, float.NaN, true),
+            ]),
+            settings,
+            out var result));
+        Assert.Equal(1, result.GoodMods);
+    }
+
+    [Fact]
+    public void Waystone_RequireAllSelectedJuicesNeedsEveryMatch()
+    {
+        var settings = new StashUtilitySettings
+        {
+            GoodWaystoneMods =
+            [
+                "MapMonsterDamageAsCold",
+                "MapPlayerEnfeeble",
+            ],
+            RequireAllGoodWaystoneMods = true,
+        };
+
+        Assert.False(StashUtilityRules.TryEvaluate(
+            Waystone(mods:
+            [
+                new Poe2Live.StashItemMod("MapMonsterDamageAsCold", 14, float.NaN, true),
+            ]),
+            settings,
+            out _));
+        Assert.True(StashUtilityRules.TryEvaluate(
+            Waystone(mods:
+            [
+                new Poe2Live.StashItemMod("MapMonsterDamageAsCold", 14, float.NaN, true),
+                new Poe2Live.StashItemMod("MapPlayerEnfeeble", 16, float.NaN, true),
+            ]),
+            settings,
+            out _));
+    }
+
+    [Fact]
+    public void Waystone_OnlyEnabledRarityAndMonsterEffectivenessFiltersApply()
+    {
+        var settings = new StashUtilitySettings
+        {
+            FilterMinItemRarity = true,
+            MinItemRarity = 30,
+            FilterMinMonsterEffectiveness = true,
+            MinMonsterEffectiveness = 20,
+        };
+
+        Assert.True(StashUtilityRules.TryEvaluate(
+            Waystone(stats: new Poe2Live.StashItemStats(30, 0, 0, 20, 0, 0, true)),
+            settings,
+            out _));
+        Assert.False(StashUtilityRules.TryEvaluate(
+            Waystone(stats: new Poe2Live.StashItemStats(30, 100, 100, 19, 400, 0, true)),
+            settings,
+            out _));
+    }
+
+    [Fact]
+    public void Waystone_GreatAndBadJuicesFilterAndClassifyIndependently()
+    {
+        var settings = new StashUtilitySettings
+        {
+            GreatWaystoneMods = ["MapMonsterDamageAsCold"],
+            BadWaystoneMods = ["MapPlayerMaximumResists"],
+        };
+
+        Assert.False(StashUtilityRules.TryEvaluate(
+            Waystone(mods:
+            [
+                new Poe2Live.StashItemMod("MapMonsterAdditionalProjectiles", 2, float.NaN, true),
+            ]),
+            settings,
+            out _));
+        Assert.True(StashUtilityRules.TryEvaluate(
+            Waystone(mods:
+            [
+                new Poe2Live.StashItemMod("MapMonsterDamageAsCold", 14, float.NaN, true),
+            ]),
+            settings,
+            out var great));
+        Assert.True(great.Great);
+        Assert.False(great.Bad);
+        Assert.True(StashUtilityRules.TryEvaluate(
+            Waystone(mods:
+            [
+                new Poe2Live.StashItemMod("MapPlayerMaximumResists", 10, float.NaN, true),
+            ]),
+            settings,
+            out var bad));
+        Assert.True(bad.Bad);
+        Assert.False(bad.Great);
+    }
+
+    [Fact]
     public void Tablet_MinimumRollControlsGoodClassification()
     {
         var settings = new StashUtilitySettings
@@ -90,6 +206,94 @@ public sealed class StashUtilityRulesTests
         Assert.False(result.Bad);
     }
 
+    [Fact]
+    public void Tablet_SelectedRequiredJuicesExcludeUnrelatedJuice()
+    {
+        var settings = new StashUtilitySettings
+        {
+            GoodTabletMods =
+            [
+                "TowerDroppedItemRarityIncrease",
+                "TowerMonsterEffectiveness",
+            ],
+        };
+
+        Assert.False(StashUtilityRules.TryEvaluate(
+            Tablet(new Poe2Live.StashItemMod("TowerPackSizeIncrease", 15, float.NaN, true)),
+            settings,
+            out _));
+        Assert.True(StashUtilityRules.TryEvaluate(
+            Tablet(new Poe2Live.StashItemMod("TowerDroppedItemRarityIncrease", 12, float.NaN, true)),
+            settings,
+            out _));
+        Assert.True(StashUtilityRules.TryEvaluate(
+            Tablet(new Poe2Live.StashItemMod("TowerMonsterEffectiveness", 15, float.NaN, true)),
+            settings,
+            out _));
+    }
+
+    [Fact]
+    public void Tablet_BadPriorityIsNotClearedByMatchingGreatJuice()
+    {
+        var settings = new StashUtilitySettings
+        {
+            GodTabletMods = ["TowerDroppedItemRarityIncrease"],
+            BadTabletMods = ["TowerMonsterEffectiveness"],
+            RedTakesPriority = true,
+        };
+
+        Assert.True(StashUtilityRules.TryEvaluate(
+            Tablet(
+                new Poe2Live.StashItemMod("TowerDroppedItemRarityIncrease", 12, float.NaN, true),
+                new Poe2Live.StashItemMod("TowerMonsterEffectiveness", 15, float.NaN, true)),
+            settings,
+            out var result));
+        Assert.True(result.Great);
+        Assert.True(result.Bad);
+    }
+
+    [Fact]
+    public void Tablet_GreatJuiceCanOverrideBadWhenBadPriorityIsDisabled()
+    {
+        var settings = new StashUtilitySettings
+        {
+            GodTabletMods = ["TowerDroppedItemRarityIncrease"],
+            BadTabletMods = ["TowerMonsterEffectiveness"],
+            RedTakesPriority = false,
+            HideBadTablets = true,
+        };
+
+        Assert.True(StashUtilityRules.TryEvaluate(
+            Tablet(
+                new Poe2Live.StashItemMod("TowerDroppedItemRarityIncrease", 12, float.NaN, true),
+                new Poe2Live.StashItemMod("TowerMonsterEffectiveness", 15, float.NaN, true)),
+            settings,
+            out var result));
+        Assert.True(result.Great);
+        Assert.False(result.Bad);
+    }
+
+    [Fact]
+    public void Tablet_GreatClassificationUsesOnlySelectedGreatJuices()
+    {
+        var settings = new StashUtilitySettings
+        {
+            GoodTabletMods =
+            [
+                "TowerDroppedItemRarityIncrease",
+                "TowerMonsterEffectiveness",
+            ],
+        };
+
+        Assert.True(StashUtilityRules.TryEvaluate(
+            Tablet(
+                new Poe2Live.StashItemMod("TowerDroppedItemRarityIncrease", 12, float.NaN, true),
+                new Poe2Live.StashItemMod("TowerMonsterEffectiveness", 15, float.NaN, true)),
+            settings,
+            out var result));
+        Assert.False(result.Great);
+    }
+
     [Theory]
     [InlineData(0, 1, 0, true)]
     [InlineData(0, 1, 3, true)]
@@ -121,6 +325,7 @@ public sealed class StashUtilityRulesTests
     {
         var settings = new RadarSettings();
         settings.StashUtility.BadWaystoneMods.Add("MapPlayerMaximumResists");
+        settings.StashUtility.GreatWaystoneMods.Add("MapMonsterDamageAsCold");
         settings.StashUtility.GodTabletMods.Add("TowerRitualAdditionalReroll");
         settings.StashUtility.TabletMinimumRolls["TowerRitualAdditionalReroll"] = 2f;
 
@@ -128,6 +333,7 @@ public sealed class StashUtilityRulesTests
 
         Assert.NotNull(restored);
         Assert.Contains("MapPlayerMaximumResists", restored.StashUtility.BadWaystoneMods);
+        Assert.Contains("MapMonsterDamageAsCold", restored.StashUtility.GreatWaystoneMods);
         Assert.Contains("TowerRitualAdditionalReroll", restored.StashUtility.GodTabletMods);
         Assert.Equal(2f, restored.StashUtility.TabletMinimumRolls["TowerRitualAdditionalReroll"]);
     }
@@ -212,8 +418,8 @@ public sealed class StashUtilityRulesTests
             mods ?? [],
             stats ?? new Poe2Live.StashItemStats(0, 0, 0, 0, 0, 0, false));
 
-    private static Poe2Live.StashValueSlot Tablet(Poe2Live.StashItemMod mod)
-        => Slot("Metadata/Items/Tablet/TowerAugment", "Precursor Tablet", [mod], default);
+    private static Poe2Live.StashValueSlot Tablet(params Poe2Live.StashItemMod[] mods)
+        => Slot("Metadata/Items/Tablet/TowerAugment", "Precursor Tablet", mods, default);
 
     private static Poe2Live.StashValueSlot Slot(
         string path,

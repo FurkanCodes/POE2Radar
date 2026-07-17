@@ -778,15 +778,19 @@ public sealed class StashUtilitySettings
     public int GreatExplicitMods { get; set; } = 5;
 
     public bool RequireAllGoodWaystoneMods { get; set; }
+    public bool RequireAllGreatWaystoneMods { get; set; }
     public bool BadOnlyWhenNumericalFiltersPass { get; set; }
     public bool RedTakesPriority { get; set; } = true;
+    // "Good" is retained in serialized property names for compatibility; the UI presents it as Required.
     public List<string> GoodWaystoneMods { get; set; } = new();
+    public List<string> GreatWaystoneMods { get; set; } = new();
     public List<string> BadWaystoneMods { get; set; } = new();
 
-    public int MinTabletGoodMods { get; set; } = 1;
-    public int GreatTabletGoodMods { get; set; } = 2;
-    public int GoodTabletModsToIgnoreBad { get; set; } = 3;
+    public bool RequireAllGoodTabletMods { get; set; }
+    public bool RequireAllGreatTabletMods { get; set; }
+    public bool BadTabletOnlyWhenOtherRulesPass { get; set; }
     public bool HideBadTablets { get; set; }
+    // "Good"/"God" are retained in serialized property names for compatibility; the UI uses Required/GREAT.
     public List<string> GoodTabletMods { get; set; } = new();
     public List<string> BadTabletMods { get; set; } = new();
     public List<string> GodTabletMods { get; set; } = new();

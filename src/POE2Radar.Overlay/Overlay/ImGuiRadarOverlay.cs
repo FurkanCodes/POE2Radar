@@ -3676,6 +3676,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     {
         var s = settings.StashUtility;
         s.GoodWaystoneMods ??= new();
+        s.GreatWaystoneMods ??= new();
         s.BadWaystoneMods ??= new();
         s.GoodTabletMods ??= new();
         s.BadTabletMods ??= new();
@@ -3734,13 +3735,16 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         ImGuiTheme.EndAccordionSection(waystoneFilters);
 
         var waystoneMods = ImGuiTheme.BeginAccordionSection("StashUtilityWaystoneMods", "Waystone Mod Rules",
-            "Mark dangerous mods red and preferred mods cyan.");
+            "Choose exactly which modifier juices are Required, GREAT, or BAD.");
         if (waystoneMods)
         {
             var all = s.RequireAllGoodWaystoneMods;
-            if (ImGui.Checkbox("Require all selected good mods", ref all)) s.RequireAllGoodWaystoneMods = all;
+            if (ImGui.Checkbox("Require all selected Required mods", ref all)) s.RequireAllGoodWaystoneMods = all;
+            var allGreat = s.RequireAllGreatWaystoneMods;
+            if (ImGui.Checkbox("Require all selected GREAT mods for GREAT", ref allGreat)) s.RequireAllGreatWaystoneMods = allGreat;
             var gatedBad = s.BadOnlyWhenNumericalFiltersPass;
             if (ImGui.Checkbox("Only show bad mods on otherwise qualifying Waystones", ref gatedBad)) s.BadOnlyWhenNumericalFiltersPass = gatedBad;
+            ImGui.TextDisabled("When modifier rules are selected, unrelated Waystones are filtered out.");
             DrawStashUtilitySearch();
             ImGui.BeginChild("StashUtilityWaystoneModList", new NumVec2(0, 330));
             foreach (var def in StashUtilityCatalog.WaystoneMods.Where(MatchesStashUtilitySearch))
@@ -3750,22 +3754,24 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         ImGuiTheme.EndAccordionSection(waystoneMods);
 
         var tabletMods = ImGuiTheme.BeginAccordionSection("StashUtilityTabletMods", "Tablet Mod Rules",
-            "Separate editors for each in-game Tablet base type.");
+            "Filter Tablet juice independently as Required, GREAT, or BAD.");
         if (tabletMods)
         {
-            var minGood = Math.Clamp(s.MinTabletGoodMods, 1, 8);
-            ImGui.SetNextItemWidth(UiW(8f));
-            if (ImGui.SliderInt("Good mods required", ref minGood, 1, 8)) s.MinTabletGoodMods = minGood;
-            var greatGood = Math.Clamp(s.GreatTabletGoodMods, 1, 8);
-            ImGui.SetNextItemWidth(UiW(8f));
-            if (ImGui.SliderInt("Good mods for GREAT", ref greatGood, 1, 8)) s.GreatTabletGoodMods = greatGood;
-            var ignoreBad = Math.Clamp(s.GoodTabletModsToIgnoreBad, 1, 8);
-            ImGui.SetNextItemWidth(UiW(8f));
-            if (ImGui.SliderInt("Good mods that override bad", ref ignoreBad, 1, 8)) s.GoodTabletModsToIgnoreBad = ignoreBad;
+            var allRequired = s.RequireAllGoodTabletMods;
+            if (ImGui.Checkbox("Require all selected Required mods##Tablet", ref allRequired))
+                s.RequireAllGoodTabletMods = allRequired;
+            var allGreat = s.RequireAllGreatTabletMods;
+            if (ImGui.Checkbox("Require all selected GREAT mods for GREAT##Tablet", ref allGreat))
+                s.RequireAllGreatTabletMods = allGreat;
+            var gatedBad = s.BadTabletOnlyWhenOtherRulesPass;
+            if (ImGui.Checkbox("Only show BAD Tablets when Required/GREAT rules pass", ref gatedBad))
+                s.BadTabletOnlyWhenOtherRulesPass = gatedBad;
             var hideBad = s.HideBadTablets;
             if (ImGui.Checkbox("Do not highlight bad Tablets", ref hideBad)) s.HideBadTablets = hideBad;
 
             ImGui.Spacing();
+            ImGui.TextDisabled("Same rule model as Waystones. Minimum rolls remain per modifier.");
+            ImGui.TextDisabled("Required: cyan border  |  GREAT: arrow  |  BAD: red border");
             ImGui.TextDisabled("Choose the Tablet you are rolling. Universal selections are shared across Tablet tabs.");
             if (ImGui.BeginTabBar("StashUtilityTabletTypes", ImGuiTabBarFlags.FittingPolicyScroll))
             {
@@ -4041,7 +4047,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         var goodCount = groupMods.Count(definition => ContainsSetting(settings.GoodTabletMods, definition.Id));
         var badCount = groupMods.Count(definition => ContainsSetting(settings.BadTabletMods, definition.Id));
         var godCount = groupMods.Count(definition => ContainsSetting(settings.GodTabletMods, definition.Id));
-        ImGui.TextDisabled($"Selected in this tab: {goodCount} Good  |  {badCount} Bad  |  {godCount} GOD");
+        ImGui.TextDisabled($"Selected in this tab: {goodCount} Required  |  {godCount} GREAT  |  {badCount} BAD");
 
         DrawStashUtilitySearch();
 
@@ -4056,9 +4062,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         var checkWidth = ImGui.GetFontSize() * 3.5f;
         ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableSetupColumn("Modifier", ImGuiTableColumnFlags.WidthStretch);
-        ImGui.TableSetupColumn("Good", ImGuiTableColumnFlags.WidthFixed, checkWidth);
-        ImGui.TableSetupColumn("Bad", ImGuiTableColumnFlags.WidthFixed, checkWidth);
-        ImGui.TableSetupColumn("GOD", ImGuiTableColumnFlags.WidthFixed, checkWidth);
+        ImGui.TableSetupColumn("Required", ImGuiTableColumnFlags.WidthFixed, checkWidth * 1.5f);
+        ImGui.TableSetupColumn("GREAT", ImGuiTableColumnFlags.WidthFixed, checkWidth);
+        ImGui.TableSetupColumn("BAD", ImGuiTableColumnFlags.WidthFixed, checkWidth);
         ImGui.TableSetupColumn("Minimum roll", ImGuiTableColumnFlags.WidthFixed, UiW(8f));
         ImGui.TableHeadersRow();
 
@@ -4086,18 +4092,29 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     {
         ImGui.PushID(definition.Id);
         ImGui.TextUnformatted(definition.Name);
-        var good = ContainsSetting(settings.GoodWaystoneMods, definition.Id);
-        if (ImGui.Checkbox("Good", ref good))
+        var required = ContainsSetting(settings.GoodWaystoneMods, definition.Id);
+        if (ImGui.Checkbox("Required", ref required))
         {
-            SetSetting(settings.GoodWaystoneMods, definition.Id, good);
-            if (good) SetSetting(settings.BadWaystoneMods, definition.Id, false);
+            SetSetting(settings.GoodWaystoneMods, definition.Id, required);
+            if (required) SetSetting(settings.BadWaystoneMods, definition.Id, false);
+        }
+        ImGui.SameLine();
+        var great = ContainsSetting(settings.GreatWaystoneMods, definition.Id);
+        if (ImGui.Checkbox("GREAT", ref great))
+        {
+            SetSetting(settings.GreatWaystoneMods, definition.Id, great);
+            if (great) SetSetting(settings.BadWaystoneMods, definition.Id, false);
         }
         ImGui.SameLine();
         var bad = ContainsSetting(settings.BadWaystoneMods, definition.Id);
-        if (ImGui.Checkbox("Bad", ref bad))
+        if (ImGui.Checkbox("BAD", ref bad))
         {
             SetSetting(settings.BadWaystoneMods, definition.Id, bad);
-            if (bad) SetSetting(settings.GoodWaystoneMods, definition.Id, false);
+            if (bad)
+            {
+                SetSetting(settings.GoodWaystoneMods, definition.Id, false);
+                SetSetting(settings.GreatWaystoneMods, definition.Id, false);
+            }
         }
         ImGui.SameLine();
         ImGui.TextDisabled(definition.Id);
@@ -4113,19 +4130,35 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         if (ImGui.IsItemHovered()) ImGui.SetTooltip(definition.Id);
 
         ImGui.TableSetColumnIndex(1);
-        var good = ContainsSetting(settings.GoodTabletMods, definition.Id);
-        if (ImGui.Checkbox("##good", ref good)) SetSetting(settings.GoodTabletMods, definition.Id, good);
+        var required = ContainsSetting(settings.GoodTabletMods, definition.Id);
+        if (ImGui.Checkbox("##required", ref required))
+        {
+            SetSetting(settings.GoodTabletMods, definition.Id, required);
+            if (required) SetSetting(settings.BadTabletMods, definition.Id, false);
+        }
 
         ImGui.TableSetColumnIndex(2);
-        var bad = ContainsSetting(settings.BadTabletMods, definition.Id);
-        if (ImGui.Checkbox("##bad", ref bad)) SetSetting(settings.BadTabletMods, definition.Id, bad);
+        var great = ContainsSetting(settings.GodTabletMods, definition.Id);
+        if (ImGui.Checkbox("##great", ref great))
+        {
+            SetSetting(settings.GodTabletMods, definition.Id, great);
+            if (great) SetSetting(settings.BadTabletMods, definition.Id, false);
+        }
 
         ImGui.TableSetColumnIndex(3);
-        var god = ContainsSetting(settings.GodTabletMods, definition.Id);
-        if (ImGui.Checkbox("##god", ref god)) SetSetting(settings.GodTabletMods, definition.Id, god);
+        var bad = ContainsSetting(settings.BadTabletMods, definition.Id);
+        if (ImGui.Checkbox("##bad", ref bad))
+        {
+            SetSetting(settings.BadTabletMods, definition.Id, bad);
+            if (bad)
+            {
+                SetSetting(settings.GoodTabletMods, definition.Id, false);
+                SetSetting(settings.GodTabletMods, definition.Id, false);
+            }
+        }
 
         ImGui.TableSetColumnIndex(4);
-        if ((good || god) && definition.MaxRoll > definition.MinRoll)
+        if ((required || great) && definition.MaxRoll > definition.MinRoll)
         {
             var minimum = settings.TabletMinimumRolls.TryGetValue(definition.Id, out var configured)
                 ? configured
@@ -4136,7 +4169,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         }
         else
         {
-            ImGui.TextDisabled(definition.MaxRoll > definition.MinRoll ? "Enable Good/GOD" : "Fixed");
+            ImGui.TextDisabled(definition.MaxRoll > definition.MinRoll ? "Enable Required/GREAT" : "Fixed");
         }
         ImGui.PopID();
     }
