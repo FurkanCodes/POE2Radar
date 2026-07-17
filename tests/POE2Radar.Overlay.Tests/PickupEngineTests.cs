@@ -9,6 +9,18 @@ public sealed class PickupEngineTests
     private static readonly PickupTarget Target = new(7, (nint)0x1234, "Exalted Orb", 12f, 10f, 20f, 80f, 24f);
 
     [Fact]
+    public void ActivationBindingAlsoUsedForShowHidden_DoesNotCancelPickup()
+    {
+        var settings = Settings(mode: PickupMode.NearbyHold);
+        settings.ActivationHotkey = 0x12;
+        settings.ShowHiddenItemsHotkey = 0x12;
+
+        var paused = RadarApp.ShouldPausePickupForShowHidden(settings, showHiddenDown: true);
+
+        Assert.False(paused);
+    }
+
+    [Fact]
     public void NearbyModeRequiresAcknowledgement()
     {
         var clicks = 0;
@@ -307,4 +319,7 @@ public sealed class PickupEngineTests
 
     private static IReadOnlySet<nint> Set(params nint[] addresses)
         => addresses.ToHashSet();
+
+    private static long MillisecondsToTicks(int milliseconds)
+        => System.Diagnostics.Stopwatch.Frequency * milliseconds / 1000;
 }

@@ -12,6 +12,7 @@ using POE2Radar.Overlay.Diagnostics;
 using POE2Radar.Overlay.Input;
 using POE2Radar.Overlay.Native;
 using POE2Radar.Overlay.Navigation;
+using POE2Radar.Overlay.Pickup;
 using POE2Radar.Overlay.Pricing;
 using POE2Radar.Overlay.Settings;
 using POE2Radar.Overlay.StashUtility;
@@ -82,6 +83,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private bool _hotkeyBindArmed;
     private string _activeSettingsTab = "";
     private bool _settingsPanelWasOpen;
+    private int _lootDetailsPage = -1;
     private int _drawEnabled;
     private int _appliedDrawEnabled = -1;
     private readonly SettingsAutoSaveDebouncer _settingsAutoSave = new();
@@ -231,6 +233,19 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     public void ToggleSettings() => _settingsOpen = !_settingsOpen;
 
     public bool IsSettingsOpen => _settingsOpen;
+
+    /// <summary>
+    /// Controller-safe loot details action: open, advance through every page, then close.
+    /// The same action is used by the on-overlay mouse button and a configurable keyboard/gamepad bind.
+    /// </summary>
+    public void CycleLootDetails()
+    {
+        var rowCount = _ctx?.LootTracker.BreakdownItems?.Length ?? 0;
+        var pageCount = Math.Max(1, (rowCount + LootDetailsPageSize - 1) / LootDetailsPageSize);
+        var current = Volatile.Read(ref _lootDetailsPage);
+        var next = current < 0 ? 0 : current + 1 < pageCount ? current + 1 : -1;
+        Interlocked.Exchange(ref _lootDetailsPage, next);
+    }
 
     private NumVec2 SmoothScreenPoint(string key, NumVec2 target, int smoothingMs, bool enabled)
     {
@@ -1406,6 +1421,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
         if (lt.OnMap)
             DrawLootTrackerMapBar(ctx, lt);
+
+        if (Volatile.Read(ref _lootDetailsPage) >= 0 && !string.IsNullOrWhiteSpace(lt.BreakdownTitle))
+            DrawLootTrackerBreakdown(ctx, lt);
     }
 
     private void DrawLootTrackerMapBar(RenderContext ctx, LootTrackerView lt)
@@ -1436,7 +1454,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         ImGui.TextColored(lt.ActiveProfitEx >= 0 ? new Vector4(0.5f, 0.9f, 0.5f, 1f) : new Vector4(0.9f, 0.5f, 0.5f, 1f),
             lt.ActiveProfitText);
         ImGui.SameLine(0f, pad);
-        DrawLootIcon(_settings.LootTracker.ShowPricesInDivineOnly ? "Divine" : "Exalt");
+        DrawLootCurrencyIcon(lt.ActiveProfitEx);
 
         ImGui.SameLine(0f, gap);
         ImGui.TextColored(new Vector4(1.0f, 0.84f, 0.25f, 1f), $"Gold {lt.ActiveGoldText}");
@@ -1454,6 +1472,93 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             ImGui.SameLine(0f, gap);
             DrawLootKillStat("UniqueMob", lt.UniqueKills);
         }
+
+        ImGui.SameLine(0f, gap);
+        var detailsOpen = Volatile.Read(ref _lootDetailsPage) >= 0;
+        var detailsLabel = detailsOpen
+            ? $"Loot ({lt.BreakdownItemCount:N0}) ▲"
+            : $"Loot ({lt.BreakdownItemCount:N0}) ▼";
+        if (ImGui.SmallButton($"{detailsLabel}##loot_details"))
+            CycleLootDetails();
+
+        ImGui.End();
+    }
+
+    private const int LootDetailsPageSize = 12;
+
+    private void DrawLootTrackerBreakdown(RenderContext ctx, LootTrackerView lt)
+    {
+        var s = _settings.LootTracker;
+        var rows = lt.BreakdownItems ?? [];
+        var pageCount = Math.Max(1, (rows.Length + LootDetailsPageSize - 1) / LootDetailsPageSize);
+        var page = Math.Clamp(Volatile.Read(ref _lootDetailsPage), 0, pageCount - 1);
+        if (page != Volatile.Read(ref _lootDetailsPage))
+            Interlocked.Exchange(ref _lootDetailsPage, page);
+
+        var x = s.BarOnRight ? ctx.WindowWidth - 8f : 8f;
+        var y = ctx.WindowHeight - Math.Clamp(s.BarBottomOffset, 0f, 200f) - 38f;
+        ImGui.SetNextWindowPos(new NumVec2(x, y), ImGuiCond.Always, new NumVec2(s.BarOnRight ? 1f : 0f, 1f));
+        ImGui.SetNextWindowBgAlpha(Math.Clamp(s.BarOpacity + 0.12f, 0f, 1f));
+        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoResize |
+            ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoSavedSettings |
+            ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoFocusOnAppearing;
+
+        if (!ImGui.Begin("Run Loot##loottracker_breakdown", flags)) { ImGui.End(); return; }
+        var scale = LootTrackerUiScale(ctx);
+        ImGui.SetWindowFontScale(scale);
+
+        ImGui.TextUnformatted(lt.BreakdownTitle);
+        ImGui.SameLine(0f, 12f);
+        ImGui.TextColored(new Vector4(0.5f, 0.9f, 0.5f, 1f), lt.BreakdownValueText);
+        if (lt.BreakdownGold > 0)
+        {
+            ImGui.SameLine(0f, 12f);
+            ImGui.TextColored(new Vector4(1.0f, 0.84f, 0.25f, 1f), $"Gold {lt.BreakdownGold:N0}");
+        }
+
+        ImGui.Separator();
+        if (rows.Length == 0)
+        {
+            ImGui.TextDisabled("Nothing has entered the inventory during this run yet.");
+        }
+        else if (ImGui.BeginTable("loottracker_breakdown_rows", 4,
+                     ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerH | ImGuiTableFlags.SizingFixedFit))
+        {
+            ImGui.TableSetupColumn("Item", ImGuiTableColumnFlags.WidthFixed, 250f * scale);
+            ImGui.TableSetupColumn("Qty", ImGuiTableColumnFlags.WidthFixed, 58f * scale);
+            ImGui.TableSetupColumn("Each", ImGuiTableColumnFlags.WidthFixed, 92f * scale);
+            ImGui.TableSetupColumn("Total", ImGuiTableColumnFlags.WidthFixed, 105f * scale);
+            ImGui.TableHeadersRow();
+
+            var first = page * LootDetailsPageSize;
+            var last = Math.Min(rows.Length, first + LootDetailsPageSize);
+            for (var i = first; i < last; i++)
+            {
+                var row = rows[i];
+                ImGui.TableNextRow();
+                ImGui.TableSetColumnIndex(0);
+                ImGui.TextUnformatted(row.Label);
+                ImGui.TableSetColumnIndex(1);
+                ImGui.TextUnformatted(row.Count.ToString("N0"));
+                ImGui.TableSetColumnIndex(2);
+                ImGui.TextDisabled(row.UnitValueText);
+                ImGui.TableSetColumnIndex(3);
+                if (row.Priced)
+                    ImGui.TextColored(new Vector4(0.5f, 0.9f, 0.5f, 1f), row.TotalValueText);
+                else
+                    ImGui.TextDisabled(row.TotalValueText);
+            }
+            ImGui.EndTable();
+        }
+
+        var binding = HotkeyCodes.DisplayName(s.DetailsHotkey);
+        if (pageCount > 1)
+            ImGui.TextDisabled($"Page {page + 1}/{pageCount} · {binding}: next page / close");
+        else
+            ImGui.TextDisabled($"{binding}: close");
+        ImGui.SameLine();
+        if (ImGui.SmallButton(page + 1 < pageCount ? "Next" : "Close"))
+            CycleLootDetails();
 
         ImGui.End();
     }
@@ -1482,7 +1587,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         ImGui.TextUnformatted($"Maps: {lt.CompletedMaps}");
         if (DrawLootIcon("Time")) ImGui.SameLine(0f, 5f);
         ImGui.TextUnformatted($"AVG Time: {lt.AverageTimeText}");
-        if (DrawLootIcon(_settings.LootTracker.ShowPricesInDivineOnly ? "Divine" : "Exalt")) ImGui.SameLine(0f, 5f);
+        if (DrawLootCurrencyIcon(lt.ActiveProfitEx)) ImGui.SameLine(0f, 5f);
         ImGui.TextUnformatted($"AVG Profit: {lt.AverageProfitText}");
         ImGui.EndGroup();
 
@@ -1490,9 +1595,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         ImGui.BeginGroup();
         ImGui.TextColored(new Vector4(0.5f, 0.9f, 0.5f, 1f), "Total");
         ImGui.SameLine(0f, 5f);
-        if (DrawLootIcon(_settings.LootTracker.ShowPricesInDivineOnly ? "Divine" : "Exalt")) ImGui.SameLine(0f, 4f);
+        if (DrawLootCurrencyIcon(lt.ActiveProfitEx)) ImGui.SameLine(0f, 4f);
         ImGui.TextColored(new Vector4(0.5f, 0.9f, 0.5f, 1f), lt.TotalProfitText);
-        if (DrawLootIcon(_settings.LootTracker.ShowPricesInDivineOnly ? "Divine" : "Exalt")) ImGui.SameLine(0f, 4f);
+        if (DrawLootCurrencyIcon(lt.ActiveProfitEx)) ImGui.SameLine(0f, 4f);
         ImGui.TextUnformatted($"{lt.ProfitPerHourText} / hour");
         if (DrawLootIcon("Time")) ImGui.SameLine(0f, 5f);
         ImGui.TextUnformatted($"Session: {lt.SessionTimeText}");
@@ -1541,7 +1646,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         foreach (var toast in lt.Toasts)
         {
             var a = Math.Clamp(toast.Alpha, 0f, 1f);
-            DrawLootIcon(_settings.LootTracker.ShowPricesInDivineOnly ? "Divine" : "Exalt");
+            DrawLootCurrencyIcon();
             ImGui.SameLine(0f, 5f);
             ImGui.TextColored(new Vector4(0.92f, 0.92f, 0.92f, a),
                 toast.Count > 1 ? $"{toast.Label} x{toast.Count}" : toast.Label);
@@ -1567,6 +1672,35 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         var w = h * tex.Width / (float)tex.Height;
         ImGui.Image(tex.Id, new NumVec2(w, h));
         return true;
+    }
+
+    private bool DrawLootCurrencyIcon(double ex = 1)
+    {
+        var selected = Math.Clamp(
+            _settings.LootTracker.DisplayCurrency,
+            LootTrackerSettings.CurrencyAuto,
+            LootTrackerSettings.CurrencyChaos);
+        if (_settings.LootTracker.ShowPricesInDivineOnly &&
+            selected == LootTrackerSettings.CurrencyExalted)
+        {
+            selected = LootTrackerSettings.CurrencyDivine;
+        }
+        else if (selected == LootTrackerSettings.CurrencyAuto)
+        {
+            var divRate = PoeNinjaPriceFetcher.DivineToExaltedRate;
+            selected = divRate > 0 && ex >= divRate
+                ? LootTrackerSettings.CurrencyDivine
+                : ex < 1 && PoeNinjaPriceFetcher.GetChaosPerExalted() > 0
+                    ? LootTrackerSettings.CurrencyChaos
+                    : LootTrackerSettings.CurrencyExalted;
+        }
+
+        return selected switch
+        {
+            LootTrackerSettings.CurrencyDivine => DrawLootIcon("Divine"),
+            LootTrackerSettings.CurrencyExalted => DrawLootIcon("Exalt"),
+            _ => false,
+        };
     }
 
     private float LootTrackerUiScale(RenderContext ctx)
@@ -3370,7 +3504,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private void DrawFlaskTab(RadarSettings s)
     {
         bool lifeOpen = ImGuiTheme.BeginAccordionSection("LifeFlask", "Life flask",
-            "Opt-in keyboard flask automation when PoE2 is focused.");
+            "Opt-in flask automation when PoE2 is focused.");
         if (lifeOpen)
         {
             int mode = s.LifeFlaskMode switch { "EnergyShield" => 1, "Either" => 2, _ => 0 };
@@ -3867,6 +4001,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                 : "Controller: ready when connected");
         }
         ImGuiTheme.EndAccordionSection(controls);
+
     }
 
     private static (bool Enabled, int Value) DrawStashUtilityFilter(string label, bool enabled, int value, int min, int max)
@@ -4066,8 +4201,25 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             var kills = lt.ShowKills;
             if (ImGui.Checkbox("Show kill counts", ref kills)) lt.ShowKills = kills;
 
-            var divine = lt.ShowPricesInDivineOnly;
-            if (ImGui.Checkbox("Show prices in Divine only", ref divine)) lt.ShowPricesInDivineOnly = divine;
+            var currency = Math.Clamp(lt.DisplayCurrency, LootTrackerSettings.CurrencyAuto, LootTrackerSettings.CurrencyChaos);
+            if (lt.ShowPricesInDivineOnly && currency == LootTrackerSettings.CurrencyExalted)
+                currency = LootTrackerSettings.CurrencyDivine;
+            var currencyNames = new[] { "Auto", "Divine", "Exalted", "Chaos" };
+            ImGui.SetNextItemWidth(UiW(9f));
+            if (ImGui.BeginCombo("Display currency", currencyNames[currency]))
+            {
+                for (var i = 0; i < currencyNames.Length; i++)
+                {
+                    if (!ImGui.Selectable(currencyNames[i], currency == i)) continue;
+                    lt.DisplayCurrency = i;
+                    lt.ShowPricesInDivineOnly = false;
+                    currency = i;
+                }
+                ImGui.EndCombo();
+            }
+
+            DrawHotkeyRow(s, "lootDetailsHotkey", "Loot details / next page",
+                SettingHints.Hotkeys.LootDetails);
 
             var history = lt.HistorySize;
             ImGui.SetNextItemWidth(UiW(8f));
@@ -5171,6 +5323,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             DrawHotkeyRow(s, "clearPathsHotkey", "Clear paths", SettingHints.Hotkeys.ClearPaths);
             DrawHotkeyRow(s, "autoFlaskToggleHotkey", "Auto-flask toggle", SettingHints.Hotkeys.AutoFlaskToggle);
             DrawHotkeyRow(s, "atlasPickHotkey", "Atlas tile pick", SettingHints.Hotkeys.AtlasPick);
+            DrawHotkeyRow(s, "lootDetailsHotkey", "Loot details / next page", SettingHints.Hotkeys.LootDetails);
             DrawHotkeyRow(s, "toggleSettingsHotkey", "Overlay settings", SettingHints.Hotkeys.ToggleSettings);
             DrawHotkeyRow(s, "openDashboardHotkey", "Open dashboard", SettingHints.Hotkeys.OpenDashboard);
             DrawHotkeyRow(s, "quitHotkey", "Quit overlay", SettingHints.Hotkeys.Quit);
@@ -5226,6 +5379,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         "pickupActivationHotkey" => s.PickupHelper.ActivationHotkey,
         "pickupEmergencyStopHotkey" => s.PickupHelper.EmergencyStopHotkey,
         "pickupShowHiddenHotkey" => s.PickupHelper.ShowHiddenItemsHotkey,
+        "lootDetailsHotkey" => s.LootTracker.DetailsHotkey,
         _ => 0,
     };
 
@@ -5249,6 +5403,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             case "pickupActivationHotkey": s.PickupHelper.ActivationHotkey = value; break;
             case "pickupEmergencyStopHotkey": s.PickupHelper.EmergencyStopHotkey = value; break;
             case "pickupShowHiddenHotkey": s.PickupHelper.ShowHiddenItemsHotkey = value; break;
+            case "lootDetailsHotkey": s.LootTracker.DetailsHotkey = value; break;
         }
     }
 

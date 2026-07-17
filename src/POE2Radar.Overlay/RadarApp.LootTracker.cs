@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using POE2Radar.Core.Game;
+using POE2Radar.Overlay.Config;
 using POE2Radar.Overlay.Pricing;
 
 namespace POE2Radar.Overlay;
@@ -51,7 +52,23 @@ public sealed partial class RadarApp
         public long GoldGained { get; set; }
         public Dictionary<string, long> Gained { get; set; } = new(StringComparer.Ordinal);
         public int[] Kills { get; set; } = new int[4];
+        public int LedgerRevision { get; set; }
+        public int ValuedRevision { get; set; } = -1;
+        public DateTime ValuedUtc { get; set; } = DateTime.MinValue;
+        public double CachedValueEx { get; set; }
+        public LootValuedItem[] CachedItems { get; set; } = [];
+        public int CachedRowsRevision { get; set; } = -1;
+        public int CachedRowsCurrencyKey { get; set; } = -1;
+        public long CachedRowsGold { get; set; } = -1;
+        public LootTrackerItemRow[] CachedRows { get; set; } = [];
     }
+
+    private readonly record struct LootValuedItem(
+        string Label,
+        long Count,
+        double UnitEx,
+        double TotalEx,
+        bool Priced);
 
     private sealed class LootMonsterTally
     {
@@ -89,7 +106,8 @@ public sealed partial class RadarApp
         if (!onMap)
         {
             PauseLootTracker();
-            _lootTrackerView = LootTrackerView.Empty;
+            UpdateLootToasts(now);
+            _lootTrackerView = BuildLootTrackerView(now);
             return;
         }
 
@@ -218,7 +236,11 @@ public sealed partial class RadarApp
         if (_settings.LootTracker.ShowPickupToasts && _lootPrevSnapshot != null)
             DetectLootPickups(snap, _lootPrevSnapshot);
 
-        _lootCurrent.Gained = DiffLootSnapshots(snap, _lootBaseline);
+        if (_lootPrevSnapshot != null &&
+            AccumulatePositiveLootDeltas(_lootCurrent.Gained, snap, _lootPrevSnapshot))
+        {
+            _lootCurrent.LedgerRevision++;
+        }
         _lootPrevSnapshot = snap;
     }
 
@@ -356,10 +378,11 @@ public sealed partial class RadarApp
     private LootTrackerView BuildLootTrackerView(DateTime now)
     {
         var settings = _settings.LootTracker;
-        var currentGained = _lootCurrent?.Gained ?? new Dictionary<string, long>(StringComparer.Ordinal);
-        var activeEx = ValueOfLoot(currentGained);
-        var activeGold = GoldOfLoot(currentGained) + (_lootCurrent?.GoldGained ?? 0);
-        SessionTotals(out var totalTime, out var totalEx, out var totalGold);
+        var activeEx = _lootCurrent == null ? 0 : EnsureLootValuation(_lootCurrent, now);
+        var activeGold = _lootCurrent == null
+            ? 0
+            : GoldOfLoot(_lootCurrent.Gained) + _lootCurrent.GoldGained;
+        SessionTotals(now, out var totalTime, out var totalEx, out var totalGold);
         var maps = _lootCompleted.Count;
         var perHour = totalTime.TotalHours > 0 ? totalEx / totalTime.TotalHours : 0;
         var avgTime = maps > 0 ? TimeSpan.FromTicks(totalTime.Ticks / maps) : TimeSpan.Zero;
@@ -371,10 +394,20 @@ public sealed partial class RadarApp
             .Take(Math.Clamp(settings.HistorySize, 1, 50))
             .Select(r =>
             {
-                var profit = ValueOfLoot(r.Gained);
+                var profit = EnsureLootValuation(r, now);
                 return new LootTrackerRunRow(r.Name, FormatLootDuration(r.ActiveTime), FormatLootValue(profit), profit);
             })
             .ToArray();
+
+        var breakdownRun = _lootCurrent ?? _lootCompleted.LastOrDefault();
+        var breakdownItems = breakdownRun == null
+            ? []
+            : BuildLootBreakdownRows(breakdownRun, now);
+        var breakdownEx = breakdownRun == null ? 0 : EnsureLootValuation(breakdownRun, now);
+        var breakdownGold = breakdownRun == null
+            ? 0
+            : GoldOfLoot(breakdownRun.Gained) + breakdownRun.GoldGained;
+        var breakdownItemCount = breakdownRun?.CachedItems.Sum(i => i.Count) ?? 0;
 
         var life = Math.Clamp(settings.NotifyDurationSec, 1f, 6f);
         var toasts = _lootActiveToasts
@@ -408,13 +441,22 @@ public sealed partial class RadarApp
             FormatLootValue(perHour),
             FormatLootDuration(now - _lootSessionStartUtc),
             recent,
+            breakdownRun == null
+                ? ""
+                : $"{(ReferenceEquals(breakdownRun, _lootCurrent) ? "Current run" : "Last run")} · {breakdownRun.Name}",
+            FormatLootValue(breakdownEx),
+            breakdownEx,
+            breakdownGold,
+            breakdownItemCount,
+            ReferenceEquals(breakdownRun, _lootCurrent),
+            breakdownItems,
             toasts,
             _lootPrevSnapshot?.Count ?? 0,
             _lootPrevSnapshot != null,
             EffectiveLootTrackerLeague(_liveFrame));
     }
 
-    private void SessionTotals(out TimeSpan activeTime, out double totalEx, out long totalGold)
+    private void SessionTotals(DateTime now, out TimeSpan activeTime, out double totalEx, out long totalGold)
     {
         activeTime = TimeSpan.Zero;
         totalEx = 0;
@@ -422,21 +464,80 @@ public sealed partial class RadarApp
         foreach (var run in _lootCompleted)
         {
             activeTime += run.ActiveTime;
-            totalEx += ValueOfLoot(run.Gained);
+            totalEx += EnsureLootValuation(run, now);
             totalGold += GoldOfLoot(run.Gained) + run.GoldGained;
         }
     }
 
-    private double ValueOfLoot(Dictionary<string, long> gained)
+    private double EnsureLootValuation(LootMapRun run, DateTime now)
     {
-        double ex = 0;
-        foreach (var kv in gained)
+        if (run.ValuedRevision == run.LedgerRevision &&
+            now - run.ValuedUtc < TimeSpan.FromSeconds(30))
         {
-            if (kv.Value == 0) continue;
-            if (TryPriceLootItem(kv.Key, out var unit, out _))
-                ex += unit * kv.Value;
+            return run.CachedValueEx;
         }
-        return ex;
+
+        var items = new List<LootValuedItem>(run.Gained.Count);
+        double totalEx = 0;
+        foreach (var kv in run.Gained)
+        {
+            if (kv.Value <= 0 || IsGoldLootKey(kv.Key)) continue;
+
+            var priced = TryPriceLootItem(kv.Key, out var unitEx, out var label) && unitEx > 0;
+            var itemTotal = priced ? unitEx * kv.Value : 0;
+            totalEx += itemTotal;
+            items.Add(new LootValuedItem(label, kv.Value, unitEx, itemTotal, priced));
+        }
+
+        run.CachedItems = items
+            .OrderByDescending(i => i.Priced)
+            .ThenByDescending(i => i.TotalEx)
+            .ThenBy(i => i.Label, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        run.CachedValueEx = totalEx;
+        run.ValuedRevision = run.LedgerRevision;
+        run.ValuedUtc = now;
+        run.CachedRowsRevision = -1;
+        return totalEx;
+    }
+
+    private LootTrackerItemRow[] BuildLootBreakdownRows(LootMapRun run, DateTime now)
+    {
+        EnsureLootValuation(run, now);
+        var gold = GoldOfLoot(run.Gained) + run.GoldGained;
+        var currencyKey = Math.Clamp(
+            _settings.LootTracker.DisplayCurrency,
+            LootTrackerSettings.CurrencyAuto,
+            LootTrackerSettings.CurrencyChaos);
+        if (_settings.LootTracker.ShowPricesInDivineOnly)
+            currencyKey |= 0x100;
+        if (run.CachedRowsRevision == run.ValuedRevision &&
+            run.CachedRowsCurrencyKey == currencyKey &&
+            run.CachedRowsGold == gold)
+        {
+            return run.CachedRows;
+        }
+
+        var rows = new List<LootTrackerItemRow>(run.CachedItems.Length + 1);
+        rows.AddRange(run.CachedItems.Select(i =>
+        {
+            var rowCurrency = EffectiveLootDisplayCurrency(i.TotalEx);
+            return new LootTrackerItemRow(
+                i.Label,
+                i.Count,
+                i.Priced ? FormatLootValue(i.UnitEx, modeOverride: rowCurrency) : "—",
+                i.Priced ? FormatLootValue(i.TotalEx, modeOverride: rowCurrency) : "Unpriced",
+                i.TotalEx,
+                i.Priced);
+        }));
+
+        if (gold > 0)
+            rows.Add(new LootTrackerItemRow("Gold", gold, "—", "Not market-priced", 0, false));
+        run.CachedRows = rows.ToArray();
+        run.CachedRowsRevision = run.ValuedRevision;
+        run.CachedRowsCurrencyKey = currencyKey;
+        run.CachedRowsGold = gold;
+        return run.CachedRows;
     }
 
     private long GoldOfLoot(Dictionary<string, long> gained)
@@ -577,13 +678,47 @@ public sealed partial class RadarApp
             _lootCompleted.RemoveAt(0);
     }
 
-    private string FormatLootValue(double ex, bool signed = false)
+    private string FormatLootValue(double ex, bool signed = false, int? modeOverride = null)
     {
-        var rate = PoeNinjaPriceFetcher.DivineToExaltedRate;
         var prefix = signed && ex > 0 ? "+" : "";
-        if (_settings.LootTracker.ShowPricesInDivineOnly && rate > 0)
-            return $"{prefix}{ex / rate:0.##} div";
+        var mode = modeOverride ?? EffectiveLootDisplayCurrency(ex);
+        if (mode == LootTrackerSettings.CurrencyDivine)
+        {
+            var rate = PoeNinjaPriceFetcher.DivineToExaltedRate;
+            if (rate > 0) return $"{prefix}{ex / rate:0.##} div";
+        }
+        else if (mode == LootTrackerSettings.CurrencyChaos)
+        {
+            var chaosPerEx = PoeNinjaPriceFetcher.GetChaosPerExalted();
+            if (chaosPerEx > 0) return $"{prefix}{ex * chaosPerEx:0.##} chaos";
+        }
+
         return Math.Abs(ex) >= 100 ? $"{prefix}{ex:0} ex" : $"{prefix}{ex:0.#} ex";
+    }
+
+    private int EffectiveLootDisplayCurrency(double ex)
+    {
+        var selected = Math.Clamp(
+            _settings.LootTracker.DisplayCurrency,
+            LootTrackerSettings.CurrencyAuto,
+            LootTrackerSettings.CurrencyChaos);
+
+        // Backward compatibility for configs written before DisplayCurrency existed.
+        if (_settings.LootTracker.ShowPricesInDivineOnly &&
+            selected == LootTrackerSettings.CurrencyExalted)
+        {
+            return LootTrackerSettings.CurrencyDivine;
+        }
+
+        if (selected != LootTrackerSettings.CurrencyAuto)
+            return selected;
+
+        var divRate = PoeNinjaPriceFetcher.DivineToExaltedRate;
+        if (divRate > 0 && ex >= divRate)
+            return LootTrackerSettings.CurrencyDivine;
+        if (ex < 1 && PoeNinjaPriceFetcher.GetChaosPerExalted() > 0)
+            return LootTrackerSettings.CurrencyChaos;
+        return LootTrackerSettings.CurrencyExalted;
     }
 
     private static string FormatGold(long gold, bool signed = false)
@@ -603,23 +738,22 @@ public sealed partial class RadarApp
         return digits.Length > 0 && long.TryParse(digits, out amount) && amount > 0;
     }
 
-    private static Dictionary<string, long> DiffLootSnapshots(Dictionary<string, long> now, Dictionary<string, long> baseline)
+    internal static bool AccumulatePositiveLootDeltas(
+        Dictionary<string, long> ledger,
+        IReadOnlyDictionary<string, long> now,
+        IReadOnlyDictionary<string, long> before)
     {
-        var result = new Dictionary<string, long>(StringComparer.Ordinal);
+        var changed = false;
         foreach (var kv in now)
         {
-            baseline.TryGetValue(kv.Key, out var old);
-            var d = kv.Value - old;
-            if (d != 0) result[kv.Key] = d;
+            before.TryGetValue(kv.Key, out var oldCount);
+            var gained = kv.Value - oldCount;
+            if (gained <= 0) continue;
+            ledger.TryGetValue(kv.Key, out var accumulated);
+            ledger[kv.Key] = accumulated + gained;
+            changed = true;
         }
-
-        foreach (var kv in baseline)
-        {
-            if (!now.ContainsKey(kv.Key))
-                result[kv.Key] = -kv.Value;
-        }
-
-        return result;
+        return changed;
     }
 
     private static void ParseLootKey(string key, out Poe2Live.Rarity rarity, out string metadata, out string renderArt)

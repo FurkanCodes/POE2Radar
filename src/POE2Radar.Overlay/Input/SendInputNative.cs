@@ -92,4 +92,5 @@ internal static class SendInputNative
         inputs[1].U.mi = new MOUSEINPUT { dwFlags = up };
         return SendInput(2, inputs, Marshal.SizeOf<INPUT>()) == 2;
     }
+
 }

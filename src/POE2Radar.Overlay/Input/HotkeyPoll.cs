@@ -33,7 +33,8 @@ public static class HotkeyPoll
         || HotkeyCodes.IsGamepad(s.WaystoneAlchemy.EmergencyStopHotkey)
         || HotkeyCodes.IsGamepad(s.PickupHelper.ActivationHotkey)
         || HotkeyCodes.IsGamepad(s.PickupHelper.EmergencyStopHotkey)
-        || HotkeyCodes.IsGamepad(s.PickupHelper.ShowHiddenItemsHotkey);
+        || HotkeyCodes.IsGamepad(s.PickupHelper.ShowHiddenItemsHotkey)
+        || HotkeyCodes.IsGamepad(s.LootTracker.DetailsHotkey);
 
     public static bool IsDown(int binding)
     {

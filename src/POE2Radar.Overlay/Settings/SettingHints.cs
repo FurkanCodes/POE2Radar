@@ -207,6 +207,7 @@ internal static class SettingHints
         public const string ClearPaths = "Clear all path targets.";
         public const string AutoFlaskToggle = "Master kill-switch for auto-flask.";
         public const string AtlasPick = "Pick atlas tile under cursor for routing.";
+        public const string LootDetails = "Open the run-loot breakdown, advance its pages, then close it. Supports keyboard or Xbox/XInput buttons.";
         public const string ToggleSettings = "Open or close this settings panel.";
         public const string OpenDashboard = "Open the web dashboard in your browser.";
         public const string Quit = "Exit POE2Radar.";

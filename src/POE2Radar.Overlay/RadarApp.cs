@@ -134,6 +134,7 @@ public sealed partial class RadarApp : IDisposable
     private DateTime _nextRenderToggleAt = DateTime.MinValue;
     private DateTime _nextBrowserAt = DateTime.MinValue;
     private DateTime _nextSettingsAt = DateTime.MinValue;
+    private bool _lootDetailsKeyWasDown;
     private bool _hideKeyWasDown;
     private bool _trackKeyWasDown;
     private bool _settingsWereOpen;
@@ -1332,12 +1333,16 @@ public sealed partial class RadarApp : IDisposable
         var now = DateTime.UtcNow;
         if (lifeTrigger && now - _lifeFiredAt >= TimeSpan.FromMilliseconds(_settings.LifeCooldownMs))
         {
-            SendInputNative.Tap((ushort)_settings.LifeKey); _lifeFiredAt = now; _flaskNote = lifeReason;
+            SendInputNative.Tap((ushort)_settings.LifeKey);
+            _lifeFiredAt = now;
+            _flaskNote = lifeReason;
         }
         if (v.ManaPct < _settings.ManaThresholdPct &&
             now - _manaFiredAt >= TimeSpan.FromMilliseconds(_settings.ManaCooldownMs))
         {
-            SendInputNative.Tap((ushort)_settings.ManaKey); _manaFiredAt = now; _flaskNote = $"mana@{v.ManaPct:F0}%";
+            SendInputNative.Tap((ushort)_settings.ManaKey);
+            _manaFiredAt = now;
+            _flaskNote = $"mana@{v.ManaPct:F0}%";
         }
     }
 
@@ -1363,6 +1368,13 @@ public sealed partial class RadarApp : IDisposable
 
         if (HotkeyPressed(_settings.ToggleRenderingHotkey, ref _nextRenderToggleAt))
             ToggleOverlayRendering();
+
+        var lootDetailsDown = _settings.LootTracker.DetailsHotkey > 0 &&
+            IsGameFocused() &&
+            HotkeyPoll.IsDown(_settings.LootTracker.DetailsHotkey);
+        if (lootDetailsDown && !_lootDetailsKeyWasDown)
+            _imguiOverlay?.CycleLootDetails();
+        _lootDetailsKeyWasDown = lootDetailsDown;
 
         if (DateTime.UtcNow >= _nextPathKeyAt)
         {

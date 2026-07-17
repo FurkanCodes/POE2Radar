@@ -21,4 +21,47 @@ public sealed class LootTrackerGoldTests
     [InlineData("Goldrim")]
     public void TryParseGoldLabel_RejectsNonGoldLoot(string text)
         => Assert.False(RadarApp.TryParseGoldLabel(text, out _));
+
+    [Fact]
+    public void AccumulatePositiveLootDeltas_KeepsItemsThatAreLaterConsumedOrStashed()
+    {
+        var ledger = new Dictionary<string, long>(StringComparer.Ordinal);
+        var baseline = new Dictionary<string, long>(StringComparer.Ordinal)
+        {
+            ["Alchemy"] = 10,
+            ["Waystone"] = 1,
+        };
+        var afterPickup = new Dictionary<string, long>(StringComparer.Ordinal)
+        {
+            ["Alchemy"] = 12,
+            ["Waystone"] = 2,
+        };
+        var afterUse = new Dictionary<string, long>(StringComparer.Ordinal)
+        {
+            ["Alchemy"] = 9,
+            ["Waystone"] = 1,
+        };
+
+        Assert.True(RadarApp.AccumulatePositiveLootDeltas(ledger, afterPickup, baseline));
+        Assert.False(RadarApp.AccumulatePositiveLootDeltas(ledger, afterUse, afterPickup));
+
+        Assert.Equal(2, ledger["Alchemy"]);
+        Assert.Equal(1, ledger["Waystone"]);
+    }
+
+    [Fact]
+    public void AccumulatePositiveLootDeltas_AddsRepeatedPickupsWithoutCountingLosses()
+    {
+        var ledger = new Dictionary<string, long>(StringComparer.Ordinal);
+        var first = new Dictionary<string, long>(StringComparer.Ordinal) { ["Exalted"] = 1 };
+        var second = new Dictionary<string, long>(StringComparer.Ordinal) { ["Exalted"] = 3 };
+        var spent = new Dictionary<string, long>(StringComparer.Ordinal) { ["Exalted"] = 2 };
+        var pickedAgain = new Dictionary<string, long>(StringComparer.Ordinal) { ["Exalted"] = 5 };
+
+        RadarApp.AccumulatePositiveLootDeltas(ledger, second, first);
+        RadarApp.AccumulatePositiveLootDeltas(ledger, spent, second);
+        RadarApp.AccumulatePositiveLootDeltas(ledger, pickedAgain, spent);
+
+        Assert.Equal(5, ledger["Exalted"]);
+    }
 }

@@ -1,4 +1,5 @@
 using POE2Radar.Core.Game;
+using POE2Radar.Overlay.Config;
 using POE2Radar.Overlay.Input;
 using POE2Radar.Overlay.Native;
 using POE2Radar.Overlay.Pickup;
@@ -23,6 +24,10 @@ public sealed partial class RadarApp
     {
         var settings = _settings.PickupHelper;
         var mode = (PickupMode)Math.Clamp(settings.Mode, 0, 3);
+        var controllerTriggered = HotkeyCodes.IsGamepad(settings.ActivationHotkey);
+        var activationControllerConnected =
+            !controllerTriggered ||
+            GamepadInput.IsConnected(_settings.GamepadUserIndex);
         var activationDown = settings.ActivationHotkey > 0 && HotkeyPoll.IsDown(settings.ActivationHotkey);
         var emergencyDown = settings.EmergencyStopHotkey > 0 && HotkeyPoll.IsDown(settings.EmergencyStopHotkey);
         var ground = snapshot.Entities
@@ -62,11 +67,10 @@ public sealed partial class RadarApp
                 .ToArray();
         }
 
-        var controllerTriggered = HotkeyCodes.IsGamepad(settings.ActivationHotkey);
-        var filterOverrideHeld =
-            settings.PauseWhileShowHiddenHeld &&
+        var showHiddenDown =
             settings.ShowHiddenItemsHotkey > 0 &&
             HotkeyPoll.IsDown(settings.ShowHiddenItemsHotkey);
+        var filterOverrideHeld = ShouldPausePickupForShowHidden(settings, showHiddenDown);
         var uiClear = live.InGame &&
                       !_atlasOpen &&
                       _hpPct > 0f &&
@@ -81,12 +85,20 @@ public sealed partial class RadarApp
             uiClear,
             filterOverrideHeld,
             controllerTriggered,
-            !controllerTriggered || GamepadInput.IsConnected(_settings.GamepadUserIndex),
+            activationControllerConnected,
             System.Diagnostics.Stopwatch.GetTimestamp(),
             targets,
             groundAddresses);
         _pickupView = _pickupEngine.Tick(frame);
     }
+
+    internal static bool ShouldPausePickupForShowHidden(
+        PickupHelperSettings settings,
+        bool showHiddenDown)
+        => settings.PauseWhileShowHiddenHeld &&
+           settings.ShowHiddenItemsHotkey > 0 &&
+           settings.ActivationHotkey != settings.ShowHiddenItemsHotkey &&
+           showHiddenDown;
 
     private IReadOnlyList<PickupTarget> BuildHoveredPickupTarget(
         LiveFrameState live,
@@ -217,6 +229,20 @@ public sealed partial class RadarApp
     {
         if (_gameHwnd == 0 || !OverlayNative.IsGameFocused(_gameHwnd, _process.ProcessId))
             return PickupClickResult.InputFailed;
+        if (!TryResolvePickupTargetScreenPoint(target, out var point))
+            return target.LabelElement != 0
+                ? PickupClickResult.TargetUnavailable
+                : PickupClickResult.InputFailed;
+
+        return SendInputNative.Click(point.X, point.Y, rightButton: false)
+            ? PickupClickResult.Sent
+            : PickupClickResult.InputFailed;
+    }
+
+    private bool TryResolvePickupTargetScreenPoint(
+        PickupTarget target,
+        out OverlayNative.POINT point)
+    {
         var x = target.X;
         var y = target.Y;
         var width = target.Width;
@@ -233,17 +259,17 @@ public sealed partial class RadarApp
                     out width,
                     out height,
                     requireFirstLine: target.Label))
-                return PickupClickResult.TargetUnavailable;
+            {
+                point = default;
+                return false;
+            }
         }
-        var point = new OverlayNative.POINT
+        point = new OverlayNative.POINT
         {
             X = (int)MathF.Round(x + width * 0.5f),
             Y = (int)MathF.Round(y + height * 0.5f),
         };
-        if (!OverlayNative.ClientToScreen(_gameHwnd, ref point)) return PickupClickResult.InputFailed;
-        return SendInputNative.Click(point.X, point.Y, rightButton: false)
-            ? PickupClickResult.Sent
-            : PickupClickResult.InputFailed;
+        return OverlayNative.ClientToScreen(_gameHwnd, ref point);
     }
 
     private static bool IsGroundItem(Poe2Live.EntityDot item)

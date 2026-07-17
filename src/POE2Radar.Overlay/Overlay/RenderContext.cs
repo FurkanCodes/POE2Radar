@@ -236,6 +236,14 @@ public readonly record struct LootTrackerToast(
     string ValueText,
     float Alpha);
 
+public readonly record struct LootTrackerItemRow(
+    string Label,
+    long Count,
+    string UnitValueText,
+    string TotalValueText,
+    double TotalEx,
+    bool Priced);
+
 public readonly record struct LootTrackerView(
     bool Enabled,
     bool OnMap,
@@ -258,13 +266,20 @@ public readonly record struct LootTrackerView(
     string ProfitPerHourText,
     string SessionTimeText,
     LootTrackerRunRow[] RecentRuns,
+    string BreakdownTitle,
+    string BreakdownValueText,
+    double BreakdownValueEx,
+    long BreakdownGold,
+    long BreakdownItemCount,
+    bool BreakdownIsCurrent,
+    LootTrackerItemRow[] BreakdownItems,
     LootTrackerToast[] Toasts,
     int InventoryItemCount,
     bool InventoryReadable,
     string League)
 {
     public static readonly LootTrackerView Empty = new(false, false, "", "", "", 0, 0, "", 0, "", 0, 0, 0, 0, 0,
-        "", "", "", "", "", [], [], 0, false, "");
+        "", "", "", "", "", [], "", "", 0, 0, 0, false, [], [], 0, false, "");
 }
 
 /// <summary>Endgame atlas tier for icon/label accent (Return of the Ancients / 0.5).</summary>

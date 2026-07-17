@@ -306,4 +306,5 @@ public sealed class RadarSettingsMigrationTests
         Assert.Equal(0x71, s.AutoPathToggleHotkey);
         Assert.False(s.Migrate());
     }
+
 }

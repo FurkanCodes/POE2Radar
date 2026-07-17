@@ -850,6 +850,11 @@ public sealed class PickupHelperSettings
 
 public sealed class LootTrackerSettings
 {
+    public const int CurrencyAuto = 0;
+    public const int CurrencyDivine = 1;
+    public const int CurrencyExalted = 2;
+    public const int CurrencyChaos = 3;
+
     public bool Enabled { get; set; } = true;
     public int PriceSource { get; set; } = 1; // 0 = poe.ninja, 1 = poe2scout
     public string League { get; set; } = "Runes of Aldur";
@@ -867,6 +872,8 @@ public sealed class LootTrackerSettings
     public float NotifyMinEx { get; set; } = 20f;
     public float NotifyDurationSec { get; set; } = 2.5f;
     public bool ShowPricesInDivineOnly { get; set; } = false;
+    public int DisplayCurrency { get; set; } = CurrencyExalted;
+    public int DetailsHotkey { get; set; }
 }
 
 public sealed class AtlasRouteGroupSettings

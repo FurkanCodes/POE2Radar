@@ -12,11 +12,18 @@ may send foreground-gated input. Forked from a PoE1 framework, since rewritten a
 **Stay external.** Memory access via `OpenProcess` + `ReadProcessMemory`. **Never** inject into the
 PoE2 process — no DLL injection, no function hooking, no packet manipulation.
 
-**Input/automation (opt-in).** The overlay may send keyboard and mouse input via `SendInput` . Rules:
-foreground-gated (only when PoE2 is focused), in-game/UI-context-gated, per-action cooldowns,
-state validation between actions, a visible running status, and an immediate emergency-stop hotkey.
-Automation must default off, must never run headlessly, and must stop on focus loss, UI closure,
-unexpected state, missing resources, or controller disconnect when controller-triggered.
+**Input/automation (opt-in).** The overlay may send keyboard and mouse input via `SendInput` and may
+emit controller input through an explicitly configured virtual-HID backend. Controller emulation must
+use a signed user-mode UMDF2/VHF driver package; never use ViGEmBus or a custom kernel-mode virtual-
+controller driver. Driver installation/removal is a separate, explicit user action and must never be
+performed silently by the overlay. HidHide and physical-device hiding must not be required.
+
+All automation remains foreground-gated (only when PoE2 is focused), in-game/UI-context-gated, subject
+to per-action cooldowns and state validation between actions, with visible running/backend status and
+an immediate emergency-stop hotkey. Automation defaults off, never runs headlessly, and stops on focus
+loss, UI closure, unexpected state, missing resources, virtual-backend failure, or physical-controller
+disconnect when controller-triggered. Emergency stop and shutdown must submit a neutral controller
+state before releasing the virtual device.
 
 **Offset discovery lives in Research.** The overlay just reads; reverse-engineering/probes live in
 `POE2Radar.Research`. When a patch breaks reads, run the Research probes, re-validate, commit.
@@ -62,7 +69,9 @@ unexpected state, missing resources, or controller disconnect when controller-tr
   dashboard's shape picker; materialized to `icons/` folder on first run).
 - `Web/ApiServer.cs` — read-only HTTP API on `localhost:7777` (`/state`, `/entities`, `/landmarks`,
   `/api/icons` — the icon library for the dashboard's SVG-preview shape pickers).
-- `Input/SendInputNative.cs` — guarded keyboard/mouse `SendInput` for opt-in QoL actions.
+- `Input/SendInputNative.cs` — guarded keyboard/mouse `SendInput` for opt-in QoL actions. Controller
+  output belongs behind a backend interface in `Input/`; supported implementations must follow the
+  signed UMDF2/VHF and lifecycle rules above.
 
 **Research** (`src/POE2Radar.Research/Program.cs`) — probes: `--hp` (value-scan), `--vitals`
 (dump the local player's Life component — what the configured Health/Mana/ES offsets read + every
