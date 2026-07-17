@@ -167,6 +167,9 @@ public sealed class RadarSettings
     // ── Navigation-menu widget: which screen corner it is pinned to.
     //    One of "TopLeft", "TopRight", "BottomLeft", "BottomRight". ──
     public string NavMenuCorner { get; set; } = "TopLeft";
+    /// <summary>Free-drag taskbar position in overlay-client pixels. Negative uses NavMenuCorner.</summary>
+    public float NavTaskbarX { get; set; } = -1f;
+    public float NavTaskbarY { get; set; } = -1f;
     // Developer/performance tuning aid: extended timing/read counters in the on-screen perf HUD.
     public bool ShowPerfStats { get; set; } = false;
     // FPS + App CPU/GPU/RAM under the POE2Radar nav-menu button.
@@ -692,6 +695,33 @@ public sealed class RunecraftSettings
     public float MapValueYOffset { get; set; } = 0f;
     public bool HighlightLockedRecipe { get; set; } = true;
     public bool DiagnosePricing { get; set; } = false;
+
+    // Expedition placement planner. It is guidance-only and reads encounter state directly, so it
+    // does not need a mouse cursor or a particular keyboard/controller HUD branch.
+    public bool ShowExpeditionPlanner { get; set; } = true;
+    public bool ShowExpeditionRouteOnMap { get; set; } = true;
+    public bool ShowExpeditionNextPlacementWorld { get; set; } = true;
+    public int ExpeditionManualCharges { get; set; } = 5;
+    public float ExpeditionMonolithMinExalted { get; set; } = 0f;
+    public float ExpeditionTinyMarkerWeight { get; set; } = 5f;
+    public float ExpeditionWhiteMarkerWeight { get; set; } = 15f;
+    public float ExpeditionMagicMarkerWeight { get; set; } = 35f;
+    public float ExpeditionGoldMarkerWeight { get; set; } = 65f;
+    public float ExpeditionLogbookMarkerWeight { get; set; } = 100f;
+    public float ExpeditionPreferredRelicWeight { get; set; } = 40f;
+    public float ExpeditionDangerousRelicPenalty { get; set; } = 100f;
+    public List<string> ExpeditionPreferredRelicMods { get; set; } =
+    [
+        "ExpeditionRelicUpsideItemQuantityChest",
+        "ExpeditionRelicUpsideItemQuantityMonster",
+        "ExpeditionRelicUpsideIncreasedArtifactsChest",
+        "ExpeditionRelicUpsideIncreasedArtifactsMonster",
+        "ExpeditionRelicUpsideExpeditionLogbookQuantityMonster",
+        "ExpeditionRelicUpsidePackSize",
+        "ExpeditionRelicUpsideRareMonsterChance",
+        "ExpeditionRelicUpsideElitesDuplicated",
+    ];
+    public List<string> ExpeditionDangerousRelicMods { get; set; } = [];
 }
 
 public sealed class StashValueSettings

@@ -83,9 +83,13 @@ public sealed partial class RadarApp
             if (localPlayer != 0)
                 entities = entities.Where(e => e.Address != localPlayer).ToList();
             if (_hidden.Count > 0)
-                entities = entities.Where(e => !_hidden.IsHidden(e.Metadata)).ToList();
+                entities = entities.Where(e =>
+                    !_hidden.IsHidden(e.Metadata)
+                    || IsExpeditionPlannerEntity(e.Metadata)).ToList();
             if (_settings.EntityDrawRadiusGrid > 0)
-                entities = entities.Where(e => NumVec2.Distance(e.Grid, player) <= _settings.EntityDrawRadiusGrid).ToList();
+                entities = entities.Where(e =>
+                    NumVec2.Distance(e.Grid, player) <= _settings.EntityDrawRadiusGrid
+                    || IsExpeditionPlannerEntity(e.Metadata)).ToList();
 
             if (_landmarkPatterns.Generation != _landmarkGen)
             {

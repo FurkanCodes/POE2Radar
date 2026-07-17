@@ -321,6 +321,40 @@ public readonly record struct AtlasRouteLine(
 /// <summary>Distinct atlas tag or map name for the overlay Settings → Atlas filter picker.</summary>
 public readonly record struct AtlasTagCatalogEntry(string Key, string Kind, int Count);
 
+public readonly record struct ExpeditionPlacementView(
+    NumVec2 Grid,
+    float TerrainHeight,
+    float CapturedWeight,
+    int CapturedCount,
+    bool Bridge,
+    string Label);
+
+public sealed record ExpeditionPlannerView(
+    bool Active,
+    bool Planning,
+    bool ControllerResolved,
+    string CountSource,
+    int Total,
+    int Placed,
+    int PlacementRangePercent,
+    int BlastRadiusPercent,
+    float EffectiveDistance,
+    float EffectiveRadius,
+    string EncounterSize,
+    int TargetCount,
+    int CapturedCount,
+    float CapturedWeight,
+    double ComputeMilliseconds,
+    string Status,
+    NumVec2 DetonatorGrid,
+    float DetonatorHeight,
+    ExpeditionPlacementView[] Route)
+{
+    public static readonly ExpeditionPlannerView Empty = new(
+        false, false, false, "manual", 0, 0, 0, 0, 0f, 0f, "Normal",
+        0, 0, 0f, 0d, "Waiting for an Expedition encounter", NumVec2.Zero, 0f, []);
+}
+
 /// <summary>What the PoE2 renderer needs each frame. Built fresh by <see cref="RadarApp"/>.</summary>
 public sealed record RenderContext(
     bool InGame,
@@ -407,6 +441,7 @@ public sealed record RenderContext(
     RunecraftMapLabel[] RunecraftMapLabels,
     bool RunecraftShowMonolithWindow,
     RunecraftMonolithPanelRow[] RunecraftMonolithRows,
+    ExpeditionPlannerView ExpeditionPlanner,
     StashValueLabel[] StashValueLabels,
     StashUtilityHighlight[] StashUtilityHighlights,
     WaystoneAlchemyHint[] WaystoneAlchemyHints,

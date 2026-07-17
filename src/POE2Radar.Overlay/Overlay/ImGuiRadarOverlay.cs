@@ -36,6 +36,8 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private readonly Action<Action> _enqueue;
     private readonly Action<string> _toggleTarget;
     private readonly Action<string> _setCorner;
+    private readonly Action<float, float> _setTaskbarPosition;
+    private readonly Action _toggleRendering;
     private readonly Action _addNearest;
     private readonly Action _clearPaths;
     private readonly Action _newLootSession;
@@ -47,6 +49,8 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private bool _navMenuExpanded;
     private bool _settingsOpen;
     private string _navMenuCorner = "TopLeft";
+    private bool _navTaskbarPositionInitialized;
+    private bool _navTaskbarWasDragging;
     private DisplayRules? _displayRules;
     private ZoneEntityOverrides? _zoneOverrides;
     private DisplayRuleEngine? _ruleEngine;
@@ -115,13 +119,23 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private readonly record struct ScreenPointState(NumVec2 Value, long SeenStamp);
     private readonly record struct OverlayTextMeasureKey(string Text, float FontSize, float CurrentFontSize);
 
-    public ImGuiRadarOverlay(Action<Action> enqueue, Action<string> toggleTarget, Action<string> setCorner,
-        Action addNearest, Action clearPaths, Action newLootSession, RadarSettings settings)
+    public ImGuiRadarOverlay(
+        Action<Action> enqueue,
+        Action<string> toggleTarget,
+        Action<string> setCorner,
+        Action<float, float> setTaskbarPosition,
+        Action toggleRendering,
+        Action addNearest,
+        Action clearPaths,
+        Action newLootSession,
+        RadarSettings settings)
         : base("POE2Radar Radar", true, 3840, 2160)
     {
         _enqueue = enqueue;
         _toggleTarget = toggleTarget;
         _setCorner = setCorner;
+        _setTaskbarPosition = setTaskbarPosition;
+        _toggleRendering = toggleRendering;
         _addNearest = addNearest;
         _clearPaths = clearPaths;
         _newLootSession = newLootSession;
@@ -316,6 +330,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                     var t = Stopwatch.GetTimestamp();
                     DrawNameplates(dl, ctx);
                     DrawPathLabels(dl, ctx);
+                    DrawExpeditionNextPlacementWorld(dl, ctx);
                     DrawRitualLabels(ImGui.GetForegroundDrawList(), ctx);
                     DrawRunecraftLabels(ImGui.GetForegroundDrawList(), ctx);
                     DrawRunecraftMapLabels(ImGui.GetForegroundDrawList(), ctx);
@@ -325,14 +340,23 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                     nameplatesMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                 }
 
-                var navT = Stopwatch.GetTimestamp();
-                DrawNavMenu(ctx);
-                navMenuMs = Stopwatch.GetElapsedTime(navT).TotalMilliseconds;
                 DrawCursorInspect(dl, ctx);
+            }
+
+            // The taskbar remains available while overlay content is hidden so the eye control can
+            // restore it without requiring the hotkey.
+            if (inGame)
+            {
+                var navT = Stopwatch.GetTimestamp();
+                DrawNavMenu(ctx!);
+                navMenuMs = Stopwatch.GetElapsedTime(navT).TotalMilliseconds;
             }
 
             if (ctx is { Active: true, RunecraftShowMonolithWindow: true })
                 DrawRunecraftMonolithWindow(ctx);
+
+            if (ctx is { Active: true, ExpeditionPlanner.Active: true })
+                DrawExpeditionPlannerWindow(ctx);
 
             if (ctx is { Active: true, RitualShowPricesWindow: true })
                 DrawRitualPricesWindow(ctx);
@@ -343,7 +367,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             if (ctx is { Active: true })
                 DrawLootTracker(ctx);
 
-            if (_settingsOpen && ctx?.Active == true)
+            if (_settingsOpen && inGame)
                 DrawSettingsPanel(ctx);
             else if (_settingsPanelWasOpen)
                 FlushSettingsNow();
@@ -462,6 +486,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
             if (frame.IsMinimap ? ctx.ShowPathMinimap : ctx.ShowPathMap)
                 DrawPathsMap(dl, ctx, frame, center, scale);
+
+            if (!frame.IsMinimap && _settings.Runecraft.ShowExpeditionRouteOnMap)
+                DrawExpeditionRouteMap(dl, ctx, frame, center, scale);
 
             var mapLabels = new List<MapLabelCandidate>();
             var clipL = frame.Position.X;
@@ -1142,6 +1169,151 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         ImGui.End();
     }
 
+    private void DrawExpeditionPlannerWindow(RenderContext ctx)
+    {
+        var view = ctx.ExpeditionPlanner;
+        ImGui.SetNextWindowPos(new NumVec2(ctx.WindowWidth - 18f, 170f), ImGuiCond.FirstUseEver, new NumVec2(1f, 0f));
+        ImGui.SetNextWindowSizeConstraints(new NumVec2(280f, 0f), new NumVec2(460f, 560f));
+        var flags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoNavInputs;
+        if (!ImGui.Begin("Expedition Route###ExpeditionPlanner", flags)) { ImGui.End(); return; }
+
+        var remaining = Math.Max(0, view.Total - view.Placed);
+        TextColoredUnformatted(new Vector4(0.45f, 0.90f, 0.62f, 1f),
+            $"{remaining} / {view.Total} explosives remaining");
+        ImGui.SameLine();
+        ImGui.TextDisabled($"({view.CountSource})");
+
+        ImGui.TextUnformatted($"{view.EncounterSize} · range {view.EffectiveDistance:F0} · blast {view.EffectiveRadius:F0}");
+        if (view.PlacementRangePercent != 0 || view.BlastRadiusPercent != 0)
+            ImGui.TextDisabled($"Map modifiers: range {view.PlacementRangePercent:+#;-#;0}% · radius {view.BlastRadiusPercent:+#;-#;0}%");
+
+        ImGui.Separator();
+        if (view.Planning)
+            TextColoredUnformatted(new Vector4(0.95f, 0.77f, 0.20f, 1f), "Planning automatically…");
+        else
+            ImGui.TextWrapped(view.Status);
+        ImGui.TextUnformatted($"Targets: {view.TargetCount} · covered: {view.CapturedCount} · score: {view.CapturedWeight:F0}");
+        if (view.ComputeMilliseconds > 0)
+            ImGui.TextDisabled($"Route compute: {view.ComputeMilliseconds:F1} ms (background)");
+
+        if (view.Route.Length > 0)
+        {
+            ImGui.Separator();
+            var next = view.Route[0];
+            TextColoredUnformatted(new Vector4(0.35f, 1f, 0.55f, 1f),
+                $"NEXT #{view.Placed + 1}: {next.Label}");
+            var preview = Math.Min(5, view.Route.Length);
+            for (var i = 1; i < preview; i++)
+            {
+                var p = view.Route[i];
+                ImGui.TextDisabled($"#{view.Placed + i + 1} {(p.Bridge ? "bridge" : p.Label)}");
+            }
+            if (view.Route.Length > preview)
+                ImGui.TextDisabled($"…and {view.Route.Length - preview} more");
+        }
+
+        ImGui.Separator();
+        ImGui.TextDisabled("Automatic guidance only · controller needs no cursor or Run button");
+        ImGui.End();
+    }
+
+    private static void DrawExpeditionRouteMap(
+        ImDrawListPtr dl, RenderContext ctx, MapFrame frame, NumVec2 center, float scale)
+    {
+        var view = ctx.ExpeditionPlanner;
+        if (!view.Active || view.Route.Length == 0) return;
+
+        NumVec2 ProjectPlacement(ExpeditionPlacementView p)
+            => Project(p.Grid, ctx.RawPlayerGrid, center, scale, p.TerrainHeight - frame.PlayerTerrainHeight);
+
+        var previous = Project(
+            view.DetonatorGrid, ctx.RawPlayerGrid, center, scale,
+            view.DetonatorHeight - frame.PlayerTerrainHeight);
+        dl.AddCircleFilled(previous, 5f, ColorU32(90, 190, 255, 0.95f), 16);
+
+        for (var i = 0; i < view.Route.Length; i++)
+        {
+            var placement = view.Route[i];
+            var point = ProjectPlacement(placement);
+            var color = i == 0
+                ? ColorU32(75, 255, 120, 0.98f)
+                : placement.Bridge
+                    ? ColorU32(255, 205, 70, 0.92f)
+                    : ColorU32(255, 105, 75, 0.92f);
+            dl.AddLine(previous, point, color, i == 0 ? 3.5f : 2.5f);
+            DrawExpeditionMapRadius(dl, ctx, frame, center, scale, placement, view.EffectiveRadius, color);
+            dl.AddCircleFilled(point, i == 0 ? 8f : 6f, color, 20);
+            var number = (view.Placed + i + 1).ToString();
+            var size = ImGui.CalcTextSize(number);
+            dl.AddText(point - size * 0.5f, 0xFF101010u, number);
+            previous = point;
+        }
+    }
+
+    private static void DrawExpeditionMapRadius(
+        ImDrawListPtr dl,
+        RenderContext ctx,
+        MapFrame frame,
+        NumVec2 center,
+        float scale,
+        ExpeditionPlacementView placement,
+        float radius,
+        uint color)
+    {
+        const int segments = 40;
+        NumVec2? previous = null;
+        NumVec2 first = default;
+        for (var i = 0; i <= segments; i++)
+        {
+            var angle = i * MathF.Tau / segments;
+            var grid = placement.Grid + new NumVec2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
+            var p = Project(grid, ctx.RawPlayerGrid, center, scale, placement.TerrainHeight - frame.PlayerTerrainHeight);
+            if (i == 0) first = p;
+            if (previous is { } prev) dl.AddLine(prev, p, color & 0xAAFFFFFFu, 1.2f);
+            previous = p;
+        }
+        if (previous is { } last) dl.AddLine(last, first, color & 0xAAFFFFFFu, 1.2f);
+    }
+
+    private void DrawExpeditionNextPlacementWorld(ImDrawListPtr dl, RenderContext ctx)
+    {
+        if (!_settings.Runecraft.ShowExpeditionNextPlacementWorld || ctx.Map.IsVisible) return;
+        var view = ctx.ExpeditionPlanner;
+        if (!view.Active || view.Route.Length == 0 || ctx.CameraMatrix is not { Length: >= 16 } matrix) return;
+        var next = view.Route[0];
+        var W = (float)ctx.WindowWidth;
+        var H = (float)ctx.WindowHeight;
+        const uint color = 0xFF60FF70u;
+
+        NumVec2? previous = null;
+        const int segments = 48;
+        for (var i = 0; i <= segments; i++)
+        {
+            var angle = i * MathF.Tau / segments;
+            var gx = next.Grid.X + MathF.Cos(angle) * view.EffectiveRadius;
+            var gy = next.Grid.Y + MathF.Sin(angle) * view.EffectiveRadius;
+            if (!TryProjectGridToScreen((int)MathF.Round(gx), (int)MathF.Round(gy), next.TerrainHeight, matrix, W, H, out var sx, out var sy))
+            {
+                previous = null;
+                continue;
+            }
+            var p = new NumVec2(sx, sy);
+            if (previous is { } prev) dl.AddLine(prev, p, color, 2.5f);
+            previous = p;
+        }
+
+        if (!TryProjectGridToScreen(
+                (int)MathF.Round(next.Grid.X), (int)MathF.Round(next.Grid.Y), next.TerrainHeight,
+                matrix, W, H, out var cx, out var cy)) return;
+        var center = new NumVec2(cx, cy);
+        dl.AddCircleFilled(center, 7f, color, 20);
+        var text = $"NEXT #{view.Placed + 1} · {next.Label}";
+        var textSize = ImGui.CalcTextSize(text);
+        var at = center + new NumVec2(-textSize.X * 0.5f, -30f);
+        dl.AddRectFilled(at - new NumVec2(5f, 3f), at + textSize + new NumVec2(5f, 3f), 0xD9111518u, 4f);
+        dl.AddText(at, color, text);
+    }
+
     private void DrawRitualPricesWindow(RenderContext ctx)
     {
         if (!ctx.RitualShowPricesWindow) return;
@@ -1775,55 +1947,102 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             : new System.Numerics.Vector2(10, isBottom ? ctx.WindowHeight - 10 : 10);
         var pivot = new System.Numerics.Vector2(isRight ? 1f : 0f, isBottom ? 1f : 0f);
 
-        ImGui.SetNextWindowBgAlpha(0.88f);
-        ImGui.SetNextWindowPos(cornerPos, ImGuiCond.Always, pivot);
+        ImGui.SetNextWindowBgAlpha(0.92f);
+        if (!_navTaskbarPositionInitialized)
+        {
+            var settings = _settings;
+            if (settings.NavTaskbarX >= 0f && settings.NavTaskbarY >= 0f)
+            {
+                var saved = new NumVec2(
+                    Math.Clamp(settings.NavTaskbarX, 0f, Math.Max(0f, ctx.WindowWidth - 40f)),
+                    Math.Clamp(settings.NavTaskbarY, 0f, Math.Max(0f, ctx.WindowHeight - 30f)));
+                ImGui.SetNextWindowPos(saved, ImGuiCond.Always);
+            }
+            else
+            {
+                ImGui.SetNextWindowPos(cornerPos, ImGuiCond.Always, pivot);
+            }
+            _navTaskbarPositionInitialized = true;
+        }
 
         const ImGuiWindowFlags flags =
             ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoSavedSettings |
             ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoNav;
 
-        if (!ImGui.Begin("Nav", flags)) { ImGui.End(); return; }
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new NumVec2(7f, 5f));
+        ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new NumVec2(6f, 4f));
+        ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new NumVec2(7f, 3f));
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 7f);
+        if (!ImGui.Begin("Nav", flags))
+        {
+            ImGui.End();
+            ImGui.PopStyleVar(4);
+            return;
+        }
 
         var selected = 0;
         foreach (var row in ctx.Legend) if (row.IsSelected) selected++;
 
-        var headerText = selected > 0 ? $"POE2Radar {selected}/8" : "POE2Radar";
+        DrawTaskbarDragHandle(ctx);
+        ImGui.SameLine(0f, 5f);
+
+        ImGui.InvisibleButton("##ConnectionStatus", new NumVec2(12f, 22f));
+        var statusMin = ImGui.GetItemRectMin();
+        var statusMax = ImGui.GetItemRectMax();
+        ImGui.GetWindowDrawList().AddCircleFilled(
+            (statusMin + statusMax) * 0.5f,
+            4.5f,
+            ColorU32(62, 235, 116, 1f),
+            16);
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+            ImGui.SetTooltip("Connected to the current area");
+        ImGui.SameLine(0f, 4f);
+
         ImGui.PushStyleColor(ImGuiCol.Text, ImGui.ColorConvertFloat4ToU32(ImGuiTheme.Accent));
-        if (ImGui.Button(_navMenuExpanded ? "v " + headerText : "> " + headerText))
+        if (ImGui.Button(_navMenuExpanded ? "POE2Radar  ▲" : "POE2Radar  ▼"))
             _navMenuExpanded = !_navMenuExpanded;
         ImGui.PopStyleColor();
-        ImGui.SameLine();
+        ImGui.SameLine(0f, 8f);
 
-        if (ImGui.Button("+"))
-            _enqueue(() => _addNearest());
-        ImGui.SameLine();
-
-        if (ImGui.Button("-"))
-            _enqueue(() => _clearPaths());
-        ImGui.SameLine();
-        if (ImGui.Button("\u2699"))
-            _settingsOpen = !_settingsOpen;
-
-        ImGui.SameLine();
-        foreach (var (label, corner) in new[] { ("TL", "TopLeft"), ("TR", "TopRight"), ("BL", "BottomLeft"), ("BR", "BottomRight") })
+        var perf = ctx.Perf;
+        TextColoredUnformatted(new Vector4(0.70f, 0.92f, 1f, 1f), $"CPU {perf.ProcessCpuPct:F0}%");
+        if (ctx.ShowFpsOverlay)
         {
-            var active = corner == _navMenuCorner;
-            if (active) ImGui.PushStyleColor(ImGuiCol.Text, ImGui.ColorConvertFloat4ToU32(ImGuiTheme.Accent));
-            if (ImGui.Button(label))
-            {
-                _navMenuCorner = corner;
-                _enqueue(() => _setCorner(corner));
-            }
-            if (active) ImGui.PopStyleColor();
-            if (corner != "BottomRight") ImGui.SameLine();
+            ImGui.SameLine(0f, 8f);
+            ImGui.TextDisabled($"{perf.RenderFps:F0} FPS");
+            ImGui.SameLine(0f, 8f);
+            ImGui.TextDisabled($"{perf.WorkingSetMb:F0} MB");
         }
-
-        if (ctx.ShowFpsOverlay || ctx.ShowPerfStats)
-            DrawNavPerfStats(ctx);
+        if (selected > 0)
+        {
+            ImGui.SameLine(0f, 8f);
+            TextColoredUnformatted(ImGuiTheme.Accent, $"{selected}/8 routes");
+        }
+        ImGui.SameLine(0f, 8f);
+        if (DrawOverlayEyeButton(ctx.Active))
+            _enqueue(() => _toggleRendering());
+        ImGui.SameLine(0f, 3f);
+        if (ImGui.Button("⚙##TaskbarSettings"))
+            _settingsOpen = !_settingsOpen;
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+            ImGui.SetTooltip("Open settings");
 
         if (_navMenuExpanded)
         {
-            ImGui.Spacing();
+            ImGui.Separator();
+            if (ImGui.Button("+ Nearest"))
+                _enqueue(() => _addNearest());
+            ImGui.SameLine();
+            if (ImGui.Button("Clear routes"))
+                _enqueue(() => _clearPaths());
+            ImGui.SameLine();
+            ImGui.TextDisabled($"{ctx.AreaCode} · Lv {ctx.CharLevel}");
+
+            if (ctx.ShowPerfStats)
+                DrawNavPerfStats(ctx);
+
+            if (ctx.Legend.Count > 0)
+                ImGui.Separator();
             ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new System.Numerics.Vector2(8f, 6f));
             foreach (var row in ctx.Legend)
             {
@@ -1840,6 +2059,90 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         }
 
         ImGui.End();
+        ImGui.PopStyleVar(4);
+    }
+
+    private void DrawTaskbarDragHandle(RenderContext ctx)
+    {
+        ImGui.InvisibleButton("##TaskbarDrag", new NumVec2(13f, 22f));
+        var min = ImGui.GetItemRectMin();
+        var max = ImGui.GetItemRectMax();
+        var dl = ImGui.GetWindowDrawList();
+        var color = ColorU32(150, 158, 170, ImGui.IsItemHovered() ? 0.95f : 0.65f);
+        for (var y = -1; y <= 1; y++)
+        {
+            dl.AddCircleFilled(
+                new NumVec2(min.X + 4f, (min.Y + max.Y) * 0.5f + y * 5f),
+                1.25f,
+                color,
+                8);
+            dl.AddCircleFilled(
+                new NumVec2(min.X + 9f, (min.Y + max.Y) * 0.5f + y * 5f),
+                1.25f,
+                color,
+                8);
+        }
+
+        var dragging = ImGui.IsItemActive() && ImGui.IsMouseDragging(ImGuiMouseButton.Left);
+        if (dragging)
+        {
+            var io = ImGui.GetIO();
+            var position = ImGui.GetWindowPos() + io.MouseDelta;
+            var size = ImGui.GetWindowSize();
+            position.X = Math.Clamp(position.X, 0f, Math.Max(0f, ctx.WindowWidth - size.X));
+            position.Y = Math.Clamp(position.Y, 0f, Math.Max(0f, ctx.WindowHeight - size.Y));
+            ImGui.SetWindowPos(position, ImGuiCond.Always);
+            _navTaskbarWasDragging = true;
+        }
+        else if (_navTaskbarWasDragging && !ImGui.IsMouseDown(ImGuiMouseButton.Left))
+        {
+            var position = ImGui.GetWindowPos();
+            _navTaskbarWasDragging = false;
+            _enqueue(() => _setTaskbarPosition(position.X, position.Y));
+        }
+
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+            ImGui.SetTooltip("Drag to move the taskbar");
+    }
+
+    private static bool DrawOverlayEyeButton(bool visible)
+    {
+        var clicked = ImGui.InvisibleButton("##OverlayVisibility", new NumVec2(28f, 22f));
+        var min = ImGui.GetItemRectMin();
+        var max = ImGui.GetItemRectMax();
+        var center = (min + max) * 0.5f;
+        var hovered = ImGui.IsItemHovered();
+        var color = visible
+            ? ColorU32(100, 220, 255, hovered ? 1f : 0.9f)
+            : ColorU32(145, 150, 160, hovered ? 1f : 0.75f);
+        var dl = ImGui.GetWindowDrawList();
+
+        NumVec2? upper = null;
+        NumVec2? lower = null;
+        const int segments = 14;
+        for (var i = 0; i <= segments; i++)
+        {
+            var t = i / (float)segments;
+            var x = min.X + 3f + t * (max.X - min.X - 6f);
+            var arc = MathF.Sin(t * MathF.PI) * 5.5f;
+            var up = new NumVec2(x, center.Y - arc);
+            var down = new NumVec2(x, center.Y + arc);
+            if (upper is { } prevUp) dl.AddLine(prevUp, up, color, 1.7f);
+            if (lower is { } prevDown) dl.AddLine(prevDown, down, color, 1.7f);
+            upper = up;
+            lower = down;
+        }
+        if (visible)
+            dl.AddCircleFilled(center, 3.2f, color, 14);
+        else
+        {
+            dl.AddCircle(center, 3.2f, color, 14, 1.5f);
+            dl.AddLine(min + new NumVec2(4f, 3f), max - new NumVec2(4f, 3f), ColorU32(245, 105, 105, 0.9f), 1.8f);
+        }
+
+        if (hovered)
+            ImGui.SetTooltip(visible ? "Hide overlay content" : "Show overlay content");
+        return clicked;
     }
 
     private static void DrawNavPerfStats(RenderContext ctx)
@@ -1889,8 +2192,8 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
         float wW = ctx?.WindowWidth ?? _width;
         float wH = ctx?.WindowHeight ?? _height;
-        const float settingsW = 800f;
-        const float settingsH = 600f;
+        var settingsW = Math.Clamp(wW - 60f, 760f, 1040f);
+        var settingsH = Math.Clamp(wH - 80f, 580f, 760f);
 
         ImGui.SetNextWindowSizeConstraints(new System.Numerics.Vector2(settingsW, settingsH), new System.Numerics.Vector2(float.MaxValue, float.MaxValue));
         ImGui.SetNextWindowSize(new System.Numerics.Vector2(settingsW, settingsH), ImGuiCond.FirstUseEver);
@@ -1925,25 +2228,13 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
         MaybeReapplyOverlayFont(s);
 
-        if (!_settingsPanelWasOpen)
-            _activeSettingsTab = "";
-
-        if (ImGui.BeginTabBar("SettingsTabs"))
+        if (!_settingsPanelWasOpen || string.IsNullOrEmpty(_activeSettingsTab))
         {
-            BeginSettingsTab("Radar", () => DrawRadarTab(s, ctx));
-            BeginSettingsTab("Performance", () => DrawPerformanceTab(s));
-            BeginSettingsTab("HP Bars", () => DrawHpBarsTab(s));
-            BeginSettingsTab("Flask", () => DrawFlaskTab(s));
-            BeginSettingsTab("Stash Value", () => DrawStashValueTab(s, ctx));
-            BeginSettingsTab("Stash Utility", () => DrawStashUtilityTab(s, ctx));
-            BeginSettingsTab("Waystone Alchemy", () => DrawWaystoneAlchemyTab(s, ctx));
-            BeginSettingsTab("Loot Tracker", () => DrawLootTrackerTab(s, ctx));
-            BeginSettingsTab("Ritual", () => DrawRitualTab(s, ctx));
-            BeginSettingsTab("Runecraft", () => DrawRunecraftTab(s, ctx));
-            BeginSettingsTab("Atlas", () => DrawAtlasTab(s));
-            BeginSettingsTab("Hotkeys", () => DrawHotkeysTab(s));
-            ImGui.EndTabBar();
+            _activeSettingsTab = "Radar";
+            ImGuiTheme.CollapseSectionsOnNextDraw = true;
         }
+
+        DrawSettingsNavigation(s, ctx);
 
         PollHotkeyCapture(s);
 
@@ -1953,21 +2244,95 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         ImGui.End();
     }
 
-    private void BeginSettingsTab(string tabId, Action draw)
+    private void DrawSettingsNavigation(RadarSettings s, RenderContext? ctx)
     {
-        if (!ImGui.BeginTabItem(tabId)) return;
+        const float railWidth = 184f;
+        ImGui.BeginChild(
+            "SettingsNavigationRail",
+            new NumVec2(railWidth, 0f),
+            ImGuiChildFlags.None,
+            ImGuiWindowFlags.None);
 
-        if (_activeSettingsTab != tabId)
+        DrawSettingsNavGroup("OVERLAY");
+        DrawSettingsNavItem("Radar");
+        DrawSettingsNavItem("Performance");
+        DrawSettingsNavItem("HP Bars");
+        DrawSettingsNavItem("Flask");
+
+        DrawSettingsNavGroup("PLUGINS");
+        DrawSettingsNavItem("Stash Value");
+        DrawSettingsNavItem("Stash Utility");
+        DrawSettingsNavItem("Waystone Alchemy");
+        DrawSettingsNavItem("Loot Tracker");
+        DrawSettingsNavItem("Ritual");
+        DrawSettingsNavItem("Runecraft");
+
+        DrawSettingsNavGroup("WORLD");
+        DrawSettingsNavItem("Atlas");
+
+        DrawSettingsNavGroup("SYSTEM");
+        DrawSettingsNavItem("Hotkeys");
+
+        ImGui.EndChild();
+        ImGui.SameLine(0f, 10f);
+
+        ImGui.BeginChild(
+            "SettingsPage",
+            NumVec2.Zero,
+            ImGuiChildFlags.None,
+            ImGuiWindowFlags.AlwaysVerticalScrollbar);
+
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGui.ColorConvertFloat4ToU32(ImGuiTheme.Accent));
+        ImGui.TextUnformatted(_activeSettingsTab);
+        ImGui.PopStyleColor();
+        ImGui.Separator();
+        ImGui.Spacing();
+
+        switch (_activeSettingsTab)
         {
-            _activeSettingsTab = tabId;
-            ImGuiTheme.CollapseSectionsOnNextDraw = true;
+            case "Performance": DrawPerformanceTab(s); break;
+            case "HP Bars": DrawHpBarsTab(s); break;
+            case "Flask": DrawFlaskTab(s); break;
+            case "Stash Value": DrawStashValueTab(s, ctx); break;
+            case "Stash Utility": DrawStashUtilityTab(s, ctx); break;
+            case "Waystone Alchemy": DrawWaystoneAlchemyTab(s, ctx); break;
+            case "Loot Tracker": DrawLootTrackerTab(s, ctx); break;
+            case "Ritual": DrawRitualTab(s, ctx); break;
+            case "Runecraft": DrawRunecraftTab(s, ctx); break;
+            case "Atlas": DrawAtlasTab(s); break;
+            case "Hotkeys": DrawHotkeysTab(s); break;
+            default: DrawRadarTab(s, ctx); break;
         }
 
-        ImGuiTheme.BeginTabScroll(tabId + "Scroll");
-        draw();
         ImGuiTheme.CollapseSectionsOnNextDraw = false;
-        ImGuiTheme.EndTabScroll();
-        ImGui.EndTabItem();
+        ImGui.EndChild();
+    }
+
+    private static void DrawSettingsNavGroup(string label)
+    {
+        ImGui.Spacing();
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGuiTheme.TextMuted);
+        ImGui.TextUnformatted(label);
+        ImGui.PopStyleColor();
+    }
+
+    private void DrawSettingsNavItem(string page)
+    {
+        var selected = string.Equals(_activeSettingsTab, page, StringComparison.Ordinal);
+        if (selected)
+        {
+            ImGui.PushStyleColor(ImGuiCol.Header, new Vector4(
+                ImGuiTheme.Accent.X, ImGuiTheme.Accent.Y, ImGuiTheme.Accent.Z, 0.28f));
+            ImGui.PushStyleColor(ImGuiCol.HeaderHovered, new Vector4(
+                ImGuiTheme.Accent.X, ImGuiTheme.Accent.Y, ImGuiTheme.Accent.Z, 0.38f));
+        }
+        if (ImGui.Selectable(page, selected, ImGuiSelectableFlags.None, new NumVec2(0f, 30f))
+            && !selected)
+        {
+            _activeSettingsTab = page;
+            ImGuiTheme.CollapseSectionsOnNextDraw = true;
+        }
+        if (selected) ImGui.PopStyleColor(2);
     }
 
     private void EnsureRulesUiCache()
@@ -2880,14 +3245,17 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         var idx = Array.IndexOf(corners, s.NavMenuCorner);
         if (idx < 0) idx = 0;
         ImGui.SetNextItemWidth(UiW(8f));
-        if (ImGui.BeginCombo("Nav menu corner", corners[idx]))
+        if (ImGui.BeginCombo("Taskbar anchor", corners[idx]))
         {
             for (var i = 0; i < corners.Length; i++)
             {
                 if (ImGui.Selectable(corners[i], i == idx))
                 {
                     s.NavMenuCorner = corners[i];
+                    s.NavTaskbarX = -1f;
+                    s.NavTaskbarY = -1f;
                     _navMenuCorner = corners[i];
+                    _navTaskbarPositionInitialized = false;
                 }
             }
             ImGui.EndCombo();
@@ -3943,6 +4311,80 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         }
         ImGuiTheme.EndAccordionSection(monoOpen);
 
+        var expeditionOpen = ImGuiTheme.BeginAccordionSection(
+            "RunecraftExpedition", "Expedition route planner", defaultOpen: true);
+        if (expeditionOpen)
+        {
+            var enabled = rc.ShowExpeditionPlanner;
+            if (ImGui.Checkbox("Auto-show during Expedition", ref enabled)) rc.ShowExpeditionPlanner = enabled;
+
+            var showMap = rc.ShowExpeditionRouteOnMap;
+            if (ImGui.Checkbox("Numbered route on large map", ref showMap)) rc.ShowExpeditionRouteOnMap = showMap;
+
+            var showWorld = rc.ShowExpeditionNextPlacementWorld;
+            if (ImGui.Checkbox("Next placement in world", ref showWorld)) rc.ShowExpeditionNextPlacementWorld = showWorld;
+
+            ImGui.TextDisabled("Controller-safe: reads encounter state and replans automatically; no Run button.");
+
+            var manual = Math.Clamp(rc.ExpeditionManualCharges, 1, 64);
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Manual charge fallback", ref manual, 1, 20)) rc.ExpeditionManualCharges = manual;
+
+            var minMonolith = rc.ExpeditionMonolithMinExalted;
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderFloat("Min monolith value", ref minMonolith, 0f, 100f, "%.1f ex"))
+                rc.ExpeditionMonolithMinExalted = Math.Max(0f, minMonolith);
+
+            if (ImGui.TreeNode("Target weights"))
+            {
+                rc.ExpeditionTinyMarkerWeight = DrawExpeditionWeightSlider("Tiny marker", rc.ExpeditionTinyMarkerWeight, 0f, 100f);
+                rc.ExpeditionWhiteMarkerWeight = DrawExpeditionWeightSlider("White marker", rc.ExpeditionWhiteMarkerWeight, 0f, 150f);
+                rc.ExpeditionMagicMarkerWeight = DrawExpeditionWeightSlider("Magic marker", rc.ExpeditionMagicMarkerWeight, 0f, 200f);
+                rc.ExpeditionGoldMarkerWeight = DrawExpeditionWeightSlider("Gold marker", rc.ExpeditionGoldMarkerWeight, 0f, 300f);
+                rc.ExpeditionLogbookMarkerWeight = DrawExpeditionWeightSlider("Logbook marker", rc.ExpeditionLogbookMarkerWeight, 0f, 500f);
+                rc.ExpeditionPreferredRelicWeight = DrawExpeditionWeightSlider("Preferred remnant", rc.ExpeditionPreferredRelicWeight, 0f, 300f);
+                rc.ExpeditionDangerousRelicPenalty = DrawExpeditionWeightSlider("Danger penalty", rc.ExpeditionDangerousRelicPenalty, 0f, 500f);
+                ImGui.TreePop();
+            }
+
+            if (ImGui.TreeNode("Build-breaking remnant mods"))
+            {
+                ImGui.TextWrapped("Select immunities your build cannot run. Their penalty steers blast circles away from those remnants.");
+                var hazards = new (string Id, string Label)[]
+                {
+                    ("ExpeditionRelicDownsideImmunePhysicalDamage", "Immune to Physical"),
+                    ("ExpeditionRelicDownsideImmuneFireDamage", "Immune to Fire"),
+                    ("ExpeditionRelicDownsideImmuneColdDamage", "Immune to Cold"),
+                    ("ExpeditionRelicDownsideImmuneLightningDamage", "Immune to Lightning"),
+                    ("ExpeditionRelicDownsideImmuneChaosDamage", "Immune to Chaos"),
+                    ("ExpeditionRelicDownsideCannotBeCrit", "Cannot be Crit"),
+                    ("ExpeditionRelicDownsideCannotBeLeechedFrom", "Cannot be Leeched From"),
+                    ("ExpeditionRelicDownsideGrantNoFlaskCharges", "No Flask Charges"),
+                };
+                rc.ExpeditionDangerousRelicMods ??= [];
+                foreach (var (id, label) in hazards)
+                {
+                    var selected = rc.ExpeditionDangerousRelicMods.Contains(id, StringComparer.OrdinalIgnoreCase);
+                    if (!ImGui.Checkbox(label, ref selected)) continue;
+                    rc.ExpeditionDangerousRelicMods.RemoveAll(v => string.Equals(v, id, StringComparison.OrdinalIgnoreCase));
+                    if (selected) rc.ExpeditionDangerousRelicMods.Add(id);
+                }
+                ImGui.TreePop();
+            }
+
+            if (ctx?.ExpeditionPlanner is { Active: true } expedition)
+            {
+                ImGui.Separator();
+                ImGui.TextUnformatted($"Live: {expedition.Total - expedition.Placed}/{expedition.Total} charges · {expedition.TargetCount} targets");
+                ImGui.TextDisabled(expedition.Status);
+            }
+            else
+            {
+                ImGui.TextDisabled("Live: waiting for an Expedition detonator");
+            }
+        }
+        ImGuiTheme.EndAccordionSection(expeditionOpen);
+
         var diagnosticsOpen = ImGuiTheme.BeginAccordionSection("RunecraftDiagnostics", "Diagnostics",
             defaultOpen: false);
         if (diagnosticsOpen)
@@ -3958,6 +4400,15 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             ImGui.TextDisabled("Panel discovery checks both keyboard/mouse and controller UI roots.");
         }
         ImGuiTheme.EndAccordionSection(diagnosticsOpen);
+    }
+
+    private static float DrawExpeditionWeightSlider(string label, float value, float min, float max)
+    {
+        var next = value;
+        ImGui.SetNextItemWidth(UiW(8f));
+        return ImGui.SliderFloat(label, ref next, min, max, "%.0f")
+            ? Math.Clamp(next, min, max)
+            : value;
     }
 
     private void DrawAtlasTab(RadarSettings s)

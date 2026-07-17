@@ -76,6 +76,22 @@ public static class Poe2
         public const int TerrainMetadata  = 0x8C0;  // ✓ TerrainStruct base (2026-07-17: was 0x8B8)
         public const int CurrentAreaLevel = 0x0C4;  // ✓ int — per-area, validated 27/32 (GH2's 0xBC drifted)
         public const int CurrentAreaHash  = 0x11C;  // ✓ uint — per-area random hash (GH2's 0xFC drifted; +0x120 paired seed)
+        /// <summary>Inline StdVector&lt;StatArrayStruct&gt; containing current area modifiers.</summary>
+        public const int MapStats         = 0x158;  // GH2 RunecraftHelper Expedition planner
+    }
+
+    /// <summary>Expedition encounter controller reached through ServerData.</summary>
+    public static class ExpeditionController
+    {
+        public const int ServerDataPointer = 0x2618;
+        public const int PlacedExplosives  = 0x220; // StdVector&lt;pointer&gt;
+        public const int TotalExplosives   = 0x2B0; // low byte is the usable count
+    }
+
+    public static class ExpeditionStats
+    {
+        public const int PlacementRangePercent = 13685;
+        public const int ExplosiveRadiusPercent = 13471;
     }
 
     /// <summary>Server-side minimap icons stored inside ServerData (scanned dynamically).</summary>
@@ -187,6 +203,12 @@ public static class Poe2
     public static class MinimapIcon
     {
         public const int CompletedState = 0x10; // ✓ int — 0 = active/shown, non-zero = completed/faded
+        public const int IconRow         = 0x20; // -> row; *(row) -> UTF-16 icon id
+    }
+
+    public static class TriggerableBlockage
+    {
+        public const int IsBlocked = 0x30;
     }
 
     /// <summary>ObjectMagicProperties component — monster/chest rarity.</summary>

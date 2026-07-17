@@ -70,12 +70,15 @@ public sealed partial class RadarApp
         if (_settings.Runecraft.ShowOverlay) return true;
         if (_settings.Runecraft.ShowMapLabels) return true;
         if (_settings.Runecraft.ShowMonolithWindow) return true;
+        if (_settings.Runecraft.ShowExpeditionPlanner) return true;
         // Pad auto-open only: entity scans at monolith-only cadence, no HUD overlay reads.
         return RunecraftMonolithWindowActive() && !_settings.Runecraft.ShowMonolithWindow;
     }
 
     private bool NeedsRunecraftMonolithScans()
-        => _settings.Runecraft.ShowMonolithWindow || RunecraftMonolithWindowActive();
+        => _settings.Runecraft.ShowMonolithWindow
+           || _settings.Runecraft.ShowExpeditionPlanner
+           || RunecraftMonolithWindowActive();
 
     private bool RunecraftMonolithOnlyMode()
         => !_settings.Runecraft.ShowOverlay

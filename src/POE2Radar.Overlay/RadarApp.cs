@@ -612,6 +612,13 @@ public sealed partial class RadarApp : IDisposable
                 _settings.NavMenuCorner = corner;
                 _settings.Save();
             },
+            (x, y) =>
+            {
+                _settings.NavTaskbarX = x;
+                _settings.NavTaskbarY = y;
+                _settings.Save();
+            },
+            ToggleOverlayRendering,
             () => AddNearestPathTarget(),
             () => ClearPathTargets(),
             () => StartNewLootTrackerSession(),
@@ -710,6 +717,11 @@ public sealed partial class RadarApp : IDisposable
             RefreshRunecraft(live, snap, windowWidth, windowHeight, drawActive);
         else
             ClearRunecraftSession(open: false);
+
+        if (live.InGame)
+            RefreshExpeditionPlanner(live, snap, drawActive);
+        else
+            ClearExpeditionPlanner();
 
         if (live.InGame)
             RefreshStashValue(live, windowWidth, windowHeight, drawActive);
@@ -863,6 +875,7 @@ public sealed partial class RadarApp : IDisposable
             RunecraftMapLabels: _runecraftMapLabels,
             RunecraftShowMonolithWindow: RunecraftMonolithWindowActive(),
             RunecraftMonolithRows: _runecraftMonolithRows,
+            ExpeditionPlanner: _expeditionView,
             StashValueLabels: _stashValueLabels,
             StashUtilityHighlights: _stashUtilityHighlights,
             WaystoneAlchemyHints: _waystoneAlchemyHints,
@@ -924,7 +937,9 @@ public sealed partial class RadarApp : IDisposable
             CursorInspectMeta: _cursorInspectMeta,
             MapDiag: _mapDiag,
             PathDiagNote: pathDiag);
-        _imguiOverlay?.SetDrawEnabled(drawActive);
+        // Keep the compact taskbar alive while overlay content is hidden; its eye button is the
+        // discoverable way to turn content back on. Out of game there is nothing useful to draw.
+        _imguiOverlay?.SetDrawEnabled(live.InGame);
         _imguiOverlay?.UpdateContext(ctx);
 
         var overlayMetrics = _imguiOverlay?.GetRenderMetrics().Snapshot() ?? default;
@@ -937,9 +952,10 @@ public sealed partial class RadarApp : IDisposable
             overlayMetrics.NavMenuMs,
             overlayMetrics.AtlasMs);
         _processMetrics.Sample(
-            _settings.ShowFpsOverlay || _settings.ShowPerfStats,
+            enabled: true,
             PerformanceCadence.ClampHz(_settings.MetricsRefreshHz, 1, 10),
-            Math.Clamp(_settings.GpuMetricsRefreshSeconds, 1, 30));
+            Math.Clamp(_settings.GpuMetricsRefreshSeconds, 1, 30),
+            includeGpu: _settings.ShowFpsOverlay || _settings.ShowPerfStats);
 
         _perfSnapshot = _perf.RecordFrame(
             tickMs: ElapsedMs(tickStart),
@@ -1333,10 +1349,7 @@ public sealed partial class RadarApp : IDisposable
             _imguiOverlay?.ToggleSettings();
 
         if (HotkeyPressed(_settings.ToggleRenderingHotkey, ref _nextRenderToggleAt))
-        {
-            _renderingEnabled = !_renderingEnabled;
-            Console.WriteLine($"\nOverlay rendering: {(_renderingEnabled ? "ON" : "OFF")}");
-        }
+            ToggleOverlayRendering();
 
         if (DateTime.UtcNow >= _nextPathKeyAt)
         {
@@ -1356,6 +1369,12 @@ public sealed partial class RadarApp : IDisposable
 
         if (HotkeyPressed(_settings.AtlasPickHotkey, ref _nextInspectAt, debounceMs: 250))
             AtlasRoutePick();
+    }
+
+    private void ToggleOverlayRendering()
+    {
+        _renderingEnabled = !_renderingEnabled;
+        Console.WriteLine($"\nOverlay rendering: {(_renderingEnabled ? "ON" : "OFF")}");
     }
 
     private bool HotkeyPressed(int binding, ref DateTime nextAt, int debounceMs = 300, bool requireGameFocus = false)

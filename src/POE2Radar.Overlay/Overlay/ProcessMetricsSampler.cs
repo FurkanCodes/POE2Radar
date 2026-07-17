@@ -39,7 +39,7 @@ public sealed class ProcessMetricsSampler : IDisposable
     public void Sample()
         => Sample(enabled: true, metricsRefreshHz: 1, gpuMetricsRefreshSeconds: 3);
 
-    public void Sample(bool enabled, int metricsRefreshHz, int gpuMetricsRefreshSeconds)
+    public void Sample(bool enabled, int metricsRefreshHz, int gpuMetricsRefreshSeconds, bool includeGpu = true)
     {
         if (!enabled) return;
 
@@ -67,7 +67,7 @@ public sealed class ProcessMetricsSampler : IDisposable
             }
         }
 
-        if ((now - _lastGpuSample).TotalSeconds >= Math.Max(1, gpuMetricsRefreshSeconds))
+        if (includeGpu && (now - _lastGpuSample).TotalSeconds >= Math.Max(1, gpuMetricsRefreshSeconds))
         {
             _lastGpuSample = now;
             SampleGpu(now, Math.Max(1, gpuMetricsRefreshSeconds));
