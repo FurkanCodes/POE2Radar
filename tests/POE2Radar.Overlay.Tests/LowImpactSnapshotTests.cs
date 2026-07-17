@@ -12,6 +12,8 @@ public sealed class LowImpactSnapshotTests
         var properties = typeof(WorldSnapshot).GetProperties(BindingFlags.Instance | BindingFlags.Public);
 
         Assert.Equal(typeof(Poe2Live.EntityDot[]), Property(properties, nameof(WorldSnapshot.Entities)).PropertyType);
+        Assert.Equal(typeof(Poe2Live.EntityDot[]), Property(properties, nameof(WorldSnapshot.SekhemaEntities)).PropertyType);
+        Assert.Equal(typeof(POE2Radar.Core.Pathfinding.PathCell[]), Property(properties, nameof(WorldSnapshot.DoorOverrides)).PropertyType);
         Assert.Equal(typeof(Poe2Live.Landmark[]), Property(properties, nameof(WorldSnapshot.Landmarks)).PropertyType);
         Assert.Equal(typeof(Poe2Live.ServerMinimapIcon[]), Property(properties, nameof(WorldSnapshot.ServerIcons)).PropertyType);
         Assert.Equal(typeof(MapEntityRenderItem[]), Property(properties, nameof(WorldSnapshot.MapServerIcons)).PropertyType);

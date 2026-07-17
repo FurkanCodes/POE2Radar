@@ -272,6 +272,40 @@ public sealed class RadarSettingsMigrationTests
     }
 
     [Fact]
+    public void Migrate_RepairsIncompleteSekhemaProfilesAndCollections()
+    {
+        var s = new RadarSettings
+        {
+            Sekhema =
+            {
+                CurrentProfile = "removed-profile",
+                Profiles = new Dictionary<string, SekhemaProfileSettings>
+                {
+                    ["Default"] = new()
+                    {
+                        RoomTypeWeights = [],
+                        AfflictionWeights = [],
+                        RewardWeights = [],
+                    },
+                },
+                ChestPriorityOrder = [],
+                ChestDisabledContent = new HashSet<string>(StringComparer.Ordinal) { "generic" },
+            },
+        };
+
+        var changed = s.Migrate();
+
+        Assert.True(changed);
+        Assert.Equal("Default", s.Sekhema.CurrentProfile);
+        Assert.Contains("No-Hit", s.Sekhema.Profiles.Keys);
+        Assert.NotEmpty(s.Sekhema.Profiles["Default"].RoomTypeWeights);
+        Assert.NotEmpty(s.Sekhema.Profiles["Default"].AfflictionWeights);
+        Assert.NotEmpty(s.Sekhema.Profiles["Default"].RewardWeights);
+        Assert.NotEmpty(s.Sekhema.ChestPriorityOrder);
+        Assert.Contains("GENERIC", s.Sekhema.ChestDisabledContent);
+    }
+
+    [Fact]
     public void Migrate_EnablesRitualPricesWindowOnce()
     {
         var s = new RadarSettings

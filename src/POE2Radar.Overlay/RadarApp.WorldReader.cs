@@ -65,6 +65,7 @@ public sealed partial class RadarApp
         _atlasUpdateMs = (float)System.Diagnostics.Stopwatch.GetElapsedTime(atlasStart).TotalMilliseconds;
 
         var entities = new List<Poe2Live.EntityDot>();
+        var sekhemaEntities = Array.Empty<Poe2Live.EntityDot>();
         IReadOnlyList<Poe2Live.Landmark> landmarks = Array.Empty<Poe2Live.Landmark>();
         var hpSpecs = new List<HpBarSpec>();
 
@@ -74,6 +75,9 @@ public sealed partial class RadarApp
             var (entityDots, awakeCount, sleepingCount) = _worldLive.Entities(areaInstance);
             entities = entityDots;
             _worldDoorOverrides = BuildDoorOverrides(entities);
+            sekhemaEntities = entityDots
+                .Where(IsSekhemaEntity)
+                .ToArray();
             if (_settings.ShowPerfStats && (awakeCount != _lastLoggedAwakeCount || sleepingCount != _lastLoggedSleepingCount))
             {
                 Console.WriteLine($"[entities] awake={awakeCount} sleeping={sleepingCount} total={entities.Count}");
@@ -157,7 +161,7 @@ public sealed partial class RadarApp
 
         _snapshot = new WorldSnapshot(
             true, areaHash, areaLevel, _areaCode, charLevel,
-            entityArray, landmarkArray, _worldTerrain, navTargetArray, hpSpecArray, legendArray,
+            entityArray, sekhemaEntities, _worldDoorOverrides, landmarkArray, _worldTerrain, navTargetArray, hpSpecArray, legendArray,
             selectedIds, _renderPathSnapshot, mapEntities, mapLandmarks, serverIconArray, mapServerIcons);
 
         _state = new RadarState(inGame, areaHash, areaLevel, false, 0, player, entityArray, landmarkArray,

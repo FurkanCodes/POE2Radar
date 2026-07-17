@@ -159,7 +159,7 @@ public sealed partial class Poe2Live
             {
                 var root = roots[i];
                 if (root == 0) continue;
-                if (!TryResolveRunecraftPanelFromRoot(root, out var found, out var foundViewport, out _))
+                if (!TryResolveRunecraftPanelFromRoot(root, out var found, out var foundViewport))
                     continue;
                 panel = found;
                 viewport = foundViewport;
@@ -367,11 +367,7 @@ public sealed partial class Poe2Live
     }
 
     private string ReadStateMachineName(nint addr)
-    {
-        var strPtr = Ptr(addr);
-        if (strPtr == 0) return "";
-        return _reader.ReadStringUtf8(strPtr, 64).Trim();
-    }
+        => _reader.ReadStdString(addr, 64).Trim();
 
     private nint WalkRunecraftFp(nint parent, uint[] fps, int gateStep, int step, ref nint viewportOut)
     {
@@ -411,11 +407,10 @@ public sealed partial class Poe2Live
         return 0;
     }
 
-    private bool TryResolveRunecraftPanelFromRoot(nint root, out nint panel, out nint viewport, out string source)
+    private bool TryResolveRunecraftPanelFromRoot(nint root, out nint panel, out nint viewport)
     {
         panel = 0;
         viewport = 0;
-        source = "";
         if (root == 0) return false;
 
         nint fpViewport = 0;
@@ -424,19 +419,13 @@ public sealed partial class Poe2Live
         {
             panel = fpPanel;
             viewport = fpViewport;
-            source = "fp";
             return true;
         }
 
-        var bfsPanel = FindRunecraftRecipesContainerBfs(root);
-        if (bfsPanel != 0 && IsRunecraftPanelGateVisible(bfsPanel))
-        {
-            panel = bfsPanel;
-            viewport = FindRunecraftViewportAncestor(bfsPanel);
-            source = "bfs";
-            return true;
-        }
-
+        // The breadth-first fallback can inspect up to 30,000 UI nodes per root. Keep it in
+        // ProbeRunecraftUi for explicit diagnostics, but never run it from the live overlay.
+        // The normal fingerprint walk is the upstream resolver and its visible gate cheaply
+        // reports a closed panel without traversing the entire UI tree.
         return false;
     }
 

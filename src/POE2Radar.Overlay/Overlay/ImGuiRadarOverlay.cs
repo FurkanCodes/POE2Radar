@@ -130,8 +130,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         Action addNearest,
         Action clearPaths,
         Action newLootSession,
-        RadarSettings settings)
-        : base("POE2Radar Radar", true, 3840, 2160)
+        RadarSettings settings,
+        string windowTitle = "POE2Radar Radar")
+        : base(windowTitle, true, 3840, 2160)
     {
         _enqueue = enqueue;
         _toggleTarget = toggleTarget;
@@ -353,6 +354,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                     DrawWaystoneAlchemyHints(ImGui.GetForegroundDrawList(), ctx);
                     DrawPickupTargetHint(ImGui.GetForegroundDrawList(), ctx);
                     DrawStashValueLabels(ImGui.GetForegroundDrawList(), ctx);
+                    DrawSekhemaScreenOverlaySafe(ImGui.GetForegroundDrawList(), ctx);
                     nameplatesMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                 }
 
@@ -483,7 +485,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         var H = ctx.WindowHeight;
         var center = frame.Center;
         var scale = MathF.Max(0.01f, frame.Scale);
-        var player = ctx.RawPlayerGrid;
+        var player = MapProjectionMotion.PlayerReference(ctx);
 
         var clipped = frame.IsMinimap && frame.Width > 1f && frame.Height > 1f;
         if (clipped)
@@ -505,6 +507,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
             if (!frame.IsMinimap && _settings.Runecraft.ShowExpeditionRouteOnMap)
                 DrawExpeditionRouteMap(dl, ctx, frame, center, scale);
+
+            if (!frame.IsMinimap)
+                DrawSekhemaMapSafe(dl, ctx, frame, center, scale);
 
             var mapLabels = new List<MapLabelCandidate>();
             var clipL = frame.Position.X;
@@ -568,7 +573,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         if (!_terrainTextures.TryGet(this, _textures, terrain, ctx.AreaHash, ctx.TerrainStyle, out var tex))
             return false;
 
-        var player = ctx.RawPlayerGrid;
+        var player = MapProjectionMotion.PlayerReference(ctx);
         var p0 = Project(new NumVec2(0, 0), player, center, scale);
         var p1 = Project(new NumVec2(terrain.Width, 0), player, center, scale);
         var p2 = Project(new NumVec2(terrain.Width, terrain.Height), player, center, scale);
@@ -651,9 +656,12 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         var rows = data.Length / bytesPerRow;
         var W = ctx.WindowWidth;
         var H = ctx.WindowHeight;
+        var player = MapProjectionMotion.PlayerReference(ctx);
 
         var edgeStride = Math.Max(1, (int)MathF.Ceiling(0.8f / MathF.Max(scale, 0.15f)));
-        if (edgeStride > 3) edgeStride = 3;
+        const int maxFallbackSamples = 350_000;
+        var budgetStride = (int)Math.Ceiling(Math.Sqrt(data.Length / (double)maxFallbackSamples));
+        edgeStride = Math.Max(edgeStride, budgetStride);
         var thickness = Math.Clamp(1.2f * scale, 0.8f, 4f);
 
         var interiorStride = Math.Max(2, edgeStride * 3);
@@ -669,7 +677,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                 var isEdge = data[idx - 1] == 0 || data[idx + 1] == 0
                           || data[idx - bytesPerRow] == 0 || data[idx + bytesPerRow] == 0;
 
-                var p = Project(new NumVec2(x, y), ctx.RawPlayerGrid, center, scale);
+                var p = Project(new NumVec2(x, y), player, center, scale);
                 if (p.X < -8 || p.Y < -8 || p.X > W + 8 || p.Y > H + 8) continue;
 
                 if (isEdge)
@@ -679,7 +687,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                         var rightIdx = row + x + edgeStride;
                         if (rightIdx < data.Length && data[rightIdx] != 0)
                         {
-                            var pr = Project(new NumVec2(x + edgeStride, y), ctx.RawPlayerGrid, center, scale);
+                            var pr = Project(new NumVec2(x + edgeStride, y), player, center, scale);
                             if (MathF.Abs(pr.X - p.X) < 80f && MathF.Abs(pr.Y - p.Y) < 80f)
                                 dl.AddLine(p, pr, edgeCol, thickness);
                         }
@@ -690,7 +698,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                         var bottomIdx = (y + edgeStride) * bytesPerRow + x;
                         if (bottomIdx < data.Length && data[bottomIdx] != 0)
                         {
-                            var pb = Project(new NumVec2(x, y + edgeStride), ctx.RawPlayerGrid, center, scale);
+                            var pb = Project(new NumVec2(x, y + edgeStride), player, center, scale);
                             if (MathF.Abs(pb.X - p.X) < 80f && MathF.Abs(pb.Y - p.Y) < 80f)
                                 dl.AddLine(p, pb, edgeCol, thickness);
                         }
@@ -707,7 +715,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
     private void DrawPathsMap(ImDrawListPtr dl, RenderContext ctx, MapFrame frame, NumVec2 center, float scale)
     {
-        var player = ctx.RawPlayerGrid;
+        var player = MapProjectionMotion.PlayerReference(ctx);
         var smoothPaths = !frame.IsMinimap && ctx.SmoothOverlayMotion;
         foreach (var path in ctx.SelectedPaths)
         {
@@ -1253,12 +1261,13 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     {
         var view = ctx.ExpeditionPlanner;
         if (!view.Active || view.Route.Length == 0) return;
+        var player = MapProjectionMotion.PlayerReference(ctx);
 
         NumVec2 ProjectPlacement(ExpeditionPlacementView p)
-            => Project(p.Grid, ctx.RawPlayerGrid, center, scale, p.TerrainHeight - frame.PlayerTerrainHeight);
+            => Project(p.Grid, player, center, scale, p.TerrainHeight - frame.PlayerTerrainHeight);
 
         var previous = Project(
-            view.DetonatorGrid, ctx.RawPlayerGrid, center, scale,
+            view.DetonatorGrid, player, center, scale,
             view.DetonatorHeight - frame.PlayerTerrainHeight);
         dl.AddCircleFilled(previous, 5f, ColorU32(90, 190, 255, 0.95f), 16);
 
@@ -1294,11 +1303,17 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         const int segments = 40;
         NumVec2? previous = null;
         NumVec2 first = default;
+        var player = MapProjectionMotion.PlayerReference(ctx);
         for (var i = 0; i <= segments; i++)
         {
             var angle = i * MathF.Tau / segments;
             var grid = placement.Grid + new NumVec2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
-            var p = Project(grid, ctx.RawPlayerGrid, center, scale, placement.TerrainHeight - frame.PlayerTerrainHeight);
+            var p = Project(
+                grid,
+                player,
+                center,
+                scale,
+                placement.TerrainHeight - frame.PlayerTerrainHeight);
             if (i == 0) first = p;
             if (previous is { } prev) dl.AddLine(prev, p, color & 0xAAFFFFFFu, 1.2f);
             previous = p;
@@ -2434,6 +2449,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         DrawSettingsNavItem("Loot Tracker");
         DrawSettingsNavItem("Ritual");
         DrawSettingsNavItem("Runecraft");
+        DrawSettingsNavItem("Sekhema");
 
         DrawSettingsNavGroup("WORLD");
         DrawSettingsNavItem("Atlas");
@@ -2468,6 +2484,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             case "Loot Tracker": DrawLootTrackerTab(s, ctx); break;
             case "Ritual": DrawRitualTab(s, ctx); break;
             case "Runecraft": DrawRunecraftTab(s, ctx); break;
+            case "Sekhema": DrawSekhemaTab(s, ctx); break;
             case "Atlas": DrawAtlasTab(s); break;
             case "Hotkeys": DrawHotkeysTab(s); break;
             default: DrawRadarTab(s, ctx); break;

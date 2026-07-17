@@ -355,10 +355,51 @@ public static class Poe2
         public const int ListenerVec = 0x20; // ✓ StdVector of listener-node ptrs
         public const int StatesPtr = 0x158; // ✓ ptr to state-name table
         public const int StatesValues = 0x160; // ✓ StdVector<long> parallel to state names
+        public const int Used = 0x10; // terminal-state byte: 0 active, non-zero finished
         public const int StateStructSize = 0xC0;
     }
 
     /// <summary>RuneStation heap object behind a runeshape monolith device. ✓ validated 2026-06-20.</summary>
+    /// <summary>
+    /// Trial of the Sekhemas room-map and HUD layout. Sourced from MordWraith/Gamehelper 1.4.8
+    /// (snapshot 7e7a235, 2026-07-18); keep league-specific drift isolated here.
+    /// </summary>
+    public static class Sekhema
+    {
+        public const int GameUiPanelChild = 84;
+        public const int PanelChild = 0;
+
+        public const int PanelFloorObject = 0x3B8;
+        public const int FloorObjectVariantFlag = 0x25A;
+        public const int FloorDataActive = 0x1F8;
+        public const int FloorDataAlternate = 0x1B0;
+
+        public const int FloorLayers = 0x00;
+        public const int FloorClassifications = 0x18;
+        public const int FloorChoices = 0x38;
+        public const int FloorCounter = 0x40;
+        public const int LayerStride = 0x20;
+        public const int RoomStride = 0x38;
+        public const int ClassificationStride = 0x40;
+        public const int WidgetContentForeignKey = 0x4D8;
+        public const int ResourceText = 0x4C0;
+
+        // UI role fingerprints, with UiElement visible bit (0x800) masked before comparison.
+        // These are the patch-resistant fallback when a child index moves.
+        public const uint WaterFp0 = 0x00502EF1;
+        public const uint WaterFp1 = 0x00502EF1;
+        public const uint WaterFp2 = 0x00502EF3;
+        public const uint WaterFp3 = 0x00502EE1;
+        public const uint HonourFp0 = 0x005026F1;
+        public const uint HonourFp1 = 0x00502EF1;
+        public const uint HonourFp2 = 0x00502EF7;
+
+        public const int StatsChangedByItemsPtr = 0x160;
+        public const int StatsChangedByBuffsPtr = 0x1C8;
+        public const int StatsVectorInContainer = 0xF8;
+        public const int StatEntryStride = 0x08;
+    }
+
     public static class RuneStation
     {
         public const int Owner = 0x10;

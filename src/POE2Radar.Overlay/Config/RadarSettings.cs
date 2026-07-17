@@ -132,6 +132,7 @@ public sealed class RadarSettings
 
     public RitualSettings Ritual { get; set; } = new();
     public RunecraftSettings Runecraft { get; set; } = new();
+    public SekhemaSettings Sekhema { get; set; } = new();
     public StashValueSettings StashValue { get; set; } = new();
     public StashUtilitySettings StashUtility { get; set; } = new();
     public WaystoneAlchemySettings WaystoneAlchemy { get; set; } = new();
@@ -417,6 +418,8 @@ public sealed class RadarSettings
 
         static bool IsBroadStrongbox(string p) => string.Equals(p, "Strongbox", StringComparison.OrdinalIgnoreCase);
 
+        changed |= RepairSekhemaSettings();
+
         if (Styles?.Mechanics is { } mechanics)
             foreach (var m in mechanics)
             {
@@ -564,6 +567,82 @@ public sealed class RadarSettings
         }
 
         return changed;
+    }
+
+    private bool RepairSekhemaSettings()
+    {
+        var changed = false;
+        if (Sekhema is null)
+        {
+            Sekhema = new SekhemaSettings();
+            changed = true;
+        }
+
+        var settings = Sekhema;
+        if (settings.Profiles is null)
+        {
+            settings.Profiles = new Dictionary<string, SekhemaProfileSettings>(StringComparer.OrdinalIgnoreCase);
+            changed = true;
+        }
+
+        changed |= RepairProfile("Default", SekhemaProfileSettings.CreateDefault());
+        changed |= RepairProfile("No-Hit", SekhemaProfileSettings.CreateNoHit());
+
+        if (string.IsNullOrWhiteSpace(settings.CurrentProfile) ||
+            !settings.Profiles.ContainsKey(settings.CurrentProfile))
+        {
+            settings.CurrentProfile = "Default";
+            changed = true;
+        }
+
+        string[] defaultOrder =
+        [
+            "GrandSpectrum", "RadiusJewels", "LargeRelic", "Jewels", "Currency",
+            "MediumRelic", "SmallRelic", "Maps", "Generic",
+        ];
+        if (settings.ChestPriorityOrder is null || settings.ChestPriorityOrder.Count == 0)
+        {
+            settings.ChestPriorityOrder = [.. defaultOrder];
+            changed = true;
+        }
+
+        if (settings.ChestDisabledContent is null ||
+            settings.ChestDisabledContent.Comparer != StringComparer.OrdinalIgnoreCase)
+        {
+            settings.ChestDisabledContent = settings.ChestDisabledContent is null
+                ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(settings.ChestDisabledContent, StringComparer.OrdinalIgnoreCase);
+            changed = true;
+        }
+
+        return changed;
+
+        bool RepairProfile(string name, SekhemaProfileSettings defaults)
+        {
+            if (!settings.Profiles.TryGetValue(name, out var profile) || profile is null)
+            {
+                settings.Profiles[name] = defaults;
+                return true;
+            }
+
+            var repaired = false;
+            if (profile.RoomTypeWeights is null || profile.RoomTypeWeights.Count == 0)
+            {
+                profile.RoomTypeWeights = new Dictionary<string, float>(defaults.RoomTypeWeights);
+                repaired = true;
+            }
+            if (profile.AfflictionWeights is null || profile.AfflictionWeights.Count == 0)
+            {
+                profile.AfflictionWeights = new Dictionary<string, float>(defaults.AfflictionWeights);
+                repaired = true;
+            }
+            if (profile.RewardWeights is null || profile.RewardWeights.Count == 0)
+            {
+                profile.RewardWeights = new Dictionary<string, float>(defaults.RewardWeights);
+                repaired = true;
+            }
+            return repaired;
+        }
     }
 
     private static List<AtlasMapGroupSettings> BuildDefaultAtlasMapGroups()
@@ -723,6 +802,128 @@ public sealed class RunecraftSettings
         "ExpeditionRelicUpsideElitesDuplicated",
     ];
     public List<string> ExpeditionDangerousRelicMods { get; set; } = [];
+}
+
+public sealed class SekhemaSettings
+{
+    public bool Enabled { get; set; } = true;
+    public string CurrentProfile { get; set; } = "Default";
+    public Dictionary<string, SekhemaProfileSettings> Profiles { get; set; } = new()
+    {
+        ["Default"] = SekhemaProfileSettings.CreateDefault(),
+        ["No-Hit"] = SekhemaProfileSettings.CreateNoHit(),
+    };
+
+    public bool DrawBestPath { get; set; } = true;
+    public bool Debug { get; set; }
+    public string BestPathColor { get; set; } = "#33FF33";
+    public string DebugTextColor { get; set; } = "#FFFFFF";
+    public string DebugBackgroundColor { get; set; } = "#000000";
+    public float FrameThickness { get; set; } = 4f;
+
+    public bool SuppressMerchantLowWater { get; set; } = true;
+    public int MerchantWaterThreshold { get; set; } = 250;
+    public bool SuppressHonourRestoreHighPct { get; set; } = true;
+    public int HonourRestoreThresholdPct { get; set; } = 80;
+
+    public bool DrawHazardRoute { get; set; } = true;
+    public bool HazardWalkableRoute { get; set; } = true;
+    public string HazardRouteColor { get; set; } = "#FFD933";
+    public string HazardMarkerColor { get; set; } = "#FF4D4D";
+    public float HazardRouteThickness { get; set; } = 1.5f;
+    public float HazardMarkerRadius { get; set; } = 9f;
+    public int HazardIdGroupGap { get; set; } = 10;
+    public float HazardRoomMargin { get; set; } = 30f;
+    public string HazardDebugCrystalIds { get; set; } = "";
+    public bool HazardDebugDrawWalkable { get; set; }
+    public float HazardDebugWalkableRadius { get; set; } = 150f;
+
+    public bool DrawChestPriority { get; set; } = true;
+    public string ChestMarkerColor { get; set; } = "#4DFF73";
+    public float ChestMarkerRadius { get; set; } = 6f;
+    public List<string> ChestPriorityOrder { get; set; } =
+    [
+        "GrandSpectrum", "RadiusJewels", "LargeRelic", "Jewels", "Currency",
+        "MediumRelic", "SmallRelic", "Maps", "Generic",
+    ];
+    public HashSet<string> ChestDisabledContent { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Currency", "MediumRelic", "SmallRelic", "Maps", "Generic",
+    };
+
+    public bool ShowPortals { get; set; } = true;
+    public bool ShowLevers { get; set; } = true;
+    public string PortalColor { get; set; } = "#FF4D4D";
+    public string LeverColor { get; set; } = "#4DB3FF";
+    public float RoomObjectMarkerRadius { get; set; } = 8f;
+}
+
+public sealed class SekhemaProfileSettings
+{
+    public Dictionary<string, float> RoomTypeWeights { get; set; } = new();
+    public Dictionary<string, float> AfflictionWeights { get; set; } = new();
+    public Dictionary<string, float> RewardWeights { get; set; } = new();
+
+    public static SekhemaProfileSettings CreateDefault() => CreateBase();
+
+    public static SekhemaProfileSettings CreateNoHit()
+    {
+        var profile = CreateBase();
+        profile.RoomTypeWeights["Gauntlet"] = -200;
+        profile.RoomTypeWeights["Hourglass"] = -1000;
+        profile.AfflictionWeights["Death Toll"] = -500000;
+        profile.AfflictionWeights["Spiked Exit"] = -600000;
+        profile.AfflictionWeights["Deceptive Mirror"] = -400000;
+        profile.AfflictionWeights["Glass Shard"] = -50000;
+        profile.AfflictionWeights["Myriad Aspersions"] = -50000;
+        foreach (var name in new[]
+                 {
+                     "Ghastly Scythe", "Deadly Snare", "Branded Balbalakh", "Chiselled Stone",
+                     "Weakened Flesh", "Costly Aid", "Suspected Sympathiser", "Haemorrhage",
+                     "Leaking Waterskin", "Rusted Mallet", "Chains of Binding", "Dishonoured Tattoo",
+                     "Dark Pit", "Honed Claws", "Hungry Fangs",
+                 })
+            profile.AfflictionWeights[name] = 0;
+        return profile;
+    }
+
+    private static SekhemaProfileSettings CreateBase() => new()
+    {
+        RoomTypeWeights = new Dictionary<string, float>
+        {
+            ["Gauntlet"] = -1000, ["Hourglass"] = -200, ["Chalice"] = 0,
+            ["Ritual"] = 0, ["Escape"] = 100, ["Boss"] = 0,
+        },
+        AfflictionWeights = new Dictionary<string, float>
+        {
+            ["Orbala's Leathers"] = 0,
+            ["Glass Shard"] = -4000, ["Ghastly Scythe"] = -4000, ["Veiled Sight"] = -4000,
+            ["Myriad Aspersions"] = -4000, ["Deceptive Mirror"] = -4000, ["Purple Smoke"] = -4000,
+            ["Golden Smoke"] = -400, ["Red Smoke"] = -4000, ["Black Smoke"] = -4000,
+            ["Rapid Quicksand"] = -1000, ["Deadly Snare"] = -1000, ["Forgotten Traditions"] = -1000,
+            ["Season of Famine"] = -1000, ["Orb of Negation"] = -1000, ["Winter Drought"] = -1000,
+            ["Branded Balbalakh"] = -1000, ["Chiselled Stone"] = -1000, ["Weakened Flesh"] = -100,
+            ["Untouchable"] = -1000, ["Costly Aid"] = -900, ["Blunt Sword"] = -1000,
+            ["Spiked Shell"] = -1000, ["Suspected Sympathiser"] = -200, ["Haemorrhage"] = -100,
+            ["Corrosive Concoction"] = 0, ["Iron Manacles"] = 0, ["Shattered Shield"] = 0,
+            ["Unquenched Thirst"] = -200, ["Unassuming Brick"] = -1000, ["Tradition's Demand"] = -800,
+            ["Fiendish Wings"] = -400, ["Hungry Fangs"] = -600, ["Worn Sandals"] = -400,
+            ["Trade Tariff"] = -300, ["Death Toll"] = -400, ["Spiked Exit"] = -300,
+            ["Exhausted Wells"] = 0, ["Gate Toll"] = -100, ["Leaking Waterskin"] = -100,
+            ["Low Rivers"] = -100, ["Sharpened Arrowhead"] = 0, ["Rusted Mallet"] = 0,
+            ["Chains of Binding"] = 0, ["Dishonoured Tattoo"] = 0, ["Tattered Blindfold"] = 0,
+            ["Dark Pit"] = 0, ["Honed Claws"] = 0,
+        },
+        RewardWeights = new Dictionary<string, float>
+        {
+            ["Gold Key"] = 0, ["Silver Key"] = 0, ["Bronze Key"] = 0,
+            ["Golden Cache"] = 0, ["Silver Cache"] = 0, ["Bronze Cache"] = 0,
+            ["Large Fountain"] = 100, ["Fountain"] = 50, ["Pledge to Kochai"] = 20,
+            ["Honour Halani"] = 8, ["Honour Ahkeli"] = -1, ["Honour Orbala"] = 50,
+            ["Honour Galai"] = 300, ["Honour Tabana"] = 0, ["Merchant"] = 20,
+            ["Honour"] = 50, ["Boon"] = 200, ["Curse"] = 0, ["Random"] = 0,
+        },
+    };
 }
 
 public sealed class StashValueSettings

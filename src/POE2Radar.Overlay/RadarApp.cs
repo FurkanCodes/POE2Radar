@@ -30,6 +30,7 @@ public sealed partial class RadarApp : IDisposable
     private readonly Poe2Atlas _atlas;
     private ImGuiRadarOverlay? _imguiOverlay;
     private Thread? _imguiThread;
+    private int _imguiOverlayGeneration;
     private readonly ApiServer _api;
     private readonly RadarSettings _settings;
     private readonly HiddenEntities _hidden;
@@ -585,9 +586,9 @@ public sealed partial class RadarApp : IDisposable
                 if (_imguiOverlay is null) return;
                 _imguiOverlay.Run().GetAwaiter().GetResult();
                 if (_shutdown) return;
-                CrashLog.Write("ImGuiDx backend stopped", "Overlay loop exited unexpectedly; restarting in 1s.");
-                Thread.Sleep(1000);
-                RestartImGuiOverlay();
+                CrashLog.Write("ImGuiDx backend closed", "Overlay window closed; shutting down the application.");
+                RequestShutdown();
+                return;
             }
             catch (Exception ex)
             {
@@ -606,7 +607,9 @@ public sealed partial class RadarApp : IDisposable
     }
 
     private ImGuiRadarOverlay CreateImGuiOverlay()
-        => new ImGuiRadarOverlay(
+    {
+        var generation = Interlocked.Increment(ref _imguiOverlayGeneration);
+        return new ImGuiRadarOverlay(
             cmd => _commandQueue.Enqueue(cmd),
             id => TogglePathTarget(id),
             corner =>
@@ -624,10 +627,28 @@ public sealed partial class RadarApp : IDisposable
             () => AddNearestPathTarget(),
             () => ClearPathTargets(),
             () => StartNewLootTrackerSession(),
-            _settings);
+            _settings,
+            generation == 1 ? "POE2Radar Radar" : $"POE2Radar Radar {generation}");
+    }
 
     private void RestartImGuiOverlay()
     {
+        var previous = _imguiOverlay;
+        _imguiOverlay = null;
+        if (previous is not null)
+        {
+            try
+            {
+                previous.Dispose();
+            }
+            catch (Exception ex)
+            {
+                // A destroyed Win32 window can make the third-party backend's
+                // unregister step fail. A unique next class name still lets us recover.
+                CrashLog.Write("ImGuiDx backend cleanup warning", ex);
+            }
+        }
+
         _imguiOverlay = CreateImGuiOverlay();
         _imguiOverlay.AttachEntityStores(_displayRules, _zoneOverrides, _ruleEngine, _hidden);
         if (_gameHwnd != 0)
@@ -730,6 +751,7 @@ public sealed partial class RadarApp : IDisposable
         else
             ClearStashValue();
 
+        RefreshSekhemaSafe(live, snap, windowWidth, windowHeight, drawActive);
         RefreshWaystoneAlchemy(live, realActive);
         RefreshPickup(live, snap, windowWidth, windowHeight, realActive);
 
@@ -878,6 +900,7 @@ public sealed partial class RadarApp : IDisposable
             RunecraftMapLabels: _runecraftMapLabels,
             RunecraftShowMonolithWindow: RunecraftMonolithWindowActive(),
             RunecraftMonolithRows: _runecraftMonolithRows,
+            Sekhema: _sekhemaView,
             ExpeditionPlanner: _expeditionView,
             StashValueLabels: _stashValueLabels,
             StashUtilityHighlights: _stashUtilityHighlights,
@@ -3335,7 +3358,10 @@ public sealed partial class RadarApp : IDisposable
         _replanner.Dispose();
         _api.Dispose();
         _processMetrics.Dispose();
-        _imguiOverlay?.RequestClose();
+        var overlay = _imguiOverlay;
+        overlay?.RequestClose();
         try { _imguiThread?.Join(1000); } catch { }
+        try { overlay?.Dispose(); }
+        catch (Exception ex) { CrashLog.Write("ImGuiDx backend shutdown cleanup warning", ex); }
     }
 }

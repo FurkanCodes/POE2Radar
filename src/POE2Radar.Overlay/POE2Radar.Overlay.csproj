@@ -12,7 +12,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- App version — bump per release and tag the repo to match (vX.Y.Z). UpdateChecker compares this
          to the latest GitHub release/tag so the user is told when they're out of date. -->
-    <Version>0.15.17</Version>
+    <Version>0.15.20</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -38,6 +38,7 @@
     <None Include="Overlay\Textures\*.png" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <None Include="Pricing\item_names.json" CopyToOutputDirectory="PreserveNewest" TargetPath="RitualHelper\item_names.json" />
     <None Include="Pricing\RitualHelper.GPLv3.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" TargetPath="RitualHelper\RitualHelper.GPLv3.LICENSE.txt" />
+    <None Include="Sekhema\SekhemaHelper.GPLv3.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" TargetPath="SekhemaHelper\SekhemaHelper.GPLv3.LICENSE.txt" />
     <None Include="Runecraft\expedition2_recipes.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="LootTracker\metaArt.json" CopyToOutputDirectory="PreserveNewest" TargetPath="LootTracker\metaArt.json" />
     <None Include="LootTracker\icons\*.png" CopyToOutputDirectory="PreserveNewest" TargetPath="LootTracker\icons\%(Filename)%(Extension)" ExcludeFromSingleFile="true" />

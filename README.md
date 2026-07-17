@@ -22,6 +22,10 @@ quality-of-life feature.
   smoothed A* route to it: on the in-game map when it's open, or as waypoints on the world ground
   when it's closed. Multi-select (each route its own color). Auto-nav patterns (e.g. the expedition
   encounter) re-acquire their target automatically in each new zone.
+- **Sekhema Helper** — scores the Trial's layered room graph with tunable Default/No-Hit profiles,
+  live defence/resource-aware weights, and highlights the best route on the floor map. It also marks
+  active portals/levers, prioritizes final-room chests against the live key budget, and draws an
+  optional walkable A* collection route through active death crystals.
 - **Auto-flask** (opt-in input) — presses the life/mana flask key below a HP/mana threshold.
   Hard-gated: only when PoE2 is the foreground window, with cooldowns and an **F8 kill-switch**.
 - **Pickup Helper** (opt-in input) — assist, hover-and-hold, nearby-and-hold, and press-once automatic
@@ -122,6 +126,12 @@ Memory-layout research and the AOB approach draw heavily on the open-source **Ga
 (its `GameOffsets` were the starting reference for PoE2's struct shapes). GameHelper2 is not
 redistributed here; only independently re-validated offset values are recorded in this repo.
 
+The Sekhema Helper behavior is derived from
+[MordWraith/Gamehelper's SekhemaHelper](https://github.com/MordWraith/Gamehelper/tree/main/Plugins/SekhemaHelper)
+under GPL-3.0. The source snapshot and license notice are bundled with the overlay output.
+
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Original POE2Radar code is MIT — see [LICENSE](LICENSE). The integrated Sekhema Helper behavior is
+derived from GPL-3.0 source; distributions containing it must also comply with GPL-3.0. Its pinned
+source notice and license information are included under `SekhemaHelper/` in the overlay output.

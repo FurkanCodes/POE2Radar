@@ -150,6 +150,24 @@ public sealed class MemoryReader
         }
     }
 
+    /// <summary>Read the x64 MSVC <c>std::string</c> layout used by PoE 2.</summary>
+    public string ReadStdString(nint address, int maxLength = 1000)
+    {
+        if (address == 0 || maxLength <= 0 ||
+            !TryReadStruct<int>(address + 0x10, out var length) ||
+            !TryReadStruct<int>(address + 0x18, out var capacity) ||
+            length <= 0 || length > maxLength ||
+            capacity < length || capacity > maxLength)
+            return string.Empty;
+
+        if (capacity <= 15)
+            return ReadStringUtf8(address, length);
+
+        if (!TryReadStruct<nint>(address, out var buffer) || buffer == 0)
+            return string.Empty;
+        return ReadStringUtf8(buffer, length);
+    }
+
     /// <summary>Try-version that returns false on failure instead of throwing. For speculative reads.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public unsafe bool TryReadStruct<T>(nint address, out T value) where T : unmanaged

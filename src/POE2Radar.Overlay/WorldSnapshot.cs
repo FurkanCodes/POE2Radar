@@ -31,6 +31,8 @@ public sealed record WorldSnapshot(
     string AreaCode,
     int CharLevel,
     Poe2Live.EntityDot[] Entities,
+    Poe2Live.EntityDot[] SekhemaEntities,
+    Core.Pathfinding.PathCell[] DoorOverrides,
     Poe2Live.Landmark[] Landmarks,
     Poe2Live.TerrainData? Terrain,
     NavTarget[] NavTargets,
@@ -46,6 +48,8 @@ public sealed record WorldSnapshot(
     public static readonly WorldSnapshot Empty = new(
         false, 0, 0, "", 0,
         Array.Empty<Poe2Live.EntityDot>(),
+        Array.Empty<Poe2Live.EntityDot>(),
+        Array.Empty<Core.Pathfinding.PathCell>(),
         Array.Empty<Poe2Live.Landmark>(),
         null,
         Array.Empty<NavTarget>(),

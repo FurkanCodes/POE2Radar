@@ -4,6 +4,7 @@ using System.Text.Json;
 using POE2Radar.Core.Game;
 using POE2Radar.Overlay.Input;
 using POE2Radar.Overlay.Pricing;
+using MapProjection = POE2Radar.Core.Pathfinding.MapProjection;
 using NumVec2 = System.Numerics.Vector2;
 
 namespace POE2Radar.Overlay;
@@ -26,6 +27,8 @@ public sealed partial class RadarApp
     private readonly List<RunecraftRecipeCatalog.MonolithView> _runecraftMonoliths = new();
     private readonly Dictionary<long, (NumVec2 Pos, NumVec2 Size, int Stale)> _runecraftGeomCache = new();
     private RunecraftRuntimeStatus _runecraftStatus = RunecraftRuntimeStatus.Empty;
+    private RunecraftMonolithDiagnostic[] _runecraftMonolithDiagnostics = [];
+    private RunecraftMapLabelRuntimeStatus _runecraftMapLabelStatus = RunecraftMapLabelRuntimeStatus.Empty;
     private string _lockedPanelMetaId = "";
     private string _lockedPanelName = "";
     private readonly PerformanceCadence _runecraftTickCadence = new();
@@ -35,7 +38,7 @@ public sealed partial class RadarApp
     private int _runecraftReadMissStreak;
 
     private const int RunecraftMonolithOnlyTickHz = 8;
-    private const int RunecraftHudClosedScanHz = 6;
+    private const int RunecraftHudClosedScanHz = 1;
     private const int RunecraftHudOpenScanHz = 12;
     private const int RunecraftTransientMissGrace = 4;
     private const int RunecraftMonolithScanMs = 1500;
@@ -51,6 +54,30 @@ public sealed partial class RadarApp
         string Note)
     {
         public static readonly RunecraftRuntimeStatus Empty = new(false, "", 0, 0, 0, "", "");
+    }
+
+    private sealed record RunecraftMonolithDiagnostic(
+        long DeviceAddress,
+        float GridX,
+        float GridY,
+        double BestEx,
+        int CandidateCount,
+        int PricedCandidateCount,
+        string BestReward,
+        double BestRewardEx);
+
+    private sealed record RunecraftMapLabelRuntimeStatus(
+        bool DrawActive,
+        bool SettingEnabled,
+        bool LargeMapVisible,
+        bool PanelSuppressed,
+        int MonolithCount,
+        int PricedMonolithCount,
+        int LabelCount,
+        string Note)
+    {
+        public static readonly RunecraftMapLabelRuntimeStatus Empty =
+            new(false, false, false, false, 0, 0, 0, "not refreshed");
     }
 
     private bool RunecraftMonolithWindowActive()
@@ -76,9 +103,20 @@ public sealed partial class RadarApp
     }
 
     private bool NeedsRunecraftMonolithScans()
-        => _settings.Runecraft.ShowMonolithWindow
-           || _settings.Runecraft.ShowExpeditionPlanner
-           || RunecraftMonolithWindowActive();
+        => RunecraftNeedsMonolithScans(_settings.Runecraft, RunecraftMonolithWindowActive());
+
+    internal static bool RunecraftNeedsMonolithScans(
+        Config.RunecraftSettings settings,
+        bool monolithWindowActive)
+        => settings.ShowMapLabels
+           || settings.ShowMonolithWindow
+           || settings.ShowExpeditionPlanner
+           || monolithWindowActive;
+
+    internal static bool IsRunecraftMonolithMetadata(string metadata)
+        => !string.IsNullOrEmpty(metadata)
+           && metadata.Contains("/Expedition2/", StringComparison.OrdinalIgnoreCase)
+           && metadata.EndsWith("/Expedition2Encounter", StringComparison.OrdinalIgnoreCase);
 
     private bool RunecraftMonolithOnlyMode()
         => !_settings.Runecraft.ShowOverlay
@@ -107,6 +145,7 @@ public sealed partial class RadarApp
 
         InitializeRunecraftPricing(live);
         _runecraftCatalog.TryLoad(RunecraftRecipePath);
+        PoeNinjaPriceFetcher.RefreshIfNeeded();
 
         if (live.AreaInstance != _runecraftAreaInstance)
         {
@@ -184,7 +223,6 @@ public sealed partial class RadarApp
 
         _runecraftReadMissStreak = 0;
         _wasRunecraftPanelOpen = true;
-        PoeNinjaPriceFetcher.RefreshIfNeeded();
 
         if (panel.Rows.Length == 0)
         {
@@ -255,12 +293,32 @@ public sealed partial class RadarApp
         if (!drawActive || !_settings.Runecraft.ShowMapLabels || !live.Maps.LargeMap.IsVisible)
         {
             if (_runecraftMapLabels.Length > 0) _runecraftMapLabels = [];
+            _runecraftMapLabelStatus = new RunecraftMapLabelRuntimeStatus(
+                drawActive,
+                _settings.Runecraft.ShowMapLabels,
+                live.Maps.LargeMap.IsVisible,
+                false,
+                _runecraftMonoliths.Count,
+                _runecraftMonoliths.Count(m => m.Best > 0),
+                0,
+                !drawActive ? "overlay inactive"
+                : !_settings.Runecraft.ShowMapLabels ? "setting disabled"
+                : "large map not visible");
             return;
         }
 
         if (_settings.Runecraft.HideMapValueWhenPanelOpen && panelOpen && _settings.Runecraft.ShowOverlay)
         {
             if (_runecraftMapLabels.Length > 0) _runecraftMapLabels = [];
+            _runecraftMapLabelStatus = new RunecraftMapLabelRuntimeStatus(
+                drawActive,
+                true,
+                true,
+                true,
+                _runecraftMonoliths.Count,
+                _runecraftMonoliths.Count(m => m.Best > 0),
+                0,
+                "suppressed while combinations panel is open");
             return;
         }
 
@@ -272,47 +330,58 @@ public sealed partial class RadarApp
         foreach (var m in _runecraftMonoliths)
         {
             if (m.Best < minEx) continue;
-            var screen = ProjectMonolithMapLabel(m.Grid, m.TerrainHeight, player, live.PlayerTerrainHeight, large, windowWidth, windowHeight);
+            var mapFrame = BuildLargeMapFrame(large, windowWidth, windowHeight, live.PlayerTerrainHeight);
+            var screen = ProjectRunecraftMapLabel(
+                m.Grid,
+                m.TerrainHeight,
+                player,
+                live.PlayerTerrainHeight,
+                mapFrame,
+                _settings.Runecraft.MapValueScaleMultiplier,
+                _settings.Runecraft.MapValueXOffset,
+                _settings.Runecraft.MapValueYOffset);
             if (!float.IsFinite(screen.X) || !float.IsFinite(screen.Y)) continue;
             var color = PickMonolithMapColor(m.Best);
             labels.Add(new RunecraftMapLabel(screen, $"{m.Best:F0} ex", color));
         }
 
         _runecraftMapLabels = labels.Count == 0 ? [] : labels.ToArray();
+        var pricedCount = _runecraftMonoliths.Count(m => m.Best > 0);
+        _runecraftMapLabelStatus = new RunecraftMapLabelRuntimeStatus(
+            drawActive,
+            true,
+            true,
+            false,
+            _runecraftMonoliths.Count,
+            pricedCount,
+            labels.Count,
+            _runecraftMonoliths.Count == 0 ? "no monoliths detected"
+            : pricedCount == 0 ? "no priced candidates"
+            : labels.Count == 0 ? "all values filtered or projection failed"
+            : "ready");
     }
 
-    private NumVec2 ProjectMonolithMapLabel(
+    internal static NumVec2 ProjectRunecraftMapLabel(
         NumVec2 grid,
         float terrainHeight,
         NumVec2 playerGrid,
         float playerHeight,
-        Poe2Live.MapUi largeMap,
-        int windowWidth,
-        int windowHeight)
+        MapFrame mapFrame,
+        float scaleMultiplier,
+        float xOffset,
+        float yOffset)
     {
-        if (!largeMap.HasScreenRect) return new NumVec2(float.NaN, float.NaN);
-
-        var scaleMul = Math.Max(0.1f, _settings.Runecraft.MapValueScaleMultiplier);
-        var scale = scaleMul * largeMap.Zoom * 0.187812f;
+        var scale = Math.Max(0.1f, scaleMultiplier) * mapFrame.Scale;
         if (scale <= 0) return new NumVec2(float.NaN, float.NaN);
 
-        const double angle = 38.7 * Math.PI / 180.0;
-        var baseDiag = Math.Sqrt(Poe2.UiElement.BaseResW * Poe2.UiElement.BaseResW + Poe2.UiElement.BaseResH * Poe2.UiElement.BaseResH);
-        var diag = baseDiag * largeMap.Height / Poe2.UiElement.BaseResH;
-        if (diag <= 0) return new NumVec2(float.NaN, float.NaN);
-
-        float mapScale = 240f / scale;
-        float cos = (float)(diag * Math.Cos(angle) / mapScale);
-        float sin = (float)(diag * Math.Sin(angle) / mapScale);
-
-        var center = new NumVec2(
-            largeMap.CenterX + largeMap.ShiftX + largeMap.DefaultShiftX + 0.6f + _settings.Runecraft.MapValueXOffset,
-            largeMap.CenterY + largeMap.ShiftY + largeMap.DefaultShiftY + 0.3f + _settings.Runecraft.MapValueYOffset);
-
-        var delta = grid - playerGrid;
-        float deltaZ = (terrainHeight - playerHeight) / 10.86957f;
-        var fpos = new NumVec2((delta.X - delta.Y) * cos, (deltaZ - (delta.X + delta.Y)) * sin);
-        return center + fpos;
+        var center = mapFrame.Center + new NumVec2(0.6f + xOffset, 0.3f + yOffset);
+        var projected = MapProjection.GridToMapPoint(
+            new POE2Radar.Core.Game.Vector2 { X = grid.X, Y = grid.Y },
+            new POE2Radar.Core.Game.Vector2 { X = playerGrid.X, Y = playerGrid.Y },
+            new POE2Radar.Core.Game.Vector2 { X = center.X, Y = center.Y },
+            scale,
+            terrainHeight - playerHeight);
+        return new NumVec2(projected.X, projected.Y);
     }
 
     private uint PickMonolithMapColor(double bestEx)
@@ -328,12 +397,17 @@ public sealed partial class RadarApp
     private void ScanRunecraftMonoliths(LiveFrameState live, WorldSnapshot snap)
     {
         _runecraftMonoliths.Clear();
-        if (!_runecraftCatalog.IsLoaded) return;
+        if (!_runecraftCatalog.IsLoaded)
+        {
+            _runecraftMonolithRows = [];
+            _runecraftMonolithDiagnostics = [];
+            return;
+        }
 
         var player = live.PlayerGrid;
         foreach (var e in snap.Entities)
         {
-            if (e.Metadata.IndexOf("Expedition2Encounter", StringComparison.OrdinalIgnoreCase) < 0)
+            if (!IsRunecraftMonolithMetadata(e.Metadata))
                 continue;
             if (!_live.TryReadRunecraftMonolithStation(e.Address, out var st))
                 continue;
@@ -360,6 +434,22 @@ public sealed partial class RadarApp
 
         _runecraftMonoliths.Sort((a, b) => a.Distance.CompareTo(b.Distance));
         _runecraftMonolithRows = BuildMonolithPanelRows(_runecraftMonoliths);
+        _runecraftMonolithDiagnostics = _runecraftMonoliths.Select(v =>
+        {
+            var best = v.Candidates
+                .Where(c => c.Priced)
+                .OrderByDescending(c => c.UnitEx * c.Count)
+                .FirstOrDefault();
+            return new RunecraftMonolithDiagnostic(
+                (long)v.DeviceAddress,
+                v.Grid.X,
+                v.Grid.Y,
+                v.Best,
+                v.Candidates.Count,
+                v.Candidates.Count(c => c.Priced),
+                best?.Reward ?? "",
+                best is null ? 0 : best.UnitEx * best.Count);
+        }).ToArray();
     }
 
     private RunecraftMonolithPanelRow[] BuildMonolithPanelRows(List<RunecraftRecipeCatalog.MonolithView> monoliths)
@@ -453,23 +543,27 @@ public sealed partial class RadarApp
 
     private void ResolveLockedPanelReward()
     {
-        _lockedPanelMetaId = "";
-        _lockedPanelName = "";
-        if (!_settings.Runecraft.HighlightLockedRecipe) return;
+        (_lockedPanelMetaId, _lockedPanelName) = ("", "");
+        if (!_settings.Runecraft.HighlightLockedRecipe)
+            return;
 
-        foreach (var v in _runecraftMonoliths)
+        (_lockedPanelMetaId, _lockedPanelName) = RunecraftLockedRewardKeys(_runecraftMonoliths);
+    }
+
+    internal static (string MetaId, string Name) RunecraftLockedRewardKeys(
+        IReadOnlyList<RunecraftRecipeCatalog.MonolithView> monoliths)
+    {
+        foreach (var v in monoliths)
         {
             if (!v.PanelOpen || !v.IsRerolled || string.IsNullOrEmpty(v.SelectedRecipeId)) continue;
             foreach (var c in v.Candidates)
             {
-                if (!string.IsNullOrEmpty(c.MetaId))
-                {
-                    _lockedPanelMetaId = c.MetaId;
-                    _lockedPanelName = c.Reward;
-                    return;
-                }
+                if (string.IsNullOrEmpty(c.MetaId) && string.IsNullOrEmpty(c.Reward)) continue;
+                return (c.MetaId, c.Reward);
             }
         }
+
+        return ("", "");
     }
 
     private RunecraftPriceLabel[] BuildRunecraftLabels(Poe2Live.RunecraftPanelRead panel)
@@ -640,6 +734,8 @@ public sealed partial class RadarApp
         lastFetchUtc = PoeNinjaPriceFetcher.LastFetchUtc == DateTime.MinValue ? (DateTime?)null : PoeNinjaPriceFetcher.LastFetchUtc,
         leagues = LeagueProvider.Leagues.ToArray(),
         monoliths = _runecraftMonoliths.Count,
+        monolithValues = _runecraftMonolithDiagnostics,
+        mapLabels = _runecraftMapLabelStatus,
         recipesLoaded = _runecraftCatalog.IsLoaded,
     };
 

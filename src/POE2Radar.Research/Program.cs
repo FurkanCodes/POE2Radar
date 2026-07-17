@@ -106,6 +106,20 @@ if (HasFlag(args, "--ritual-probe"))
         ritH);
 }
 
+if (HasFlag(args, "--sekhema-probe"))
+{
+    var (sekhemaW, sekhemaH) = TryGameClientSize(process.ProcessId);
+    return SekhemaResearchProbes.Run(
+        process,
+        reader,
+        LootResearchProbes.ResolveGameStateSlot(process, reader),
+        HasFlag(args, "--watch"),
+        HasFlag(args, "--assert-visible"),
+        TryGetIntArg(args, "--ms") ?? 500,
+        sekhemaW,
+        sekhemaH);
+}
+
 if (HasFlag(args, "--map-watch"))
     return RunMapWatch(process, reader, TryGetIntArg(args, "--ms") ?? 400);
 
@@ -363,6 +377,7 @@ Console.WriteLine("  --dump <hexAddr> [--dump-len <N>]   hex-dump a region for i
     Console.WriteLine("  --entity <hexAddr>         walk a PoE2 entity: id, metadata path, component map, Render→grid, Life");
 Console.WriteLine("  --presence [--diff]        baseline (then --diff) player components to find the presence-radius float");
 Console.WriteLine("  --devtree [--port N]       browser-based live memory/UI/entity explorer (default port 7778)");
+Console.WriteLine("  --sekhema-probe [--watch] [--assert-visible]  validate Trial floor graph/UI/resources/entities");
 Console.WriteLine("  --serverdata               dump ServerData (AreaInstance+ServerDataPtr): strings + StdVector quest-list candidates");
 Console.WriteLine("  --server-icons             scan ServerData / PlayerInfo for server-side minimap icon arrays");
 Console.WriteLine("  --aob                      scan for IngameState via AOB patterns");

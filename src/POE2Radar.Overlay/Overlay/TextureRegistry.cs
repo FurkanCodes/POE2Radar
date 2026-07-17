@@ -7,6 +7,7 @@ namespace POE2Radar.Overlay;
 public sealed class TextureRegistry
 {
     private readonly Dictionary<string, TextureHandle> _byPath = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _failedPaths = new(StringComparer.OrdinalIgnoreCase);
 
     public readonly record struct TextureHandle(nint Id, int Width, int Height, string Path);
 
@@ -17,14 +18,29 @@ public sealed class TextureRegistry
 
         absolutePath = Path.GetFullPath(absolutePath);
         if (_byPath.TryGetValue(absolutePath, out handle)) return handle.Id != 0;
+        if (_failedPaths.Contains(absolutePath)) return false;
         if (!File.Exists(absolutePath)) return false;
 
-        overlay.AddOrGetImagePointer(absolutePath, false, out var id, out var width, out var height);
-        if (id == 0) return false;
+        try
+        {
+            overlay.AddOrGetImagePointer(absolutePath, false, out var id, out var width, out var height);
+            if (id == 0)
+            {
+                _failedPaths.Add(absolutePath);
+                return false;
+            }
 
-        handle = new TextureHandle(id, Convert.ToInt32(width), Convert.ToInt32(height), absolutePath);
-        _byPath[absolutePath] = handle;
-        return true;
+            handle = new TextureHandle(id, Convert.ToInt32(width), Convert.ToInt32(height), absolutePath);
+            _byPath[absolutePath] = handle;
+            return true;
+        }
+        catch
+        {
+            // A bad/oversized optional image must never abort the whole ImGui map
+            // pass. Remember the failure so we do not hammer the GPU every frame.
+            _failedPaths.Add(absolutePath);
+            return false;
+        }
     }
 
     public bool TryGetOutputTexture(
@@ -39,6 +55,8 @@ public sealed class TextureRegistry
     public void Forget(string absolutePath)
     {
         if (string.IsNullOrWhiteSpace(absolutePath)) return;
-        _byPath.Remove(Path.GetFullPath(absolutePath));
+        absolutePath = Path.GetFullPath(absolutePath);
+        _byPath.Remove(absolutePath);
+        _failedPaths.Remove(absolutePath);
     }
 }

@@ -65,6 +65,24 @@ public static class AobPatterns
             Description: "PoE2 GameStates global slot (GameHelper2 'Game States')"),
     ];
 
+    /// <summary>
+    /// PoE2 horizontal UI-cull value used by GameHelper's <c>UiElementBase.Position</c>.
+    /// The third instruction is <c>sub eax,[rip+rel32]</c>; its target stores the live cull
+    /// in pixels. This value cannot be inferred reliably from aspect ratio because PoE may
+    /// render ultrawide UI with a zero cull.
+    /// </summary>
+    public static readonly Pattern GameCullSize = new(
+        Bytes:
+        [
+            0x2B, 0x0D, null, null, null, null,
+            0x8B, 0x05, null, null, null, null,
+            0x2B, 0x05, null, null, null, null,
+            0x0F, 0x57, 0xFF,
+        ],
+        DispOffset: 14,
+        InstrLen: 18,
+        Description: "PoE2 GameCullSize global (GameHelper2)");
+
     // Future root objects can be added here in the same form:
     //
     // public static readonly Pattern[] FileRootRefs = [];

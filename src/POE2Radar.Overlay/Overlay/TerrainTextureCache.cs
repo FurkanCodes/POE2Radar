@@ -1,6 +1,7 @@
 using POE2Radar.Core.Game;
 using POE2Radar.Overlay.Config;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Advanced;
 using SixLabors.ImageSharp.PixelFormats;
 
 namespace POE2Radar.Overlay;
@@ -11,7 +12,26 @@ namespace POE2Radar.Overlay;
 /// </summary>
 public sealed class TerrainTextureCache
 {
+    // Keep the uncompressed RGBA resource comfortably below the 128 MB D3D11
+    // single-resource floor used by low-memory/integrated adapters.
+    private const int MaxTextureDimension = 4096;
+    private const string CacheFormatVersion = "v2";
     private readonly Dictionary<string, string> _paths = new(StringComparer.Ordinal);
+
+    internal static (int Width, int Height) GetTextureDimensions(int width, int height)
+    {
+        if (width <= 0 || height <= 0)
+            return (0, 0);
+
+        var largest = Math.Max(width, height);
+        if (largest <= MaxTextureDimension)
+            return (width, height);
+
+        var scale = MaxTextureDimension / (double)largest;
+        return (
+            Math.Max(1, (int)Math.Round(width * scale)),
+            Math.Max(1, (int)Math.Round(height * scale)));
+    }
 
     public bool TryGet(
         ClickableTransparentOverlay.Overlay overlay,
@@ -39,7 +59,7 @@ public sealed class TerrainTextureCache
     }
 
     private static string BuildKey(Poe2Live.TerrainData terrain, uint areaHash, TerrainSettings style)
-        => $"terrain_{areaHash:X8}_{terrain.Width}x{terrain.Height}_{StyleHash(style):X8}";
+        => $"terrain_{CacheFormatVersion}_{areaHash:X8}_{terrain.Width}x{terrain.Height}_{StyleHash(style):X8}";
 
     private static uint StyleHash(TerrainSettings style)
     {
@@ -78,15 +98,18 @@ public sealed class TerrainTextureCache
         var interior = Parse(style.InteriorColor, style.InteriorOpacity);
         var edge = Parse(style.EdgeColor, style.EdgeOpacity);
         var drawInterior = interior.A != 0;
-        var w = terrain.Width;
-        var h = terrain.Height;
+        var sourceWidth = terrain.Width;
+        var sourceHeight = terrain.Height;
+        var (textureWidth, textureHeight) = GetTextureDimensions(sourceWidth, sourceHeight);
         var cells = terrain.Walkable;
 
-        using var image = new Image<Rgba32>(w, h, Color.Transparent);
-        for (var y = 1; y < h - 1; y++)
+        using var image = new Image<Rgba32>(textureWidth, textureHeight, Color.Transparent);
+        for (var y = 1; y < sourceHeight - 1; y++)
         {
-            var row = y * w;
-            for (var x = 1; x < w - 1; x++)
+            var row = y * sourceWidth;
+            var textureY = Math.Min(textureHeight - 1, (int)((long)y * textureHeight / sourceHeight));
+            var textureRow = image.DangerousGetPixelRowMemory(textureY).Span;
+            for (var x = 1; x < sourceWidth - 1; x++)
             {
                 var idx = row + x;
                 if (cells[idx] == 0) continue;
@@ -94,11 +117,14 @@ public sealed class TerrainTextureCache
                 var isEdge =
                     cells[idx - 1] == 0 ||
                     cells[idx + 1] == 0 ||
-                    cells[idx - w] == 0 ||
-                    cells[idx + w] == 0;
+                    cells[idx - sourceWidth] == 0 ||
+                    cells[idx + sourceWidth] == 0;
 
-                if (isEdge) image[x, y] = edge;
-                else if (drawInterior) image[x, y] = interior;
+                var textureX = Math.Min(textureWidth - 1, (int)((long)x * textureWidth / sourceWidth));
+                if (isEdge)
+                    textureRow[textureX] = edge;
+                else if (drawInterior && textureRow[textureX].A == 0)
+                    textureRow[textureX] = interior;
             }
         }
 

@@ -5,7 +5,8 @@ namespace POE2Radar.Core.Game;
 /// <summary>
 /// Reconstructs a UiElement's screen-space rectangle from the live UI tree. This mirrors GameHelper's
 /// UiElementBase projection model: every element contributes its own relative position scaled by its own
-/// scale pair, and parent offsets are accumulated up to the UI root.
+/// scale pair, parent position modifiers are applied in the parent's scale, and widescreen UI cull is
+/// added once at the root.
 /// </summary>
 internal static class UiElementProjection
 {
@@ -31,22 +32,39 @@ internal static class UiElementProjection
 
     internal delegate bool TryReadElement(nint address, out Element element);
 
-    internal static Point ScalePair(byte scaleIndex, float localScaleMultiplier, float windowWidth, float windowHeight)
+    internal static Point ScalePair(
+        byte scaleIndex,
+        float localScaleMultiplier,
+        float windowWidth,
+        float windowHeight,
+        float? horizontalCull = null)
     {
-        var sx = windowWidth / (float)Poe2.UiElement.BaseResW;
-        var sy = windowHeight / (float)Poe2.UiElement.BaseResH;
-        var pair = scaleIndex switch
-        {
-            0 => new Point(sx, sx),
-            1 => new Point(sy, sy),
-            2 => new Point(MathF.Min(sx, sy), MathF.Min(sx, sy)),
-            _ => new Point(sx, sy),
-        };
-
+        var cull = horizontalCull ?? HorizontalCull(windowWidth, windowHeight);
+        var widthScale = (windowWidth - cull * 2f) / (float)Poe2.UiElement.BaseResW;
+        var heightScale = windowHeight / (float)Poe2.UiElement.BaseResH;
         var mul = float.IsFinite(localScaleMultiplier) && localScaleMultiplier > 0f
             ? MathF.Max(0.0001f, localScaleMultiplier)
             : 1f;
+        var pair = scaleIndex switch
+        {
+            1 => new Point(widthScale, widthScale),
+            2 => new Point(heightScale, heightScale),
+            3 => new Point(widthScale, heightScale),
+            _ => new Point(1f, 1f),
+        };
         return new Point(pair.X * mul, pair.Y * mul);
+    }
+
+    /// <summary>
+    /// Aspect-ratio fallback for PoE's horizontal UI cull. Live projection should prefer the
+    /// client value because ultrawide layouts can deliberately use a different cull.
+    /// </summary>
+    internal static float HorizontalCull(float windowWidth, float windowHeight)
+    {
+        if (!IsFinite(windowWidth) || !IsFinite(windowHeight) || windowWidth <= 0f || windowHeight <= 0f)
+            return 0f;
+        var fittedWidth = windowHeight * (float)(Poe2.UiElement.BaseResW / Poe2.UiElement.BaseResH);
+        return MathF.Max(0f, (windowWidth - fittedWidth) * 0.5f);
     }
 
     internal static bool TryRead(MemoryReader reader, nint address, out Element element)
@@ -109,14 +127,28 @@ internal static class UiElementProjection
         float windowHeight,
         IDictionary<nint, Element>? elementCache,
         IDictionary<nint, Point>? parentOffsetCache,
-        out Rect rect)
+        out Rect rect,
+        float? horizontalCull = null)
     {
         rect = default;
         if (windowWidth <= 0f || windowHeight <= 0f) return false;
         if (!ReadCached(address, read, elementCache, out var leaf)) return false;
 
-        var topLeft = GetLeafTopLeft(leaf, read, windowWidth, windowHeight, elementCache, parentOffsetCache);
-        var scale = ScalePair(leaf.ScaleIndex, leaf.LocalScaleMultiplier, windowWidth, windowHeight);
+        var cull = horizontalCull ?? HorizontalCull(windowWidth, windowHeight);
+        var topLeft = GetLeafTopLeft(
+            leaf,
+            read,
+            windowWidth,
+            windowHeight,
+            elementCache,
+            parentOffsetCache,
+            cull);
+        var scale = ScalePair(
+            leaf.ScaleIndex,
+            leaf.LocalScaleMultiplier,
+            windowWidth,
+            windowHeight,
+            cull);
         rect = new Rect(topLeft.X, topLeft.Y, leaf.SizeW * scale.X, leaf.SizeH * scale.Y);
         return IsFinite(rect.X) && IsFinite(rect.Y) && rect.W > 1f && rect.H > 1f;
     }
@@ -126,22 +158,46 @@ internal static class UiElementProjection
         TryReadElement read,
         float windowWidth,
         float windowHeight,
-        IDictionary<nint, Element>? elementCache = null)
+        IDictionary<nint, Element>? elementCache = null,
+        float? horizontalCull = null)
     {
-        var pos = new Point(0f, 0f);
+        var cull = horizontalCull ?? HorizontalCull(windowWidth, windowHeight);
+        var pos = new Point(cull, 0f);
         var cur = leaf;
-        nint last = 0;
         var guard = 0;
 
         while (true)
         {
-            pos = AddContribution(pos, cur, windowWidth, windowHeight);
-            if (cur.Parent == 0 || cur.Parent == last || ++guard > 64)
+            var scale = ScalePair(
+                cur.ScaleIndex,
+                cur.LocalScaleMultiplier,
+                windowWidth,
+                windowHeight,
+                cull);
+            pos = new Point(
+                pos.X + cur.RelativeX * scale.X,
+                pos.Y + cur.RelativeY * scale.Y);
+
+            if (cur.Parent == 0 || cur.Parent == cur.Self || ++guard > 64)
                 break;
 
-            last = cur.Self;
-            if (!ReadCached(cur.Parent, read, elementCache, out cur))
+            if (!ReadCached(cur.Parent, read, elementCache, out var parent))
                 break;
+
+            if ((cur.Flags & (1u << Poe2.UiElement.FlagModifyPosBit)) != 0)
+            {
+                var parentScale = ScalePair(
+                    parent.ScaleIndex,
+                    parent.LocalScaleMultiplier,
+                    windowWidth,
+                    windowHeight,
+                    cull);
+                pos = new Point(
+                    pos.X + parent.PositionModifierX * parentScale.X,
+                    pos.Y + parent.PositionModifierY * parentScale.Y);
+            }
+
+            cur = parent;
         }
 
         return pos;
@@ -153,12 +209,13 @@ internal static class UiElementProjection
         float windowWidth,
         float windowHeight,
         IDictionary<nint, Element>? elementCache,
-        IDictionary<nint, Point>? parentOffsetCache)
+        IDictionary<nint, Point>? parentOffsetCache,
+        float horizontalCull)
     {
         Point parentOffset;
         if (leaf.Parent == 0)
         {
-            parentOffset = new Point(0f, 0f);
+            parentOffset = new Point(horizontalCull, 0f);
         }
         else if (parentOffsetCache is not null && parentOffsetCache.TryGetValue(leaf.Parent, out var cached))
         {
@@ -166,26 +223,41 @@ internal static class UiElementProjection
         }
         else if (ReadCached(leaf.Parent, read, elementCache, out var parent))
         {
-            parentOffset = GetFinalTopLeft(parent, read, windowWidth, windowHeight, elementCache);
-            parentOffsetCache?.Add(leaf.Parent, parentOffset);
+            parentOffset = GetFinalTopLeft(
+                parent,
+                read,
+                windowWidth,
+                windowHeight,
+                elementCache,
+                horizontalCull);
+            if (parentOffsetCache is not null)
+                parentOffsetCache[leaf.Parent] = parentOffset;
         }
         else
         {
-            parentOffset = new Point(0f, 0f);
+            parentOffset = new Point(horizontalCull, 0f);
         }
 
-        return AddContribution(parentOffset, leaf, windowWidth, windowHeight);
-    }
-
-    private static Point AddContribution(Point pos, Element element, float windowWidth, float windowHeight)
-    {
-        var scale = ScalePair(element.ScaleIndex, element.LocalScaleMultiplier, windowWidth, windowHeight);
-        var x = pos.X + element.RelativeX * scale.X;
-        var y = pos.Y + element.RelativeY * scale.Y;
-        if ((element.Flags & (1u << Poe2.UiElement.FlagModifyPosBit)) != 0)
+        var leafScale = ScalePair(
+            leaf.ScaleIndex,
+            leaf.LocalScaleMultiplier,
+            windowWidth,
+            windowHeight,
+            horizontalCull);
+        var x = parentOffset.X + leaf.RelativeX * leafScale.X;
+        var y = parentOffset.Y + leaf.RelativeY * leafScale.Y;
+        if ((leaf.Flags & (1u << Poe2.UiElement.FlagModifyPosBit)) != 0
+            && leaf.Parent != 0
+            && ReadCached(leaf.Parent, read, elementCache, out var leafParent))
         {
-            x += element.PositionModifierX * scale.X;
-            y += element.PositionModifierY * scale.Y;
+            var parentScale = ScalePair(
+                leafParent.ScaleIndex,
+                leafParent.LocalScaleMultiplier,
+                windowWidth,
+                windowHeight,
+                horizontalCull);
+            x += leafParent.PositionModifierX * parentScale.X;
+            y += leafParent.PositionModifierY * parentScale.Y;
         }
 
         return new Point(x, y);

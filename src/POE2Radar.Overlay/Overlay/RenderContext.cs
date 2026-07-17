@@ -154,6 +154,53 @@ public readonly record struct RunecraftMapLabel(
     string ValueText,
     uint TextColor);
 
+public readonly record struct SekhemaRoomHighlight(
+    Poe2Live.UiRect Rect,
+    bool BestPath,
+    string DebugText);
+
+public enum SekhemaMarkerKind : byte
+{
+    Portal,
+    Lever,
+    ChestBronze,
+    ChestSilver,
+    ChestGold,
+}
+
+public readonly record struct SekhemaMapMarker(
+    NumVec2 Grid,
+    float TerrainHeight,
+    SekhemaMarkerKind Kind,
+    string Label);
+
+public readonly record struct SekhemaCrystalView(
+    uint Id,
+    NumVec2 Grid,
+    float TerrainHeight,
+    bool Active);
+
+public readonly record struct SekhemaRouteLegView(
+    NumVec2[] Points,
+    float StartTerrainHeight,
+    float EndTerrainHeight,
+    bool Walkable,
+    float StraightDistance);
+
+public sealed record SekhemaView(
+    bool InTrial,
+    bool PanelOpen,
+    SekhemaRoomHighlight[] Rooms,
+    SekhemaMapMarker[] Markers,
+    SekhemaCrystalView[] Crystals,
+    SekhemaRouteLegView[] CrystalRoute,
+    Poe2Live.SekhemaResources Resources,
+    string Status)
+{
+    public static readonly SekhemaView Empty = new(
+        false, false, [], [], [], [], Poe2Live.SekhemaResources.Unknown, "");
+}
+
 public readonly record struct RunecraftMonolithCandidate(
     string Reward,
     int Count,
@@ -463,6 +510,7 @@ public sealed record RenderContext(
     RunecraftMapLabel[] RunecraftMapLabels,
     bool RunecraftShowMonolithWindow,
     RunecraftMonolithPanelRow[] RunecraftMonolithRows,
+    SekhemaView Sekhema,
     ExpeditionPlannerView ExpeditionPlanner,
     StashValueLabel[] StashValueLabels,
     StashUtilityHighlight[] StashUtilityHighlights,

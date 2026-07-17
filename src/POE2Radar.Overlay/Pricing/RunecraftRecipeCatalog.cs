@@ -17,6 +17,7 @@ public sealed class RunecraftRecipeCatalog
         public string id { get; set; } = "";
         public int size { get; set; }
         public int category { get; set; }
+        public string description { get; set; } = "";
         public List<int>? runeIdx { get; set; }
         public List<string>? runes { get; set; }
         public RewardRow? reward { get; set; }
@@ -199,9 +200,12 @@ public sealed class RunecraftRecipeCatalog
     {
         var unit = unitPrice(rec);
         var metaId = RunecraftPriceMath.LastMetaSegment(rec.reward?.id ?? "");
+        var reward = rec.reward?.name;
+        if (string.IsNullOrWhiteSpace(reward))
+            reward = string.IsNullOrWhiteSpace(rec.description) ? $"(unique) {rec.id}" : rec.description;
         view.Candidates.Add(new Candidate
         {
-            Reward = rec.reward?.name ?? "",
+            Reward = reward,
             Count = Math.Max(1, rec.rewardCount),
             Size = rec.size,
             UnitEx = unit,
