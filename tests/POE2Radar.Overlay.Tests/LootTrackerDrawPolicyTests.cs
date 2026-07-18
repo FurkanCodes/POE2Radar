@@ -11,7 +11,9 @@ public sealed class LootTrackerDrawPolicyTests
         var mode = LootTrackerDrawPolicy.BarMode(
             viewEnabled: true,
             settingsEnabled: true,
-            onMap: false);
+            onMap: false,
+            keepVisibleAfterRun: false,
+            hasSession: true);
 
         Assert.Equal(LootTrackerBarMode.None, mode);
     }
@@ -22,9 +24,37 @@ public sealed class LootTrackerDrawPolicyTests
         var mode = LootTrackerDrawPolicy.BarMode(
             viewEnabled: true,
             settingsEnabled: true,
-            onMap: true);
+            onMap: true,
+            keepVisibleAfterRun: false,
+            hasSession: false);
 
         Assert.Equal(LootTrackerBarMode.Compact, mode);
+    }
+
+    [Fact]
+    public void BarMode_AfterRun_KeepsDetailedSessionBarWhenEnabled()
+    {
+        var mode = LootTrackerDrawPolicy.BarMode(
+            viewEnabled: true,
+            settingsEnabled: true,
+            onMap: false,
+            keepVisibleAfterRun: true,
+            hasSession: true);
+
+        Assert.Equal(LootTrackerBarMode.Compact, mode);
+    }
+
+    [Fact]
+    public void BarMode_OutsideRun_DoesNotShowAnEmptySession()
+    {
+        var mode = LootTrackerDrawPolicy.BarMode(
+            viewEnabled: true,
+            settingsEnabled: true,
+            onMap: false,
+            keepVisibleAfterRun: true,
+            hasSession: false);
+
+        Assert.Equal(LootTrackerBarMode.None, mode);
     }
 
     [Fact]
@@ -35,7 +65,9 @@ public sealed class LootTrackerDrawPolicyTests
             LootTrackerDrawPolicy.BarMode(
                 viewEnabled: true,
                 settingsEnabled: false,
-                onMap: true));
+                onMap: true,
+                keepVisibleAfterRun: true,
+                hasSession: true));
     }
 
     [Fact]

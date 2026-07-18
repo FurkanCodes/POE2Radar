@@ -41,10 +41,14 @@ internal static class LootTrackerDrawPolicy
     internal static LootTrackerBarMode BarMode(
         bool viewEnabled,
         bool settingsEnabled,
-        bool onMap)
+        bool onMap,
+        bool keepVisibleAfterRun,
+        bool hasSession)
     {
         if (!viewEnabled || !settingsEnabled)
             return LootTrackerBarMode.None;
-        return onMap ? LootTrackerBarMode.Compact : LootTrackerBarMode.None;
+        return onMap || (keepVisibleAfterRun && hasSession)
+            ? LootTrackerBarMode.Compact
+            : LootTrackerBarMode.None;
     }
 }

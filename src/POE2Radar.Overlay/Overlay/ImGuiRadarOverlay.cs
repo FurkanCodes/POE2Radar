@@ -84,6 +84,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private string _activeSettingsTab = "";
     private bool _settingsPanelWasOpen;
     private int _lootDetailsPage = -1;
+    private bool _lootTrackerHidden;
     private int _drawEnabled;
     private int _appliedDrawEnabled = -1;
     private readonly SettingsAutoSaveDebouncer _settingsAutoSave = new();
@@ -1433,9 +1434,17 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         var barMode = LootTrackerDrawPolicy.BarMode(
             lt.Enabled,
             _settings.LootTracker.Enabled,
-            lt.OnMap);
+            lt.OnMap,
+            _settings.LootTracker.KeepVisibleAfterRun,
+            !string.IsNullOrWhiteSpace(lt.BreakdownTitle));
         if (barMode == LootTrackerBarMode.None)
             return;
+
+        if (_lootTrackerHidden)
+        {
+            DrawLootTrackerRestoreButton(ctx);
+            return;
+        }
 
         if (_settings.LootTracker.ShowPickupToasts && lt.Toasts is { Length: > 0 })
             DrawLootTrackerToasts(ctx, lt);
@@ -1505,11 +1514,13 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private void DrawLootDetailsButton(LootTrackerView lt)
     {
         var detailsOpen = Volatile.Read(ref _lootDetailsPage) >= 0;
-        var detailsLabel = detailsOpen
-            ? $"Loot ({lt.BreakdownItemCount:N0}) ▲"
-            : $"Loot ({lt.BreakdownItemCount:N0}) ▼";
-        if (ImGui.SmallButton($"{detailsLabel}##loot_details"))
+        var tooltip = detailsOpen
+            ? "Close session loot details"
+            : $"Open session loot details · {lt.BreakdownItemCount:N0} items";
+        if (DrawLootIconButton("##loot_details", "Exalt", tooltip, detailsOpen))
             CycleLootDetails();
+        ImGui.SameLine(0f, 4f);
+        ImGui.TextDisabled(lt.BreakdownItemCount.ToString("N0"));
     }
 
     private const int LootDetailsPageSize = 12;
@@ -1615,30 +1626,33 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         const float gap = 14f;
         const float pad = 5f;
 
-        if (DrawLootIcon("Map")) ImGui.SameLine(0f, pad);
-        ImGui.TextUnformatted($"Maps: {lt.CompletedMaps}");
+        if (DrawLootIcon("Map", "Maps in this session")) ImGui.SameLine(0f, pad);
+        ImGui.TextUnformatted(lt.CompletedMaps.ToString("N0"));
 
         ImGui.SameLine(0f, gap);
-        if (DrawLootIcon("Time")) ImGui.SameLine(0f, pad);
-        ImGui.TextUnformatted($"AVG Time: {lt.AverageTimeText}");
+        if (DrawLootIcon("Time", "Average active map time")) ImGui.SameLine(0f, pad);
+        ImGui.TextUnformatted($"AVG {lt.AverageTimeText}");
 
         ImGui.SameLine(0f, gap);
         if (DrawLootCurrencyIcon(lt.ActiveProfitEx)) ImGui.SameLine(0f, pad);
-        ImGui.TextUnformatted($"AVG Profit: {lt.AverageProfitText}");
+        ImGui.TextUnformatted($"AVG {lt.AverageProfitText}");
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+            ImGui.SetTooltip("Average priced loot per map");
 
         ImGui.Separator();
-        ImGui.TextColored(new Vector4(0.5f, 0.9f, 0.5f, 1f), "Total");
+        DrawLootCurrencyIcon(lt.BreakdownValueEx);
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+            ImGui.SetTooltip("Total priced session loot");
         ImGui.SameLine(0f, pad);
         ImGui.TextColored(new Vector4(0.5f, 0.9f, 0.5f, 1f), lt.TotalProfitText);
-        ImGui.SameLine(0f, pad);
-        DrawLootCurrencyIcon(lt.ActiveProfitEx);
 
         ImGui.SameLine(0f, gap);
-        ImGui.TextDisabled($"{lt.ProfitPerHourText} / hour");
+        ImGui.TextDisabled($"{lt.ProfitPerHourText}/h");
 
         ImGui.SameLine(0f, gap);
-        if (DrawLootIcon("Time")) ImGui.SameLine(0f, pad);
-        ImGui.TextUnformatted($"Session: {lt.SessionTimeText}");
+        if (DrawLootIcon("Time", lt.OnMap ? "Active session time · running" : "Active session time · paused"))
+            ImGui.SameLine(0f, pad);
+        ImGui.TextUnformatted(lt.SessionTimeText);
 
         if (window.ShowLootButton)
         {
@@ -1646,6 +1660,38 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             DrawLootDetailsButton(lt);
         }
 
+        ImGui.SameLine(0f, gap);
+        if (DrawEyeButton(
+                "##LootTrackerVisibility",
+                visible: true,
+                visibleTooltip: "Hide Loot Tracker",
+                hiddenTooltip: "Show Loot Tracker"))
+        {
+            _lootTrackerHidden = true;
+            Interlocked.Exchange(ref _lootDetailsPage, -1);
+        }
+
+        ImGui.End();
+    }
+
+    private void DrawLootTrackerRestoreButton(RenderContext ctx)
+    {
+        var s = _settings.LootTracker;
+        var x = s.BarOnRight ? ctx.WindowWidth - 8f : 8f;
+        var y = ctx.WindowHeight - Math.Clamp(s.BarBottomOffset, 0f, 200f);
+        ImGui.SetNextWindowPos(
+            new NumVec2(x, y),
+            ImGuiCond.FirstUseEver,
+            new NumVec2(s.BarOnRight ? 1f : 0f, 1f));
+        ImGui.SetNextWindowBgAlpha(Math.Clamp(s.BarOpacity, 0f, 1f));
+        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration |
+            ImGuiWindowFlags.NoNav |
+            ImGuiWindowFlags.AlwaysAutoResize |
+            ImGuiWindowFlags.NoFocusOnAppearing;
+        if (!ImGui.Begin("##loottracker_restore", flags)) { ImGui.End(); return; }
+        ImGui.SetWindowFontScale(LootTrackerUiScale(ctx));
+        if (DrawLootIconButton("##loot_restore", "Exalt", "Show Loot Tracker", selected: false))
+            _lootTrackerHidden = false;
         ImGui.End();
     }
 
@@ -1683,14 +1729,70 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         DrawLootIcon(iconKey);
     }
 
-    private bool DrawLootIcon(string key)
+    private bool DrawLootIcon(string key, string? tooltip = null)
     {
         var path = System.IO.Path.Combine(AppContext.BaseDirectory, "LootTracker", "icons", key + ".png");
         if (!_textures.TryGet(this, path, out var tex) || tex.Height <= 0) return false;
         var h = ImGui.GetTextLineHeight();
         var w = h * tex.Width / (float)tex.Height;
         ImGui.Image(tex.Id, new NumVec2(w, h));
+        if (!string.IsNullOrWhiteSpace(tooltip) &&
+            ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+        {
+            ImGui.SetTooltip(tooltip);
+        }
         return true;
+    }
+
+    private bool DrawLootIconButton(
+        string id,
+        string key,
+        string tooltip,
+        bool selected)
+    {
+        var path = System.IO.Path.Combine(AppContext.BaseDirectory, "LootTracker", "icons", key + ".png");
+        if (!_textures.TryGet(this, path, out var tex) || tex.Height <= 0)
+        {
+            var clickedFallback = ImGui.SmallButton($"◆{id}");
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                ImGui.SetTooltip(tooltip);
+            return clickedFallback;
+        }
+
+        var side = ImGui.GetTextLineHeight() + 8f;
+        var clicked = ImGui.InvisibleButton(id, new NumVec2(side, side));
+        var min = ImGui.GetItemRectMin();
+        var max = ImGui.GetItemRectMax();
+        var hovered = ImGui.IsItemHovered();
+        var bg = selected
+            ? ColorU32(60, 160, 205, hovered ? 0.65f : 0.48f)
+            : ColorU32(70, 76, 88, hovered ? 0.7f : 0.42f);
+        var dl = ImGui.GetWindowDrawList();
+        dl.AddRectFilled(min, max, bg, 4f);
+        dl.AddRect(min, max, ColorU32(145, 165, 190, hovered ? 0.9f : 0.55f), 4f, ImDrawFlags.None, 1f);
+
+        var innerMin = min + new NumVec2(4f, 4f);
+        var innerMax = max - new NumVec2(4f, 4f);
+        var aspect = tex.Width / (float)tex.Height;
+        if (aspect > 1f)
+        {
+            var height = (innerMax.X - innerMin.X) / aspect;
+            var inset = ((innerMax.Y - innerMin.Y) - height) * 0.5f;
+            innerMin.Y += inset;
+            innerMax.Y -= inset;
+        }
+        else
+        {
+            var width = (innerMax.Y - innerMin.Y) * aspect;
+            var inset = ((innerMax.X - innerMin.X) - width) * 0.5f;
+            innerMin.X += inset;
+            innerMax.X -= inset;
+        }
+        dl.AddImage(tex.Id, innerMin, innerMax);
+
+        if (hovered)
+            ImGui.SetTooltip(tooltip);
+        return clicked;
     }
 
     private bool DrawLootCurrencyIcon(double ex = 1)
@@ -2205,7 +2307,11 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                 ImGui.SetTooltip(ctx.PickupStatus);
         }
         ImGui.SameLine(0f, 8f);
-        if (DrawOverlayEyeButton(ctx.Active))
+        if (DrawEyeButton(
+                "##OverlayVisibility",
+                ctx.Active,
+                "Hide overlay content",
+                "Show overlay content"))
             _enqueue(() => _toggleRendering());
         ImGui.SameLine(0f, 3f);
         if (ImGui.Button("⚙##TaskbarSettings"))
@@ -2291,9 +2397,13 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             ImGui.SetTooltip("Drag to move the taskbar");
     }
 
-    private static bool DrawOverlayEyeButton(bool visible)
+    private static bool DrawEyeButton(
+        string id,
+        bool visible,
+        string visibleTooltip,
+        string hiddenTooltip)
     {
-        var clicked = ImGui.InvisibleButton("##OverlayVisibility", new NumVec2(28f, 22f));
+        var clicked = ImGui.InvisibleButton(id, new NumVec2(28f, 22f));
         var min = ImGui.GetItemRectMin();
         var max = ImGui.GetItemRectMax();
         var center = (min + max) * 0.5f;
@@ -2327,7 +2437,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         }
 
         if (hovered)
-            ImGui.SetTooltip(visible ? "Hide overlay content" : "Show overlay content");
+            ImGui.SetTooltip(visible ? visibleTooltip : hiddenTooltip);
         return clicked;
     }
 
@@ -4293,6 +4403,12 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         var barsOpen = ImGuiTheme.BeginAccordionSection("LootTrackerBars", "Bars", defaultOpen: true);
         if (barsOpen)
         {
+            var keepVisible = lt.KeepVisibleAfterRun;
+            if (ImGui.Checkbox("Keep visible after runs", ref keepVisible))
+                lt.KeepVisibleAfterRun = keepVisible;
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                ImGui.SetTooltip("Keep the paused session summary visible in towns and hideouts.");
+
             var right = lt.BarOnRight;
             if (ImGui.Checkbox("Anchor on right", ref right)) lt.BarOnRight = right;
 

@@ -176,6 +176,14 @@ public sealed class RadarSettingsMigrationTests
     }
 
     [Fact]
+    public void NewLootTrackerSettings_KeepCompletedSessionVisible()
+    {
+        var settings = new LootTrackerSettings();
+
+        Assert.True(settings.KeepVisibleAfterRun);
+    }
+
+    [Fact]
     public void Migrate_AppliesAtlasGhStyleDefaultsOnce()
     {
         var s = new RadarSettings

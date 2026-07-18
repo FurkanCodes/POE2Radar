@@ -14,7 +14,6 @@ public sealed partial class RadarApp
     private readonly PerformanceCadence _lootTrackerCadence = new();
     private bool _lootTrackerInitialized;
     private string _lootTrackerPricingConfigKey = "";
-    private DateTime _lootSessionStartUtc = DateTime.UtcNow;
     private DateTime _lootLastTickUtc = DateTime.MinValue;
     private LootMapRun? _lootCurrent;
     private readonly List<LootMapRun> _lootCompleted = new();
@@ -146,7 +145,6 @@ public sealed partial class RadarApp
         _lootGoldLabels.Clear();
         _lootActiveToasts.Clear();
         _lootPendingToasts.Clear();
-        _lootSessionStartUtc = DateTime.UtcNow;
         _lootLastTickUtc = DateTime.MinValue;
         _lootTrackerView = LootTrackerView.Empty;
     }
@@ -154,6 +152,8 @@ public sealed partial class RadarApp
     private void PauseLootTracker()
     {
         BankLootActiveTime(DateTime.UtcNow);
+        if (_lootCurrent != null && !_lootCompleted.Contains(_lootCurrent))
+            _lootCompleted.Add(_lootCurrent);
         _lootCurrent = null;
         _lootBaseline = null;
         _lootPrevSnapshot = null;
@@ -185,7 +185,6 @@ public sealed partial class RadarApp
             };
         }
 
-        _lootCompleted.Add(_lootCurrent);
         _lootBaselinePending = true;
         _lootLastTickUtc = now;
         _lootMonsterTallies.Clear();
@@ -382,8 +381,9 @@ public sealed partial class RadarApp
         var activeGold = _lootCurrent == null
             ? 0
             : GoldOfLoot(_lootCurrent.Gained) + _lootCurrent.GoldGained;
-        SessionTotals(now, out var totalTime, out var totalEx, out var totalGold);
-        var maps = _lootCompleted.Count;
+        var sessionRuns = LootSessionRuns();
+        SessionTotals(sessionRuns, now, out var totalTime, out var totalEx, out var totalGold);
+        var maps = sessionRuns.Length;
         var perHour = totalTime.TotalHours > 0 ? totalEx / totalTime.TotalHours : 0;
         var avgTime = maps > 0 ? TimeSpan.FromTicks(totalTime.Ticks / maps) : TimeSpan.Zero;
         var avgProfit = maps > 0 ? totalEx / maps : 0;
@@ -399,9 +399,6 @@ public sealed partial class RadarApp
             })
             .ToArray();
 
-        var sessionRuns = _lootCurrent == null
-            ? _lootCompleted
-            : _lootCompleted.Append(_lootCurrent);
         var sessionItems = AggregateSessionValuedItems(sessionRuns.Select(run =>
         {
             EnsureLootValuation(run, now);
@@ -410,7 +407,7 @@ public sealed partial class RadarApp
         var breakdownItems = BuildLootBreakdownRows(sessionItems, totalGold);
         var breakdownEx = sessionItems.Sum(i => i.TotalEx);
         var breakdownItemCount = sessionItems.Sum(i => i.Count);
-        var sessionMapCount = _lootCompleted.Count + (_lootCurrent == null ? 0 : 1);
+        var sessionMapCount = sessionRuns.Length;
 
         var life = Math.Clamp(settings.NotifyDurationSec, 1f, 6f);
         var toasts = _lootActiveToasts
@@ -442,7 +439,7 @@ public sealed partial class RadarApp
             FormatLootValue(avgProfit),
             FormatLootValue(totalEx),
             FormatLootValue(perHour),
-            FormatLootDuration(now - _lootSessionStartUtc),
+            FormatLootDuration(totalTime),
             recent,
             sessionMapCount == 0
                 ? ""
@@ -459,22 +456,26 @@ public sealed partial class RadarApp
             EffectiveLootTrackerLeague(_liveFrame));
     }
 
-    private void SessionTotals(DateTime now, out TimeSpan activeTime, out double totalEx, out long totalGold)
+    private LootMapRun[] LootSessionRuns()
+        => _lootCurrent == null
+            ? _lootCompleted.ToArray()
+            : [.. _lootCompleted, _lootCurrent];
+
+    private void SessionTotals(
+        IReadOnlyList<LootMapRun> sessionRuns,
+        DateTime now,
+        out TimeSpan activeTime,
+        out double totalEx,
+        out long totalGold)
     {
         activeTime = TimeSpan.Zero;
         totalEx = 0;
         totalGold = 0;
-        foreach (var run in _lootCompleted)
+        foreach (var run in sessionRuns)
         {
             activeTime += run.ActiveTime;
             totalEx += EnsureLootValuation(run, now);
             totalGold += GoldOfLoot(run.Gained) + run.GoldGained;
-        }
-        if (_lootCurrent != null)
-        {
-            activeTime += _lootCurrent.ActiveTime;
-            totalEx += EnsureLootValuation(_lootCurrent, now);
-            totalGold += GoldOfLoot(_lootCurrent.Gained) + _lootCurrent.GoldGained;
         }
     }
 

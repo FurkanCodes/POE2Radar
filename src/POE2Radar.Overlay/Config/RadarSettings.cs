@@ -1061,6 +1061,7 @@ public sealed class LootTrackerSettings
     public const int CurrencyChaos = 3;
 
     public bool Enabled { get; set; } = true;
+    public bool KeepVisibleAfterRun { get; set; } = true;
     public int PriceSource { get; set; } = 1; // 0 = poe.ninja, 1 = poe2scout
     public string League { get; set; } = "Runes of Aldur";
     public int RefreshIntervalMin { get; set; } = 5;
