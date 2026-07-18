@@ -125,6 +125,31 @@ public sealed class AtlasPanelLocatorTests
         Assert.False(AtlasPanelLocator.IsAtlasOpen(reader, igs));
     }
 
+    [Fact]
+    public void IsAtlasOpen_ReturnsFalse_WhenPanelHidden_ButNodeListParentChainStaysVisible()
+    {
+        using var process = ProcessHandle.AttachToProcess(Environment.ProcessId, Process.GetCurrentProcess().ProcessName);
+        var reader = new MemoryReader(process);
+        using var ui = new FakeUiMemory();
+
+        var manager = ui.Element(visible: true, directChildren: 1);
+        var panel = ui.ElementWithFlags(PanelFp, visible: false, parent: manager);
+        // The atlas hierarchy used for discovery still contains these elements after closing,
+        // while their runtime Parent pointers can bypass the hidden panel.
+        var gate = ui.ElementWithFlags(GateFp | VisibleMask, visible: true, parent: manager);
+        var nodeList = ui.ElementWithFlags(NodeListFp | VisibleMask, visible: true, parent: gate);
+        ui.SetChildren(manager, 1, (0, panel));
+        ui.SetChildren(panel, 1, (0, gate));
+        ui.SetChildren(gate, 1, (0, nodeList));
+
+        var igs = ui.Alloc(0x400);
+        ui.WritePtr(igs + Poe2.InGameState.KeyboardUiRootStructPtr, manager);
+
+        Assert.True(AtlasPanelLocator.TryResolveNodeList(reader, igs, out var resolved, out _));
+        Assert.Equal(nodeList, resolved);
+        Assert.False(AtlasPanelLocator.IsAtlasOpen(reader, igs));
+    }
+
     private sealed class FakeUiMemory : IDisposable
     {
         private const int ElementSize = 0x400;

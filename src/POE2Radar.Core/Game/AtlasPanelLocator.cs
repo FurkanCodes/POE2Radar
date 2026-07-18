@@ -26,16 +26,21 @@ public static class AtlasPanelLocator
 
     public static PanelDiag GetDiag(MemoryReader reader, nint inGameState)
     {
-        var resolved = TryResolveNodeList(reader, inGameState, out var list, out var mgr);
-        var open = resolved && IsHierarchicallyVisible(reader, list);
+        var resolved = TryResolveNodeListAndPanel(reader, inGameState, out var list, out var mgr, out var panel);
+        var open = resolved
+            && IsLocallyVisible(reader, panel)
+            && IsLocallyVisible(reader, list);
         return new PanelDiag(resolved, open, list, mgr);
     }
 
     public static bool IsAtlasOpen(MemoryReader reader, nint inGameState)
     {
-        if (!TryResolveNodeList(reader, inGameState, out var list, out _))
+        if (!TryResolveNodeListAndPanel(reader, inGameState, out var list, out _, out var panel))
             return false;
-        return IsHierarchicallyVisible(reader, list);
+        // The persistent panel's own visible bit is the authoritative open/close signal.
+        // The node-list and its runtime Parent chain can remain visible after the panel closes.
+        return IsLocallyVisible(reader, panel)
+            && IsLocallyVisible(reader, list);
     }
 
     /// <summary>
@@ -44,9 +49,19 @@ public static class AtlasPanelLocator
     /// parallel HUD trees — child count alone is not enough; we also score rolled-content signals (+0x310).
     /// </summary>
     public static bool TryResolveNodeList(MemoryReader reader, nint inGameState, out nint nodeList, out nint uiManager, nint preferManager = 0)
+        => TryResolveNodeListAndPanel(reader, inGameState, out nodeList, out uiManager, out _, preferManager);
+
+    private static bool TryResolveNodeListAndPanel(
+        MemoryReader reader,
+        nint inGameState,
+        out nint nodeList,
+        out nint uiManager,
+        out nint atlasPanel,
+        nint preferManager = 0)
     {
         nodeList = 0;
         uiManager = 0;
+        atlasPanel = 0;
         if (inGameState == 0) return false;
 
         Span<nint> managers = stackalloc nint[8];
@@ -56,13 +71,14 @@ public static class AtlasPanelLocator
         for (var i = 0; i < managerCount; i++)
         {
             var mgr = managers[i];
-            if (!TryResolveNodeListFromManager(reader, mgr, out var list)) continue;
+            if (!TryResolveNodeListFromManager(reader, mgr, out var list, out var panel)) continue;
             var score = ScoreNodeList(reader, list);
             if (score < bestScore) continue;
             if (score == bestScore && mgr != preferManager) continue;
             bestScore = score;
             nodeList = list;
             uiManager = mgr;
+            atlasPanel = panel;
         }
 
         return nodeList != 0;
@@ -127,18 +143,36 @@ public static class AtlasPanelLocator
 
     public static bool TryResolveNodeListFromManager(MemoryReader reader, nint uiManager, out nint nodeList)
     {
-        nodeList = WalkFromManager(reader, uiManager);
+        nodeList = WalkFromManager(reader, uiManager, out _);
         return nodeList != 0;
     }
 
-    private static nint WalkFromManager(MemoryReader reader, nint uiManager)
+    private static bool TryResolveNodeListFromManager(
+        MemoryReader reader,
+        nint uiManager,
+        out nint nodeList,
+        out nint atlasPanel)
     {
-        var list = WalkFlagsChain(reader, uiManager, KbMouseChain, KbMouseGateStep, 0);
-        return list != 0 ? list : WalkFlagsChain(reader, uiManager, ControllerChain, ControllerGateStep, 0);
+        nodeList = WalkFromManager(reader, uiManager, out atlasPanel);
+        return nodeList != 0;
     }
 
-    private static nint WalkFlagsChain(MemoryReader reader, nint parentAddr, IReadOnlyList<uint> flagsChain, int gateStep, int step)
+    private static nint WalkFromManager(MemoryReader reader, nint uiManager, out nint atlasPanel)
     {
+        var list = WalkFlagsChain(reader, uiManager, KbMouseChain, KbMouseGateStep, 0, out atlasPanel);
+        if (list != 0) return list;
+        return WalkFlagsChain(reader, uiManager, ControllerChain, ControllerGateStep, 0, out atlasPanel);
+    }
+
+    private static nint WalkFlagsChain(
+        MemoryReader reader,
+        nint parentAddr,
+        IReadOnlyList<uint> flagsChain,
+        int gateStep,
+        int step,
+        out nint atlasPanel)
+    {
+        atlasPanel = 0;
         if (step == flagsChain.Count) return parentAddr;
 
         var first = SafePtr(reader, parentAddr + Poe2.UiElement.Children);
@@ -161,8 +195,10 @@ public static class AtlasPanelLocator
                 if (visible != wantVisible) continue;
                 if (step == gateStep && !visible) continue;
 
-                var deeper = WalkFlagsChain(reader, child, flagsChain, gateStep, step + 1);
-                if (deeper != 0) return deeper;
+                var deeper = WalkFlagsChain(reader, child, flagsChain, gateStep, step + 1, out var deeperPanel);
+                if (deeper == 0) continue;
+                atlasPanel = target == (PanelFp & ~VisibleMask) ? child : deeperPanel;
+                return deeper;
             }
         }
 
@@ -183,6 +219,11 @@ public static class AtlasPanelLocator
         }
         return true;
     }
+
+    private static bool IsLocallyVisible(MemoryReader reader, nint element)
+        => element != 0
+           && reader.TryReadStruct<uint>(element + Poe2.UiElement.Flags, out var flags)
+           && (flags & VisibleMask) != 0;
 
     private static nint SafePtr(MemoryReader reader, nint addr)
     {
