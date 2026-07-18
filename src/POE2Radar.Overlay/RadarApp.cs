@@ -989,7 +989,8 @@ public sealed partial class RadarApp : IDisposable
             CursorInspectTitle: _cursorInspectTitle,
             CursorInspectMeta: _cursorInspectMeta,
             MapDiag: _mapDiag,
-            PathDiagNote: pathDiag);
+            PathDiagNote: pathDiag,
+            Amanamu: BuildAmanamuView());
         // Keep the compact taskbar alive while overlay content is hidden; its eye button is the
         // discoverable way to turn content back on. Out of game there is nothing useful to draw.
         _imguiOverlay?.SetDrawEnabled(live.InGame);
@@ -1092,6 +1093,7 @@ public sealed partial class RadarApp : IDisposable
             _hpFrame.Length > 0 ||
             _settings.HpBarNormal || _settings.HpBarMagic || _settings.HpBarRare || _settings.HpBarUnique ||
             (_settings.PickupHelper.Enabled && _settings.PickupHelper.Mode != 1) ||
+            (_settings.Amanamu.Enabled && _settings.Amanamu.ShowWorldOverlay && _amanamuAlerts.Length > 0) ||
             _settings.TrackEntityHotkey > 0 || _settings.HideEntityHotkey > 0;
         _cameraMatrix = needsCamera ? CopyCameraMatrix(_live.CameraMatrix(inGameState)) : null;
 

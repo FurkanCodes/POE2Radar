@@ -341,6 +341,7 @@ public sealed partial class Poe2Live
             _category.Clear(); _meta.Clear(); _iconAddr.Clear(); _rarity.Clear(); _itemIdent.Clear();
             _idAt.Clear();
             _lastSleeping.Clear();
+            ResetAmanamuCaches();
             _entCacheKey = areaInstance;
         }
 
@@ -445,6 +446,7 @@ public sealed partial class Poe2Live
         _renderAddr.Remove(entity); _lifeAddr.Remove(entity); _posAddr.Remove(entity);
         _ompAddr.Remove(entity); _chestAddr.Remove(entity); _category.Remove(entity);
         _meta.Remove(entity); _iconAddr.Remove(entity); _rarity.Remove(entity); _itemIdent.Remove(entity);
+        EvictAmanamuEntity(entity);
     }
 
     /// <summary>

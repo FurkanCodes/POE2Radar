@@ -6,6 +6,18 @@ namespace POE2Radar.Overlay.Tests;
 public sealed class RadarSettingsMigrationTests
 {
     [Fact]
+    public void Amanamu_DefaultsAreEnabledButStrictlyBounded()
+    {
+        var s = new RadarSettings().Amanamu;
+
+        Assert.True(s.Enabled);
+        Assert.True(s.OnlyRareOrUnique);
+        Assert.Equal(368, s.MaxDistanceGrid);
+        Assert.True(s.ShowWorldOverlay);
+        Assert.True(s.ShowMapMarkers);
+    }
+
+    [Fact]
     public void Migrate_FoldsLegacyShowPathIntoLayerToggles()
     {
         var s = new RadarSettings

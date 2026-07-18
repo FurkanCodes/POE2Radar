@@ -30,6 +30,7 @@ public sealed partial class RadarApp
         var inGame = _worldLive.TryResolve(out var inGameState, out var areaInstance, out var localPlayer);
         if (!inGame)
         {
+            ClearAmanamuAlerts();
             _snapshot = WorldSnapshot.Empty;
             _state = RadarState.Empty;
             _worldTickMs = 0;
@@ -123,6 +124,7 @@ public sealed partial class RadarApp
 
             landmarks = _worldLive.Landmarks(areaInstance);
             var serverIcons = _worldLive.ServerMinimapIcons(areaInstance);
+            UpdateAmanamuAlerts(entityDots, serverIcons, player, areaInstance);
             _entities = entities;
             _landmarks = landmarks;
             _serverIcons = serverIcons;
@@ -142,6 +144,7 @@ public sealed partial class RadarApp
         }
         else
         {
+            ClearAmanamuAlerts();
             _entities = entities;
             _landmarks = landmarks;
         }

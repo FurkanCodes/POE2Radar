@@ -595,4 +595,5 @@ public sealed record RenderContext(
     string? CursorInspectMeta = null,
     // Map/path diagnostics (extended perf HUD when ShowPerfStats).
     string MapDiag = "",
-    string PathDiagNote = "");
+    string PathDiagNote = "",
+    AmanamuView? Amanamu = null);

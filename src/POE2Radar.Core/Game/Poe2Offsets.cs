@@ -228,6 +228,21 @@ public static class Poe2
         public const int Mods = 0x150; // GH2: Details1.Mods vectors
     }
 
+    /// <summary>Buffs component. GameHelper2-sourced; validate with a Research probe after patches.</summary>
+    public static class Buffs
+    {
+        public const int StatusEffects = 0x160; // GH2 BuffsOffsets.StatusEffectPtr, vector&lt;nint&gt;
+    }
+
+    /// <summary>One active status-effect object and its BuffDefinitions.dat row.</summary>
+    public static class StatusEffect
+    {
+        public const int BuffDefinition = 0x08; // GH2 StatusEffectStruct.BuffDefinationPtr
+        public const int BuffDefinitionName = 0x00; // GH2 BuffDefinitionsOffset.Name -> UTF-16
+        public const int PointerStride = 0x08;
+        public const int MaxCount = 256;
+    }
+
     /// <summary>Chest component. ✓ OpenState @ +0x168 — the offset is stable, but the 2026-06-06 patch
     /// INVERTED its polarity: now 0 = closed/openable, non-zero = opened/used (was 1=closed/0=opened,
     /// per the 2026-06-03 read). Re-validated live by diffing a rare chest closed-vs-opened (+0x168

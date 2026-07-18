@@ -86,6 +86,13 @@ internal static class SettingHints
         public const string TerrainEdgeThickness = "Line thickness for terrain boundary edges.";
     }
 
+    internal static class Amanamu
+    {
+        public const string Enabled = "Detect Amanamu Lightless Well monsters and show their cloud-immunity state. Off adds no component, mod, or buff reads.";
+        public const string RareOnly = "Restrict discovery to rare and unique hostile monsters, matching the important Amanamu targets.";
+        public const string Distance = "Maximum grid distance for discovery. 0 removes the distance limit; a lower limit reduces work in dense Abyss encounters.";
+    }
+
     internal static class Performance
     {
         public const string LowImpactMode = "Favor lower memory-read cadence when idle or unfocused.";

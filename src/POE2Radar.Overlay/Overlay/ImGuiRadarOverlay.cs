@@ -361,6 +361,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                     DrawPickupTargetHint(ImGui.GetForegroundDrawList(), ctx);
                     DrawStashValueLabels(ImGui.GetForegroundDrawList(), ctx);
                     DrawSekhemaScreenOverlaySafe(ImGui.GetForegroundDrawList(), ctx);
+                    DrawAmanamuWorldOverlay(ImGui.GetForegroundDrawList(), ctx);
                     nameplatesMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                 }
 
@@ -552,6 +553,8 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                 if (s.Label.Length > 0 && !MapLabelAlreadyPresent(mapLabels, s.Label))
                     mapLabels.Add(new MapLabelCandidate("map:" + s.Key, p, s.Label, s.Color, s.Color));
             }
+
+            DrawAmanamuMapMarkers(dl, ctx, player, center, scale, mapLabels, clipL, clipT, clipR, clipB);
 
             if (mapLabels.Count > 0)
                 DrawMapLabelChips(
@@ -2567,6 +2570,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         DrawSettingsNavItem("Crafting Assistant");
         DrawSettingsNavItem("Pickup Helper");
         DrawSettingsNavItem("Loot Tracker");
+        DrawSettingsNavItem("Amanamu Alert");
         DrawSettingsNavItem("Ritual");
         DrawSettingsNavItem("Runecraft");
         DrawSettingsNavItem("Sekhema");
@@ -2602,6 +2606,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             case "Crafting Assistant": DrawWaystoneAlchemyTab(s, ctx); break;
             case "Pickup Helper": DrawPickupHelperTab(s, ctx); break;
             case "Loot Tracker": DrawLootTrackerTab(s, ctx); break;
+            case "Amanamu Alert": DrawAmanamuTab(s, ctx); break;
             case "Ritual": DrawRitualTab(s, ctx); break;
             case "Runecraft": DrawRunecraftTab(s, ctx); break;
             case "Sekhema": DrawSekhemaTab(s, ctx); break;

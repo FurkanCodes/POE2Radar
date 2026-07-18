@@ -36,6 +36,9 @@ quality-of-life feature.
 - **Waystone Alchemy** — controller-aware crafting guidance for Alchemy, Identification, Regal,
   Exalted, Corruption, and Distilled Paranoia workflows. Optional AUTO mode applies supported currency
   actions with foreground/UI gates and validates game state after every action; MANUAL mode only guides.
+- **Amanamu Void Alert** — detects rare/unique Lightless Well monsters in Abyss content, marks
+  inside-cloud immunity in purple and outside-cloud vulnerability in green, and draws optional map
+  markers, world labels, circles, and off-screen arrows. Discovery reads are Abyss-gated and bounded.
 - **Web dashboard** (`http://localhost:7777`, or **F12** in-game) — a local control panel: a
   searchable list of every entity/landmark you can click to navigate to, plus a settings tab
   (radar display toggles, monster HP-bar visibility, map calibration, auto-flask tuning). Served
@@ -129,6 +132,11 @@ redistributed here; only independently re-validated offset values are recorded i
 The Sekhema Helper behavior is derived from
 [MordWraith/Gamehelper's SekhemaHelper](https://github.com/MordWraith/Gamehelper/tree/main/Plugins/SekhemaHelper)
 under GPL-3.0. The source snapshot and license notice are bundled with the overlay output.
+
+The Amanamu identifiers and user-facing behavior are informed by
+[MordWraith/AmanamuVoidAlert](https://github.com/MordWraith/AmanamuVoidAlert), originally by
+[1k4ru5g3](https://github.com/1k4ru5g3/AmanamuVoidAlertPlugin). POE2Radar uses an independent,
+performance-gated implementation on its own external read layer.
 
 ## License
 

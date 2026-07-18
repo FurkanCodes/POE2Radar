@@ -137,6 +137,7 @@ public sealed class RadarSettings
     public bool RenderingHotkeyMigrated { get; set; } = false;
 
     public RitualSettings Ritual { get; set; } = new();
+    public AmanamuSettings Amanamu { get; set; } = new();
     public RunecraftSettings Runecraft { get; set; } = new();
     public SekhemaSettings Sekhema { get; set; } = new();
     public StashValueSettings StashValue { get; set; } = new();
@@ -415,6 +416,7 @@ public sealed class RadarSettings
 
             var json = File.ReadAllText(FilePath);
             var loaded = JsonSerializer.Deserialize<RadarSettings>(json, Json) ?? new RadarSettings();
+            loaded.Amanamu ??= new AmanamuSettings();
             // Existing configs are loaded verbatim (never re-seeded from defaults), so repair stale
             // patterns shipped by older builds in place, then persist the upgrade.
             if (loaded.Migrate())
@@ -844,6 +846,25 @@ public sealed class RitualSettings
     public float PriceOffsetY { get; set; } = -5f;
     public string PriceTextColor { get; set; } = "#FFEB8C";
     public float MinDisplayExalted { get; set; } = 50f;
+}
+
+public sealed class AmanamuSettings
+{
+    /// <summary>Master gate. Off performs no Amanamu component/mod/buff reads.</summary>
+    public bool Enabled { get; set; } = true;
+    public bool OnlyRareOrUnique { get; set; } = true;
+    public bool ShowWorldOverlay { get; set; } = true;
+    public bool ShowMapMarkers { get; set; } = true;
+    public bool DrawLabels { get; set; } = true;
+    public bool DrawOffscreenArrows { get; set; } = true;
+    public bool DrawCircle { get; set; } = true;
+    /// <summary>Maximum grid-cell distance to inspect. 0 = unlimited.</summary>
+    public int MaxDistanceGrid { get; set; } = 368;
+    public float CircleRadius { get; set; } = 36f;
+    public float LabelYOffset { get; set; } = 70f;
+    public float ArrowEdgeMargin { get; set; } = 60f;
+    public string InsideCloudColor { get; set; } = "#B450FF";
+    public string OutsideCloudColor { get; set; } = "#50FF78";
 }
 
 public sealed class RunecraftSettings
