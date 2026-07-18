@@ -627,6 +627,8 @@ public sealed partial class RadarApp : IDisposable
             () => AddNearestPathTarget(),
             () => ClearPathTargets(),
             () => StartNewLootTrackerSession(),
+            StartWaystoneAlchemyFromUi,
+            StopWaystoneAlchemyFromUi,
             _settings,
             generation == 1 ? "POE2Radar Radar" : $"POE2Radar Radar {generation}");
     }

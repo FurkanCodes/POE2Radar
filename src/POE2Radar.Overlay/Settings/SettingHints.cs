@@ -236,6 +236,26 @@ internal static class SettingHints
         public const string RulesPath = "Draw a walking path to matching entities.";
     }
 
+    internal static class CraftingAssistant
+    {
+        public const string Enabled = "Show craft hints on inventory Waystones or Tablets and allow AUTO crafting.";
+        public const string Target = "Craft Waystones or Precursor Tablets in your open inventory.";
+        public const string ModeManual = "Highlight the next currency to use — you click yourself.";
+        public const string ModeAuto = "Automatically right-click currency and apply it to each eligible item.";
+        public const string AutoAck = "Required before AUTO can move your mouse and click in inventory.";
+        public const string Recipe = "Which crafting sequence to run on the selected target type.";
+        public const string TabletModTarget = "Stop when a tablet reaches this many explicit modifiers (3–4 need Atlas unlocks).";
+        public const string MinimumTier = "Ignore Waystones below this tier.";
+        public const string UseRegal = "Keep Magic Waystone mods with Regal. Off (default) uses Alchemy on blues too — same as whites.";
+        public const string ApplyExalt = "Keep Exalting identified Rare Waystones until they reach the mod target.";
+        public const string DesiredMods = "Stop Exalting when a Waystone reaches this many explicit mods.";
+        public const string ActionDelay = "Pause between currency click and item click.";
+        public const string Start = "Close settings, focus the game, and begin AUTO crafting eligible inventory items.";
+        public const string Stop = "Stop AUTO crafting immediately.";
+        public const string RunHotkey = "Optional keyboard or Xbox bind that toggles AUTO crafting.";
+        public const string EmergencyStop = "Instant kill-switch for AUTO crafting (default F8).";
+    }
+
     internal static class Ritual
     {
         public const string ShowOverlay = "Paint prices on each tribute row in-game while the Ritual shop is open.";

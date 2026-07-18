@@ -349,4 +349,21 @@ public sealed class RadarSettingsMigrationTests
         Assert.False(s.Migrate());
     }
 
+    [Fact]
+    public void Migrate_PrefersAlchemyOnMagicWaystones()
+    {
+        var s = new RadarSettings
+        {
+            WaystoneAlchemyPreferAlchemyMigrated = false,
+            WaystoneAlchemy = { UseRegalOnMagic = true },
+        };
+
+        var changed = s.Migrate();
+
+        Assert.True(changed);
+        Assert.True(s.WaystoneAlchemyPreferAlchemyMigrated);
+        Assert.False(s.WaystoneAlchemy.UseRegalOnMagic);
+        Assert.False(s.Migrate());
+    }
+
 }

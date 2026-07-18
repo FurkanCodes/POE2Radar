@@ -42,6 +42,8 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private readonly Action _addNearest;
     private readonly Action _clearPaths;
     private readonly Action _newLootSession;
+    private readonly Action _startWaystoneAlchemy;
+    private readonly Action _stopWaystoneAlchemy;
     private readonly TextureRegistry _textures = new();
     private readonly TerrainTextureCache _terrainTextures = new();
     private readonly OverlayRenderMetrics _renderMetrics = new();
@@ -131,6 +133,8 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         Action addNearest,
         Action clearPaths,
         Action newLootSession,
+        Action startWaystoneAlchemy,
+        Action stopWaystoneAlchemy,
         RadarSettings settings,
         string windowTitle = "POE2Radar Radar")
         : base(windowTitle, true, 3840, 2160)
@@ -143,6 +147,8 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         _addNearest = addNearest;
         _clearPaths = clearPaths;
         _newLootSession = newLootSession;
+        _startWaystoneAlchemy = startWaystoneAlchemy;
+        _stopWaystoneAlchemy = stopWaystoneAlchemy;
         _settings = settings;
         _settingsLock = new object();
         _navMenuCorner = settings.NavMenuCorner;
@@ -2524,11 +2530,12 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
         MaybeReapplyOverlayFont(s);
 
-        if (!_settingsPanelWasOpen || string.IsNullOrEmpty(_activeSettingsTab))
-        {
-            _activeSettingsTab = "Radar";
+        if (string.IsNullOrEmpty(_activeSettingsTab))
+            _activeSettingsTab = string.IsNullOrWhiteSpace(s.LastSettingsTab) ? "Radar" : s.LastSettingsTab;
+
+        // Accordion sections start collapsed on each open; keep the last sidebar tab.
+        if (!_settingsPanelWasOpen)
             ImGuiTheme.CollapseSectionsOnNextDraw = true;
-        }
 
         DrawSettingsNavigation(s, ctx);
 
@@ -2558,7 +2565,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         DrawSettingsNavGroup("PLUGINS");
         DrawSettingsNavItem("Stash Value");
         DrawSettingsNavItem("Stash Utility");
-        DrawSettingsNavItem("Waystone Alchemy");
+        DrawSettingsNavItem("Crafting Assistant");
         DrawSettingsNavItem("Pickup Helper");
         DrawSettingsNavItem("Loot Tracker");
         DrawSettingsNavItem("Ritual");
@@ -2593,7 +2600,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             case "Flask": DrawFlaskTab(s); break;
             case "Stash Value": DrawStashValueTab(s, ctx); break;
             case "Stash Utility": DrawStashUtilityTab(s, ctx); break;
-            case "Waystone Alchemy": DrawWaystoneAlchemyTab(s, ctx); break;
+            case "Crafting Assistant": DrawWaystoneAlchemyTab(s, ctx); break;
             case "Pickup Helper": DrawPickupHelperTab(s, ctx); break;
             case "Loot Tracker": DrawLootTrackerTab(s, ctx); break;
             case "Ritual": DrawRitualTab(s, ctx); break;
@@ -2630,6 +2637,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             && !selected)
         {
             _activeSettingsTab = page;
+            lock (_settingsLock) _settings.LastSettingsTab = page;
             ImGuiTheme.CollapseSectionsOnNextDraw = true;
         }
         if (selected) ImGui.PopStyleColor(2);
@@ -3968,22 +3976,53 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         if (general)
         {
             var enabled = s.Enabled;
-            if (ImGui.Checkbox("Enable Waystone Alchemy", ref enabled)) s.Enabled = enabled;
+            if (ImGui.Checkbox("Enable Crafting Assistant", ref enabled)) s.Enabled = enabled;
+            ImGuiTheme.Tooltip(SettingHints.CraftingAssistant.Enabled);
+
+            var targets = new[] { "Waystones", "Tablets" };
+            s.TargetType = Math.Clamp(s.TargetType, 0, targets.Length - 1);
+            ImGui.SetNextItemWidth(UiW(14f));
+            if (ImGui.BeginCombo("Target", targets[s.TargetType]))
+            {
+                for (var i = 0; i < targets.Length; i++)
+                {
+                    if (!ImGui.Selectable(targets[i], s.TargetType == i)) continue;
+                    s.TargetType = i;
+                    s.Recipe = 0;
+                }
+                ImGui.EndCombo();
+            }
+            ImGuiTheme.Tooltip(SettingHints.CraftingAssistant.Target);
 
             if (ImGui.RadioButton("MANUAL / guided", s.Mode == 0)) s.Mode = 0;
+            ImGuiTheme.Tooltip(SettingHints.CraftingAssistant.ModeManual);
             ImGui.SameLine();
             if (ImGui.RadioButton("AUTO", s.Mode == 1)) s.Mode = 1;
+            ImGuiTheme.Tooltip(SettingHints.CraftingAssistant.ModeAuto);
 
             if (s.Mode == 1)
             {
                 ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1f, 0.65f, 0.2f, 1f));
-                ImGui.TextWrapped("AUTO moves the cursor and applies currency. Keep PoE2 focused and use F8 immediately if anything looks wrong.");
+                ImGui.TextWrapped("AUTO moves the cursor and applies currency. Open inventory, click Start, and use emergency stop if anything looks wrong.");
                 ImGui.PopStyleColor();
                 var ack = s.AutoModeAcknowledged;
                 if (ImGui.Checkbox("I understand and enable automatic inventory clicks", ref ack)) s.AutoModeAcknowledged = ack;
+                ImGuiTheme.Tooltip(SettingHints.CraftingAssistant.AutoAck);
             }
 
-            var recipes = new[] { "Upgrade (Alchemy / Regal / Exalted)", "Corrupt rare Waystones", "Distilled Paranoia (guided)" };
+            var recipes = s.TargetType == 1
+                ? new[]
+                {
+                    "Upgrade (Transmute / Augment / Regal / Exalted)",
+                    "Corrupt finished Tablets (Ancient Infuser)",
+                    "Alchemy (Normal/Magic → Rare with 4 modifiers)",
+                }
+                : new[]
+                {
+                    "Upgrade (Alchemy / Regal / Exalted)",
+                    "Corrupt rare Waystones",
+                    "Distilled Paranoia (guided)",
+                };
             s.Recipe = Math.Clamp(s.Recipe, 0, recipes.Length - 1);
             ImGui.SetNextItemWidth(UiW(20f));
             if (ImGui.BeginCombo("Recipe", recipes[s.Recipe]))
@@ -3992,34 +4031,78 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                     if (ImGui.Selectable(recipes[i], s.Recipe == i)) s.Recipe = i;
                 ImGui.EndCombo();
             }
-            if (s.Recipe == 2)
+            ImGuiTheme.Tooltip(SettingHints.CraftingAssistant.Recipe);
+            if (s.TargetType == 0 && s.Recipe == 2)
                 ImGui.TextDisabled("Paranoia remains guided until the KBM and controller Instilling panels are mapped live.");
 
-            var tier = Math.Clamp(s.MinimumTier, 1, 16);
-            ImGui.SetNextItemWidth(UiW(8f));
-            if (ImGui.SliderInt("Minimum tier", ref tier, 1, 16)) s.MinimumTier = tier;
-            var regal = s.UseRegalOnMagic;
-            if (ImGui.Checkbox("Regal identified Magic Waystones", ref regal)) s.UseRegalOnMagic = regal;
-            var exalt = s.ApplyExaltedToRare;
-            if (ImGui.Checkbox("Exalt identified Rare Waystones", ref exalt)) s.ApplyExaltedToRare = exalt;
-            if (s.ApplyExaltedToRare)
+            if (s.TargetType == 1)
             {
-                var mods = Math.Clamp(s.DesiredExplicitMods, 3, 6);
+                var mods = Math.Clamp(s.DesiredTabletExplicitMods, 2, 4);
                 ImGui.SetNextItemWidth(UiW(8f));
-                if (ImGui.SliderInt("Stop at explicit mods", ref mods, 3, 6)) s.DesiredExplicitMods = mods;
+                if (ImGui.SliderInt("Tablet modifier target", ref mods, 2, 4))
+                    s.DesiredTabletExplicitMods = mods;
+                ImGuiTheme.Tooltip(SettingHints.CraftingAssistant.TabletModTarget);
+                ImGui.TextWrapped(
+                    "Prefer Upgrade for bulk tablets. Use 2 mods by default; pick 3 or 4 only after Reverse Transcription / Partial Translation. Rejected currency skips that item and continues.");
+                if (s.Recipe == 1)
+                    ImGui.TextDisabled("Tablet corruption uses Ancient Infusers, not Vaal Orbs.");
+                else if (s.Recipe == 2)
+                {
+                    ImGui.TextWrapped(
+                        "Alchemy upgrades Normal or Magic (blue) tablets to Rare with 4 new random mods (blue mods are wiped). Same flow as Waystone Alchemy. If a click is rejected (missing Partial Translation), that tablet is skipped.");
+                }
+            }
+            else
+            {
+                var tier = Math.Clamp(s.MinimumTier, 1, 16);
+                ImGui.SetNextItemWidth(UiW(8f));
+                if (ImGui.SliderInt("Minimum tier", ref tier, 1, 16)) s.MinimumTier = tier;
+                ImGuiTheme.Tooltip(SettingHints.CraftingAssistant.MinimumTier);
+                var regal = s.UseRegalOnMagic;
+                if (ImGui.Checkbox("Prefer Regal on Magic Waystones (else Alchemy)", ref regal))
+                    s.UseRegalOnMagic = regal;
+                ImGuiTheme.Tooltip(SettingHints.CraftingAssistant.UseRegal);
+                var exalt = s.ApplyExaltedToRare;
+                if (ImGui.Checkbox("Exalt identified Rare Waystones", ref exalt)) s.ApplyExaltedToRare = exalt;
+                ImGuiTheme.Tooltip(SettingHints.CraftingAssistant.ApplyExalt);
+                if (s.ApplyExaltedToRare)
+                {
+                    var mods = Math.Clamp(s.DesiredExplicitMods, 3, 6);
+                    ImGui.SetNextItemWidth(UiW(8f));
+                    if (ImGui.SliderInt("Stop at explicit mods", ref mods, 3, 6)) s.DesiredExplicitMods = mods;
+                    ImGuiTheme.Tooltip(SettingHints.CraftingAssistant.DesiredMods);
+                }
             }
             var delay = Math.Clamp(s.ActionDelayMs, 150, 1500);
             ImGui.SetNextItemWidth(UiW(8f));
             if (ImGui.SliderInt("Action delay", ref delay, 150, 1500, "%d ms")) s.ActionDelayMs = delay;
+            ImGuiTheme.Tooltip(SettingHints.CraftingAssistant.ActionDelay);
         }
         ImGuiTheme.EndAccordionSection(general);
 
         var controls = ImGuiTheme.BeginAccordionSection("WaystoneAlchemyControls", "Controls", defaultOpen: true);
         if (controls)
         {
-            ImGui.TextDisabled("Bind accepts keyboard or Xbox controller buttons.");
-            DrawHotkeyRow(settings, "waystoneAlchemyRunHotkey", "Start / stop selected recipe", "Starts or stops Waystone crafting.");
-            DrawHotkeyRow(settings, "waystoneAlchemyStopHotkey", "Emergency stop", "Stops Waystone crafting immediately.");
+            var canStart = s.Enabled && s.Mode == 1 && s.AutoModeAcknowledged &&
+                           !(s.TargetType == 0 && s.Recipe == 2);
+            if (!canStart) ImGui.BeginDisabled();
+            if (ImGui.Button("Start", new NumVec2(UiW(6f), 0f)))
+            {
+                FlushSettingsNow();
+                _settingsOpen = false;
+                _enqueue(_startWaystoneAlchemy);
+            }
+            if (!canStart) ImGui.EndDisabled();
+            ImGuiTheme.Tooltip(SettingHints.CraftingAssistant.Start);
+            ImGui.SameLine();
+            if (ImGui.Button("Stop", new NumVec2(UiW(6f), 0f)))
+                _enqueue(_stopWaystoneAlchemy);
+            ImGuiTheme.Tooltip(SettingHints.CraftingAssistant.Stop);
+
+            ImGui.Spacing();
+            ImGui.TextDisabled("Optional hotkeys (keyboard or Xbox). Start/Stop buttons are enough for mouse use.");
+            DrawHotkeyRow(settings, "waystoneAlchemyRunHotkey", "Toggle AUTO (optional)", SettingHints.CraftingAssistant.RunHotkey);
+            DrawHotkeyRow(settings, "waystoneAlchemyStopHotkey", "Emergency stop", SettingHints.CraftingAssistant.EmergencyStop);
             ImGui.TextUnformatted($"Status: {ctx?.WaystoneAlchemyStatus ?? "Waiting for game"}");
             ImGui.TextUnformatted(GamepadInput.IsConnected(settings.GamepadUserIndex)
                 ? "Controller: connected"

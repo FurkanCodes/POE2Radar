@@ -301,6 +301,9 @@ public sealed class RadarSettings
     public int ToggleSettingsHotkey { get; set; } = 0x7A;
     public int OpenDashboardHotkey { get; set; } = 0x7B;
 
+    /// <summary>Last settings sidebar page (e.g. "Radar", "Crafting Assistant"). Restored when reopening settings.</summary>
+    public string LastSettingsTab { get; set; } = "Radar";
+
     // ── Xbox / XInput controller (player slot 0–3). ──
     public bool GamepadHotkeysEnabled { get; set; } = false;
     public int GamepadUserIndex { get; set; } = 0;
@@ -334,6 +337,12 @@ public sealed class RadarSettings
 
     /// <summary>One-time: reconcile Atlas built-in route targets with the GameHelper target list.</summary>
     public bool AtlasRouteTargetsGhParityMigrated { get; set; }
+
+    /// <summary>
+    /// One-time: prefer Alchemy on Magic Waystones (PoE2 0.3.1+). Prior default Regal'd blues and
+    /// never used Alchemy orbs on them.
+    /// </summary>
+    public bool WaystoneAlchemyPreferAlchemyMigrated { get; set; }
 
     // ── HTTP API. ──
     public int ApiPort { get; set; } = 7777;
@@ -563,6 +572,13 @@ public sealed class RadarSettings
         {
             ReconcileBuiltInAtlasRouteTargets();
             AtlasRouteTargetsGhParityMigrated = true;
+            changed = true;
+        }
+
+        if (!WaystoneAlchemyPreferAlchemyMigrated)
+        {
+            WaystoneAlchemy.UseRegalOnMagic = false;
+            WaystoneAlchemyPreferAlchemyMigrated = true;
             changed = true;
         }
 
@@ -1019,16 +1035,31 @@ public sealed class WaystoneAlchemySettings
     public bool Enabled { get; set; }
     /// <summary>0 = guided/manual, 1 = automatic clicks.</summary>
     public int Mode { get; set; }
-    /// <summary>0 = upgrade, 1 = corrupt, 2 = Distilled Paranoia guidance.</summary>
+    /// <summary>0 = Waystones, 1 = Tablets.</summary>
+    public int TargetType { get; set; }
+    /// <summary>
+    /// Waystones: 0 = upgrade, 1 = corrupt, 2 = Distilled Paranoia guidance.
+    /// Tablets: 0 = upgrade (Transmute/Augment/Regal/Exalt), 1 = Ancient Infuser, 2 = Alchemy (needs Partial Translation).
+    /// </summary>
     public int Recipe { get; set; }
     public int RunHotkey { get; set; }
     public int EmergencyStopHotkey { get; set; } = 0x77; // F8
     public int MinimumTier { get; set; } = 1;
-    public bool UseRegalOnMagic { get; set; } = true;
+    /// <summary>
+    /// When true, Magic Waystones use Regal (keep mods). When false (default), Magic Waystones use
+    /// Alchemy like Normal ones — PoE2 Alchemy works on Normal and Magic.
+    /// </summary>
+    public bool UseRegalOnMagic { get; set; }
     public bool ApplyExaltedToRare { get; set; } = true;
     public int DesiredExplicitMods { get; set; } = 6;
+    /// <summary>2 is always available; 3-4 require the corresponding Tablet Atlas unlocks.</summary>
+    public int DesiredTabletExplicitMods { get; set; } = 2;
     public int ActionDelayMs { get; set; } = 350;
     public bool AutoModeAcknowledged { get; set; }
+    /// <summary>
+    /// Confirms Partial Translation (4-mod tablet unlock) so Orb of Alchemy may be used on Normal tablets.
+    /// </summary>
+    public bool TabletAlchemyUnlocked { get; set; }
 }
 
 public sealed class PickupHelperSettings

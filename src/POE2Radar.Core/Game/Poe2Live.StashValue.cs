@@ -252,8 +252,11 @@ public sealed partial class Poe2Live
             foreach (var entry in entries)
             {
                 if (entry.ModsPtr == 0) continue;
+                // Keep entries even when the template string fails — crafting needs accurate counts
+                // (tablets especially). Skipping empty IDs under-counts and makes Augment/Exalt
+                // hit "cannot be increased any further".
                 var id = ReadModTemplate(entry.ModsPtr).Trim();
-                if (id.Length == 0) continue;
+                if (id.Length == 0) id = "_";
                 var (v0, v1) = ReadModValues(entry.Values, entry.Value0);
                 result.Add(new StashItemMod(id, v0, v1, explicitMod));
             }
