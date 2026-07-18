@@ -39,19 +39,38 @@ internal static class UiElementProjection
         float windowHeight,
         float? horizontalCull = null)
     {
-        var cull = horizontalCull ?? HorizontalCull(windowWidth, windowHeight);
-        var widthScale = (windowWidth - cull * 2f) / (float)Poe2.UiElement.BaseResW;
-        var heightScale = windowHeight / (float)Poe2.UiElement.BaseResH;
         var mul = float.IsFinite(localScaleMultiplier) && localScaleMultiplier > 0f
             ? MathF.Max(0.0001f, localScaleMultiplier)
             : 1f;
-        var pair = scaleIndex switch
+
+        Point pair;
+        if (horizontalCull is { } cull)
         {
-            1 => new Point(widthScale, widthScale),
-            2 => new Point(heightScale, heightScale),
-            3 => new Point(widthScale, heightScale),
-            _ => new Point(1f, 1f),
-        };
+            // Sekhema's current GameHelper layout uses the live game-cull-aware scale indices.
+            // Keep this model opt-in; every established overlay consumer relies on the mapping below.
+            var widthScale = (windowWidth - cull * 2f) / (float)Poe2.UiElement.BaseResW;
+            var heightScale = windowHeight / (float)Poe2.UiElement.BaseResH;
+            pair = scaleIndex switch
+            {
+                1 => new Point(widthScale, widthScale),
+                2 => new Point(heightScale, heightScale),
+                3 => new Point(widthScale, heightScale),
+                _ => new Point(1f, 1f),
+            };
+        }
+        else
+        {
+            var sx = windowWidth / (float)Poe2.UiElement.BaseResW;
+            var sy = windowHeight / (float)Poe2.UiElement.BaseResH;
+            pair = scaleIndex switch
+            {
+                0 => new Point(sx, sx),
+                1 => new Point(sy, sy),
+                2 => new Point(MathF.Min(sx, sy), MathF.Min(sx, sy)),
+                _ => new Point(sx, sy),
+            };
+        }
+
         return new Point(pair.X * mul, pair.Y * mul);
     }
 
@@ -134,21 +153,28 @@ internal static class UiElementProjection
         if (windowWidth <= 0f || windowHeight <= 0f) return false;
         if (!ReadCached(address, read, elementCache, out var leaf)) return false;
 
-        var cull = horizontalCull ?? HorizontalCull(windowWidth, windowHeight);
-        var topLeft = GetLeafTopLeft(
-            leaf,
-            read,
-            windowWidth,
-            windowHeight,
-            elementCache,
-            parentOffsetCache,
-            cull);
+        var topLeft = horizontalCull is { } cull
+            ? GetLeafTopLeft(
+                leaf,
+                read,
+                windowWidth,
+                windowHeight,
+                elementCache,
+                parentOffsetCache,
+                cull)
+            : GetEstablishedLeafTopLeft(
+                leaf,
+                read,
+                windowWidth,
+                windowHeight,
+                elementCache,
+                parentOffsetCache);
         var scale = ScalePair(
             leaf.ScaleIndex,
             leaf.LocalScaleMultiplier,
             windowWidth,
             windowHeight,
-            cull);
+            horizontalCull);
         rect = new Rect(topLeft.X, topLeft.Y, leaf.SizeW * scale.X, leaf.SizeH * scale.Y);
         return IsFinite(rect.X) && IsFinite(rect.Y) && rect.W > 1f && rect.H > 1f;
     }
@@ -161,7 +187,10 @@ internal static class UiElementProjection
         IDictionary<nint, Element>? elementCache = null,
         float? horizontalCull = null)
     {
-        var cull = horizontalCull ?? HorizontalCull(windowWidth, windowHeight);
+        if (horizontalCull is null)
+            return GetEstablishedFinalTopLeft(leaf, read, windowWidth, windowHeight, elementCache);
+
+        var cull = horizontalCull.Value;
         var pos = new Point(cull, 0f);
         var cur = leaf;
         var guard = 0;
@@ -201,6 +230,95 @@ internal static class UiElementProjection
         }
 
         return pos;
+    }
+
+    private static Point GetEstablishedFinalTopLeft(
+        Element leaf,
+        TryReadElement read,
+        float windowWidth,
+        float windowHeight,
+        IDictionary<nint, Element>? elementCache)
+    {
+        var pos = new Point(0f, 0f);
+        var current = leaf;
+        nint last = 0;
+        var guard = 0;
+
+        while (true)
+        {
+            pos = AddEstablishedContribution(pos, current, windowWidth, windowHeight);
+            if (current.Parent == 0 || current.Parent == last || ++guard > 64)
+                break;
+
+            last = current.Self;
+            if (!ReadCached(current.Parent, read, elementCache, out current))
+                break;
+        }
+
+        return pos;
+    }
+
+    private static Point GetEstablishedLeafTopLeft(
+        Element leaf,
+        TryReadElement read,
+        float windowWidth,
+        float windowHeight,
+        IDictionary<nint, Element>? elementCache,
+        IDictionary<nint, Point>? parentOffsetCache)
+    {
+        Point parentOffset;
+        if (leaf.Parent == 0)
+        {
+            parentOffset = new Point(0f, 0f);
+        }
+        else if (parentOffsetCache is not null &&
+                 parentOffsetCache.TryGetValue(leaf.Parent, out var cached))
+        {
+            parentOffset = cached;
+        }
+        else if (ReadCached(leaf.Parent, read, elementCache, out var parent))
+        {
+            parentOffset = GetEstablishedFinalTopLeft(
+                parent,
+                read,
+                windowWidth,
+                windowHeight,
+                elementCache);
+            if (parentOffsetCache is not null)
+                parentOffsetCache[leaf.Parent] = parentOffset;
+        }
+        else
+        {
+            parentOffset = new Point(0f, 0f);
+        }
+
+        return AddEstablishedContribution(
+            parentOffset,
+            leaf,
+            windowWidth,
+            windowHeight);
+    }
+
+    private static Point AddEstablishedContribution(
+        Point position,
+        Element element,
+        float windowWidth,
+        float windowHeight)
+    {
+        var scale = ScalePair(
+            element.ScaleIndex,
+            element.LocalScaleMultiplier,
+            windowWidth,
+            windowHeight);
+        var x = position.X + element.RelativeX * scale.X;
+        var y = position.Y + element.RelativeY * scale.Y;
+        if ((element.Flags & (1u << Poe2.UiElement.FlagModifyPosBit)) != 0)
+        {
+            x += element.PositionModifierX * scale.X;
+            y += element.PositionModifierY * scale.Y;
+        }
+
+        return new Point(x, y);
     }
 
     private static Point GetLeafTopLeft(

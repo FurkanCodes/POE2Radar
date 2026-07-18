@@ -1430,12 +1430,18 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     {
         var lt = ctx.LootTracker;
         if (!lt.Enabled || !_settings.LootTracker.Enabled) return;
+        var barMode = LootTrackerDrawPolicy.BarMode(
+            lt.Enabled,
+            _settings.LootTracker.Enabled,
+            lt.OnMap);
 
         if (_settings.LootTracker.ShowPickupToasts && lt.Toasts is { Length: > 0 })
             DrawLootTrackerToasts(ctx, lt);
 
-        if (lt.OnMap)
+        if (barMode == LootTrackerBarMode.Map)
             DrawLootTrackerMapBar(ctx, lt);
+        else if (barMode == LootTrackerBarMode.Compact)
+            DrawLootTrackerCompactBar(ctx, lt);
 
         if (Volatile.Read(ref _lootDetailsPage) >= 0 && !string.IsNullOrWhiteSpace(lt.BreakdownTitle))
             DrawLootTrackerBreakdown(ctx, lt);

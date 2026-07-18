@@ -6,7 +6,7 @@ namespace POE2Radar.Overlay.Tests;
 public sealed class MapProjectionMotionTests
 {
     [Fact]
-    public void PlayerReference_SmoothingEnabled_UsesSmoothedGrid()
+    public void PlayerReference_SmoothingEnabled_PreservesRawGameAlignment()
     {
         var smoothed = new NumVec2(101.25f, 202.5f);
         var raw = new NumVec2(104f, 199f);
@@ -16,7 +16,7 @@ public sealed class MapProjectionMotionTests
             smoothed,
             raw);
 
-        Assert.Equal(smoothed, player);
+        Assert.Equal(raw, player);
     }
 
     [Fact]
