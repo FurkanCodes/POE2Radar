@@ -64,7 +64,6 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private string _typeSearch = "";
     private string _ruleSearch = "";
     private string _stashUtilityModSearch = "";
-    private string _atlasTagFilter = "";
     private string _atlasTargetGroupName = "";
     private string _atlasAddContentFilter = "";
     private string _atlasAddMapFilter = "";
@@ -4965,322 +4964,168 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
     private void DrawAtlasTab(RadarSettings s)
     {
+        ImGui.TextWrapped("Atlas2 QoL: every memory node, search, path categories, badges, Uncharted + ritual line.");
+        ImGui.Spacing();
+
+        var q = s.AtlasSearchQuery ?? "";
+        ImGui.SetNextItemWidth(-1f);
+        if (ImGui.InputTextWithHint("##atlasSearch", "Search maps (e.g. Moor skies). Comma = OR…", ref q, 256))
+            s.AtlasSearchQuery = q;
+        ImGuiTheme.Tooltip(SettingHints.Atlas.SearchQuery);
+        if (ImGui.Button("Clear search")) s.AtlasSearchQuery = "";
+        ImGuiTheme.Tooltip("Clear search and show the full atlas evenly.");
+
+        ImGui.Spacing();
+        bool sn = s.AtlasShowNames;
+        if (ImGui.Checkbox("Show names", ref sn)) s.AtlasShowNames = sn;
+        ImGuiTheme.Tooltip(SettingHints.Atlas.ShowNames);
+        bool hc = s.AtlasHideCompletedMaps;
+        if (ImGui.Checkbox("Hide completed", ref hc)) s.AtlasHideCompletedMaps = hc;
+        ImGuiTheme.Tooltip(SettingHints.Atlas.HideCompleted);
+        bool hna = s.AtlasHideNotAccessibleMaps;
+        if (ImGui.Checkbox("Hide not-accessible", ref hna)) s.AtlasHideNotAccessibleMaps = hna;
+        ImGuiTheme.Tooltip(SettingHints.Atlas.HideNotAccessible);
+
         bool displayOpen = ImGuiTheme.BeginAccordionSection("AtlasDisplay", "Display",
-            "In-game atlas map highlights and routing.");
+            "Badges, biome borders, content icons.");
         if (displayOpen)
         {
-            var langs = new[] { "english", "french", "german", "japanese", "korean", "portuguese", "russian", "spanish", "thai", "traditional chinese" };
-            var lang = string.IsNullOrWhiteSpace(s.AtlasLanguage) ? "english" : s.AtlasLanguage;
-            if (ImGui.BeginCombo("Language", lang))
-            {
-                foreach (var option in langs)
-                {
-                    var selected = string.Equals(lang, option, StringComparison.OrdinalIgnoreCase);
-                    if (ImGui.Selectable(option, selected))
-                    {
-                        s.AtlasLanguage = option;
-                    }
-                    if (selected) ImGui.SetItemDefaultFocus();
-                }
-                ImGui.EndCombo();
-            }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.Language);
-
-            bool son = s.AtlasShowOnScreenNodes;
-            var trackActive = s.AtlasHighlightTags is { Count: > 0 };
-            if (ImGui.Checkbox("Show all nodes", ref son)) { s.AtlasShowOnScreenNodes = son; }
-            ImGuiTheme.Tooltip(trackActive ? SettingHints.Atlas.ShowAllNodesTracked : SettingHints.Atlas.ShowAllNodes);
-
-            bool sn = s.AtlasShowNames;
-            if (ImGui.Checkbox("Show names", ref sn)) { s.AtlasShowNames = sn; }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.ShowNames);
-
-            bool rf = s.AtlasRevealFog;
-            if (ImGui.Checkbox("Reveal fog", ref rf)) { s.AtlasRevealFog = rf; }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.RevealFog);
-
-            bool oa = s.AtlasOffScreenArrows;
-            if (ImGui.Checkbox("Off-screen arrows (highlights)", ref oa)) { s.AtlasOffScreenArrows = oa; }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.OffScreenArrows);
-
-            bool sr = s.AtlasShowRoute;
-            if (ImGui.Checkbox("Show F10 route", ref sr)) { s.AtlasShowRoute = sr; }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.ShowRoute);
-
-            bool ucs = s.AtlasUseCurrentStart;
-            if (ImGui.Checkbox("Route from current tile", ref ucs)) { s.AtlasUseCurrentStart = ucs; }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.RouteFromCurrent);
-
-            bool chev = s.AtlasShowRouteChevrons;
-            if (ImGui.Checkbox("Route chevrons", ref chev)) { s.AtlasShowRouteChevrons = chev; }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.RouteChevrons);
-
             bool bb = s.AtlasShowBiomeBorders;
-            if (ImGui.Checkbox("Biome borders", ref bb)) { s.AtlasShowBiomeBorders = bb; }
+            if (ImGui.Checkbox("Biome borders", ref bb)) s.AtlasShowBiomeBorders = bb;
             ImGuiTheme.Tooltip(SettingHints.Atlas.BiomeBorders);
-
             bool cb = s.AtlasShowContentBadges;
-            if (ImGui.Checkbox("Content badges", ref cb)) { s.AtlasShowContentBadges = cb; }
+            if (ImGui.Checkbox("Content badges", ref cb)) s.AtlasShowContentBadges = cb;
             ImGuiTheme.Tooltip(SettingHints.Atlas.ContentBadges);
-
+            bool sci = s.AtlasShowContentIcons;
+            if (ImGui.Checkbox("Content icons", ref sci)) s.AtlasShowContentIcons = sci;
+            ImGuiTheme.Tooltip(SettingHints.Atlas.ShowContentIcons);
             bool cc = s.AtlasShowContentCount;
-            if (ImGui.Checkbox("Content count pips", ref cc)) { s.AtlasShowContentCount = cc; }
+            if (ImGui.Checkbox("Content count pips", ref cc)) s.AtlasShowContentCount = cc;
             ImGuiTheme.Tooltip(SettingHints.Atlas.ContentCount);
-
             float atlasIcon = s.AtlasIconScale;
             ImGui.SetNextItemWidth(180f);
             if (ImGui.SliderFloat("Icon scale", ref atlasIcon, 0.5f, 3f, "%.2f"))
-            {
                 s.AtlasIconScale = Math.Clamp(atlasIcon, 0.25f, 4f);
-            }
             ImGuiTheme.Tooltip(SettingHints.Atlas.IconScale);
-
-            float atlasLabel = s.AtlasLabelScale;
-            ImGui.SetNextItemWidth(180f);
-            if (ImGui.SliderFloat("Label scale", ref atlasLabel, 0.5f, 2.5f, "%.2f"))
-            {
-                s.AtlasLabelScale = Math.Clamp(atlasLabel, 0.5f, 3f);
-            }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.LabelScale);
-
-            float routeThickness = s.AtlasRouteLineThickness;
-            ImGui.SetNextItemWidth(180f);
-            if (ImGui.SliderFloat("Route thickness", ref routeThickness, 1f, 8f, "%.1f"))
-            {
-                s.AtlasRouteLineThickness = Math.Clamp(routeThickness, 1f, 8f);
-            }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.RouteThickness);
-
-            float routeSpacing = s.AtlasRouteChevronSpacing;
-            ImGui.SetNextItemWidth(180f);
-            if (ImGui.SliderFloat("Chevron spacing", ref routeSpacing, 1f, 16f, "%.0f"))
-            {
-                s.AtlasRouteChevronSpacing = Math.Clamp(routeSpacing, 1f, 16f);
-            }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.ChevronSpacing);
-
-            float nudgeY = s.AtlasAnchorNudgeY;
-            ImGui.SetNextItemWidth(180f);
-            if (ImGui.SliderFloat("Label nudge Y", ref nudgeY, -40f, 80f, "%.0f"))
-                s.AtlasAnchorNudgeY = Math.Clamp(nudgeY, -80f, 120f);
-            ImGuiTheme.Tooltip(SettingHints.Atlas.AnchorNudgeY);
-
-            float scaleMul = s.AtlasScaleMultiplier;
-            ImGui.SetNextItemWidth(180f);
-            if (ImGui.SliderFloat("UI scale", ref scaleMul, 0.5f, 2f, "%.2f"))
-                s.AtlasScaleMultiplier = Math.Clamp(scaleMul, 0.5f, 4f);
-            ImGuiTheme.Tooltip(SettingHints.Atlas.ScaleMultiplier);
-
-            float biomeTh = s.AtlasBiomeBorderThickness;
-            ImGui.SetNextItemWidth(180f);
-            if (ImGui.SliderFloat("Biome border", ref biomeTh, 1f, 6f, "%.1f"))
-                s.AtlasBiomeBorderThickness = Math.Clamp(biomeTh, 1f, 6f);
-            ImGuiTheme.Tooltip(SettingHints.Atlas.BiomeBorderThickness);
         }
         ImGuiTheme.EndAccordionSection(displayOpen);
 
-        bool searchOpen = ImGuiTheme.BeginAccordionSection("AtlasSearch", "Search Maps",
-            "Hide nodes by completion state; comma-separated search.");
-        if (searchOpen)
+        bool pathOpen = ImGuiTheme.BeginAccordionSection("AtlasPathCategories", "Path categories",
+            "Atlas2 MapGroups — toggle Draw path per category.", defaultOpen: true);
+        if (pathOpen)
         {
-            var q = s.AtlasSearchQuery ?? "";
-            ImGui.SetNextItemWidth(-1f);
-            if (ImGui.InputTextWithHint("##atlasSearch", "Search map names, ids, or content (comma = OR)…", ref q, 256))
+            for (var gi = 0; gi < s.AtlasRouteGroups.Count; gi++)
             {
-                s.AtlasSearchQuery = q;
-            }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.SearchQuery);
-
-            bool hc = s.AtlasHideCompletedMaps;
-            if (ImGui.Checkbox("Hide completed maps", ref hc)) { s.AtlasHideCompletedMaps = hc; }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.HideCompleted);
-            bool hna = s.AtlasHideNotAccessibleMaps;
-            if (ImGui.Checkbox("Hide not-accessible maps", ref hna)) { s.AtlasHideNotAccessibleMaps = hna; }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.HideNotAccessible);
-            bool hav = s.AtlasHideAvailableMaps;
-            if (ImGui.Checkbox("Hide available maps", ref hav)) { s.AtlasHideAvailableMaps = hav; }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.HideAvailable);
-
-            bool sns = s.AtlasShowNodeSprites;
-            if (ImGui.Checkbox("Node sprites", ref sns)) { s.AtlasShowNodeSprites = sns; }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.ShowNodeSprites);
-
-            bool dls = s.AtlasDrawLinesSearchQuery;
-            if (ImGui.Checkbox("Route search matches", ref dls)) { s.AtlasDrawLinesSearchQuery = dls; }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.DrawLinesSearchQuery);
-
-            bool du = s.AtlasDrawLinesToUniqueMaps;
-            if (ImGui.Checkbox("Route unique maps", ref du)) { s.AtlasDrawLinesToUniqueMaps = du; }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.DrawLinesToUniqueMaps);
-
-            bool pl = s.AtlasPathToLineageMaps;
-            if (ImGui.Checkbox("Route lineage maps", ref pl)) { s.AtlasPathToLineageMaps = pl; }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.PathToLineageMaps);
-
-            bool pa = s.AtlasPathToArbiterMaps;
-            if (ImGui.Checkbox("Route arbiter maps", ref pa)) { s.AtlasPathToArbiterMaps = pa; }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.PathToArbiterMaps);
-
-            bool sci = s.AtlasShowContentIcons;
-            if (ImGui.Checkbox("Content icons", ref sci)) { s.AtlasShowContentIcons = sci; }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.ShowContentIcons);
-        }
-        ImGuiTheme.EndAccordionSection(searchOpen);
-
-        bool stylesOpen = ImGuiTheme.BeginAccordionSection("AtlasMapStyles", "Map styles",
-            "Per-group colors and map name lists.");
-        if (stylesOpen)
-        {
-            foreach (var g in s.AtlasMapGroups)
-            {
-                ImGui.PushID("atlasGroup_" + g.Name);
-                bool en = g.Enabled;
-                if (ImGui.Checkbox("##enabled", ref en)) { g.Enabled = en; }
-                ImGuiTheme.Tooltip(SettingHints.Atlas.GroupEnabled);
+                var g = s.AtlasRouteGroups[gi];
+                ImGui.PushID("atlas2cat_" + gi);
+                bool draw = g.DrawPaths;
+                if (ImGui.Checkbox($"##draw{gi}", ref draw)) g.DrawPaths = draw;
+                ImGuiTheme.Tooltip(SettingHints.Atlas.RouteGroupDraw);
                 ImGui.SameLine();
-                ImGui.TextUnformatted(g.Name);
-                ImGui.SameLine();
-                var bg = ParseHexColor(g.Color);
-                if (ImGui.ColorEdit3("Background", ref bg, ImGuiColorEditFlags.NoInputs))
+                var open = ImGui.TreeNode($"{g.Name}##tree{gi}");
+                if (open)
                 {
-                    g.Color = FormatHexColor3(bg);
+                    float th = g.LineThickness;
+                    ImGui.SetNextItemWidth(140f);
+                    if (ImGui.SliderFloat("Thickness", ref th, 1f, 8f, "%.1f"))
+                        g.LineThickness = Math.Clamp(th, 1f, 8f);
+                    ImGuiTheme.Tooltip(SettingHints.Atlas.RouteGroupThickness);
+                    int hops = g.MaxHops;
+                    ImGui.SetNextItemWidth(140f);
+                    if (ImGui.SliderInt("Max hops", ref hops, 0, 200))
+                        g.MaxHops = Math.Clamp(hops, 0, 500);
+                    ImGuiTheme.Tooltip(SettingHints.Atlas.RouteMaxHops);
+                    for (var ei = 0; ei < g.Entries.Count; ei++)
+                    {
+                        var e = g.Entries[ei];
+                        ImGui.PushID(ei);
+                        bool ed = e.DrawPath;
+                        if (ImGui.Checkbox(e.Name.Length > 0 ? e.Name : e.Match, ref ed))
+                            e.DrawPath = ed;
+                        ImGuiTheme.Tooltip(SettingHints.Atlas.RouteEntryDraw);
+                        ImGui.PopID();
+                    }
+                    ImGui.TreePop();
                 }
-                ImGuiTheme.Tooltip(SettingHints.Atlas.GroupColor);
-                var key = g.Name;
-                if (!_atlasGroupMapBuffers.TryGetValue(key, out var maps))
-                    maps = _atlasGroupMapBuffers[key] = string.Join(", ", g.Maps);
-                ImGui.SetNextItemWidth(-1f);
-                if (ImGui.InputTextWithHint("Maps", "comma-separated map names…", ref maps, 512))
-                {
-                    _atlasGroupMapBuffers[key] = maps;
-                    g.Maps = maps.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-                }
-                ImGuiTheme.Tooltip(SettingHints.Atlas.GroupMaps);
                 ImGui.PopID();
             }
         }
-        ImGuiTheme.EndAccordionSection(stylesOpen);
+        ImGuiTheme.EndAccordionSection(pathOpen);
 
-        bool farmingOpen = ImGuiTheme.BeginAccordionSection("AtlasFarming", "Target farming",
-            "GameHelper-style target groups, content/map pickers, and route paths.",
-            defaultOpen: true);
-        if (farmingOpen)
+        bool uwOpen = ImGuiTheme.BeginAccordionSection("AtlasUncharted", "Uncharted Waters",
+            "Fog ships and hover leylines.");
+        if (uwOpen)
         {
-            DrawAtlasTargetFarming(s);
-        }
-        ImGuiTheme.EndAccordionSection(farmingOpen);
-
-        bool hlOpen = ImGuiTheme.BeginAccordionSection("AtlasAdvancedHighlights", "Advanced highlights",
-            "Optional legacy track filters, citadel defaults, and tag catalog.");
-        if (hlOpen)
-        {
-            if (s.AtlasHighlightTags is { Count: > 0 })
-                ImGui.TextDisabled("Tracked-only mode — only nodes matching Track filters are drawn.");
-            if (ImGui.Button("Add citadel defaults"))
-            {
-                SeedAtlasCitadelDefaults(s);
-                s.AtlasRulesInitialized = true;
-            }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.AddCitadelDefaults);
-            ImGui.SameLine();
-            if (ImGui.Button("Add endgame defaults"))
-            {
-                AtlasEndgameCatalog.ApplyEndgameDefaults(s, _ctx?.AtlasTagCatalog);
-                s.AtlasRulesInitialized = true;
-            }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.AddEndgameDefaults);
-            ImGui.SameLine();
-            if (ImGui.Button("Clear all filters"))
-            {
-                s.AtlasHighlightTags.Clear();
-                s.AtlasArrowTags.Clear();
-                s.AtlasHighlightColors.Clear();
-                s.AtlasRulesInitialized = true;
-            }
-            ImGuiTheme.Tooltip(SettingHints.Atlas.ClearFilters);
-
+            bool ships = s.AtlasShowShipsInFog;
+            if (ImGui.Checkbox("Show ships in fog", ref ships)) s.AtlasShowShipsInFog = ships;
+            ImGuiTheme.Tooltip(SettingHints.Atlas.ShowShipsInFog);
+            bool ley = s.AtlasShowUnchartedLeylines;
+            if (ImGui.Checkbox("Show leylines on hover", ref ley)) s.AtlasShowUnchartedLeylines = ley;
+            ImGuiTheme.Tooltip(SettingHints.Atlas.ShowUnchartedLeylines);
+            float shipSz = s.AtlasShipIconSize;
+            ImGui.SetNextItemWidth(180f);
+            if (ImGui.SliderFloat("Ship icon size", ref shipSz, 16f, 96f, "%.0f"))
+                s.AtlasShipIconSize = Math.Clamp(shipSz, 8f, 128f);
+            ImGuiTheme.Tooltip(SettingHints.Atlas.ShipIconSize);
+            bool rumours = s.AtlasShowIslandRumours;
+            if (ImGui.Checkbox("Show all island rumours + tiers", ref rumours))
+                s.AtlasShowIslandRumours = rumours;
+            ImGuiTheme.Tooltip(SettingHints.Atlas.ShowIslandRumours);
+            bool rumourBadges = s.AtlasShowIslandRumourBadges;
+            if (ImGui.Checkbox("Show island-count badges", ref rumourBadges))
+                s.AtlasShowIslandRumourBadges = rumourBadges;
+            ImGuiTheme.Tooltip(SettingHints.Atlas.ShowIslandRumourBadges);
+            var priorityFilter = s.AtlasIslandRumourPriorityFilter ?? "";
             ImGui.SetNextItemWidth(-1f);
-            ImGui.InputTextWithHint("##atlasTagFilter", "Filter tags and map names…", ref _atlasTagFilter, 128);
-            ImGuiTheme.Tooltip(SettingHints.Atlas.TagFilter);
-
-            var catalog = _ctx?.AtlasTagCatalog;
-            if (catalog is null or { Count: 0 })
-            {
-                ImGui.TextWrapped("Open the Atlas map in-game to populate the tag list.");
-            }
-            else
-            {
-                var filter = _atlasTagFilter.Trim();
-                if (ImGui.BeginTable("atlasHl", 6, ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY, new System.Numerics.Vector2(0, 220f)))
-                {
-                    ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthStretch);
-                    ImGui.TableSetupColumn("Kind", ImGuiTableColumnFlags.WidthFixed, 36f);
-                    ImGui.TableSetupColumn("#", ImGuiTableColumnFlags.WidthFixed, 28f);
-                    ImGui.TableSetupColumn("Track", ImGuiTableColumnFlags.WidthFixed, 44f);
-                    ImGui.TableSetupColumn("Arrow", ImGuiTableColumnFlags.WidthFixed, 44f);
-                    ImGui.TableSetupColumn("Color", ImGuiTableColumnFlags.WidthFixed, 56f);
-                    ImGui.TableSetupScrollFreeze(0, 1);
-                    ImGuiTheme.TableHeadersWithTooltips([
-                        ("Name", SettingHints.Atlas.ColName),
-                        ("Kind", SettingHints.Atlas.ColKind),
-                        ("#", SettingHints.Atlas.ColCount),
-                        ("Track", SettingHints.Atlas.ColTrack),
-                        ("Arrow", SettingHints.Atlas.ColArrow),
-                        ("Color", SettingHints.Atlas.ColColor),
-                    ]);
-
-                    foreach (var e in catalog)
-                    {
-                        if (filter.Length > 0 && e.Key.Contains(filter, StringComparison.OrdinalIgnoreCase) == false) continue;
-
-                        ImGui.TableNextRow();
-                        ImGui.TableSetColumnIndex(0);
-                        ImGui.TextUnformatted(e.Key);
-                        ImGui.TableSetColumnIndex(1);
-                        ImGui.TextUnformatted(e.Kind);
-                        ImGui.TableSetColumnIndex(2);
-                        ImGui.TextUnformatted(e.Count.ToString());
-
-                        ImGui.TableSetColumnIndex(3);
-                        bool track = AtlasListContains(s.AtlasHighlightTags, e.Key);
-                        if (ImGui.Checkbox($"##tr_{e.Key}", ref track))
-                        {
-                            AtlasToggleList(s.AtlasHighlightTags, e.Key, track);
-                            if (track && !s.AtlasHighlightColors.ContainsKey(e.Key))
-                                s.AtlasHighlightColors[e.Key] = "#58A6FF";
-                            s.AtlasRulesInitialized = true;
-                        }
-                        ImGuiTheme.Tooltip(SettingHints.Atlas.ColTrack);
-
-                        ImGui.TableSetColumnIndex(4);
-                        bool arrow = AtlasListContains(s.AtlasArrowTags, e.Key);
-                        if (ImGui.Checkbox($"##ar_{e.Key}", ref arrow))
-                        {
-                            AtlasToggleList(s.AtlasArrowTags, e.Key, arrow);
-                            s.AtlasRulesInitialized = true;
-                        }
-                        ImGuiTheme.Tooltip(SettingHints.Atlas.ColArrow);
-
-                        ImGui.TableSetColumnIndex(5);
-                        if (track)
-                        {
-                            var hex = s.AtlasHighlightColors.TryGetValue(e.Key, out var hc) ? hc : "#58A6FF";
-                            var col = ParseHexColor(hex);
-                            ImGui.PushID(e.Key);
-                            if (ImGui.ColorEdit3("##col", ref col, ImGuiColorEditFlags.NoInputs))
-                            {
-                                s.AtlasHighlightColors[e.Key] = FormatHexColor3(col);
-                            }
-                            ImGuiTheme.Tooltip(SettingHints.Atlas.ColColor);
-                            ImGui.PopID();
-                        }
-                    }
-                    ImGui.EndTable();
-                }
-            }
+            if (ImGui.InputTextWithHint(
+                    "##islandRumourPriority",
+                    "Priority rumours or destinations (| separated)…",
+                    ref priorityFilter,
+                    512))
+                s.AtlasIslandRumourPriorityFilter = priorityFilter;
+            ImGuiTheme.Tooltip(SettingHints.Atlas.IslandRumourPriorityFilter);
+            var priorityColor = s.AtlasIslandRumourPriorityColor ?? "#FFD166";
+            ImGui.SetNextItemWidth(120f);
+            if (ImGui.InputText("Priority color", ref priorityColor, 16))
+                s.AtlasIslandRumourPriorityColor = priorityColor;
+            ImGuiTheme.Tooltip(SettingHints.Atlas.IslandRumourPriorityColor);
         }
-        ImGuiTheme.EndAccordionSection(hlOpen);
+        ImGuiTheme.EndAccordionSection(uwOpen);
+
+        bool ritOpen = ImGuiTheme.BeginAccordionSection("AtlasRitualLine", "Ritual atlas line",
+            "Predict Rite mods while ritual line mode is open (separate from Ritual shop prices).");
+        if (ritOpen)
+        {
+            bool pred = s.AtlasShowRitualPrediction;
+            if (ImGui.Checkbox("Show ritual prediction", ref pred)) s.AtlasShowRitualPrediction = pred;
+            ImGuiTheme.Tooltip(SettingHints.Atlas.ShowRitualPrediction);
+            bool plan = s.AtlasShowRitualPlanner;
+            if (ImGui.Checkbox("Show ritual planner window", ref plan)) s.AtlasShowRitualPlanner = plan;
+            ImGuiTheme.Tooltip(SettingHints.Atlas.ShowRitualPlanner);
+            var rf = s.AtlasRitualRewardFilter ?? "";
+            ImGui.SetNextItemWidth(-1f);
+            if (ImGui.InputTextWithHint("##ritFilter", "Reward filter (comma)…", ref rf, 256))
+                s.AtlasRitualRewardFilter = rf;
+            ImGuiTheme.Tooltip(SettingHints.Atlas.RitualRewardFilter);
+        }
+        ImGuiTheme.EndAccordionSection(ritOpen);
+
+        var langs = new[] { "english", "french", "german", "japanese", "korean", "portuguese", "russian", "spanish", "thai", "traditional chinese" };
+        var lang = string.IsNullOrWhiteSpace(s.AtlasLanguage) ? "english" : s.AtlasLanguage;
+        ImGui.SetNextItemWidth(180f);
+        if (ImGui.BeginCombo("Language", lang))
+        {
+            foreach (var option in langs)
+            {
+                var selected = string.Equals(lang, option, StringComparison.OrdinalIgnoreCase);
+                if (ImGui.Selectable(option, selected)) s.AtlasLanguage = option;
+                if (selected) ImGui.SetItemDefaultFocus();
+            }
+            ImGui.EndCombo();
+        }
+        ImGuiTheme.Tooltip(SettingHints.Atlas.Language);
     }
+
 
     private void DrawAtlasTargetFarming(RadarSettings s)
     {

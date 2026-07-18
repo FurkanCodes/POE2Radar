@@ -112,6 +112,12 @@ public sealed class RadarSettings
     // One-time: GameHelper-style atlas visuals (hide filters, thin routes, label pills).
     public bool AtlasGhStyleMigrated { get; set; } = false;
 
+    // One-time: clean atlas MVP — show all memory nodes; hide filters off by default.
+    public bool AtlasCleanMvpMigrated { get; set; } = false;
+
+    // One-time: Atlas2 QoL — MapGroups categories + visuals defaults.
+    public bool Atlas2QolMigrated { get; set; } = false;
+
     // One-time: low-impact cadence defaults (lower read rate by default without removing features).
     public bool PerformanceDefaultsMigrated { get; set; } = false;
 
@@ -223,7 +229,7 @@ public sealed class RadarSettings
     public bool AtlasShowOnScreenNodes { get; set; } = true;
     // Label on-screen nodes with map name (+ highlight tag when matched).
     public bool AtlasShowNames { get; set; } = true;
-    // Fogged/hidden nodes drawn at full opacity with a distinct tint instead of near-invisible.
+    // Fogged/hidden nodes drawn with a cool tint so every memory node is visible.
     public bool AtlasRevealFog { get; set; } = true;
     // Off-screen edge arrows for arrow-tagged highlights only (e.g. Citadels).
     public bool AtlasOffScreenArrows { get; set; } = true;
@@ -238,13 +244,33 @@ public sealed class RadarSettings
     public bool AtlasUseCurrentStart { get; set; } = true;
     public string AtlasLanguage { get; set; } = "english";
     public string AtlasSearchQuery { get; set; } = "";
+    // Atlas2-aligned hide filters (completed on; inaccessible off; available unused).
     public bool AtlasHideCompletedMaps { get; set; } = true;
-    public bool AtlasHideNotAccessibleMaps { get; set; } = true;
-    public bool AtlasHideAvailableMaps { get; set; } = true;
+    public bool AtlasHideNotAccessibleMaps { get; set; } = false;
+    public bool AtlasHideAvailableMaps { get; set; } = false;
     public bool AtlasShowBiomeBorders { get; set; } = true;
     public bool AtlasShowContentBadges { get; set; } = true;
-    public bool AtlasShowContentCount { get; set; } = true;
+    public bool AtlasShowContentCount { get; set; } = false;
     public bool AtlasShowContentTokens { get; set; } = false;
+    // Uncharted Waters (Atlas2).
+    public bool AtlasShowShipsInFog { get; set; } = false;
+    public float AtlasShipIconSize { get; set; } = 46f;
+    public bool AtlasShowUnchartedLeylines { get; set; } = false;
+    public string AtlasUnchartedLeylineColor { get; set; } = "#33D9E6";
+    public float AtlasUnchartedLeylineThickness { get; set; } = 10f;
+    // Complete Island Rumours are opt-in so the existing atlas render path is byte-for-byte idle
+    // unless requested. When enabled, manifests are built once from the already-read node snapshot.
+    public bool AtlasShowIslandRumours { get; set; } = false;
+    public bool AtlasShowIslandRumourBadges { get; set; } = true;
+    public string AtlasIslandRumourPriorityFilter { get; set; } =
+        "Fallen stars|Unknown ruins|All that glitters|Almost paradise|Reflective waters|Stardrinker|Origin of the fall|Crazed Chieftain";
+    public string AtlasIslandRumourPriorityColor { get; set; } = "#FFD166";
+    // Ritual atlas line (Atlas2 RitualFeatures) — separate from Ritual shop pricing.
+    public bool AtlasShowRitualPrediction { get; set; } = false;
+    public bool AtlasShowRitualPlanner { get; set; } = true;
+    public string AtlasRitualRewardFilter { get; set; } = "";
+    public float AtlasRitualPlannerFontScale { get; set; } = 1f;
+    public Dictionary<string, int> AtlasRitualRewardWeights { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool AtlasShowRouteChevrons { get; set; } = true;
     public float AtlasRouteLineThickness { get; set; } = 1f;
     public float AtlasRouteChevronSpacing { get; set; } = 8f;
@@ -484,6 +510,34 @@ public sealed class RadarSettings
             changed = true;
         }
 
+        if (!AtlasCleanMvpMigrated)
+        {
+            AtlasShowOnScreenNodes = true;
+            AtlasRevealFog = true;
+            AtlasHideCompletedMaps = false;
+            AtlasHideNotAccessibleMaps = false;
+            AtlasHideAvailableMaps = false;
+            AtlasDrawLinesSearchQuery = true;
+            AtlasCleanMvpMigrated = true;
+            changed = true;
+        }
+
+        if (!Atlas2QolMigrated)
+        {
+            AtlasShowOnScreenNodes = true;
+            AtlasRevealFog = true;
+            AtlasHideCompletedMaps = true;
+            AtlasHideNotAccessibleMaps = false;
+            AtlasHideAvailableMaps = false;
+            AtlasShowBiomeBorders = true;
+            AtlasShowContentBadges = true;
+            AtlasShowContentCount = false;
+            AtlasDrawLinesSearchQuery = true;
+            AtlasRouteGroups = BuildDefaultAtlas2RouteGroups();
+            Atlas2QolMigrated = true;
+            changed = true;
+        }
+
         if (!PathTogglesMigrated)
         {
             ShowPathWorld = ShowPathMap = ShowPathMinimap = ShowPath;
@@ -570,7 +624,9 @@ public sealed class RadarSettings
 
         if (!AtlasRouteTargetsGhParityMigrated)
         {
-            ReconcileBuiltInAtlasRouteTargets();
+            // Legacy single "Map Targets" list — skip when Atlas2 BuiltInKey categories are present.
+            if (!AtlasRouteGroups.Any(g => !string.IsNullOrEmpty(g.BuiltInKey)))
+                ReconcileBuiltInAtlasRouteTargets();
             AtlasRouteTargetsGhParityMigrated = true;
             changed = true;
         }
@@ -673,30 +729,50 @@ public sealed class RadarSettings
             .ToList();
 
     private static List<AtlasRouteGroupSettings> BuildDefaultAtlasRouteGroups()
-        => new()
+        => BuildDefaultAtlas2RouteGroups();
+
+    private static List<AtlasRouteGroupSettings> BuildDefaultAtlas2RouteGroups()
+        => Atlas2Defaults.Categories.Select(c => new AtlasRouteGroupSettings
         {
-            new AtlasRouteGroupSettings
+            Name = c.Name,
+            BuiltInKey = c.BuiltInKey,
+            Locked = true,
+            DrawPaths = c.DrawPath,
+            LineThickness = 1.5f,
+            Color = c.Color,
+            BackgroundColor = c.BackgroundColor,
+            ContentRule = c.ContentRule ?? "",
+            MaxHops = c.MaxHops,
+            Entries = c.Targets.Select(t => new AtlasRouteEntrySettings
             {
-                Name = "Map Targets",
-                Locked = true,
-                DrawPaths = true,
-                LineThickness = 1.5f,
-                Entries = AtlasCatalog.Shared.DefaultRouteTargets
-                    .Select(t => new AtlasRouteEntrySettings
-                    {
-                        Name = t.Name,
-                        Match = t.Match,
-                        Color = t.Color,
-                        MaxHops = t.MaxHops,
-                        DrawPath = t.Enabled,
-                    })
-                    .ToList(),
-            }
-        };
+                Name = t.Name,
+                Match = string.IsNullOrEmpty(c.ContentRule) ? $"name:{t.Name}" : $"content:{c.ContentRule}",
+                Color = c.Color,
+                MaxHops = c.MaxHops,
+                DrawPath = t.Enabled,
+            }).ToList(),
+        }).ToList();
 
     private void ReconcileBuiltInAtlasRouteTargets()
     {
-        var seeded = BuildDefaultAtlasRouteGroups()[0];
+        // Pre-Atlas2 locked "Map Targets" group from catalog route targets (legacy configs only).
+        var seeded = new AtlasRouteGroupSettings
+        {
+            Name = "Map Targets",
+            Locked = true,
+            DrawPaths = true,
+            LineThickness = 1.5f,
+            Entries = AtlasCatalog.Shared.DefaultRouteTargets
+                .Select(t => new AtlasRouteEntrySettings
+                {
+                    Name = t.Name,
+                    Match = t.Match,
+                    Color = t.Color,
+                    MaxHops = t.MaxHops,
+                    DrawPath = t.Enabled,
+                })
+                .ToList(),
+        };
         var existing = AtlasRouteGroups.FirstOrDefault(g => g.Locked)
             ?? AtlasRouteGroups.FirstOrDefault(g => string.Equals(g.Name, seeded.Name, StringComparison.OrdinalIgnoreCase));
         if (existing is null)
@@ -1116,9 +1192,14 @@ public sealed class LootTrackerSettings
 public sealed class AtlasRouteGroupSettings
 {
     public string Name { get; set; } = "";
+    public string BuiltInKey { get; set; } = "";
+    public string Color { get; set; } = "#58A6FF";
+    public string BackgroundColor { get; set; } = "#000000D9";
+    public string ContentRule { get; set; } = "";
+    public int MaxHops { get; set; } = 100;
     public bool DrawPaths { get; set; } = true;
     public bool Locked { get; set; }
-    public float LineThickness { get; set; } = 3.5f;
+    public float LineThickness { get; set; } = 1.5f;
     public List<AtlasRouteEntrySettings> Entries { get; set; } = new();
 }
 

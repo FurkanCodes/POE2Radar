@@ -176,6 +176,17 @@ public sealed class RadarSettingsMigrationTests
     }
 
     [Fact]
+    public void IslandRumours_DefaultOffToPreserveAtlasPerformance()
+    {
+        var s = new RadarSettings();
+
+        Assert.False(s.AtlasShowIslandRumours);
+        Assert.True(s.AtlasShowIslandRumourBadges);
+        Assert.NotEmpty(s.AtlasIslandRumourPriorityFilter);
+        Assert.Equal("#FFD166", s.AtlasIslandRumourPriorityColor);
+    }
+
+    [Fact]
     public void NewLootTrackerSettings_KeepCompletedSessionVisible()
     {
         var settings = new LootTrackerSettings();
@@ -189,6 +200,8 @@ public sealed class RadarSettingsMigrationTests
         var s = new RadarSettings
         {
             AtlasGhStyleMigrated = false,
+            AtlasCleanMvpMigrated = true, // isolate GH-style step from the later clean-MVP override
+            Atlas2QolMigrated = true,
             AtlasHideCompletedMaps = false,
             AtlasHideNotAccessibleMaps = false,
             AtlasHideAvailableMaps = false,
@@ -214,11 +227,67 @@ public sealed class RadarSettingsMigrationTests
     }
 
     [Fact]
+    public void Migrate_AppliesAtlasCleanMvpDefaultsOnce()
+    {
+        var s = new RadarSettings
+        {
+            AtlasGhStyleMigrated = true,
+            AtlasCleanMvpMigrated = false,
+            Atlas2QolMigrated = true, // isolate from Atlas2 QoL step
+            AtlasShowOnScreenNodes = false,
+            AtlasRevealFog = false,
+            AtlasHideCompletedMaps = true,
+            AtlasHideNotAccessibleMaps = true,
+            AtlasHideAvailableMaps = true,
+            AtlasDrawLinesSearchQuery = false,
+        };
+
+        var changed = s.Migrate();
+
+        Assert.True(changed);
+        Assert.True(s.AtlasCleanMvpMigrated);
+        Assert.True(s.AtlasShowOnScreenNodes);
+        Assert.True(s.AtlasRevealFog);
+        Assert.False(s.AtlasHideCompletedMaps);
+        Assert.False(s.AtlasHideNotAccessibleMaps);
+        Assert.False(s.AtlasHideAvailableMaps);
+        Assert.True(s.AtlasDrawLinesSearchQuery);
+
+        Assert.False(s.Migrate());
+    }
+
+    [Fact]
+    public void Migrate_AppliesAtlas2QolDefaultsOnce()
+    {
+        var s = new RadarSettings
+        {
+            AtlasGhStyleMigrated = true,
+            AtlasCleanMvpMigrated = true,
+            Atlas2QolMigrated = false,
+            AtlasRouteTargetsGhParityMigrated = true,
+            AtlasHideCompletedMaps = false,
+            AtlasShowBiomeBorders = false,
+            AtlasRouteGroups = [],
+        };
+
+        var changed = s.Migrate();
+
+        Assert.True(changed);
+        Assert.True(s.Atlas2QolMigrated);
+        Assert.True(s.AtlasHideCompletedMaps);
+        Assert.True(s.AtlasShowBiomeBorders);
+        Assert.Contains(s.AtlasRouteGroups, g => g.BuiltInKey == "search");
+        Assert.Contains(s.AtlasRouteGroups, g => g.BuiltInKey == "expedition");
+        Assert.False(s.Migrate());
+    }
+
+    [Fact]
     public void Migrate_ReconcilesAtlasBuiltInTargetsToGameHelperList()
     {
         var s = new RadarSettings
         {
             AtlasRouteTargetsGhParityMigrated = false,
+            Atlas2QolMigrated = true, // keep legacy Map Targets reconcile path
             AtlasRouteGroups =
             [
                 new AtlasRouteGroupSettings

@@ -657,6 +657,15 @@ public sealed class ApiServer : IDisposable
         atlasShowContentBadges = _settings.AtlasShowContentBadges,
         atlasShowContentCount = _settings.AtlasShowContentCount,
         atlasShowContentTokens = _settings.AtlasShowContentTokens,
+        atlasShowShipsInFog = _settings.AtlasShowShipsInFog,
+        atlasShipIconSize = _settings.AtlasShipIconSize,
+        atlasShowUnchartedLeylines = _settings.AtlasShowUnchartedLeylines,
+        atlasUnchartedLeylineColor = _settings.AtlasUnchartedLeylineColor,
+        atlasUnchartedLeylineThickness = _settings.AtlasUnchartedLeylineThickness,
+        atlasShowIslandRumours = _settings.AtlasShowIslandRumours,
+        atlasShowIslandRumourBadges = _settings.AtlasShowIslandRumourBadges,
+        atlasIslandRumourPriorityFilter = _settings.AtlasIslandRumourPriorityFilter,
+        atlasIslandRumourPriorityColor = _settings.AtlasIslandRumourPriorityColor,
         atlasShowRouteChevrons = _settings.AtlasShowRouteChevrons,
         atlasRouteLineThickness = _settings.AtlasRouteLineThickness,
         atlasRouteChevronSpacing = _settings.AtlasRouteChevronSpacing,
@@ -802,6 +811,20 @@ public sealed class ApiServer : IDisposable
                 case "atlasShowContentBadges" when TryBool(p.Value, out var b): _settings.AtlasShowContentBadges = b; applied.Add(p.Name); break;
                 case "atlasShowContentCount" when TryBool(p.Value, out var b): _settings.AtlasShowContentCount = b; applied.Add(p.Name); break;
                 case "atlasShowContentTokens" when TryBool(p.Value, out var b): _settings.AtlasShowContentTokens = b; applied.Add(p.Name); break;
+                case "atlasShowShipsInFog" when TryBool(p.Value, out var b): _settings.AtlasShowShipsInFog = b; applied.Add(p.Name); break;
+                case "atlasShipIconSize" when TryFloat(p.Value, out var ass):
+                    _settings.AtlasShipIconSize = Math.Clamp(ass, 8f, 128f); applied.Add(p.Name); break;
+                case "atlasShowUnchartedLeylines" when TryBool(p.Value, out var b): _settings.AtlasShowUnchartedLeylines = b; applied.Add(p.Name); break;
+                case "atlasUnchartedLeylineColor" when p.Value.ValueKind == JsonValueKind.String:
+                    _settings.AtlasUnchartedLeylineColor = ValidHexOr(p.Value.GetString(), "#33D9E6"); applied.Add(p.Name); break;
+                case "atlasUnchartedLeylineThickness" when TryFloat(p.Value, out var ault):
+                    _settings.AtlasUnchartedLeylineThickness = Math.Clamp(ault, 1f, 32f); applied.Add(p.Name); break;
+                case "atlasShowIslandRumours" when TryBool(p.Value, out var b): _settings.AtlasShowIslandRumours = b; applied.Add(p.Name); break;
+                case "atlasShowIslandRumourBadges" when TryBool(p.Value, out var b): _settings.AtlasShowIslandRumourBadges = b; applied.Add(p.Name); break;
+                case "atlasIslandRumourPriorityFilter" when p.Value.ValueKind == JsonValueKind.String:
+                    _settings.AtlasIslandRumourPriorityFilter = p.Value.GetString() ?? ""; applied.Add(p.Name); break;
+                case "atlasIslandRumourPriorityColor" when p.Value.ValueKind == JsonValueKind.String:
+                    _settings.AtlasIslandRumourPriorityColor = ValidHexOr(p.Value.GetString(), "#FFD166"); applied.Add(p.Name); break;
                 case "atlasShowRouteChevrons" when TryBool(p.Value, out var b): _settings.AtlasShowRouteChevrons = b; applied.Add(p.Name); break;
                 case "atlasRouteLineThickness" when TryFloat(p.Value, out var art):
                     _settings.AtlasRouteLineThickness = Math.Clamp(art, 1f, 8f); applied.Add(p.Name); break;

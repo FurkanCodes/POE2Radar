@@ -143,12 +143,12 @@ internal static class SettingHints
     internal static class Atlas
     {
         public const string Language = "Language for atlas map name matching.";
-        public const string ShowAllNodes = "Draw every atlas tile on the current screen.";
+        public const string ShowAllNodes = "Draw every atlas node present in memory on the open atlas.";
         public const string ShowAllNodesTracked = "Track filters are active — leave on to show all nodes while still drawing tracked rings.";
         public const string ShowNames = "Label on-screen nodes with map name (and highlight tag when matched).";
-        public const string RevealFog = "Draw fogged/hidden nodes at full opacity with a cool tint.";
+        public const string RevealFog = "Show fogged or unrevealed nodes with a cool tint so the full atlas graph is visible.";
         public const string OffScreenArrows = "Edge arrows for arrow-tagged highlights only (e.g. Citadels off-screen).";
-        public const string ShowRoute = "Draw the F10 route through the atlas node connection graph.";
+        public const string ShowRoute = "Draw the route through the atlas node connection graph.";
         public const string RouteFromCurrent = "When no F10 START is set, route from your current atlas position.";
         public const string RouteChevrons = "Draw chevron markers along the atlas route line.";
         public const string BiomeBorders = "Outline biome regions on the atlas map.";
@@ -158,10 +158,10 @@ internal static class SettingHints
         public const string LabelScale = "Scale of atlas node name labels.";
         public const string RouteThickness = "Thickness of the atlas route line.";
         public const string ChevronSpacing = "Distance between chevrons along the route.";
-        public const string SearchQuery = "While active, hide non-matching nodes and route matches from the accessible frontier.";
+        public const string SearchQuery = "Type a map name (loose words ok — e.g. Moor skies). Matches highlight and get a path; others dim. Comma = OR.";
         public const string HideCompleted = "Hide maps you have already completed.";
-        public const string HideNotAccessible = "Hide maps you cannot reach yet.";
-        public const string HideAvailable = "Hide maps that are available but not completed.";
+        public const string HideNotAccessible = "Hide maps you cannot reach yet (optional; off by default).";
+        public const string HideAvailable = "Hide maps that are available but not completed (optional; off by default).";
         public const string GroupEnabled = "Draw this map style group on the atlas.";
         public const string GroupColor = "Background tint for maps in this group.";
         public const string GroupMaps = "Comma-separated map names in this style group.";
@@ -191,6 +191,16 @@ internal static class SettingHints
         public const string ShowContentIcons = "Show content icons above map names when PNGs exist in atlas-content-icons.";
         public const string ContentIconSize = "Height of content icons above map names.";
         public const string UseUniversalFont = "Scale atlas labels for non-English map and content names.";
+        public const string ShowShipsInFog = "Draw ship markers on fogged ocean chunks (Uncharted Waters).";
+        public const string ShowUnchartedLeylines = "When hovering a fog ship, highlight that chunk's atlas connections.";
+        public const string ShipIconSize = "Size of Uncharted Waters ship icons on the atlas.";
+        public const string ShowIslandRumours = "Show every assigned island, including rumours hidden by the game's three-line panel, plus community farming tiers. Adds no extra game-memory reads.";
+        public const string ShowIslandRumourBadges = "Draw the total number of special islands on each ship marker.";
+        public const string IslandRumourPriorityFilter = "Highlight ships containing any destination or rumour phrase in this | separated list.";
+        public const string IslandRumourPriorityColor = "Border and count-badge color for priority Island Rumours.";
+        public const string ShowRitualPrediction = "While ritual line mode is open, show predicted Rite mods on candidate maps.";
+        public const string ShowRitualPlanner = "Show a window listing predicted ritual rewards for the active line.";
+        public const string RitualRewardFilter = "Only list planner rows whose text contains these words (comma-separated).";
     }
 
     internal static class Hotkeys

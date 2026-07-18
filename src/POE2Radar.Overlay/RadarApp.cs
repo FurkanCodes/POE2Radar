@@ -930,10 +930,11 @@ public sealed partial class RadarApp : IDisposable
             LootTracker: _lootTrackerView,
             AtlasOpen: _atlasOpen,
             AtlasNodes: _atlasMarksPublish,
-            AtlasShowOnScreenNodes: _settings.AtlasShowOnScreenNodes,
-            AtlasTrackedOnly: !_settings.AtlasShowOnScreenNodes && (_settings.AtlasHighlightTags?.Count ?? 0) > 0,
+            // Simple Atlas product: always show every memory node + fog; no badge/arrow chrome.
+            AtlasShowOnScreenNodes: true,
+            AtlasTrackedOnly: false,
             AtlasShowNames: _settings.AtlasShowNames,
-            AtlasRevealFog: _settings.AtlasRevealFog,
+            AtlasRevealFog: true,
             AtlasOffScreenArrows: _settings.AtlasOffScreenArrows,
             AtlasIconScale: _settings.AtlasIconScale,
             AtlasLabelScale: _settings.AtlasLabelScale,
@@ -950,7 +951,7 @@ public sealed partial class RadarApp : IDisposable
             AtlasUiScale: ImGuiRadarOverlay.ComputeAtlasUiScale(OverlayWidth, OverlayHeight, _settings.AtlasBaseWidth, _settings.AtlasBaseHeight, _settings.AtlasScaleMultiplier),
             AtlasBiomeBorderThickness: _settings.AtlasBiomeBorderThickness,
             AtlasShowNodeSprites: _settings.AtlasShowNodeSprites,
-            AtlasDrawLinesSearchQuery: _settings.AtlasDrawLinesSearchQuery,
+            AtlasDrawLinesSearchQuery: true,
             AtlasShowContentIcons: _settings.AtlasShowContentIcons,
             AtlasContentIconSize: _settings.AtlasContentIconSize,
             AtlasUseUniversalFont: _settings.AtlasUseUniversalFont,
@@ -966,11 +967,25 @@ public sealed partial class RadarApp : IDisposable
             AtlasShearY: (float)atlasProj[3],
             AtlasPersX: (float)atlasProj[6],
             AtlasPersY: (float)atlasProj[7],
-            AtlasStart: (_atlasOpen && _settings.AtlasShowRoute) ? _atlasStartPt : null,
-            AtlasEnd: (_atlasOpen && _settings.AtlasShowRoute) ? _atlasEndPt : null,
-            AtlasRoute: (_atlasOpen && _settings.AtlasShowRoute && _atlasRoutePublish.Count >= 2) ? _atlasRoutePublish : null,
-            AtlasRoutes: (_atlasOpen && _settings.AtlasShowRoute && _atlasRoutesPublish.Count > 0) ? _atlasRoutesPublish : null,
+            AtlasStart: _atlasOpen ? _atlasStartPt : null,
+            AtlasEnd: _atlasOpen ? _atlasEndPt : null,
+            AtlasRoute: (_atlasOpen && _atlasRoutePublish.Count >= 2) ? _atlasRoutePublish : null,
+            AtlasRoutes: (_atlasOpen && _atlasRoutesPublish.Count > 0) ? _atlasRoutesPublish : null,
             AtlasCurrent: _atlasOpen ? _atlasCurrentPt : null,
+            AtlasFogShips: (_atlasOpen && _atlasFogShipsPublish.Length > 0) ? _atlasFogShipsPublish : null,
+            AtlasLeylines: (_atlasOpen && _atlasLeylinePublish.Length > 0) ? _atlasLeylinePublish : null,
+            AtlasUnchartedLeylineColor: _settings.AtlasUnchartedLeylineColor,
+            AtlasUnchartedLeylineThickness: _settings.AtlasUnchartedLeylineThickness,
+            AtlasShowUnchartedLeylines: _settings.AtlasShowUnchartedLeylines,
+            AtlasShowIslandRumours: _settings.AtlasShowIslandRumours,
+            AtlasShowIslandRumourBadges: _settings.AtlasShowIslandRumourBadges,
+            AtlasIslandRumourPriorityColor: _settings.AtlasIslandRumourPriorityColor,
+            AtlasRitualPredictions: (_atlasOpen && _atlasRitualPredPublish.Length > 0) ? _atlasRitualPredPublish : null,
+            AtlasRitualPlannerRows: (_atlasOpen && _atlasRitualPlannerPublish.Length > 0) ? _atlasRitualPlannerPublish : null,
+            AtlasShowRitualPrediction: _settings.AtlasShowRitualPrediction,
+            AtlasShowRitualPlanner: _settings.AtlasShowRitualPlanner,
+            AtlasRitualLineActive: _atlasRitualLineActive,
+            AtlasRitualPlannerFontScale: _settings.AtlasRitualPlannerFontScale,
             CursorInspectTitle: _cursorInspectTitle,
             CursorInspectMeta: _cursorInspectMeta,
             MapDiag: _mapDiag,
@@ -2511,6 +2526,24 @@ public sealed partial class RadarApp : IDisposable
             mapContentCatalog = AtlasCatalog.Shared.MapContents.Select(c => new { name = c.Name, icon = c.IconBasename, description = c.Description }),
             mapGroups = _settings.AtlasMapGroups,
             routeGroups = _settings.AtlasRouteGroups,
+            islandRumours = _atlasIslandManifestsPublish.Select(manifest => new
+            {
+                chunkX = manifest.ChunkX,
+                chunkY = manifest.ChunkY,
+                total = manifest.TotalIslands,
+                priority = _atlasIslandPriorityChunks?.Contains((manifest.ChunkX, manifest.ChunkY)) == true,
+                rows = manifest.Rows.Select(row => new
+                {
+                    rumour = row.Definition.Rumour,
+                    destination = row.Definition.Destination,
+                    kind = row.Definition.Kind,
+                    summary = row.Definition.Summary,
+                    tier = row.Definition.Tier,
+                    tierColor = row.Definition.TierColor,
+                    color = row.Definition.Color,
+                    count = row.Count,
+                }),
+            }),
             nodes = new
             {
                 total = nodes.Count,
@@ -2603,6 +2636,14 @@ public sealed partial class RadarApp : IDisposable
         _atlasRoutePublish = Array.Empty<NumVec2>();
         _atlasRoutesPublish = Array.Empty<AtlasRouteLine>();
         _atlasRouteHopsCache = new();
+        _atlasFogShipsPublish = Array.Empty<AtlasFogShip>();
+        _atlasLeylinePublish = Array.Empty<AtlasLeylineSeg>();
+        ResetAtlasIslandRumours();
+        _atlasRitualPredPublish = Array.Empty<AtlasRitualPredictionMark>();
+        _atlasRitualPlannerPublish = Array.Empty<AtlasRitualPlannerRow>();
+        _atlasRitualSpecialCache.Clear();
+        _atlasRitualPlanCache = null;
+        _atlasRitualPlanSignature = null;
         if (_atlasTagCatalog.Count > 0) _atlasTagCatalog = new();
         _atlasRoute = new();
         _atlasStartPt = null;
@@ -2731,27 +2772,15 @@ public sealed partial class RadarApp : IDisposable
 
         // A node matches a rule set if its map name or one of its content tags is in the set; returns the
         // matched tag (drives label + colour). Track set ⇒ route + ring; Arrow set ⇒ off-screen edge arrow.
-        var hlTrack = new HashSet<string>(_settings.AtlasHighlightTags ?? new(), StringComparer.OrdinalIgnoreCase);
-        var hlArrow = new HashSet<string>(_settings.AtlasArrowTags ?? new(), StringComparer.OrdinalIgnoreCase);
-        var searchTerms = SplitAtlasSearch(_settings.AtlasSearchQuery);
-        static string? Match(HashSet<string> set, in Poe2Atlas.AtlasNodeLive nd)
-        {
-            if (set.Count == 0) return null;
-            if (!string.IsNullOrEmpty(nd.MapName) && set.Contains(nd.MapName)) return nd.MapName;
-            if (nd.Tags is { Count: > 0 }) foreach (var t in nd.Tags) if (set.Contains(t)) return t;
-            return null;
-        }
-
-        var trackedOnly = !_settings.AtlasShowOnScreenNodes && hlTrack.Count > 0;
-        var routeTargets = BuildAtlasRouteTargets(nodes, searchTerms);
+        var search = AtlasSearch.Parse(_settings.AtlasSearchQuery, _settings.AtlasLanguage);
+        var routeTargets = BuildAtlasRouteTargets(nodes, search);
         var routeTargetElements = routeTargets.Select(t => t.Node.Element).ToHashSet();
         Dictionary<nint, int> routeHopsByElement;
         if (_atlasRouteCadence.IsDue(8) || _atlasRouteHopsCache.Count == 0)
         {
             var geometry = BuildAtlasRoutes(nodes, routeTargets);
             _atlasRouteHopsCache = geometry.HopsByElement;
-            if (_settings.AtlasShowRoute)
-                _atlasRoutesPublish = geometry.Lines;
+            _atlasRoutesPublish = geometry.Lines;
             routeHopsByElement = _atlasRouteHopsCache;
         }
         else
@@ -2767,30 +2796,34 @@ public sealed partial class RadarApp : IDisposable
         foreach (var n in nodes)
         {
             var selected = sel.Contains(n.Element);
-            var mTrack = Match(hlTrack, n);
-            var mArrow = Match(hlArrow, n);
-            var searchMatch = searchTerms.Count == 0 || AtlasNodeMatchesTerms(n, searchTerms);
+            var searchMatch = search.Matches(n.MapName, n.MapCode, n.Tags, n.Badges);
             var isRouteTarget = routeTargetElements.Contains(n.Element);
-            var isTracked = selected || mTrack != null;
-            var isArrow = mArrow != null;
-            if (searchTerms.Count > 0 && !searchMatch && !isRouteTarget) continue;
-            if (_settings.AtlasHideCompletedMaps && n.Completed && !isRouteTarget && !isTracked) continue;
-            if (_settings.AtlasHideNotAccessibleMaps && !n.AccessibleNow && !n.Completed && !isRouteTarget && !isTracked) continue;
-            if (_settings.AtlasHideAvailableMaps && n.AccessibleNow && !isRouteTarget && !isTracked) continue;
-            if (trackedOnly)
-            {
-                if (!isTracked && !isRouteTarget) continue;
-            }
-            else if (!_settings.AtlasShowOnScreenNodes && !isTracked && !isArrow && !isRouteTarget) continue;
-            var matched = mTrack ?? mArrow;
-            string? color = matched != null && _settings.AtlasHighlightColors.TryGetValue(matched, out var c) ? c : null;
+            var isTracked = selected || isRouteTarget;
+            if (_settings.AtlasHideCompletedMaps && n.Completed && !isRouteTarget) continue;
+            if (_settings.AtlasHideNotAccessibleMaps && !n.AccessibleNow && !n.Completed && !isRouteTarget) continue;
+            var dimmed = !search.IsEmpty && !searchMatch && !isRouteTarget && !selected;
             var mapName = string.IsNullOrEmpty(n.MapName) ? null : n.MapName;
             if (!string.IsNullOrEmpty(n.MapCode))
                 mapName = AtlasCatalog.Shared.LocalizedMapName(n.MapCode, _settings.AtlasLanguage);
             var tier = AtlasEndgameCatalog.Classify(n.MapName, n.Tags);
             var center = n.ScreenCenter;
-            var group = AtlasMapGroupFor(mapName);
-            var biome = AtlasCatalog.Shared.Biome(n.Biome);
+            var biome = AtlasCatalog.Shared.Biome((byte)n.Biome);
+            string? highlight = null;
+            string? color = null;
+            if (searchMatch && !search.IsEmpty)
+            {
+                highlight = mapName ?? "Match";
+                color = "#3BDBFF";
+            }
+            else if (isRouteTarget)
+            {
+                var rt = routeTargets.FirstOrDefault(t => t.Node.Element == n.Element);
+                if (!string.IsNullOrEmpty(rt.Label))
+                {
+                    highlight = rt.Label;
+                    color = rt.Color;
+                }
+            }
             AtlasContentChip[]? flagChips = null;
             AtlasContentChip[]? contentChips = null;
             string[]? contentNames = null;
@@ -2802,26 +2835,28 @@ public sealed partial class RadarApp : IDisposable
                 contentNames = n.Tags.ToArray();
             }
             routeHopsByElement.TryGetValue(n.Element, out var routeHops);
-            _atlasMarks.Add(new AtlasMark(n.X, n.Y, isTracked, n.HasContent, n.Visited, n.Unlocked, n.Visible,
-                n.Biome, n.IconType, center.X, center.Y, n.ScreenW, n.ScreenH, mapName, matched, color, isArrow, tier,
-                BiomeColor: biome.Show ? biome.Color : null,
+            _atlasMarks.Add(new AtlasMark(n.X, n.Y, isTracked || (searchMatch && !search.IsEmpty), n.HasContent, n.Visited, n.Unlocked, n.Visible,
+                n.Biome, n.IconType, center.X, center.Y, n.ScreenW, n.ScreenH, mapName, highlight, color, Arrow: false, tier,
+                BiomeColor: _settings.AtlasShowBiomeBorders && biome.Show ? biome.Color : null,
                 BiomeAlpha: biome.Alpha,
-                LabelBg: group?.Color,
-                LabelFg: group?.FontColor,
+                LabelBg: null,
+                LabelFg: null,
                 Badges: n.Badges,
                 ContentCount: n.ContentCount,
                 Completed: n.Completed,
                 FlagChips: flagChips,
                 ContentChips: contentChips,
                 ContentNames: contentNames,
-                RouteHops: routeHops));
+                RouteHops: routeHops,
+                Dimmed: dimmed));
         }
+
+        UpdateAtlasUncharted(nodes);
+        UpdateAtlasRitualLine(nodes);
+
         BuildAtlasRoute(nodes, routeTargets);
         _atlasMarksPublish = _atlasMarks.Count > 0 ? _atlasMarks.ToArray() : Array.Empty<AtlasMark>();
         _atlasRoutePublish = _atlasRoute.Count > 0 ? _atlasRoute.ToArray() : Array.Empty<NumVec2>();
-
-        if (_atlasOpen && _atlasMarksPublish.Count == 0 && (_settings.AtlasHighlightTags?.Count ?? 0) > 0)
-            LogAtlasFilterOnce("Highlight tags active but no nodes matched — enable 'Show all nodes' or clear tags in Settings → Atlas");
     }
 
     private void LogAtlasDiagOnce(string message)
@@ -2851,21 +2886,24 @@ public sealed partial class RadarApp : IDisposable
 
         var gridToScreen = new Dictionary<(int, int), NumVec2>(nodes.Count);
         var accessible = new List<(int, int)>();
+        var noPass = new HashSet<(int, int)>();
         foreach (var n in nodes)
         {
             var c = n.ScreenCenter;
             if (float.IsFinite(c.X) && float.IsFinite(c.Y))
                 gridToScreen[n.Grid] = new NumVec2(c.X, c.Y);
             if (n.AccessibleNow) accessible.Add(n.Grid);
+            if (string.Equals(n.MapCode, "MapUniqueReactor_04", StringComparison.OrdinalIgnoreCase))
+                noPass.Add(n.Grid);
         }
 
         var lines = new List<AtlasRouteLine>();
-        var drawLines = _settings.AtlasShowRoute;
+        var drawLines = true; // Simple Atlas always draws search routes
         var phase = 0;
+        var paths = _atlas.FindPathsFromAccessible(accessible, targets.Select(target => target.Node.Grid), noPass);
         foreach (var t in targets)
         {
-            var path = _atlas.FindPathFromAccessible(accessible, t.Node.Grid);
-            if (path is null || path.Count < 2) continue;
+            if (!paths.TryGetValue(t.Node.Grid, out var path) || path.Count < 2) continue;
             var hops = path.Count - 1;
             if (t.MaxHops > 0 && hops > t.MaxHops) continue;
             hopsMap[t.Node.Element] = hops;
@@ -2879,97 +2917,87 @@ public sealed partial class RadarApp : IDisposable
         return new AtlasRouteGeometry(hopsMap, routeLines);
     }
 
-    private static List<string> SplitAtlasSearch(string? query)
-        => string.IsNullOrWhiteSpace(query)
-            ? new List<string>()
-            : query.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(s => s.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-
-    private static bool AtlasNodeMatchesTerms(in Poe2Atlas.AtlasNodeLive node, IReadOnlyList<string> terms)
-    {
-        foreach (var term in terms)
-        {
-            if (!string.IsNullOrEmpty(node.MapName) && node.MapName.Contains(term, StringComparison.OrdinalIgnoreCase)) return true;
-            if (!string.IsNullOrEmpty(node.MapCode) && node.MapCode.Contains(term, StringComparison.OrdinalIgnoreCase)) return true;
-            if (node.Tags is { Count: > 0 } && node.Tags.Any(t => t.Contains(term, StringComparison.OrdinalIgnoreCase))) return true;
-            if (node.Badges is { Count: > 0 } && node.Badges.Any(t => t.Contains(term, StringComparison.OrdinalIgnoreCase))) return true;
-        }
-        return false;
-    }
-
-    private AtlasMapGroupSettings? AtlasMapGroupFor(string? mapName)
-    {
-        if (string.IsNullOrWhiteSpace(mapName)) return null;
-        foreach (var group in _settings.AtlasMapGroups.Where(g => g.Enabled))
-            foreach (var m in group.Maps)
-                if (string.Equals(m, mapName, StringComparison.OrdinalIgnoreCase)
-                    || mapName.Contains(m, StringComparison.OrdinalIgnoreCase))
-                    return group;
-        return null;
-    }
-
     private List<AtlasRouteTarget> BuildAtlasRouteTargets(
         IReadOnlyList<Poe2Atlas.AtlasNodeLive> nodes,
-        IReadOnlyList<string> searchTerms)
+        AtlasSearch.Query search)
     {
         var targets = new List<AtlasRouteTarget>();
 
-        if (searchTerms.Count > 0 && _settings.AtlasDrawLinesSearchQuery)
+        // Search category (always when query active).
+        if (!search.IsEmpty)
         {
-            foreach (var n in nodes.Where(n => AtlasNodeMatchesTerms(n, searchTerms)).Take(80))
-                targets.Add(new AtlasRouteTarget(n, n.MapName.Length > 0 ? n.MapName : "Search match", "#FFFFFF", 0));
-        }
-
-        if (_settings.AtlasHighlightTags is { Count: > 0 } highlightTags)
-        {
-            var trackedRules = new HashSet<string>(highlightTags.Where(t => !string.IsNullOrWhiteSpace(t)), StringComparer.OrdinalIgnoreCase);
-            foreach (var n in nodes.Where(n => !n.Completed && AtlasTrackedRuleMatches(n, trackedRules, out _)).Take(128))
+            foreach (var n in nodes)
             {
-                AtlasTrackedRuleMatches(n, trackedRules, out var matched);
-                var label = matched.Length > 0 ? matched : n.MapName.Length > 0 ? n.MapName : "Tracked";
-                var color = _settings.AtlasHighlightColors.TryGetValue(label, out var c) ? c : "#58A6FF";
-                targets.Add(new AtlasRouteTarget(n, label, color, 0));
+                if (n.Completed) continue;
+                if (!search.Matches(n.MapName, n.MapCode, n.Tags, n.Badges)) continue;
+                var label = !string.IsNullOrEmpty(n.MapName) ? n.MapName
+                    : !string.IsNullOrEmpty(n.MapCode) ? AtlasCatalog.Shared.MapName(n.MapCode)
+                    : "Search match";
+                targets.Add(new AtlasRouteTarget(n, label, "#FFFFFF", 0, _settings.AtlasRouteLineThickness));
+                if (targets.Count >= 80) break;
             }
         }
 
-        if (_settings.AtlasDrawLinesToUniqueMaps)
+        foreach (var group in _settings.AtlasRouteGroups)
         {
-            foreach (var n in nodes.Where(n => !n.Completed && AtlasRouteEntryMatches(n, "type:unique")).Take(64))
-                targets.Add(new AtlasRouteTarget(n, n.MapName, "#FF00FF", 0));
-        }
+            if (!group.DrawPaths) continue;
+            if (string.Equals(group.BuiltInKey, "search", StringComparison.OrdinalIgnoreCase))
+                continue; // handled above
 
-        if (_settings.AtlasPathToLineageMaps)
-        {
-            foreach (var n in nodes.Where(n => !n.Completed && AtlasRouteEntryMatches(n, "tag:lineage")).Take(64))
-                targets.Add(new AtlasRouteTarget(n, n.MapName, "#00E000", 0));
-        }
+            var maxHops = group.MaxHops > 0 ? group.MaxHops : 100;
+            var thickness = group.LineThickness > 0 ? group.LineThickness : _settings.AtlasRouteLineThickness;
+            var color = string.IsNullOrWhiteSpace(group.Color) ? "#58A6FF" : group.Color;
 
-        if (_settings.AtlasPathToArbiterMaps)
-        {
-            foreach (var n in nodes.Where(n => !n.Completed && AtlasRouteEntryMatches(n, "tag:arbiter")).Take(64))
-                targets.Add(new AtlasRouteTarget(n, n.MapName, "#FF0000", 0));
-        }
-
-        foreach (var group in _settings.AtlasContentGroups.Where(g => g.DrawPaths))
-        {
-            foreach (var entry in group.Contents.Where(e => e.DrawPath && !string.IsNullOrWhiteSpace(e.ContentKey)))
+            if (string.Equals(group.ContentRule, "corrupted_nexus", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(group.BuiltInKey, "corrupted_nexus", StringComparison.OrdinalIgnoreCase))
             {
-                foreach (var n in nodes.Where(n => !n.Completed && NodeHasContentKey(n, entry.ContentKey)).Take(64))
-                    targets.Add(new AtlasRouteTarget(n, entry.ContentKey, entry.Color, entry.MaxHops, group.LineThickness));
+                if (!group.Entries.Any(entry => entry.DrawPath))
+                    continue;
+                foreach (var n in nodes)
+                {
+                    if (n.Completed || !Atlas2Defaults.IsCorruptedNexus(n)) continue;
+                    targets.Add(new AtlasRouteTarget(n, "Corrupted Nexus", color, maxHops, thickness));
+                    if (targets.Count >= 512) break;
+                }
+                continue;
             }
-        }
 
-        foreach (var group in _settings.AtlasRouteGroups.Where(g => g.DrawPaths))
-        {
-            foreach (var entry in group.Entries.Where(e => e.DrawPath && !string.IsNullOrWhiteSpace(e.Match)))
+            if (string.Equals(group.ContentRule, "grand_mirror", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(group.BuiltInKey, "grand_mirror", StringComparison.OrdinalIgnoreCase))
             {
-                foreach (var n in nodes.Where(n => AtlasRouteEntryMatches(n, entry.Match)).Take(64))
-                    targets.Add(new AtlasRouteTarget(n, entry.Name.Length > 0 ? entry.Name : n.MapName, entry.Color, entry.MaxHops, group.LineThickness));
+                if (!group.Entries.Any(entry => entry.DrawPath))
+                    continue;
+                foreach (var n in nodes)
+                {
+                    if (n.Completed || !Atlas2Defaults.IsGrandMirror(n)) continue;
+                    targets.Add(new AtlasRouteTarget(n, "Grand Mirror", color, maxHops, thickness));
+                    if (targets.Count >= 512) break;
+                }
+                continue;
+            }
+
+            foreach (var entry in group.Entries.Where(e => e.DrawPath))
+            {
+                var match = string.IsNullOrWhiteSpace(entry.Match) ? $"name:{entry.Name}" : entry.Match;
+                var entryColor = string.IsNullOrWhiteSpace(entry.Color) ? color : entry.Color;
+                var hops = entry.MaxHops > 0 ? entry.MaxHops : maxHops;
+                foreach (var n in nodes)
+                {
+                    if (n.Completed) continue;
+                    if (!AtlasRouteEntryMatches(n, match)
+                        && !(match.StartsWith("name:", StringComparison.OrdinalIgnoreCase)
+                             && !string.IsNullOrEmpty(n.MapName)
+                             && string.Equals(n.MapName, entry.Name, StringComparison.OrdinalIgnoreCase)))
+                        continue;
+                    var label = entry.Name.Length > 0 ? entry.Name : n.MapName;
+                    targets.Add(new AtlasRouteTarget(n, label, entryColor, hops, thickness));
+                    if (targets.Count >= 512) break;
+                }
             }
         }
 
         return targets
-            .GroupBy(t => (t.Node.Element, t.Label), t => t)
+            .GroupBy(t => t.Node.Element)
             .Select(g => g.First())
             .Take(512)
             .ToList();
@@ -3051,7 +3079,7 @@ public sealed partial class RadarApp : IDisposable
         return kind.ToLowerInvariant() switch
         {
             "id" => string.Equals(node.MapCode, value, StringComparison.OrdinalIgnoreCase),
-            "map" or "name" => !string.IsNullOrEmpty(node.MapName) && node.MapName.Contains(value, StringComparison.OrdinalIgnoreCase),
+            "map" or "name" => !string.IsNullOrEmpty(node.MapName) && string.Equals(node.MapName, value, StringComparison.OrdinalIgnoreCase),
             "tag" => (map?.Tags.Any(t => string.Equals(t, value, StringComparison.OrdinalIgnoreCase)) ?? false)
                 || (node.Tags is { Count: > 0 } && node.Tags.Any(t => t.Contains(value, StringComparison.OrdinalIgnoreCase))),
             "type" => string.Equals(map?.Type, value, StringComparison.OrdinalIgnoreCase),
@@ -3120,8 +3148,13 @@ public sealed partial class RadarApp : IDisposable
                 path = _atlas.FindPath(explicitStart, goal);
             else
             {
+                var noPass = nodes
+                    .Where(n => string.Equals(n.MapCode, "MapUniqueReactor_04", StringComparison.OrdinalIgnoreCase))
+                    .Select(n => n.Grid)
+                    .ToHashSet();
                 var accessible = nodes.Where(n => n.AccessibleNow).Select(n => n.Grid).ToList();
-                path = _atlas.FindPathFromAccessible(accessible, goal);
+                var paths = _atlas.FindPathsFromAccessible(accessible, [goal], noPass);
+                path = paths.TryGetValue(goal, out var nearestPath) ? nearestPath : null;
                 if (path is { Count: > 0 })
                 {
                     startGrid = path[0];
