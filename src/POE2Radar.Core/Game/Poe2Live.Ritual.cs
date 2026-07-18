@@ -10,6 +10,7 @@ public sealed partial class Poe2Live
 
     private nint _ritualGridAddr;
     private nint _ritualGridRoot;
+    private nint _ritualPanelAddr;
     private nint _ritualLastInGameState;
     private DateTime _ritualNextScanUtc = DateTime.MinValue;
     private Poe2UiAnchors.BranchKind _ritualProbeHint;
@@ -47,9 +48,86 @@ public sealed partial class Poe2Live
     {
         _ritualGridAddr = 0;
         _ritualGridRoot = 0;
+        _ritualPanelAddr = 0;
         _ritualNextScanUtc = DateTime.MinValue;
         _ritualProbeHint = Poe2UiAnchors.BranchKind.None;
         _ritualGridMissStreak = 0;
+    }
+
+    /// <summary>
+    /// Cheap Ritual Favours visibility gate. The live keyboard UI path is
+    /// GameUi.children[76].children[13], matching GameHelper's RitualHelper.
+    /// This intentionally does not scan the UI tree: the expensive reward
+    /// reader is only allowed to run after this panel reports visible.
+    /// </summary>
+    public bool IsRitualPanelOpen(nint inGameState)
+    {
+        if (inGameState == 0) return false;
+
+        if (_ritualLastInGameState != inGameState)
+        {
+            InvalidateRitualUiCache();
+            _ritualLastInGameState = inGameState;
+        }
+
+        if (_ritualPanelAddr != 0)
+        {
+            if (Ptr(_ritualPanelAddr + Poe2.UiElement.Self) != _ritualPanelAddr)
+                _ritualPanelAddr = 0;
+            else if (IsRitualPanelVisible(_ritualPanelAddr))
+                return true;
+        }
+
+        DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
+        nint hiddenPanel = 0;
+        if (TryRitualPanelAtFixedPath(gameUi, out var panel))
+        {
+            if (IsRitualPanelVisible(panel))
+            {
+                _ritualPanelAddr = panel;
+                return true;
+            }
+            hiddenPanel = panel;
+        }
+        if (controllerGameUi != gameUi
+            && TryRitualPanelAtFixedPath(controllerGameUi, out panel))
+        {
+            if (IsRitualPanelVisible(panel))
+            {
+                _ritualPanelAddr = panel;
+                return true;
+            }
+            hiddenPanel = panel;
+        }
+
+        _ritualPanelAddr = hiddenPanel;
+        return false;
+    }
+
+    private bool IsRitualPanelVisible(nint panel)
+        => UiElementVisibility.IsHierarchicallyVisible(_reader, panel);
+
+    private bool TryRitualPanelAtFixedPath(nint root, out nint panel)
+    {
+        panel = 0;
+        if (!TryReadChildAt(root, 76, 256, out var branch)
+            || !TryReadChildAt(branch, 13, 128, out panel))
+            return false;
+        return Ptr(panel + Poe2.UiElement.Self) == panel;
+    }
+
+    private bool TryReadChildAt(nint parent, int index, int maxCount, out nint child)
+    {
+        child = 0;
+        if (parent == 0) return false;
+        var first = Ptr(parent + Poe2.UiElement.Children);
+        if (first == 0
+            || !_reader.TryReadStruct<nint>(parent + Poe2.UiElement.ChildrenEnd, out var last))
+            return false;
+        var count = ((long)last - (long)first) / 8;
+        if (count <= index || count > maxCount) return false;
+        child = Ptr(first + index * nint.Size);
+        return child != 0;
     }
 
     /// <summary>Reads ritual reward tiles with screen rects for in-game overlay labels.</summary>

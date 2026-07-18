@@ -82,6 +82,27 @@ public sealed partial class RadarApp
         if (!_ritualIdleCadence.IsDue(scanHz))
             return;
 
+        var now = DateTime.UtcNow;
+        var panelOpen = _live.IsRitualPanelOpen(live.InGameState);
+        if (!ShouldReadRitualRewards(panelOpen, _settings.Ritual.ForceBfsFallback))
+        {
+            ClearRitualWindowSession(open: false);
+            _ritualStatus = _ritualStatus with
+            {
+                Open = false,
+                GridAddress = "0x0",
+                SlotCount = 0,
+                LabelCount = 0,
+                LastScanMs = 0,
+                LastRecomputeMs = 0,
+                LastSeenUtc = now,
+                Note = "Ritual panel closed",
+            };
+            return;
+        }
+
+        // Pricing setup and the full reward-grid reader can touch disk, network caches, and a
+        // large UI subtree. Keep all of that strictly behind the cheap panel-visible gate above.
         InitializeRitualPricing(live);
 
         var padConnected = GamepadInput.IsConnected(_settings.GamepadUserIndex);
@@ -94,7 +115,6 @@ public sealed partial class RadarApp
             _ritualPanelRows = [];
         }
 
-        var now = DateTime.UtcNow;
         var scanStart = Stopwatch.GetTimestamp();
         var rewards = _live.ReadRitualRewards(
             live.InGameState,
@@ -210,6 +230,9 @@ public sealed partial class RadarApp
     internal static int RitualRecomputeIntervalMs(bool settingsOpen)
         => settingsOpen ? RitualSettingsPriceRecomputeMs : RitualPriceRecomputeMs;
 
+    internal static bool ShouldReadRitualRewards(bool panelOpen, bool forceBfsFallback)
+        => panelOpen || forceBfsFallback;
+
     internal static bool ShouldHoldRitualReadMiss(bool wasWindowOpen, int panelRowCount, int labelCount, int missStreak)
         => wasWindowOpen
            && (panelRowCount > 0 || labelCount > 0)
@@ -225,7 +248,7 @@ public sealed partial class RadarApp
     }
 
     private bool RitualShowPricesWindow()
-        => _settings.Ritual.ShowPricesWindow;
+        => _settings.Ritual.ShowPricesWindow && _ritualStatus.Open;
 
     private void InitializeRitualPricing(LiveFrameState live)
     {

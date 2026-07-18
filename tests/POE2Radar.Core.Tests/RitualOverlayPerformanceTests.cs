@@ -56,6 +56,35 @@ public sealed class RitualOverlayPerformanceTests : IDisposable
         Assert.Equal(individual, batched);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RitualPanelGate_ReadsOnlyFixedChainVisibility(bool visible)
+    {
+        using var process = ProcessHandle.AttachToProcess(Environment.ProcessId);
+        var reader = new MemoryReader(process);
+        var live = new Poe2Live(reader, 0);
+        var inGameState = BuildRitualPanel(visible);
+
+        var readsBefore = reader.ReadCount;
+        var open = live.IsRitualPanelOpen(inGameState);
+        var reads = reader.ReadCount - readsBefore;
+
+        Assert.Equal(visible, open);
+        Assert.True(reads <= 20, $"Ritual panel gate used {reads} cross-process reads.");
+    }
+
+    [Fact]
+    public void RitualPanelGate_ReturnsFalse_WhenPanelIsLocallyVisibleButAncestorIsHidden()
+    {
+        using var process = ProcessHandle.AttachToProcess(Environment.ProcessId);
+        var reader = new MemoryReader(process);
+        var live = new Poe2Live(reader, 0);
+        var inGameState = BuildRitualPanel(visible: true, branchVisible: false);
+
+        Assert.False(live.IsRitualPanelOpen(inGameState));
+    }
+
     private nint BuildRewardGrid(int slotCount)
     {
         var grid = Alloc(0x600);
@@ -92,6 +121,34 @@ public sealed class RitualOverlayPerformanceTests : IDisposable
         }
 
         return grid;
+    }
+
+    private nint BuildRitualPanel(bool visible, bool branchVisible = true)
+    {
+        var inGameState = Alloc(0x400);
+        var gameUi = Alloc(0x400);
+        var gameUiChildren = Alloc(77 * nint.Size);
+        var branch = Alloc(0x400);
+        var branchChildren = Alloc(14 * nint.Size);
+        var panel = Alloc(0x600);
+
+        WritePtr(inGameState + Poe2.InGameState.KeyboardUiRootStructPtr, gameUi);
+        WritePtr(gameUi + Poe2.UiElement.Self, gameUi);
+        WriteUInt32(gameUi + Poe2.UiElement.Flags, 1u << Poe2.UiElement.FlagVisibleBit);
+        WritePtr(gameUi + Poe2.UiElement.Children, gameUiChildren);
+        WritePtr(gameUi + Poe2.UiElement.ChildrenEnd, gameUiChildren + 77 * nint.Size);
+        WritePtr(gameUiChildren + 76 * nint.Size, branch);
+        WritePtr(branch + Poe2.UiElement.Self, branch);
+        WritePtr(branch + Poe2.UiElement.Parent, gameUi);
+        WriteUInt32(branch + Poe2.UiElement.Flags, branchVisible ? 1u << Poe2.UiElement.FlagVisibleBit : 0u);
+        WritePtr(branch + Poe2.UiElement.Children, branchChildren);
+        WritePtr(branch + Poe2.UiElement.ChildrenEnd, branchChildren + 14 * nint.Size);
+        WritePtr(branchChildren + 13 * nint.Size, panel);
+        WritePtr(panel + Poe2.UiElement.Self, panel);
+        WritePtr(panel + Poe2.UiElement.Parent, branch);
+        WriteUInt32(panel + Poe2.UiElement.Flags, visible ? 1u << Poe2.UiElement.FlagVisibleBit : 0u);
+
+        return inGameState;
     }
 
     private nint Alloc(int bytes)

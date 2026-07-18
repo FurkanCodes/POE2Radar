@@ -67,6 +67,16 @@ public sealed class RitualPricingTests
         => Assert.Equal(expectedMs, RadarApp.RitualRecomputeIntervalMs(settingsOpen));
 
     [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, true)]
+    public void RitualRewardReader_RunsOnlyAfterPanelGate(
+        bool panelOpen,
+        bool forceBfsFallback,
+        bool expected)
+        => Assert.Equal(expected, RadarApp.ShouldReadRitualRewards(panelOpen, forceBfsFallback));
+
+    [Theory]
     [InlineData(true, 8, 0, 1, true)]
     [InlineData(true, 0, 3, 4, true)]
     [InlineData(true, 8, 0, 5, false)]
