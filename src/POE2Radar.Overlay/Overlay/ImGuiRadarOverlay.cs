@@ -1495,14 +1495,19 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         }
 
         ImGui.SameLine(0f, gap);
+        DrawLootDetailsButton(lt);
+
+        ImGui.End();
+    }
+
+    private void DrawLootDetailsButton(LootTrackerView lt)
+    {
         var detailsOpen = Volatile.Read(ref _lootDetailsPage) >= 0;
         var detailsLabel = detailsOpen
             ? $"Loot ({lt.BreakdownItemCount:N0}) ▲"
             : $"Loot ({lt.BreakdownItemCount:N0}) ▼";
         if (ImGui.SmallButton($"{detailsLabel}##loot_details"))
             CycleLootDetails();
-
-        ImGui.End();
     }
 
     private const int LootDetailsPageSize = 12;
@@ -1518,13 +1523,14 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
         var x = s.BarOnRight ? ctx.WindowWidth - 8f : 8f;
         var y = ctx.WindowHeight - Math.Clamp(s.BarBottomOffset, 0f, 200f) - 38f;
-        ImGui.SetNextWindowPos(new NumVec2(x, y), ImGuiCond.Always, new NumVec2(s.BarOnRight ? 1f : 0f, 1f));
+        var window = LootTrackerDrawPolicy.BreakdownWindow;
+        ImGui.SetNextWindowPos(
+            new NumVec2(x, y),
+            window.PositionCondition,
+            new NumVec2(s.BarOnRight ? 1f : 0f, 1f));
         ImGui.SetNextWindowBgAlpha(Math.Clamp(s.BarOpacity + 0.12f, 0f, 1f));
-        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoResize |
-            ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoSavedSettings |
-            ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoFocusOnAppearing;
 
-        if (!ImGui.Begin("Run Loot##loottracker_breakdown", flags)) { ImGui.End(); return; }
+        if (!ImGui.Begin("Run Loot##loottracker_breakdown", window.Flags)) { ImGui.End(); return; }
         var scale = LootTrackerUiScale(ctx);
         ImGui.SetWindowFontScale(scale);
 
@@ -1536,6 +1542,11 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             ImGui.SameLine(0f, 12f);
             ImGui.TextColored(new Vector4(1.0f, 0.84f, 0.25f, 1f), $"Gold {lt.BreakdownGold:N0}");
         }
+        ImGui.SameLine(0f, 12f);
+        var priceSource = s.PriceSource == PoeNinjaPriceFetcher.SourcePoeNinja
+            ? "poe.ninja"
+            : "poe2scout";
+        ImGui.TextDisabled($"{priceSource} · {lt.League}");
 
         ImGui.Separator();
         if (rows.Length == 0)
@@ -1587,67 +1598,52 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private void DrawLootTrackerCompactBar(RenderContext ctx, LootTrackerView lt)
     {
         var s = _settings.LootTracker;
-        var h = Math.Clamp(s.CompactHeight, 60f, 400f);
-        var w = Math.Clamp(s.CompactWidth, 260f, Math.Max(260f, ctx.WindowWidth - 16f));
         var x = s.BarOnRight ? ctx.WindowWidth - 8f : 8f;
         var y = ctx.WindowHeight - Math.Clamp(s.BarBottomOffset, 0f, 200f);
-        ImGui.SetNextWindowPos(new NumVec2(x, y), ImGuiCond.Always, new NumVec2(s.BarOnRight ? 1f : 0f, 1f));
-        ImGui.SetNextWindowSize(new NumVec2(w, h), ImGuiCond.Always);
+        var window = LootTrackerDrawPolicy.CompactWindow;
+        ImGui.SetNextWindowPos(
+            new NumVec2(x, y),
+            window.PositionCondition,
+            new NumVec2(s.BarOnRight ? 1f : 0f, 1f));
         ImGui.SetNextWindowBgAlpha(Math.Clamp(s.BarOpacity, 0f, 1f));
-        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoNav |
-            ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoFocusOnAppearing |
-            ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoScrollbar;
 
-        if (!ImGui.Begin("##loottracker_compact", flags)) { ImGui.End(); return; }
+        if (!ImGui.Begin("Loot Tracker##loottracker_bar", window.Flags)) { ImGui.End(); return; }
         var scale = LootTrackerUiScale(ctx);
         ImGui.SetWindowFontScale(scale);
-        var colGap = 28f * scale;
+        const float gap = 14f;
+        const float pad = 5f;
 
-        ImGui.BeginGroup();
-        if (DrawLootIcon("Map")) ImGui.SameLine(0f, 5f);
+        if (DrawLootIcon("Map")) ImGui.SameLine(0f, pad);
         ImGui.TextUnformatted($"Maps: {lt.CompletedMaps}");
-        if (DrawLootIcon("Time")) ImGui.SameLine(0f, 5f);
+
+        ImGui.SameLine(0f, gap);
+        if (DrawLootIcon("Time")) ImGui.SameLine(0f, pad);
         ImGui.TextUnformatted($"AVG Time: {lt.AverageTimeText}");
-        if (DrawLootCurrencyIcon(lt.ActiveProfitEx)) ImGui.SameLine(0f, 5f);
+
+        ImGui.SameLine(0f, gap);
+        if (DrawLootCurrencyIcon(lt.ActiveProfitEx)) ImGui.SameLine(0f, pad);
         ImGui.TextUnformatted($"AVG Profit: {lt.AverageProfitText}");
-        ImGui.EndGroup();
 
-        ImGui.SameLine(0f, colGap);
-        ImGui.BeginGroup();
+        ImGui.Separator();
         ImGui.TextColored(new Vector4(0.5f, 0.9f, 0.5f, 1f), "Total");
-        ImGui.SameLine(0f, 5f);
-        if (DrawLootCurrencyIcon(lt.ActiveProfitEx)) ImGui.SameLine(0f, 4f);
+        ImGui.SameLine(0f, pad);
         ImGui.TextColored(new Vector4(0.5f, 0.9f, 0.5f, 1f), lt.TotalProfitText);
-        if (DrawLootCurrencyIcon(lt.ActiveProfitEx)) ImGui.SameLine(0f, 4f);
-        ImGui.TextUnformatted($"{lt.ProfitPerHourText} / hour");
-        if (DrawLootIcon("Time")) ImGui.SameLine(0f, 5f);
-        ImGui.TextUnformatted($"Session: {lt.SessionTimeText}");
-        ImGui.EndGroup();
+        ImGui.SameLine(0f, pad);
+        DrawLootCurrencyIcon(lt.ActiveProfitEx);
 
-        ImGui.SameLine(0f, colGap);
-        ImGui.BeginGroup();
-        if (ImGui.BeginTable("loottracker_runs", 3,
-                ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY,
-                new NumVec2(0f, h - (24f * scale))))
+        ImGui.SameLine(0f, gap);
+        ImGui.TextDisabled($"{lt.ProfitPerHourText} / hour");
+
+        ImGui.SameLine(0f, gap);
+        if (DrawLootIcon("Time")) ImGui.SameLine(0f, pad);
+        ImGui.TextUnformatted($"Session: {lt.SessionTimeText}");
+
+        if (window.ShowLootButton)
         {
-            ImGui.TableSetupColumn("Map");
-            ImGui.TableSetupColumn("Time", ImGuiTableColumnFlags.WidthFixed, 60f * scale);
-            ImGui.TableSetupColumn("Profit", ImGuiTableColumnFlags.WidthFixed, 90f * scale);
-            ImGui.TableHeadersRow();
-            foreach (var row in lt.RecentRuns ?? [])
-            {
-                ImGui.TableNextRow();
-                ImGui.TableSetColumnIndex(0);
-                ImGui.TextUnformatted(row.Name);
-                ImGui.TableSetColumnIndex(1);
-                ImGui.TextUnformatted(row.TimeText);
-                ImGui.TableSetColumnIndex(2);
-                ImGui.TextColored(row.ProfitEx >= 0 ? new Vector4(0.5f, 0.9f, 0.5f, 1f) : new Vector4(0.9f, 0.5f, 0.5f, 1f),
-                    row.ProfitText);
-            }
-            ImGui.EndTable();
+            ImGui.SameLine(0f, gap);
+            DrawLootDetailsButton(lt);
         }
-        ImGui.EndGroup();
+
         ImGui.End();
     }
 

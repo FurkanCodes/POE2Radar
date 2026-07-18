@@ -64,4 +64,38 @@ public sealed class LootTrackerGoldTests
 
         Assert.Equal(5, ledger["Exalted"]);
     }
+
+    [Fact]
+    public void AggregateSessionValuedItems_MergesCompletedAndActiveMapLoot()
+    {
+        var completed = new[]
+        {
+            new RadarApp.LootValuedItem("Divine Orb", 1, 80, 80, true),
+            new RadarApp.LootValuedItem("Unknown Relic", 2, 0, 0, false),
+        };
+        var active = new[]
+        {
+            new RadarApp.LootValuedItem("Divine Orb", 2, 80, 160, true),
+            new RadarApp.LootValuedItem("Unknown Relic", 1, 0, 0, false),
+        };
+
+        var session = RadarApp.AggregateSessionValuedItems([completed, active]);
+
+        Assert.Collection(
+            session,
+            divine =>
+            {
+                Assert.Equal("Divine Orb", divine.Label);
+                Assert.Equal(3, divine.Count);
+                Assert.Equal(240, divine.TotalEx);
+                Assert.True(divine.Priced);
+            },
+            relic =>
+            {
+                Assert.Equal("Unknown Relic", relic.Label);
+                Assert.Equal(3, relic.Count);
+                Assert.Equal(0, relic.TotalEx);
+                Assert.False(relic.Priced);
+            });
+    }
 }

@@ -63,7 +63,7 @@ public sealed partial class RadarApp
         public LootTrackerItemRow[] CachedRows { get; set; } = [];
     }
 
-    private readonly record struct LootValuedItem(
+    internal readonly record struct LootValuedItem(
         string Label,
         long Count,
         double UnitEx,
@@ -399,15 +399,18 @@ public sealed partial class RadarApp
             })
             .ToArray();
 
-        var breakdownRun = _lootCurrent ?? _lootCompleted.LastOrDefault();
-        var breakdownItems = breakdownRun == null
-            ? []
-            : BuildLootBreakdownRows(breakdownRun, now);
-        var breakdownEx = breakdownRun == null ? 0 : EnsureLootValuation(breakdownRun, now);
-        var breakdownGold = breakdownRun == null
-            ? 0
-            : GoldOfLoot(breakdownRun.Gained) + breakdownRun.GoldGained;
-        var breakdownItemCount = breakdownRun?.CachedItems.Sum(i => i.Count) ?? 0;
+        var sessionRuns = _lootCurrent == null
+            ? _lootCompleted
+            : _lootCompleted.Append(_lootCurrent);
+        var sessionItems = AggregateSessionValuedItems(sessionRuns.Select(run =>
+        {
+            EnsureLootValuation(run, now);
+            return (IReadOnlyList<LootValuedItem>)run.CachedItems;
+        }));
+        var breakdownItems = BuildLootBreakdownRows(sessionItems, totalGold);
+        var breakdownEx = sessionItems.Sum(i => i.TotalEx);
+        var breakdownItemCount = sessionItems.Sum(i => i.Count);
+        var sessionMapCount = _lootCompleted.Count + (_lootCurrent == null ? 0 : 1);
 
         var life = Math.Clamp(settings.NotifyDurationSec, 1f, 6f);
         var toasts = _lootActiveToasts
@@ -441,14 +444,14 @@ public sealed partial class RadarApp
             FormatLootValue(perHour),
             FormatLootDuration(now - _lootSessionStartUtc),
             recent,
-            breakdownRun == null
+            sessionMapCount == 0
                 ? ""
-                : $"{(ReferenceEquals(breakdownRun, _lootCurrent) ? "Current run" : "Last run")} · {breakdownRun.Name}",
+                : $"Session loot · {sessionMapCount:N0} {(sessionMapCount == 1 ? "map" : "maps")}",
             FormatLootValue(breakdownEx),
             breakdownEx,
-            breakdownGold,
+            totalGold,
             breakdownItemCount,
-            ReferenceEquals(breakdownRun, _lootCurrent),
+            _lootCurrent != null,
             breakdownItems,
             toasts,
             _lootPrevSnapshot?.Count ?? 0,
@@ -466,6 +469,12 @@ public sealed partial class RadarApp
             activeTime += run.ActiveTime;
             totalEx += EnsureLootValuation(run, now);
             totalGold += GoldOfLoot(run.Gained) + run.GoldGained;
+        }
+        if (_lootCurrent != null)
+        {
+            activeTime += _lootCurrent.ActiveTime;
+            totalEx += EnsureLootValuation(_lootCurrent, now);
+            totalGold += GoldOfLoot(_lootCurrent.Gained) + _lootCurrent.GoldGained;
         }
     }
 
@@ -501,25 +510,43 @@ public sealed partial class RadarApp
         return totalEx;
     }
 
-    private LootTrackerItemRow[] BuildLootBreakdownRows(LootMapRun run, DateTime now)
+    internal static LootValuedItem[] AggregateSessionValuedItems(
+        IEnumerable<IReadOnlyList<LootValuedItem>> runs)
     {
-        EnsureLootValuation(run, now);
-        var gold = GoldOfLoot(run.Gained) + run.GoldGained;
-        var currencyKey = Math.Clamp(
-            _settings.LootTracker.DisplayCurrency,
-            LootTrackerSettings.CurrencyAuto,
-            LootTrackerSettings.CurrencyChaos);
-        if (_settings.LootTracker.ShowPricesInDivineOnly)
-            currencyKey |= 0x100;
-        if (run.CachedRowsRevision == run.ValuedRevision &&
-            run.CachedRowsCurrencyKey == currencyKey &&
-            run.CachedRowsGold == gold)
+        var totals = new Dictionary<string, (long Count, double TotalEx, bool Priced)>(
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var items in runs)
         {
-            return run.CachedRows;
+            foreach (var item in items)
+            {
+                if (item.Count <= 0) continue;
+                totals.TryGetValue(item.Label, out var total);
+                totals[item.Label] = (
+                    total.Count + item.Count,
+                    total.TotalEx + item.TotalEx,
+                    total.Priced || item.Priced);
+            }
         }
 
-        var rows = new List<LootTrackerItemRow>(run.CachedItems.Length + 1);
-        rows.AddRange(run.CachedItems.Select(i =>
+        return totals
+            .Select(kv =>
+            {
+                var (count, totalEx, priced) = kv.Value;
+                var unitEx = priced && count > 0 ? totalEx / count : 0;
+                return new LootValuedItem(kv.Key, count, unitEx, totalEx, priced);
+            })
+            .OrderByDescending(i => i.Priced)
+            .ThenByDescending(i => i.TotalEx)
+            .ThenBy(i => i.Label, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private LootTrackerItemRow[] BuildLootBreakdownRows(
+        IReadOnlyList<LootValuedItem> items,
+        long gold)
+    {
+        var rows = new List<LootTrackerItemRow>(items.Count + 1);
+        rows.AddRange(items.Select(i =>
         {
             var rowCurrency = EffectiveLootDisplayCurrency(i.TotalEx);
             return new LootTrackerItemRow(
@@ -533,11 +560,7 @@ public sealed partial class RadarApp
 
         if (gold > 0)
             rows.Add(new LootTrackerItemRow("Gold", gold, "—", "Not market-priced", 0, false));
-        run.CachedRows = rows.ToArray();
-        run.CachedRowsRevision = run.ValuedRevision;
-        run.CachedRowsCurrencyKey = currencyKey;
-        run.CachedRowsGold = gold;
-        return run.CachedRows;
+        return rows.ToArray();
     }
 
     private long GoldOfLoot(Dictionary<string, long> gained)

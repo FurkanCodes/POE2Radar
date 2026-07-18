@@ -1,3 +1,4 @@
+using ImGuiNET;
 using Xunit;
 
 namespace POE2Radar.Overlay.Tests;
@@ -35,5 +36,28 @@ public sealed class LootTrackerDrawPolicyTests
                 viewEnabled: true,
                 settingsEnabled: false,
                 onMap: true));
+    }
+
+    [Fact]
+    public void CompactWindow_IsMovableAutoSizedAndKeepsItsDraggedPosition()
+    {
+        var window = LootTrackerDrawPolicy.CompactWindow;
+
+        Assert.Equal(ImGuiCond.FirstUseEver, window.PositionCondition);
+        Assert.False(window.ForceSize);
+        Assert.True(window.ShowLootButton);
+        Assert.True(window.Flags.HasFlag(ImGuiWindowFlags.AlwaysAutoResize));
+        Assert.False(window.Flags.HasFlag(ImGuiWindowFlags.NoMove));
+        Assert.False(window.Flags.HasFlag(ImGuiWindowFlags.NoSavedSettings));
+    }
+
+    [Fact]
+    public void BreakdownWindow_IsMovableAndKeepsItsDraggedPosition()
+    {
+        var window = LootTrackerDrawPolicy.BreakdownWindow;
+
+        Assert.Equal(ImGuiCond.FirstUseEver, window.PositionCondition);
+        Assert.False(window.Flags.HasFlag(ImGuiWindowFlags.NoMove));
+        Assert.False(window.Flags.HasFlag(ImGuiWindowFlags.NoSavedSettings));
     }
 }
