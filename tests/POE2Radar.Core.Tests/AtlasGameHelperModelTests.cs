@@ -46,4 +46,24 @@ public sealed class AtlasGameHelperModelTests
 
         Assert.Null(Poe2Atlas.MultiSourceShortestPath(graph, [(9, 9)], (1, 0)));
     }
+
+    [Fact]
+    public void MultiSourceShortestPaths_AllowsExcludedTargetButNeverRoutesThroughIt()
+    {
+        var graph = new Dictionary<(int X, int Y), List<(int X, int Y)>>
+        {
+            [(0, 0)] = [(1, 0)],
+            [(1, 0)] = [(0, 0), (2, 0)],
+            [(2, 0)] = [(1, 0)],
+        };
+
+        var paths = Poe2Atlas.MultiSourceShortestPaths(
+            graph,
+            [(0, 0)],
+            [(1, 0), (2, 0)],
+            new HashSet<(int, int)> { (1, 0) });
+
+        Assert.Equal([(0, 0), (1, 0)], paths[(1, 0)]);
+        Assert.False(paths.ContainsKey((2, 0)));
+    }
 }

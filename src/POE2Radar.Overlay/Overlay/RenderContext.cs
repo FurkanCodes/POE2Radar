@@ -376,7 +376,9 @@ public readonly record struct AtlasMark(
     IReadOnlyList<AtlasContentChip>? FlagChips = null,
     IReadOnlyList<AtlasContentChip>? ContentChips = null,
     IReadOnlyList<string>? ContentNames = null,
-    int RouteHops = 0);
+    int RouteHops = 0,
+    /// <summary>True when a search/filter is active and this node is not a match (still drawn, dimmed).</summary>
+    bool Dimmed = false);
 
 /// <summary>One atlas route polyline with display metadata for multi-target search/content routes.</summary>
 public readonly record struct AtlasRouteLine(
@@ -574,6 +576,20 @@ public sealed record RenderContext(
     IReadOnlyList<NumVec2>? AtlasRoute = null,
     IReadOnlyList<AtlasRouteLine>? AtlasRoutes = null,
     NumVec2? AtlasCurrent = null,
+    IReadOnlyList<AtlasFogShip>? AtlasFogShips = null,
+    IReadOnlyList<AtlasLeylineSeg>? AtlasLeylines = null,
+    string AtlasUnchartedLeylineColor = "#33D9E6",
+    float AtlasUnchartedLeylineThickness = 10f,
+    bool AtlasShowUnchartedLeylines = false,
+    bool AtlasShowIslandRumours = false,
+    bool AtlasShowIslandRumourBadges = true,
+    string AtlasIslandRumourPriorityColor = "#FFD166",
+    IReadOnlyList<AtlasRitualPredictionMark>? AtlasRitualPredictions = null,
+    IReadOnlyList<AtlasRitualPlannerRow>? AtlasRitualPlannerRows = null,
+    bool AtlasShowRitualPrediction = false,
+    bool AtlasShowRitualPlanner = false,
+    bool AtlasRitualLineActive = false,
+    float AtlasRitualPlannerFontScale = 1f,
     // Entity under cursor (hover inspect) — title + metadata for the on-screen HUD.
     string? CursorInspectTitle = null,
     string? CursorInspectMeta = null,

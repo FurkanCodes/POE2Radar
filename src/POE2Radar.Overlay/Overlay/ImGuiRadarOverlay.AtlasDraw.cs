@@ -14,6 +14,11 @@ public sealed partial class ImGuiRadarOverlay
 
     private string? _atlasHoverTooltipName;
     private string? _atlasHoverTooltipDesc;
+    private readonly Dictionary<string, int> _atlasRitualSelected = new(StringComparer.Ordinal);
+    private static readonly string[] AtlasRitualPalette =
+    [
+        "#FFD933", "#FF8026", "#FF4D4D", "#4DD9FF", "#73FF73", "#E673FF",
+    ];
 
     private void DrawAtlas(ImDrawListPtr dl, RenderContext ctx)
     {
@@ -46,6 +51,8 @@ public sealed partial class ImGuiRadarOverlay
                 ctx.AtlasShowRouteChevrons, routePhase);
         }
 
+        DrawAtlasRitualSelectedPaths(dl, ctx, uiScale);
+
         if (ctx.AtlasStart is { } startPt)
         {
             dl.ChannelsSetCurrent(AtlasChannelDots);
@@ -76,9 +83,28 @@ public sealed partial class ImGuiRadarOverlay
                 DrawAtlasNode(dl, ctx, n, W, H, uiScale, mousePos);
         }
 
+        var hoveredShip = DrawAtlasFogShipsAndLeylines(dl, ctx, mousePos, uiScale);
+
+        if (ctx.AtlasShowRitualPrediction && ctx.AtlasRitualPredictions is { Count: > 0 } preds)
+        {
+            dl.ChannelsSetCurrent(AtlasChannelLabels);
+            foreach (var p in preds)
+            {
+                var pos = new NumVec2(p.ScreenX, p.ScreenY - 18f * uiScale);
+                dl.AddText(pos, ColorU32("#6EEB87", 0.95f), p.Text);
+            }
+        }
+
         dl.ChannelsMerge();
 
-        if (_atlasHoverTooltipName is { Length: > 0 })
+        if (ctx.AtlasShowRitualPlanner && ctx.AtlasRitualLineActive && ctx.AtlasRitualPlannerRows is { Count: > 0 })
+            DrawAtlasRitualPlannerWindow(ctx);
+
+        if (ctx.AtlasShowIslandRumours && hoveredShip?.Manifest is { } manifest)
+        {
+            DrawIslandRumourTooltip(manifest);
+        }
+        else if (_atlasHoverTooltipName is { Length: > 0 })
         {
             ImGui.BeginTooltip();
             ImGui.TextUnformatted(_atlasHoverTooltipName);
@@ -93,6 +119,212 @@ public sealed partial class ImGuiRadarOverlay
         }
 
         LastAtlasDrawMs = (float)Stopwatch.GetElapsedTime(sw).TotalMilliseconds;
+    }
+
+    private AtlasFogShip? DrawAtlasFogShipsAndLeylines(
+        ImDrawListPtr dl,
+        RenderContext ctx,
+        NumVec2 mousePos,
+        float uiScale)
+    {
+        if (ctx.AtlasFogShips is not { Count: > 0 } ships) return null;
+
+        int? hoverChunkX = null, hoverChunkY = null;
+        AtlasFogShip? hoveredShip = null;
+        var priorityColor = ctx.AtlasShowIslandRumours
+            ? ColorU32(ctx.AtlasIslandRumourPriorityColor, 0.98f)
+            : 0u;
+        dl.ChannelsSetCurrent(AtlasChannelLabels);
+        foreach (var ship in ships)
+        {
+            var c = new NumVec2(ship.ScreenX, ship.ScreenY);
+            var h = MathF.Max(8f, ship.Size * uiScale);
+            var halfX = ship.HitWidth > 0f ? ship.HitWidth * 0.5f : h * 0.5f;
+            var halfY = ship.HitHeight > 0f ? ship.HitHeight * 0.5f : h * 0.5f;
+            if (ship.DrawIcon
+                && AtlasContentIcons.TryGetPath("UnchartedShip", out var path)
+                && _textures.TryGet(this, path, out var tex)
+                && tex.Height > 0)
+            {
+                var aspect = tex.Width / (float)Math.Max(1, tex.Height);
+                var w = h * aspect;
+                dl.AddImage(tex.Id, c - new NumVec2(w, h) * 0.5f, c + new NumVec2(w, h) * 0.5f);
+                if (ship.HitWidth <= 0f) halfX = w * 0.5f;
+                if (ship.HitHeight <= 0f) halfY = h * 0.5f;
+            }
+            else if (ship.DrawIcon)
+            {
+                var r = h * 0.35f;
+                dl.AddCircleFilled(c, r, ColorU32("#0A1420", 0.9f), 16);
+                dl.AddCircle(c, r, ColorU32(ctx.AtlasUnchartedLeylineColor, 0.95f), 16, MathF.Max(1.5f, r * 0.25f));
+                if (ship.HitWidth <= 0f) halfX = r;
+                if (ship.HitHeight <= 0f) halfY = r;
+            }
+
+            if (ship.DrawIcon && ship.Priority)
+                dl.AddCircle(c, h * 0.58f, priorityColor, 24, MathF.Max(2f, 2.5f * uiScale));
+
+            if (ship.DrawIcon
+                && ctx.AtlasShowIslandRumourBadges
+                && ship.Manifest is { TotalIslands: > 0 } badgeManifest)
+            {
+                var badgeRadius = MathF.Max(8f, 9f * uiScale);
+                var badgeCenter = c + new NumVec2(h * 0.42f, -h * 0.36f);
+                var badgeColor = ship.Priority
+                    ? priorityColor
+                    : ColorU32(ctx.AtlasUnchartedLeylineColor, 0.98f);
+                dl.AddCircleFilled(badgeCenter, badgeRadius, ColorU32("#08111C", 0.96f), 16);
+                dl.AddCircle(badgeCenter, badgeRadius, badgeColor, 16, MathF.Max(1f, 1.5f * uiScale));
+                var fontSize = ImGui.GetFontSize();
+                var textWidth = badgeManifest.BadgeText.Length * fontSize * 0.55f;
+                dl.AddText(
+                    badgeCenter - new NumVec2(textWidth * 0.5f, fontSize * 0.5f),
+                    ColorU32(255, 255, 255, 1f),
+                    badgeManifest.BadgeText);
+            }
+
+            if (mousePos.X >= c.X - halfX && mousePos.X <= c.X + halfX
+                && mousePos.Y >= c.Y - halfY && mousePos.Y <= c.Y + halfY)
+            {
+                hoverChunkX = ship.ChunkX;
+                hoverChunkY = ship.ChunkY;
+                hoveredShip = ship;
+            }
+        }
+
+        if (!ctx.AtlasShowUnchartedLeylines || ctx.AtlasLeylines is not { Count: > 0 } segs)
+            return hoveredShip;
+        if (hoverChunkX is null)
+            return hoveredShip;
+
+        dl.ChannelsSetCurrent(AtlasChannelLines);
+        var col = ColorU32(ctx.AtlasUnchartedLeylineColor, 0.9f);
+        var th = MathF.Max(1f, ctx.AtlasUnchartedLeylineThickness * uiScale);
+        var points = new HashSet<NumVec2>();
+        foreach (var s in segs)
+        {
+            if (s.ChunkX != hoverChunkX || s.ChunkY != hoverChunkY) continue;
+            var p0 = new NumVec2(s.X0, s.Y0);
+            var p1 = new NumVec2(s.X1, s.Y1);
+            dl.AddLine(p0, p1, col, th);
+            points.Add(p0);
+            points.Add(p1);
+        }
+        var nodeRadius = MathF.Max(2.5f, th * 0.55f);
+        foreach (var point in points)
+            dl.AddCircleFilled(point, nodeRadius, col, 12);
+        return hoveredShip;
+    }
+
+    private static void DrawIslandRumourTooltip(AtlasIslandRumours.Manifest manifest)
+    {
+        ImGui.BeginTooltip();
+        ImGui.TextUnformatted(manifest.TitleLine);
+        ImGui.Separator();
+        ImGui.PushTextWrapPos(ImGui.GetFontSize() * 34f);
+        foreach (var row in manifest.Rows)
+        {
+            var tierRgb = ParseHexColor(row.Definition.TierColor);
+            ImGui.TextColored(
+                new System.Numerics.Vector4(tierRgb.X, tierRgb.Y, tierRgb.Z, 1f),
+                $"[{row.Definition.Tier}] {row.TitleLine}");
+            ImGui.TextDisabled(row.TierLine);
+            ImGui.TextWrapped(row.DetailLine);
+            if (!ReferenceEquals(row, manifest.Rows[^1]))
+                ImGui.Spacing();
+        }
+        ImGui.PopTextWrapPos();
+        ImGui.EndTooltip();
+    }
+
+    private void DrawAtlasRitualPlannerWindow(RenderContext ctx)
+    {
+        var open = true;
+        ImGui.SetNextWindowSize(new NumVec2(760, 500), ImGuiCond.FirstUseEver);
+        if (!ImGui.Begin("Ritual line rewards", ref open, ImGuiWindowFlags.None))
+        {
+            ImGui.End();
+            return;
+        }
+        ImGui.TextDisabled(ctx.AtlasRitualLineActive ? "Ritual line mode active" : "Open ritual line on the atlas");
+        var rows = ctx.AtlasRitualPlannerRows ?? Array.Empty<AtlasRitualPlannerRow>();
+        var alive = rows.Select(row => row.Key).ToHashSet(StringComparer.Ordinal);
+        foreach (var stale in _atlasRitualSelected.Keys.Where(key => !alive.Contains(key)).ToArray())
+            _atlasRitualSelected.Remove(stale);
+        var filter = (_settings.AtlasRitualRewardFilter ?? "")
+            .Split(['|', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var visible = rows.Where(row => _atlasRitualSelected.ContainsKey(row.Key)
+            || filter.Length == 0
+            || filter.Any(term => row.ModsLine.Contains(term, StringComparison.OrdinalIgnoreCase)))
+            .ToArray();
+        ImGui.TextDisabled($"Shown: {visible.Length}  |  Chains: {rows.Count}");
+        ImGui.Separator();
+        if (ImGui.BeginTable("ritualPlanner", 4,
+            ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.Resizable,
+            new NumVec2(0, 410)))
+        {
+            ImGui.TableSetupColumn("", ImGuiTableColumnFlags.WidthFixed, 28f);
+            ImGui.TableSetupColumn("Path", ImGuiTableColumnFlags.WidthStretch);
+            ImGui.TableSetupColumn("Rewards", ImGuiTableColumnFlags.WidthStretch);
+            ImGui.TableSetupColumn("Wt", ImGuiTableColumnFlags.WidthFixed, 36f);
+            ImGui.TableHeadersRow();
+            foreach (var row in visible)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableSetColumnIndex(0);
+                var selected = _atlasRitualSelected.ContainsKey(row.Key);
+                if (ImGui.Checkbox($"##ritual-{row.Key}", ref selected))
+                {
+                    if (selected)
+                        _atlasRitualSelected[row.Key] = NextAtlasRitualPaletteSlot();
+                    else
+                        _atlasRitualSelected.Remove(row.Key);
+                }
+                ImGui.TableSetColumnIndex(1);
+                ImGui.TextWrapped(row.PathLine);
+                ImGui.TableSetColumnIndex(2);
+                ImGui.TextWrapped(row.ModsLine);
+                ImGui.TableSetColumnIndex(3);
+                ImGui.TextUnformatted(row.Weight.ToString());
+            }
+            ImGui.EndTable();
+        }
+        ImGui.End();
+    }
+
+    private void DrawAtlasRitualSelectedPaths(ImDrawListPtr dl, RenderContext ctx, float uiScale)
+    {
+        if (_atlasRitualSelected.Count == 0 || ctx.AtlasRitualPlannerRows is not { Count: > 0 } rows)
+            return;
+        foreach (var row in rows)
+        {
+            if (!_atlasRitualSelected.TryGetValue(row.Key, out var slot) || row.Points.Count < 2)
+                continue;
+            var colorHex = AtlasRitualPalette[slot % AtlasRitualPalette.Length];
+            var color = ColorU32(colorHex, 0.95f);
+            DrawAtlasNodePath(dl, row.Points, color, MathF.Max(2f, 2.5f * uiScale), uiScale,
+                spacingMul: 24f, chevrons: true, phaseIndex: slot);
+
+            dl.ChannelsSetCurrent(AtlasChannelLabels);
+            for (var index = 1; index < row.Points.Count && index - 1 < row.Rewards.Count; index++)
+            {
+                var label = row.Rewards[index - 1];
+                var size = ImGui.CalcTextSize(label);
+                var padding = new NumVec2(4f, 2f) * uiScale;
+                var position = row.Points[index] - new NumVec2(size.X * 0.5f, size.Y + 12f * uiScale);
+                dl.AddRectFilled(position - padding, position + size + padding, ColorU32("#0D0D0D", 0.92f), 3f * uiScale);
+                dl.AddRect(position - padding, position + size + padding, color, 3f * uiScale);
+                dl.AddText(position, color, label);
+            }
+        }
+    }
+
+    private int NextAtlasRitualPaletteSlot()
+    {
+        var used = _atlasRitualSelected.Values.ToHashSet();
+        for (var slot = 0; ; slot++)
+            if (!used.Contains(slot))
+                return slot;
     }
 
     private void DrawAtlasNode(ImDrawListPtr dl, RenderContext ctx, AtlasMark n, float W, float H, float uiScale, NumVec2 mousePos)
@@ -121,8 +353,11 @@ public sealed partial class ImGuiRadarOverlay
         if (!ctx.AtlasShowOnScreenNodes && !n.Selected && !n.Arrow && string.IsNullOrEmpty(n.Color) && n.RouteHops <= 0) return;
 
         var c = new NumVec2(sx, sy);
+        // Always draw a node marker so fogged / unnamed memory nodes stay visible.
         if (ctx.AtlasShowNodeSprites)
             DrawAtlasNodeSprite(dl, ctx, n, c);
+        else
+            DrawAtlasNodeDot(dl, ctx, n, c);
 
         string? mapName = null;
         if (ctx.AtlasShowNames)
@@ -135,7 +370,8 @@ public sealed partial class ImGuiRadarOverlay
             else if (n.EndgameTier == AtlasEndgameTier.KeyHalls) mapName = "◆ " + mapName;
         }
 
-        if (string.IsNullOrEmpty(mapName)) return;
+        // Dimmed search non-matches: keep the marker, skip label chrome to reduce clutter.
+        if (n.Dimmed || string.IsNullOrEmpty(mapName)) return;
 
         var textSize = ImGui.CalcTextSize(mapName);
         var nudgeY = ctx.AtlasAnchorNudgeY + ctx.AtlasLabelOffsetY;
@@ -152,6 +388,13 @@ public sealed partial class ImGuiRadarOverlay
         var fgOpacity = n.Completed ? 0.5f : 1f;
         var bgHex = n.LabelBg ?? ctx.AtlasDefaultBackgroundColor;
         var fgHex = n.LabelFg ?? ctx.AtlasDefaultFontColor;
+        if (!n.Visible && ctx.AtlasRevealFog)
+        {
+            bgHex = "#9CB8D4";
+            fgHex = "#E8F1F8";
+            bgOpacity = MathF.Max(bgOpacity, 0.72f);
+            fgOpacity = MathF.Max(fgOpacity, 0.9f);
+        }
 
         if (n.ContentNames is { Count: > 0 } && (ctx.AtlasShowContentIcons || ctx.AtlasShowContentTokens))
             DrawAtlasContentRow(dl, ctx, n, drawPos, textSize, uiScale, mousePos, !n.Visible);
@@ -170,6 +413,16 @@ public sealed partial class ImGuiRadarOverlay
 
         dl.AddRectFilled(bgPos, bgPos + bgSize, ColorU32(bgHex, bgOpacity), 3f * uiScale);
         dl.AddText(drawPos, ColorU32(fgHex, fgOpacity), mapName);
+
+        if (ctx.AtlasShowIslandRumours
+            && mousePos.X >= bgPos.X && mousePos.X <= bgPos.X + bgSize.X
+            && mousePos.Y >= bgPos.Y && mousePos.Y <= bgPos.Y + bgSize.Y
+            && AtlasIslandRumours.TryGetDefinition(n.MapName, out var island))
+        {
+            SetAtlasHoverTooltip(
+                $"{mapName} — Tier {island.Tier}",
+                $"{island.Rumour}\n{island.Kind}\n{island.Summary}\n\nCommunity farming tier; values can shift with the economy.");
+        }
 
         if (n.RouteHops > 0)
         {
@@ -194,6 +447,25 @@ public sealed partial class ImGuiRadarOverlay
             DrawAtlasContentDots(dl, n.ContentCount, labelCenterX, ref nextRowTop, rowGap, uiScale);
     }
 
+    /// <summary>Simple circle marker for every memory node (fog + named). Cool tint when fog-revealed.</summary>
+    private void DrawAtlasNodeDot(ImDrawListPtr dl, RenderContext ctx, AtlasMark n, NumVec2 c)
+    {
+        var baseSize = n.Selected || n.Arrow || n.RouteHops > 0 ? 5.5f : 4.25f;
+        var size = baseSize * ctx.AtlasIconScale;
+        var colHex = string.IsNullOrEmpty(n.Color)
+            ? n.Selected || n.Arrow || n.RouteHops > 0 ? "#3BDBFF"
+            : !n.Visible && ctx.AtlasRevealFog ? "#9CB8D4"
+            : n.HasContent && !n.Visited ? "#FF9E42" : "#6EEB87"
+            : n.Color;
+        float opacity = n.Visible
+            ? n.Visited ? 0.7f : 0.92f
+            : ctx.AtlasRevealFog ? 0.88f : n.Selected || n.Arrow ? 0.5f : 0.35f;
+        if (n.Dimmed) opacity *= 0.28f;
+        if (n.Completed) opacity *= 0.55f;
+        dl.ChannelsSetCurrent(AtlasChannelDots);
+        dl.AddCircleFilled(c, size, ColorU32(colHex, opacity), 12);
+    }
+
     private void DrawAtlasNodeSprite(ImDrawListPtr dl, RenderContext ctx, AtlasMark n, NumVec2 c)
     {
         var sprite = SpriteCatalog.AtlasNode(n.IconType, n.Biome);
@@ -213,6 +485,8 @@ public sealed partial class ImGuiRadarOverlay
         float opacity = n.Visible
             ? n.Visited ? 0.75f : 0.95f
             : ctx.AtlasRevealFog ? 0.95f : n.Selected || n.Arrow ? 0.55f : 0.45f;
+        if (n.Dimmed) opacity *= 0.28f;
+        if (n.Completed) opacity *= 0.55f;
         var col = ColorU32(colHex, opacity);
         dl.ChannelsSetCurrent(AtlasChannelDots);
         if (IconAtlas.TryResolve(sprite, null, out var tex))

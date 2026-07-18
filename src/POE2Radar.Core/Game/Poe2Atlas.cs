@@ -344,6 +344,9 @@ public sealed class Poe2Atlas
     private nint _currentMarker;
     private readonly List<nint> _currentMarkerCandidates = new();
     private nint _cachedUiManager;
+    private nint _ritualCandidateBegin;
+    private nint _ritualCandidateEnd;
+    private Dictionary<(int X, int Y), List<(int X, int Y)>> _ritualCandidateCache = new();
 
     /// <summary>Cheap "is the Atlas screen open?" — fingerprint-resolved node list + hierarchical visible bit.</summary>
     public bool IsAtlasOpen(nint inGameState)
@@ -573,9 +576,18 @@ public sealed class Poe2Atlas
         var hdr = Ptr(c);
         var buf = hdr == 0 ? 0 : Ptr(hdr);
         var code = buf == 0 ? "" : _reader.ReadStringUtf16(buf, 64);
-        return code.StartsWith("Map", StringComparison.Ordinal) ? code : "";
+        return IsAtlasAreaCode(code) ? code : "";
     }
 
+    private static bool IsAtlasAreaCode(string code) =>
+        code.StartsWith("Map", StringComparison.Ordinal)
+        || code.StartsWith("ExpeditionLogBook_", StringComparison.Ordinal)
+        || code.StartsWith("ExpeditionSubArea_", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Geometric node gate (sane grid + size). Map identity (<see cref="AtlasNodeData"/>) is optional —
+    /// fogged / not-yet-rolled nodes often lack DataStorage but still belong in the snapshot.
+    /// </summary>
     private bool TryReadAtlasNodeIdentity(nint el, out int gridX, out int gridY, out float w, out float h, out AtlasNodeData data)
     {
         gridX = gridY = 0;
@@ -588,7 +600,13 @@ public sealed class Poe2Atlas
         if (!_reader.TryReadStruct<float>(el + Poe2.UiElement.SizeH, out h)) return false;
         if (!IsSaneAtlasNodeSize(w, h)) return false;
         data = ReadNodeData(el);
-        return data.Resolved && data.Biome <= 12 && !string.IsNullOrEmpty(data.MapCode);
+        return true;
+    }
+
+    private byte ReadNodeBiomeForDetect(nint el, in AtlasNodeData data)
+    {
+        if (data.Resolved && data.Biome <= 12) return data.Biome;
+        return _reader.TryReadStruct<byte>(el + Poe2.AtlasNode.Biome, out var b) && b <= 12 ? b : (byte)255;
     }
 
     private static bool IsSaneAtlasGrid(int x, int y)
@@ -647,6 +665,7 @@ public sealed class Poe2Atlas
         _tagCache.Clear(); _iconTypeCache.Clear(); _nodeSnapshot.Clear();
         _elementIndex.Clear();
         _graph.Clear(); _graphCanvas = 0; _currentMarker = 0; _currentMarkerCandidates.Clear();
+        _ritualCandidateBegin = 0; _ritualCandidateEnd = 0; _ritualCandidateCache.Clear();
         AllTagsResolved = false;
     }
 
@@ -760,9 +779,240 @@ public sealed class Poe2Atlas
     /// <summary>Number of nodes in the cached connection graph (0 ⇒ not built / atlas closed). Diagnostic.</summary>
     public int GraphNodeCount { get { lock (_nodeLock) return _graph.Count; } }
 
+    /// <summary>Cached atlas node canvas address (0 if not detected). Used for ritual-line panel fields.</summary>
+    public nint NodeCanvasAddress { get { lock (_nodeLock) return _nodeCanvas; } }
+
+    public readonly record struct AtlasOceanButton(
+        nint Element,
+        int GridX,
+        int GridY,
+        bool Visible,
+        float ScreenX,
+        float ScreenY,
+        float ScreenW,
+        float ScreenH)
+    {
+        public (int X, int Y) Chunk => (GridX >> 4, GridY >> 4);
+    }
+
+    /// <summary>
+    /// Read Atlas2's ocean region buttons from the node canvas. GameHelper identifies these as
+    /// non-node children whose row pointer is non-null and whose row index is 2. Visible buttons
+    /// represent revealed ocean chunks; hidden buttons are the fog-ship anchors.
+    /// </summary>
+    public IReadOnlyList<AtlasOceanButton> ReadOceanButtons(float winW, float winH)
+    {
+        lock (_nodeLock)
+        {
+            if (_nodeCanvas == 0 || _nodeVtable == 0)
+                return Array.Empty<AtlasOceanButton>();
+
+            var first = Ptr(_nodeCanvas + Poe2.UiElement.Children);
+            if (first == 0
+                || !_reader.TryReadStruct<nint>(_nodeCanvas + Poe2.UiElement.ChildrenEnd, out var last))
+                return Array.Empty<AtlasOceanButton>();
+            var count = ((long)last - (long)first) / 8;
+            if (count is <= 0 or > 20000)
+                return Array.Empty<AtlasOceanButton>();
+
+            var result = new List<AtlasOceanButton>(32);
+            var projectionElements = new Dictionary<nint, UiElementProjection.Element>(64);
+            var projectionParents = new Dictionary<nint, UiElementProjection.Point>(32);
+            for (long i = 0; i < count; i++)
+            {
+                var element = Ptr(first + (nint)(i * 8));
+                if (element == 0 || Ptr(element) == _nodeVtable)
+                    continue;
+                if (Ptr(element + Poe2.AtlasGraph.RegionButtonRowPtr) == 0)
+                    continue;
+                if (!_reader.TryReadStruct<int>(
+                        element + Poe2.AtlasGraph.RegionButtonRowIndex,
+                        out var rowIndex)
+                    || rowIndex != Poe2.AtlasGraph.OceanRegionButtonRow)
+                    continue;
+                if (!_reader.TryReadStruct<int>(
+                        element + Poe2.AtlasGraph.RegionButtonGrid,
+                        out var gridX)
+                    || !_reader.TryReadStruct<int>(
+                        element + Poe2.AtlasGraph.RegionButtonGrid + 4,
+                        out var gridY)
+                    || gridX is <= -0x80000 or >= 0x80000
+                    || gridY is <= -0x80000 or >= 0x80000)
+                    continue;
+
+                _reader.TryReadStruct<uint>(element + Poe2.UiElement.Flags, out var flags);
+                var visible = ((flags >> Poe2.UiElement.FlagVisibleBit) & 1) != 0;
+                var rect = TryScreenRect(
+                    element,
+                    winW,
+                    winH,
+                    projectionElements,
+                    projectionParents,
+                    out var screen)
+                    ? screen
+                    : default;
+                result.Add(new AtlasOceanButton(
+                    element,
+                    gridX,
+                    gridY,
+                    visible,
+                    rect.x,
+                    rect.y,
+                    rect.w,
+                    rect.h));
+            }
+            return result;
+        }
+    }
+
+    public sealed record RitualLineSnapshot(
+        uint LineId,
+        IReadOnlyList<(int X, int Y)> Pending,
+        IReadOnlyList<(int X, int Y)> Committed,
+        IReadOnlyDictionary<(int X, int Y), List<(int X, int Y)>> Candidates,
+        IReadOnlyDictionary<int, int> Stats);
+
+    /// <summary>
+    /// Read the complete client-side ritual-line state from the active Atlas node-list canvas.
+    /// Candidate ordering is preserved because its index is part of the deterministic reward seed.
+    /// </summary>
+    public bool TryReadRitualLine(out RitualLineSnapshot snapshot)
+    {
+        snapshot = new RitualLineSnapshot(
+            0,
+            Array.Empty<(int, int)>(),
+            Array.Empty<(int, int)>(),
+            new Dictionary<(int, int), List<(int, int)>>(),
+            new Dictionary<int, int>());
+
+        lock (_nodeLock)
+        {
+            var panel = _nodeCanvas;
+            if (panel == 0 || !HierarchicallyVisible(panel))
+                return false;
+            if (!_reader.TryReadStruct<byte>(panel + Poe2.AtlasGraph.RitualPanelLineMode, out var mode)
+                || mode != Poe2.AtlasGraph.RitualLineModeValue)
+                return false;
+            if (!_reader.TryReadStruct<uint>(panel + Poe2.AtlasGraph.RitualPanelLineId, out var lineId))
+                return false;
+
+            var pending = ReadRitualGridVector(panel + Poe2.AtlasGraph.RitualPanelPendingVec);
+            var committed = ReadRitualGridVector(panel + Poe2.AtlasGraph.RitualPanelCommittedVec);
+            var candidates = ReadRitualCandidateTable(panel);
+            if (candidates.Count == 0)
+                return false;
+            var stats = ReadRitualStats(panel);
+            snapshot = new RitualLineSnapshot(lineId, pending, committed, candidates, stats);
+            return true;
+        }
+    }
+
+    private List<(int X, int Y)> ReadRitualGridVector(nint vecAddress)
+    {
+        var result = new List<(int, int)>();
+        if (!_reader.TryReadStruct<nint>(vecAddress, out var first) || first == 0) return result;
+        if (!_reader.TryReadStruct<nint>(vecAddress + 8, out var last) || last == 0) return result;
+        var bytes = (long)last - (long)first;
+        if (bytes <= 0 || bytes % 8 != 0 || bytes > 8 * 64L) return result;
+        var buffer = new byte[(int)bytes];
+        if (_reader.TryReadBytes(first, buffer) < buffer.Length) return result;
+        for (var offset = 0; offset < buffer.Length; offset += 8)
+            result.Add((BitConverter.ToInt32(buffer, offset), BitConverter.ToInt32(buffer, offset + 4)));
+        return result;
+    }
+
+    private Dictionary<(int X, int Y), List<(int X, int Y)>> ReadRitualCandidateTable(nint panel)
+    {
+        var result = new Dictionary<(int, int), List<(int, int)>>();
+        if (!_reader.TryReadStruct<nint>(panel + Poe2.AtlasGraph.RitualCandTableBegin, out var begin)
+            || !_reader.TryReadStruct<nint>(panel + Poe2.AtlasGraph.RitualCandTableEnd, out var end)
+            || begin == 0 || end == 0)
+            return result;
+        if (begin == _ritualCandidateBegin
+            && end == _ritualCandidateEnd
+            && _ritualCandidateCache.Count > 0)
+            return _ritualCandidateCache;
+        var bytes = (long)end - (long)begin;
+        var stride = Poe2.AtlasGraph.RitualCandEntryStride;
+        if (bytes <= 0 || bytes % stride != 0 || bytes > stride * 65_536L)
+            return result;
+        var buffer = new byte[(int)bytes];
+        if (_reader.TryReadBytes(begin, buffer) < buffer.Length)
+            return result;
+
+        var anyCandidates = false;
+        for (var offset = 0; offset < buffer.Length; offset += stride)
+        {
+            var node = (BitConverter.ToInt32(buffer, offset), BitConverter.ToInt32(buffer, offset + 4));
+            if (!IsSaneAtlasGrid(node.Item1, node.Item2)) continue;
+            var candidates = new List<(int, int)>(5);
+            for (var index = 0; index < 5; index++)
+            {
+                var candidateOffset = offset + 8 + index * 12;
+                var candidate = (
+                    BitConverter.ToInt32(buffer, candidateOffset),
+                    BitConverter.ToInt32(buffer, candidateOffset + 4));
+                if (candidate == (0, 0) || !IsSaneAtlasGrid(candidate.Item1, candidate.Item2))
+                    continue;
+                candidates.Add(candidate);
+            }
+            anyCandidates |= candidates.Count > 0;
+            result[node] = candidates;
+        }
+        if (!anyCandidates)
+            return new Dictionary<(int, int), List<(int, int)>>();
+        _ritualCandidateBegin = begin;
+        _ritualCandidateEnd = end;
+        _ritualCandidateCache = result;
+        return _ritualCandidateCache;
+    }
+
+    private Dictionary<int, int> ReadRitualStats(nint panel)
+    {
+        var result = new Dictionary<int, int>();
+        var root = Ptr(panel + Poe2.AtlasGraph.RitualStatsRoot);
+        var next = root == 0 ? 0 : Ptr(root + Poe2.AtlasGraph.RitualStatsRootNext);
+        var holder = next == 0 ? 0 : Ptr(next + Poe2.AtlasGraph.RitualStatsHolder);
+        if (holder == 0) return result;
+        if (!_reader.TryReadStruct<nint>(holder + Poe2.AtlasGraph.RitualStatsVec, out var begin)
+            || !_reader.TryReadStruct<nint>(holder + Poe2.AtlasGraph.RitualStatsVec + 8, out var end)
+            || begin == 0 || end == 0)
+            return result;
+        var bytes = (long)end - (long)begin;
+        var stride = Poe2.AtlasGraph.RitualStatsEntryStride;
+        if (bytes <= 0 || bytes % stride != 0 || bytes > stride * 8192L)
+            return result;
+        var buffer = new byte[(int)bytes];
+        if (_reader.TryReadBytes(begin, buffer) < buffer.Length)
+            return result;
+        for (var offset = 0; offset < buffer.Length; offset += stride)
+        {
+            var id = BitConverter.ToInt32(buffer, offset + Poe2.AtlasGraph.RitualStatsId);
+            var value = BitConverter.ToInt32(buffer, offset + Poe2.AtlasGraph.RitualStatsValue);
+            if (value != 0)
+                result[id] = value;
+        }
+        return result;
+    }
+
     /// <summary>True if the given grid coord is a vertex in the connection graph (has ≥1 edge). Diagnostic —
     /// a node with no edges can't be a route endpoint.</summary>
     public bool GraphHas((int, int) grid) { lock (_nodeLock) return _graph.ContainsKey(grid); }
+
+    /// <summary>Neighbors of a grid cell in the atlas connection graph (empty if unknown).</summary>
+    public bool TryGetNeighbors(int gridX, int gridY, out IReadOnlyList<(int X, int Y)> neighbors)
+    {
+        lock (_nodeLock)
+        {
+            if (_graph.TryGetValue((gridX, gridY), out var list) && list.Count > 0)
+            {
+                neighbors = list;
+                return true;
+            }
+        }
+        neighbors = Array.Empty<(int, int)>();
+        return false;
+    }
 
     public List<(int X, int Y)>? FindPath((int X, int Y) start, (int X, int Y) goal)
     {
@@ -781,6 +1031,19 @@ public sealed class Poe2Atlas
             if (!_graph.ContainsKey(goal)) return null;
             return MultiSourceShortestPath(_graph, starts, goal);
         }
+    }
+
+    /// <summary>
+    /// Resolve many destinations from one accessible frontier with a single BFS. <paramref name="noPass"/>
+    /// nodes may be destinations but are never sources or expanded, matching Atlas2's routing exclusions.
+    /// </summary>
+    public Dictionary<(int X, int Y), List<(int X, int Y)>> FindPathsFromAccessible(
+        IEnumerable<(int X, int Y)> starts,
+        IEnumerable<(int X, int Y)> goals,
+        IReadOnlySet<(int X, int Y)>? noPass = null)
+    {
+        lock (_nodeLock)
+            return MultiSourceShortestPaths(_graph, starts, goals, noPass);
     }
 
     private static List<(int X, int Y)>? FindPathOnGraph(
@@ -825,28 +1088,43 @@ public sealed class Poe2Atlas
         IEnumerable<(int X, int Y)> starts,
         (int X, int Y) goal)
     {
-        if (!graph.ContainsKey(goal)) return null;
+        var paths = MultiSourceShortestPaths(graph, starts, [goal]);
+        return paths.TryGetValue(goal, out var path) ? path : null;
+    }
+
+    public static Dictionary<(int X, int Y), List<(int X, int Y)>> MultiSourceShortestPaths(
+        IReadOnlyDictionary<(int X, int Y), List<(int X, int Y)>> graph,
+        IEnumerable<(int X, int Y)> starts,
+        IEnumerable<(int X, int Y)> goals,
+        IReadOnlySet<(int X, int Y)>? noPass = null)
+    {
+        noPass ??= new HashSet<(int, int)>();
+        var wanted = goals.Where(graph.ContainsKey).ToHashSet();
+        var result = new Dictionary<(int, int), List<(int, int)>>();
+        if (wanted.Count == 0) return result;
         var queue = new Queue<(int X, int Y)>();
         var seen = new HashSet<(int X, int Y)>();
         var cameFrom = new Dictionary<(int X, int Y), (int X, int Y)>();
 
         foreach (var s in starts)
         {
-            if (!graph.ContainsKey(s) || !seen.Add(s)) continue;
+            if (!graph.ContainsKey(s) || noPass.Contains(s) || !seen.Add(s)) continue;
             queue.Enqueue(s);
-            if (s == goal) return new List<(int X, int Y)> { s };
+            if (wanted.Remove(s))
+                result[s] = [s];
         }
-        if (queue.Count == 0) return null;
+        if (queue.Count == 0 || wanted.Count == 0) return result;
 
-        while (queue.Count > 0)
+        while (queue.Count > 0 && wanted.Count > 0)
         {
             var cur = queue.Dequeue();
+            if (noPass.Contains(cur)) continue;
             if (!graph.TryGetValue(cur, out var neighbours)) continue;
             foreach (var nb in neighbours)
             {
                 if (!seen.Add(nb)) continue;
                 cameFrom[nb] = cur;
-                if (nb == goal)
+                if (wanted.Remove(nb))
                 {
                     var path = new List<(int X, int Y)> { nb };
                     var p = nb;
@@ -856,12 +1134,13 @@ public sealed class Poe2Atlas
                         path.Add(p);
                     }
                     path.Reverse();
-                    return path;
+                    result[nb] = path;
+                    if (wanted.Count == 0) break;
                 }
                 queue.Enqueue(nb);
             }
         }
-        return null;
+        return result;
     }
 
     /// <summary>Resolve a node's content TAGS (display names) via its EndgameMapAtlas row (+0x310):
@@ -880,8 +1159,8 @@ public sealed class Poe2Atlas
         {
             var w = Ptr(mapRow);
             var code = w != 0 ? _reader.ReadStringUtf16(w, 64) : "";
-            if (!code.StartsWith("Map", StringComparison.Ordinal)) { var w2 = Ptr(w); code = w2 != 0 ? _reader.ReadStringUtf16(w2, 64) : code; }
-            if (code.StartsWith("Map", StringComparison.Ordinal))
+            if (!IsAtlasAreaCode(code)) { var w2 = Ptr(w); code = w2 != 0 ? _reader.ReadStringUtf16(w2, 64) : code; }
+            if (IsAtlasAreaCode(code))
             {
                 mapCode = code;
                 map = AtlasCatalog.Shared.MapName(code);
@@ -1154,7 +1433,8 @@ public sealed class Poe2Atlas
                 if (!TryReadAtlasNodeIdentity(el, out _, out _, out var w, out _, out var data))
                     continue;
                 valid++;
-                biomes.Add(data.Biome);
+                var biome = ReadNodeBiomeForDetect(el, data);
+                if (biome <= 12) biomes.Add(biome);
                 var iw = (int)w;
                 widths[iw] = widths.GetValueOrDefault(iw) + 1;
             }
@@ -1290,8 +1570,8 @@ public sealed class Poe2Atlas
         foreach (var node in nodes.Take(400))
         {
             var data = ReadNodeData(node);
-            if (data.Resolved && data.Biome <= 12)
-                biomes.Add(data.Biome);
+            var biome = ReadNodeBiomeForDetect(node, data);
+            if (biome <= 12) biomes.Add(biome);
         }
         return biomes.Count;
     }

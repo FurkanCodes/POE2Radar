@@ -590,6 +590,31 @@ public static class Poe2
         /// "the lone non-node element whose +0x300 ∈ node set". <c>currentNode = *(marker + 0x300)</c>, then
         /// read the node's <see cref="AtlasNode.GridPos"/>. Re-discover with <c>--atlas-marker</c>.</summary>
         public const int CurrentMarkerNodePtr = 0x300;
+
+        // Ritual atlas line (Atlas2 / yokkenUA) — fields on the node-list / panel container.
+        // Re-validate with Research after patches; values from GameHelper Atlas2 RitualFeatures.
+        public const int RitualPanelLineMode = 0x637; // u8 — page mode 6 = ritual line
+        public const int RitualPanelLineId = 0x63C;   // u32 TinyMT seed word 0
+        public const int RitualPanelPendingVec = 0x648;
+        public const int RitualPanelCommittedVec = 0x660;
+        public const int RitualCandTableBegin = 0x590;
+        public const int RitualCandTableEnd = 0x598;
+        public const int RitualCandEntryStride = 0x44;
+        public const byte RitualLineModeValue = 6;
+        public const int RitualStatsRoot = 0x320;
+        public const int RitualStatsRootNext = 0x1B0;
+        public const int RitualStatsHolder = 0x3A20;
+        public const int RitualStatsVec = 0x408;
+        public const int RitualStatsEntryStride = 0x28;
+        public const int RitualStatsId = 0x00;
+        public const int RitualStatsValue = 0x08;
+
+        // Atlas region buttons (GameHelper ImportantUiElements). These are non-node children of the
+        // node canvas. Ocean row 2 drives the Uncharted Waters ship/leyline overlay.
+        public const int RegionButtonRowPtr = 0x320;
+        public const int RegionButtonGrid = 0x330;
+        public const int RegionButtonRowIndex = 0x338;
+        public const int OceanRegionButtonRow = 2;
     }
 
     /// <summary>Atlas screen panel — a PERSISTENT direct child of UiRoot (the element at

@@ -21,6 +21,7 @@
     <EmbeddedResource Include="Game\Resources\atlas_biome.json" />
     <EmbeddedResource Include="Game\Resources\atlas_mapcontent.json" />
     <EmbeddedResource Include="Game\Resources\atlas_maps.json" />
+    <EmbeddedResource Include="Game\Resources\atlas2_ritualmods.json" />
   </ItemGroup>
 
 </Project>

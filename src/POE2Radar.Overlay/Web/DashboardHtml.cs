@@ -91,6 +91,10 @@ internal static class DashboardHtml
         .Replace("{{H.AtlasPathToArbiterMaps}}", H(SettingHints.Atlas.PathToArbiterMaps))
         .Replace("{{H.AtlasAnchorNudgeY}}", H(SettingHints.Atlas.AnchorNudgeY))
         .Replace("{{H.AtlasScaleMultiplier}}", H(SettingHints.Atlas.ScaleMultiplier))
+        .Replace("{{H.AtlasShowIslandRumours}}", H(SettingHints.Atlas.ShowIslandRumours))
+        .Replace("{{H.AtlasShowIslandRumourBadges}}", H(SettingHints.Atlas.ShowIslandRumourBadges))
+        .Replace("{{H.AtlasIslandRumourPriorityFilter}}", H(SettingHints.Atlas.IslandRumourPriorityFilter))
+        .Replace("{{H.AtlasIslandRumourPriorityColor}}", H(SettingHints.Atlas.IslandRumourPriorityColor))
         .Replace("{{H.FlaskTriggerPool}}", H(SettingHints.Flask.TriggerPool))
         .Replace("{{H.FlaskLifeThreshold}}", H(SettingHints.Flask.LifeThreshold))
         .Replace("{{H.FlaskEsThreshold}}", H(SettingHints.Flask.EsThreshold))
@@ -769,6 +773,7 @@ internal static class DashboardHtml
                 <button class="chip on" id="atlasViewRegion" data-view="region">Region</button>
                 <button class="chip" id="atlasViewCatalog" data-view="catalog">Catalog</button>
                 <button class="chip" id="atlasViewNodes" data-view="nodes">Nodes</button>
+                <button class="chip" id="atlasViewRumours" data-view="rumours">Rumours</button>
                 <input type="search" id="atlasSearch" placeholder="search atlas data&hellip;" style="width:180px">
                 <input type="search" id="atlasHlFilter" placeholder="search filters&hellip;" style="width:200px">
                 <button class="chip" id="atlasHlSelOnly">Selected</button>
@@ -957,59 +962,27 @@ internal static class DashboardHtml
           <div class="settings-section panel-grid" id="setAtlas" hidden>
           <div class="card">
             <h3>Atlas overlay</h3>
-            <p class="hint-oneline">In-game atlas map drawing. Highlights are on the Atlas tab.</p>
-            <div class="row"><div class="rl" title="{{H.AtlasShowAllNodes}}">Show all on-screen nodes<small>when Track filters are active, only tracked nodes draw</small></div>
-              <label class="sw"><input type="checkbox" data-set="atlasShowOnScreenNodes"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AtlasShowNames}}">Show map names<small>label on-screen tiles with map name</small></div>
-              <label class="sw"><input type="checkbox" data-set="atlasShowNames"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AtlasRevealFog}}">Reveal fog<small>draw fogged nodes at full opacity with a cool tint</small></div>
-              <label class="sw"><input type="checkbox" data-set="atlasRevealFog"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AtlasOffScreenArrows}}">Off-screen arrows<small>edge arrows for arrow-tagged highlights (e.g. Citadels)</small></div>
-              <label class="sw"><input type="checkbox" data-set="atlasOffScreenArrows"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AtlasShowRoute}}">Show F10 route<small>draw path through the atlas node graph</small></div>
-              <label class="sw"><input type="checkbox" data-set="atlasShowRoute"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AtlasRouteFromCurrent}}">Route from current tile<small>when no F10 start is set, use your live atlas position</small></div>
-              <label class="sw"><input type="checkbox" data-set="atlasUseCurrentStart"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AtlasSearchQuery}}">Search query<small>comma-separated map/content search; routes matches</small></div>
+            <p class="hint-oneline">Simple Atlas: every memory node, search to highlight + path. Open the atlas in-game.</p>
+            <div class="row"><div class="rl" title="{{H.AtlasSearchQuery}}">Search<small>loose words ok (e.g. Moor skies); comma = OR</small></div>
               <input class="numin" type="text" data-set="atlasSearchQuery" style="width:220px"></div>
+            <div class="row"><div class="rl" title="{{H.AtlasShowNames}}">Show map names</div>
+              <label class="sw"><input type="checkbox" data-set="atlasShowNames"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.AtlasHideCompleted}}">Hide completed maps</div>
               <label class="sw"><input type="checkbox" data-set="atlasHideCompletedMaps"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AtlasHideNotAccessible}}">Hide inaccessible maps</div>
-              <label class="sw"><input type="checkbox" data-set="atlasHideNotAccessibleMaps"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AtlasHideAvailable}}">Hide available maps</div>
-              <label class="sw"><input type="checkbox" data-set="atlasHideAvailableMaps"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AtlasBiomeBorders}}">Biome borders</div>
-              <label class="sw"><input type="checkbox" data-set="atlasShowBiomeBorders"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AtlasContentBadges}}">Content badges</div>
-              <label class="sw"><input type="checkbox" data-set="atlasShowContentBadges"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AtlasContentCount}}">Content count pips</div>
-              <label class="sw"><input type="checkbox" data-set="atlasShowContentCount"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AtlasRouteChevrons}}">Route chevrons</div>
-              <label class="sw"><input type="checkbox" data-set="atlasShowRouteChevrons"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.AtlasIconScale}}">Atlas icon scale</div>
               <input class="numin" type="number" step="0.05" min="0.25" max="4" data-set="atlasIconScale"></div>
             <div class="row"><div class="rl" title="{{H.AtlasLabelScale}}">Atlas label scale</div>
               <input class="numin" type="number" step="0.05" min="0.5" max="3" data-set="atlasLabelScale"></div>
-            <div class="row"><div class="rl" title="{{H.AtlasRouteThickness}}">Route thickness</div>
-              <input class="numin" type="number" step="0.5" min="1" max="8" data-set="atlasRouteLineThickness"></div>
-            <div class="row"><div class="rl" title="{{H.AtlasChevronSpacing}}">Chevron spacing</div>
-              <input class="numin" type="number" step="1" min="1" max="16" data-set="atlasRouteChevronSpacing"></div>
-            <div class="row"><div class="rl" title="{{H.AtlasShowNodeSprites}}">Node sprites</div>
-              <label class="sw"><input type="checkbox" data-set="atlasShowNodeSprites"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AtlasDrawLinesSearchQuery}}">Route search matches</div>
-              <label class="sw"><input type="checkbox" data-set="atlasDrawLinesSearchQuery"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AtlasDrawLinesToUniqueMaps}}">Route unique maps</div>
-              <label class="sw"><input type="checkbox" data-set="atlasDrawLinesToUniqueMaps"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AtlasPathToLineageMaps}}">Route lineage maps</div>
-              <label class="sw"><input type="checkbox" data-set="atlasPathToLineageMaps"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AtlasPathToArbiterMaps}}">Route arbiter maps</div>
-              <label class="sw"><input type="checkbox" data-set="atlasPathToArbiterMaps"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.AtlasAnchorNudgeY}}">Label nudge Y</div>
-              <input class="numin" type="number" step="1" min="-80" max="120" data-set="atlasAnchorNudgeY"></div>
-            <div class="row"><div class="rl" title="{{H.AtlasScaleMultiplier}}">UI scale</div>
-              <input class="numin" type="number" step="0.05" min="0.5" max="4" data-set="atlasScaleMultiplier"></div>
-            <div class="row"><div class="rl" title="{{H.AtlasLanguage}}">Atlas language<small>content name translations from catalog</small></div>
+            <div class="row"><div class="rl" title="{{H.AtlasLanguage}}">Atlas language<small>map name translations</small></div>
               <input class="numin" type="text" data-set="atlasLanguage" style="width:150px"></div>
+            <div class="row"><div class="rl" title="{{H.AtlasShowIslandRumours}}">All Island Rumours + Tiers<small>complete ship manifest on hover; opt-in</small></div>
+              <label class="sw"><input type="checkbox" data-set="atlasShowIslandRumours"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl" title="{{H.AtlasShowIslandRumourBadges}}">Island-count badges</div>
+              <label class="sw"><input type="checkbox" data-set="atlasShowIslandRumourBadges"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl" title="{{H.AtlasIslandRumourPriorityFilter}}">Priority rumours<small>| separated rumour or destination phrases</small></div>
+              <input class="numin" type="text" data-set="atlasIslandRumourPriorityFilter" style="width:260px"></div>
+            <div class="row"><div class="rl" title="{{H.AtlasIslandRumourPriorityColor}}">Priority color</div>
+              <input class="numin" type="text" data-set="atlasIslandRumourPriorityColor" maxlength="7" style="width:100px"></div>
           </div>
           </div>
           <div class="settings-section panel-grid" id="setFlask" hidden>
@@ -2290,6 +2263,7 @@ function renderAtlas(){
   const f=($('#atlasSearch')?.value||'').trim().toLowerCase();
   if(atlasView==='catalog') renderAtlasCatalog(d,f);
   else if(atlasView==='nodes') renderAtlasNodes(d,f);
+  else if(atlasView==='rumours') renderAtlasRumours(d,f);
   else renderAtlasRegion(d,f);
 }
 // Biome index → friendly-ish label (best-effort; index is the ground truth).
@@ -2428,11 +2402,41 @@ function renderAtlasRegion(d, f){
   $('#atlasList').innerHTML=head+body;
 }
 
+function renderAtlasRumours(d, f){
+  let list=(d.islandRumours||[]).slice();
+  if(f) list=list.filter(m=>
+    ('ship '+m.chunkX+','+m.chunkY).includes(f)
+    || (m.rows||[]).some(r=>
+      (r.rumour||'').toLowerCase().includes(f)
+      || (r.destination||'').toLowerCase().includes(f)
+      || (r.kind||'').toLowerCase().includes(f)
+      || (r.tier||'').toLowerCase().includes(f)
+      || (r.summary||'').toLowerCase().includes(f)));
+  list.sort((a,b)=>(Number(b.priority)-Number(a.priority))||(b.total-a.total)||(a.chunkX-b.chunkX)||(a.chunkY-b.chunkY));
+  if(list.length===0){
+    $('#atlasList').innerHTML='<div class="hint-row" style="padding:8px">No Island Rumours cached yet. Enable All Island Rumours + Tiers in Settings, then open the Atlas.</div>';
+    return;
+  }
+  const grid='display:grid;grid-template-columns:130px 65px minmax(230px,1.1fr) minmax(260px,1fr);gap:10px;align-items:start;padding:7px 10px';
+  const head='<div style="'+grid+';position:sticky;top:0;background:var(--panel,#1a1a1a);border-bottom:1px solid var(--line);font-weight:600;font-size:11px;text-transform:uppercase;opacity:.75">'
+    +'<span>Ship chunk</span><span>Total</span><span>Rumour → destination</span><span>What is there</span></div>';
+  const body=list.map(m=>{
+    const rows=m.rows||[];
+    const names=rows.map(r=>'<div style="margin-bottom:5px"><b style="color:'+esc(r.tierColor||'#8a93a0')+'">['+esc(r.tier||'?')+']</b> <span style="color:'+esc(r.color||'#8a93a0')+'">'+esc(r.rumour||'')+'</span>'
+      +(r.count>1?' <b>×'+r.count+'</b>':'')+' → <b>'+esc(r.destination||'')+'</b></div>').join('');
+    const details=rows.map(r=>'<div style="margin-bottom:5px"><span class="ntag tc">Tier '+esc(r.tier||'?')+'</span> <span class="ntag tc">'+esc(r.kind||'')+'</span> '+esc(r.summary||'')+'</div>').join('');
+    return '<div style="'+grid+';border-bottom:1px solid var(--line);'+(m.priority?'background:rgba(255,209,102,.08)':'')+'">'
+      +'<span>'+(m.priority?'★ ':'')+'('+m.chunkX+', '+m.chunkY+')</span>'
+      +'<span class="amono"><b>'+m.total+'</b></span><span>'+names+'</span><span>'+details+'</span></div>';
+  }).join('');
+  $('#atlasList').innerHTML=head+body;
+}
+
 $('#atlasRefresh')?.addEventListener('click',loadAtlas);
 $('#atlasSearch')?.addEventListener('input',()=>{ if(atlasData) renderAtlas(); });
-$$('#atlasViewCatalog,#atlasViewRegion,#atlasViewNodes').forEach(b=>b?.addEventListener('click',()=>{
+$$('#atlasViewCatalog,#atlasViewRegion,#atlasViewNodes,#atlasViewRumours').forEach(b=>b?.addEventListener('click',()=>{
   atlasView=b.dataset.view;
-  $$('#atlasViewCatalog,#atlasViewRegion,#atlasViewNodes').forEach(x=>x.classList.toggle('on',x===b));
+  $$('#atlasViewCatalog,#atlasViewRegion,#atlasViewNodes,#atlasViewRumours').forEach(x=>x.classList.toggle('on',x===b));
   renderAtlas();
 }));
 
