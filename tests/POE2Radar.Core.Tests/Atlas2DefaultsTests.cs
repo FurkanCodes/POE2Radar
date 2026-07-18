@@ -94,22 +94,17 @@ public class Atlas2DefaultsTests
 
         var primary = Assert.Single(manifests, manifest => manifest.ChunkX == 4 && manifest.ChunkY == -3);
         Assert.Equal(3, primary.TotalIslands);
-        Assert.Collection(
+        Assert.True(primary.HasMoorOfFallenSkies);
+        var castaway = Assert.Single(primary.Rows, row => row.Definition.Destination == "Castaway");
+        Assert.Equal("All that glitters...", castaway.Definition.Rumour);
+        Assert.Equal("A", castaway.Definition.Tier);
+        Assert.Equal(1, castaway.Count);
+        var fallenSkies = Assert.Single(
             primary.Rows,
-            row =>
-            {
-                Assert.Equal("All that glitters...", row.Definition.Rumour);
-                Assert.Equal("Castaway", row.Definition.Destination);
-                Assert.Equal("A", row.Definition.Tier);
-                Assert.Equal(1, row.Count);
-            },
-            row =>
-            {
-                Assert.Equal("Fallen stars...", row.Definition.Rumour);
-                Assert.Equal("Moor of Fallen Skies", row.Definition.Destination);
-                Assert.Equal("S+", row.Definition.Tier);
-                Assert.Equal(2, row.Count);
-            });
+            row => row.Definition.Destination == "Moor of Fallen Skies");
+        Assert.Equal("Fallen stars...", fallenSkies.Definition.Rumour);
+        Assert.Equal("S+", fallenSkies.Definition.Tier);
+        Assert.Equal(2, fallenSkies.Count);
         Assert.DoesNotContain(primary.Rows, row => row.Definition.Destination == "Steppe");
     }
 
@@ -126,7 +121,22 @@ public class Atlas2DefaultsTests
         {
             Assert.False(string.IsNullOrWhiteSpace(definition.Tier));
             Assert.Matches("^#[0-9A-Fa-f]{6}$", definition.TierColor);
+            Assert.False(string.IsNullOrWhiteSpace(definition.Preparation.Investment));
+            Assert.False(string.IsNullOrWhiteSpace(definition.Preparation.Tablets));
+            Assert.False(string.IsNullOrWhiteSpace(definition.Preparation.Waystone));
         });
+        var moor = Assert.Single(AtlasIslandRumours.Definitions, definition => definition.IsMoorPriority);
+        Assert.Equal("Moor of Fallen Skies", moor.Destination);
+        Assert.Equal("MAX JUICE", moor.Preparation.Investment);
+        Assert.Matches("^#[0-9A-Fa-f]{6}$", AtlasIslandRumours.MoorPriorityColor);
+        Assert.True(AtlasIslandRumours.TryGetDefinition("Grazed Prairie", out var warm));
+        Assert.Equal("Warm but risky...", warm.Rumour);
+        Assert.Equal("B", warm.Tier);
+        Assert.Contains("Experience", warm.Summary);
+        Assert.True(AtlasIslandRumours.TryGetDefinition("Lush Isle", out var wild));
+        Assert.Equal("Wild roaming free...", wild.Rumour);
+        Assert.Equal("D", wild.Tier);
+        Assert.Contains("Azmeri", wild.Summary);
         Assert.True(AtlasIslandRumours.TryGetDefinition("Exhumed Ruins", out var exhumed));
         Assert.Equal("Unknown ruins...", exhumed.Rumour);
         Assert.Equal("B", exhumed.Tier);

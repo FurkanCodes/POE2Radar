@@ -2411,23 +2411,30 @@ function renderAtlasRumours(d, f){
       || (r.destination||'').toLowerCase().includes(f)
       || (r.kind||'').toLowerCase().includes(f)
       || (r.tier||'').toLowerCase().includes(f)
-      || (r.summary||'').toLowerCase().includes(f)));
-  list.sort((a,b)=>(Number(b.priority)-Number(a.priority))||(b.total-a.total)||(a.chunkX-b.chunkX)||(a.chunkY-b.chunkY));
+      || (r.summary||'').toLowerCase().includes(f)
+      || (r.prep||'').toLowerCase().includes(f)
+      || (r.tablets||'').toLowerCase().includes(f)
+      || (r.waystone||'').toLowerCase().includes(f)));
+  list.sort((a,b)=>(Number(b.hasMoor)-Number(a.hasMoor))||(Number(b.priority)-Number(a.priority))||(b.total-a.total)||(a.chunkX-b.chunkX)||(a.chunkY-b.chunkY));
   if(list.length===0){
     $('#atlasList').innerHTML='<div class="hint-row" style="padding:8px">No Island Rumours cached yet. Enable All Island Rumours + Tiers in Settings, then open the Atlas.</div>';
     return;
   }
-  const grid='display:grid;grid-template-columns:130px 65px minmax(230px,1.1fr) minmax(260px,1fr);gap:10px;align-items:start;padding:7px 10px';
+  const grid='display:grid;grid-template-columns:130px 65px minmax(230px,1.05fr) minmax(240px,.95fr) minmax(340px,1.4fr);gap:10px;align-items:start;padding:7px 10px';
   const head='<div style="'+grid+';position:sticky;top:0;background:var(--panel,#1a1a1a);border-bottom:1px solid var(--line);font-weight:600;font-size:11px;text-transform:uppercase;opacity:.75">'
-    +'<span>Ship chunk</span><span>Total</span><span>Rumour → destination</span><span>What is there</span></div>';
+    +'<span>Ship chunk</span><span>Total</span><span>Rumour → destination</span><span>What is there</span><span>Tablet + Waystone prep</span></div>';
   const body=list.map(m=>{
     const rows=m.rows||[];
-    const names=rows.map(r=>'<div style="margin-bottom:5px"><b style="color:'+esc(r.tierColor||'#8a93a0')+'">['+esc(r.tier||'?')+']</b> <span style="color:'+esc(r.color||'#8a93a0')+'">'+esc(r.rumour||'')+'</span>'
+    const names=rows.map(r=>'<div style="margin-bottom:5px;'+(r.isMoor?'border-left:3px solid #FF2FD0;padding-left:6px':'')+'"><b style="color:'+(r.isMoor?'#FF2FD0':esc(r.tierColor||'#8a93a0'))+'">['+esc(r.tier||'?')+']</b> <span style="color:'+esc(r.color||'#8a93a0')+'">'+esc(r.rumour||'')+'</span>'
       +(r.count>1?' <b>×'+r.count+'</b>':'')+' → <b>'+esc(r.destination||'')+'</b></div>').join('');
     const details=rows.map(r=>'<div style="margin-bottom:5px"><span class="ntag tc">Tier '+esc(r.tier||'?')+'</span> <span class="ntag tc">'+esc(r.kind||'')+'</span> '+esc(r.summary||'')+'</div>').join('');
-    return '<div style="'+grid+';border-bottom:1px solid var(--line);'+(m.priority?'background:rgba(255,209,102,.08)':'')+'">'
-      +'<span>'+(m.priority?'★ ':'')+'('+m.chunkX+', '+m.chunkY+')</span>'
-      +'<span class="amono"><b>'+m.total+'</b></span><span>'+names+'</span><span>'+details+'</span></div>';
+    const prep=rows.map(r=>'<div style="margin-bottom:8px"><b style="color:'+(r.isMoor?'#FF2FD0':'#6bdcff')+'">'+esc(r.prep||'')+'</b>'
+      +'<br><span class="hint-row">Tablet:</span> '+esc(r.tablets||'')
+      +'<br><span class="hint-row">Waystone:</span> '+esc(r.waystone||'')+'</div>').join('');
+    const rowBg=m.hasMoor?'background:rgba(255,47,208,.10);box-shadow:inset 4px 0 #FF2FD0':(m.priority?'background:rgba(255,209,102,.08)':'');
+    return '<div style="'+grid+';border-bottom:1px solid var(--line);'+rowBg+'">'
+      +'<span>'+(m.hasMoor?'<b style="color:#FF2FD0">S+ MOOR</b><br>':(m.priority?'★ ':''))+'('+m.chunkX+', '+m.chunkY+')</span>'
+      +'<span class="amono"><b>'+m.total+'</b></span><span>'+names+'</span><span>'+details+'</span><span>'+prep+'</span></div>';
   }).join('');
   $('#atlasList').innerHTML=head+body;
 }

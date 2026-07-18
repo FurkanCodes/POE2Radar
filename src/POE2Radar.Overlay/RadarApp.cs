@@ -2532,6 +2532,7 @@ public sealed partial class RadarApp : IDisposable
                 chunkY = manifest.ChunkY,
                 total = manifest.TotalIslands,
                 priority = _atlasIslandPriorityChunks?.Contains((manifest.ChunkX, manifest.ChunkY)) == true,
+                hasMoor = manifest.HasMoorOfFallenSkies,
                 rows = manifest.Rows.Select(row => new
                 {
                     rumour = row.Definition.Rumour,
@@ -2542,6 +2543,10 @@ public sealed partial class RadarApp : IDisposable
                     tierColor = row.Definition.TierColor,
                     color = row.Definition.Color,
                     count = row.Count,
+                    prep = row.Definition.Preparation.Investment,
+                    tablets = row.Definition.Preparation.Tablets,
+                    waystone = row.Definition.Preparation.Waystone,
+                    isMoor = row.Definition.IsMoorPriority,
                 }),
             }),
             nodes = new

@@ -134,11 +134,15 @@ public sealed partial class ImGuiRadarOverlay
         var priorityColor = ctx.AtlasShowIslandRumours
             ? ColorU32(ctx.AtlasIslandRumourPriorityColor, 0.98f)
             : 0u;
+        var moorColor = ctx.AtlasShowIslandRumours
+            ? ColorU32(AtlasIslandRumours.MoorPriorityColor, 1f)
+            : 0u;
         dl.ChannelsSetCurrent(AtlasChannelLabels);
         foreach (var ship in ships)
         {
             var c = new NumVec2(ship.ScreenX, ship.ScreenY);
             var h = MathF.Max(8f, ship.Size * uiScale);
+            var hasMoor = ship.Manifest?.HasMoorOfFallenSkies == true;
             var halfX = ship.HitWidth > 0f ? ship.HitWidth * 0.5f : h * 0.5f;
             var halfY = ship.HitHeight > 0f ? ship.HitHeight * 0.5f : h * 0.5f;
             if (ship.DrawIcon
@@ -161,8 +165,32 @@ public sealed partial class ImGuiRadarOverlay
                 if (ship.HitHeight <= 0f) halfY = r;
             }
 
-            if (ship.DrawIcon && ship.Priority)
+            if (ship.DrawIcon && hasMoor)
+            {
+                // Moor is the top farming target, so it gets an exclusive static double ring and label.
+                // This is derived from the cached manifest and adds no game-memory reads or animation.
+                dl.AddCircle(c, h * 0.68f, moorColor, 32, MathF.Max(2.5f, 3f * uiScale));
+                dl.AddCircle(c, h * 0.57f, ColorU32("#FFE66D", 0.98f), 32, MathF.Max(1.5f, 1.75f * uiScale));
+                const string moorLabel = "S+ MOOR";
+                var moorLabelSize = ImGui.CalcTextSize(moorLabel);
+                var moorLabelPadding = new NumVec2(5f, 2f) * uiScale;
+                var moorLabelPos = c + new NumVec2(-moorLabelSize.X * 0.5f, h * 0.56f);
+                dl.AddRectFilled(
+                    moorLabelPos - moorLabelPadding,
+                    moorLabelPos + moorLabelSize + moorLabelPadding,
+                    ColorU32("#100814", 0.96f),
+                    3f * uiScale);
+                dl.AddRect(
+                    moorLabelPos - moorLabelPadding,
+                    moorLabelPos + moorLabelSize + moorLabelPadding,
+                    moorColor,
+                    3f * uiScale);
+                dl.AddText(moorLabelPos, moorColor, moorLabel);
+            }
+            else if (ship.DrawIcon && ship.Priority)
+            {
                 dl.AddCircle(c, h * 0.58f, priorityColor, 24, MathF.Max(2f, 2.5f * uiScale));
+            }
 
             if (ship.DrawIcon
                 && ctx.AtlasShowIslandRumourBadges
@@ -170,9 +198,11 @@ public sealed partial class ImGuiRadarOverlay
             {
                 var badgeRadius = MathF.Max(8f, 9f * uiScale);
                 var badgeCenter = c + new NumVec2(h * 0.42f, -h * 0.36f);
-                var badgeColor = ship.Priority
-                    ? priorityColor
-                    : ColorU32(ctx.AtlasUnchartedLeylineColor, 0.98f);
+                var badgeColor = hasMoor
+                    ? moorColor
+                    : ship.Priority
+                        ? priorityColor
+                        : ColorU32(ctx.AtlasUnchartedLeylineColor, 0.98f);
                 dl.AddCircleFilled(badgeCenter, badgeRadius, ColorU32("#08111C", 0.96f), 16);
                 dl.AddCircle(badgeCenter, badgeRadius, badgeColor, 16, MathF.Max(1f, 1.5f * uiScale));
                 var fontSize = ImGui.GetFontSize();
@@ -230,6 +260,11 @@ public sealed partial class ImGuiRadarOverlay
                 $"[{row.Definition.Tier}] {row.TitleLine}");
             ImGui.TextDisabled(row.TierLine);
             ImGui.TextWrapped(row.DetailLine);
+            ImGui.TextColored(
+                new System.Numerics.Vector4(0.42f, 0.86f, 1f, 1f),
+                row.PreparationLine);
+            ImGui.TextWrapped($"Tablet: {row.Definition.Preparation.Tablets}");
+            ImGui.TextWrapped($"Waystone: {row.Definition.Preparation.Waystone}");
             if (!ReferenceEquals(row, manifest.Rows[^1]))
                 ImGui.Spacing();
         }
@@ -421,7 +456,11 @@ public sealed partial class ImGuiRadarOverlay
         {
             SetAtlasHoverTooltip(
                 $"{mapName} — Tier {island.Tier}",
-                $"{island.Rumour}\n{island.Kind}\n{island.Summary}\n\nCommunity farming tier; values can shift with the economy.");
+                $"{island.Rumour}\n{island.Kind}\n{island.Summary}\n\n"
+                + $"PREP: {island.Preparation.Investment}\n"
+                + $"Tablet: {island.Preparation.Tablets}\n"
+                + $"Waystone: {island.Preparation.Waystone}\n\n"
+                + "Community farming tier and preparation advice; values can shift with balance and the economy.");
         }
 
         if (n.RouteHops > 0)
