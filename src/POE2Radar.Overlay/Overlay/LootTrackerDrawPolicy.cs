@@ -45,6 +45,6 @@ internal static class LootTrackerDrawPolicy
     {
         if (!viewEnabled || !settingsEnabled)
             return LootTrackerBarMode.None;
-        return onMap ? LootTrackerBarMode.Map : LootTrackerBarMode.Compact;
+        return onMap ? LootTrackerBarMode.Compact : LootTrackerBarMode.None;
     }
 }

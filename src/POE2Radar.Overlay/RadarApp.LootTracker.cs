@@ -102,7 +102,7 @@ public sealed partial class RadarApp
         }
 
         var now = DateTime.UtcNow;
-        var onMap = IsLootTrackerMapArea(snap.AreaCode, snap.AreaLevel, snap.AreaHash);
+        var onMap = IsLootTrackerRunArea(snap.AreaCode, snap.AreaLevel, snap.AreaHash);
         if (!onMap)
         {
             PauseLootTracker();
@@ -809,13 +809,14 @@ public sealed partial class RadarApp
         return false;
     }
 
-    private static bool IsLootTrackerMapArea(string areaCode, int areaLevel, uint areaHash)
+    internal static bool IsLootTrackerRunArea(string areaCode, int areaLevel, uint areaHash)
     {
         if (areaHash == 0) return false;
         if (string.IsNullOrWhiteSpace(areaCode)) return false;
+        if (ZoneGuide.Shared.Area(areaCode) is { Town: true }) return false;
         if (areaCode.Contains("town", StringComparison.OrdinalIgnoreCase)) return false;
         if (areaCode.Contains("hideout", StringComparison.OrdinalIgnoreCase)) return false;
-        return areaCode.StartsWith("Map", StringComparison.Ordinal);
+        return true;
     }
 
     private static string FriendlyLootAreaName(string areaCode)

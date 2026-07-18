@@ -1434,6 +1434,8 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             lt.Enabled,
             _settings.LootTracker.Enabled,
             lt.OnMap);
+        if (barMode == LootTrackerBarMode.None)
+            return;
 
         if (_settings.LootTracker.ShowPickupToasts && lt.Toasts is { Length: > 0 })
             DrawLootTrackerToasts(ctx, lt);
