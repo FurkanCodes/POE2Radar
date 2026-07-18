@@ -167,7 +167,15 @@ public sealed partial class RadarApp
         var hash = snap.AreaHash.ToString("X8");
         if (_lootCurrent?.Hash == hash) return;
 
-        PauseLootTracker();
+        var latestHash = _lootCurrent?.Hash
+                         ?? (_lootCompleted.Count > 0 ? _lootCompleted[^1].Hash : null);
+        if (ShouldResetLootSessionForMap(
+                hasSession: _lootCurrent != null || _lootCompleted.Count > 0,
+                latestHash,
+                hash))
+            StartNewLootTrackerSession();
+        else
+            PauseLootTracker();
 
         var existingIndex = _lootCompleted.FindIndex(r => string.Equals(r.Hash, hash, StringComparison.Ordinal));
         if (existingIndex >= 0)
@@ -190,6 +198,14 @@ public sealed partial class RadarApp
         _lootMonsterTallies.Clear();
         _lootGoldLabels.Clear();
     }
+
+    internal static bool ShouldResetLootSessionForMap(
+        bool hasSession,
+        string? latestHash,
+        string nextHash)
+        => hasSession
+           && !string.IsNullOrEmpty(latestHash)
+           && !string.Equals(latestHash, nextHash, StringComparison.Ordinal);
 
     private void BankLootActiveTime(DateTime now)
     {

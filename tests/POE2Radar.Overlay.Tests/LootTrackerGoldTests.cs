@@ -5,6 +5,19 @@ namespace POE2Radar.Overlay.Tests;
 public sealed class LootTrackerGoldTests
 {
     [Theory]
+    [InlineData(false, null, "AAAAAAAA", false)]
+    [InlineData(true, "AAAAAAAA", "AAAAAAAA", false)]
+    [InlineData(true, "AAAAAAAA", "BBBBBBBB", true)]
+    public void NewMapBoundary_ResetsOnlyWhenEnteringADifferentMap(
+        bool hasSession,
+        string? latestHash,
+        string nextHash,
+        bool expectedReset)
+        => Assert.Equal(
+            expectedReset,
+            RadarApp.ShouldResetLootSessionForMap(hasSession, latestHash, nextHash));
+
+    [Theory]
     [InlineData("125 Gold", 125)]
     [InlineData("1,250 Gold", 1250)]
     [InlineData("Gold x345", 345)]
