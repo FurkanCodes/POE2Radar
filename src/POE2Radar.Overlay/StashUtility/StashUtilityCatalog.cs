@@ -22,14 +22,7 @@ internal readonly record struct StashUtilityModDefinition(
         _ => 4,
     };
 
-    public string TierColor => MarketTier switch
-    {
-        "S" => "#FFD166",
-        "A" => "#6EEB87",
-        "B" => "#63B3ED",
-        "D" => "#FF6B6B",
-        _ => "#AAB2BF",
-    };
+    public string TierColor => StashUtilityCatalog.TierColorFor(MarketTier);
 }
 
 internal readonly record struct TabletRuleGroup(
@@ -39,6 +32,15 @@ internal readonly record struct TabletRuleGroup(
 
 internal static class StashUtilityCatalog
 {
+    public static string TierColorFor(string tier) => tier switch
+    {
+        "S" => "#FFD166",
+        "A" => "#6EEB87",
+        "B" => "#63B3ED",
+        "D" => "#FF6B6B",
+        _ => "#AAB2BF",
+    };
+
     public static readonly TabletRuleGroup[] TabletGroups =
     [
         new(
@@ -252,7 +254,26 @@ internal static class StashUtilityCatalog
 
     private static StashUtilityModDefinition W(
         string id, string name, int rarity = 0, int pack = 0, int monsterRarity = 0, int effect = 0, int drop = 0)
-        => new(id, name, "Waystone", rarity, pack, monsterRarity, effect, drop);
+        => new(
+            id,
+            name,
+            "Waystone",
+            rarity,
+            pack,
+            monsterRarity,
+            effect,
+            drop,
+            MarketTier: WaystoneRewardTier(drop));
+
+    internal static string WaystoneRewardTier(int dropChance)
+        => dropChance switch
+        {
+            >= 25 => "S",
+            >= 20 => "A",
+            >= 15 => "B",
+            >= 10 => "C",
+            _ => "D",
+        };
 
     private static StashUtilityModDefinition T(
         string id,

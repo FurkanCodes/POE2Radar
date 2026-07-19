@@ -242,6 +242,13 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     public bool IsSettingsOpen => _settingsOpen;
 
     /// <summary>
+    /// True only while this overlay window itself owns foreground focus. This is intentionally
+    /// separate from game focus so clicking our menus does not look like an external Alt-Tab.
+    /// </summary>
+    public bool IsOverlayFocused
+        => window is not null && OverlayNative.IsForeground(window.Handle);
+
+    /// <summary>
     /// Controller-safe loot details action: open, advance through every page, then close.
     /// The same action is used by the on-overlay mouse button and a configurable keyboard/gamepad bind.
     /// </summary>
@@ -359,7 +366,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                     // Borders belong above the game but below our ImGui windows, so hover panels
                     // such as Tablet tiers are never crossed by filter outlines.
                     DrawStashUtilityHighlights(ImGui.GetBackgroundDrawList(), ctx);
-                    DrawHoveredTabletTier(ctx);
+                    DrawHoveredStashTier(ctx);
                     DrawWaystoneAlchemyHints(ImGui.GetForegroundDrawList(), ctx);
                     DrawPickupTargetHint(ImGui.GetForegroundDrawList(), ctx);
                     DrawStashValueLabels(ImGui.GetForegroundDrawList(), ctx);
@@ -996,13 +1003,16 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         }
     }
 
-    private static void DrawHoveredTabletTier(RenderContext ctx)
+    private static void DrawHoveredStashTier(RenderContext ctx)
     {
-        if (ctx.HoveredTabletTier is not { } hover)
+        if (ctx.HoveredStashTier is not { } hover)
             return;
 
         var width = Math.Clamp(ctx.WindowWidth * 0.28f, 340f, 520f);
-        var estimatedHeight = 78f + hover.Modifiers.Length * 42f;
+        var metricsHeight = hover.Metrics.Length > 0
+            ? 24f + hover.Metrics.Length * 22f
+            : 0f;
+        var estimatedHeight = 78f + metricsHeight + hover.Modifiers.Length * 42f;
         var cursor = ImGui.GetMousePos();
         const float cursorGap = 18f;
         const float screenPadding = 8f;
@@ -1045,12 +1055,26 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             return;
         }
 
-        ImGui.TextUnformatted(hover.TabletType);
+        ImGui.TextUnformatted(hover.ItemType);
         ImGui.SameLine();
         ImGui.TextDisabled("Overall");
         ImGui.SameLine();
         ImGui.TextColored(ColorVector(hover.OverallColor), hover.OverallTier);
         ImGui.Separator();
+
+        if (hover.Metrics.Length > 0)
+        {
+            ImGui.TextDisabled("TOP REWARD TOTALS");
+            foreach (var metric in hover.Metrics)
+            {
+                ImGui.TextDisabled(metric.Label);
+                ImGui.SameLine(205f);
+                ImGui.TextUnformatted(metric.Value);
+                ImGui.SameLine(292f);
+                ImGui.TextColored(ColorVector(metric.TierColor), metric.Tier);
+            }
+            ImGui.Separator();
+        }
 
         if (hover.Modifiers.Length == 0)
         {
@@ -1068,13 +1092,13 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                     ImGui.SameLine();
                 }
                 ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + width - 68f);
-                ImGui.TextWrapped(modifier.Modifier);
+                ImGui.TextUnformatted(modifier.Modifier);
                 ImGui.PopTextWrapPos();
             }
         }
 
         ImGui.Separator();
-        ImGui.TextDisabled("Price-informed market tier · Runes of Aldur");
+        ImGui.TextDisabled(hover.TierNote);
         ImGui.End();
     }
 
@@ -3974,6 +3998,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             "Choose exactly which modifier juices are Required, GREAT, or BAD.");
         if (waystoneMods)
         {
+            var hoverTiers = s.ShowWaystoneTiersOnHover;
+            if (ImGui.Checkbox("Show reward tiers when hovering Waystones", ref hoverTiers))
+                s.ShowWaystoneTiersOnHover = hoverTiers;
             var all = s.RequireAllGoodWaystoneMods;
             if (ImGui.Checkbox("Require all selected Required mods", ref all)) s.RequireAllGoodWaystoneMods = all;
             var allGreat = s.RequireAllGreatWaystoneMods;
@@ -4449,7 +4476,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
         var tierRgb = ParseHexColor(definition.TierColor);
-        ImGui.TextColored(new Vector4(tierRgb, 1f), definition.Name);
+        TextColoredUnformatted(new Vector4(tierRgb, 1f), definition.Name);
         if (ImGui.IsItemHovered()) ImGui.SetTooltip(definition.Id);
 
         ImGui.TableSetColumnIndex(1);

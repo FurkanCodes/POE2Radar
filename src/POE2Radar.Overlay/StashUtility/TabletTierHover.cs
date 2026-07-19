@@ -3,29 +3,37 @@ using POE2Radar.Core.Game;
 
 namespace POE2Radar.Overlay.StashUtility;
 
-internal readonly record struct TabletTierHoverLine(
+internal readonly record struct StashTierHoverLine(
     string Tier,
     string Color,
     string Modifier,
     string Roll);
 
-internal readonly record struct TabletTierHoverSummary(
-    string TabletType,
+internal readonly record struct StashTierHoverMetric(
+    string Label,
+    string Value,
+    string Tier,
+    string Color);
+
+internal readonly record struct StashTierHoverSummary(
+    string ItemType,
     string OverallTier,
     string OverallColor,
-    TabletTierHoverLine[] Modifiers);
+    string TierNote,
+    StashTierHoverMetric[] Metrics,
+    StashTierHoverLine[] Modifiers);
 
 internal static class TabletTierHover
 {
     public static bool TryBuild(
         Poe2Live.StashValueSlot slot,
-        out TabletTierHoverSummary summary)
+        out StashTierHoverSummary summary)
     {
         summary = default;
         if (!slot.Hovered || !IsTablet(slot))
             return false;
 
-        var lines = new List<(int Sort, TabletTierHoverLine Line)>();
+        var lines = new List<(int Sort, StashTierHoverLine Line)>();
         foreach (var mod in slot.Mods.Where(mod => mod.Explicit))
         {
             if (StashUtilityCatalog.MatchTablet(mod.Id) is not { } definition)
@@ -34,7 +42,7 @@ internal static class TabletTierHover
                 {
                     lines.Add((
                         5,
-                        new TabletTierHoverLine(
+                        new StashTierHoverLine(
                             "?",
                             "#AAB2BF",
                             $"Unranked modifier ({mod.Id})",
@@ -45,7 +53,7 @@ internal static class TabletTierHover
 
             lines.Add((
                 definition.TierSortOrder,
-                new TabletTierHoverLine(
+                new StashTierHoverLine(
                     definition.MarketTier,
                     definition.TierColor,
                     definition.Name,
@@ -61,10 +69,12 @@ internal static class TabletTierHover
         var overallTier = string.IsNullOrEmpty(best.Tier) ? "—" : best.Tier;
         var overallColor = string.IsNullOrEmpty(best.Color) ? "#AAB2BF" : best.Color;
 
-        summary = new TabletTierHoverSummary(
+        summary = new StashTierHoverSummary(
             DetectTabletType(slot),
             overallTier,
             overallColor,
+            "Price-informed market tier · Runes of Aldur",
+            [],
             ranked);
         return true;
     }

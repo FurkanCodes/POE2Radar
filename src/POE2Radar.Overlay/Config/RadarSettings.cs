@@ -1060,6 +1060,7 @@ public sealed class StashUtilitySettings
 {
     public bool EnableWaystones { get; set; } = true;
     public bool EnableTablets { get; set; } = true;
+    public bool ShowWaystoneTiersOnHover { get; set; } = true;
     public bool ShowTabletTiersOnHover { get; set; } = true;
     public bool IncludeStash { get; set; } = true;
     public bool IncludeInventory { get; set; } = true;

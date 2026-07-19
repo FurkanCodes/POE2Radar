@@ -52,6 +52,26 @@ public sealed class LowImpactSnapshotTests
         bool expected)
         => Assert.Equal(expected, RadarApp.ShouldDrawOverlay(renderingEnabled, gameFocused));
 
+    [Fact]
+    public void ShouldDrawOverlay_RemainsVisibleWhileItsOwnMenuHasForegroundFocus()
+    {
+        Assert.True(RadarApp.ShouldShowOverlayWindow(
+            inGame: true,
+            gameFocused: false,
+            overlayFocused: true));
+        Assert.True(RadarApp.ShouldDrawOverlay(
+            renderingEnabled: true,
+            gameFocused: false,
+            overlayFocused: true));
+    }
+
+    [Fact]
+    public void ShouldShowOverlayWindow_HidesForARealAltTab()
+        => Assert.False(RadarApp.ShouldShowOverlayWindow(
+            inGame: true,
+            gameFocused: false,
+            overlayFocused: false));
+
     private static PropertyInfo Property(PropertyInfo[] properties, string name)
         => properties.Single(p => p.Name == name);
 }

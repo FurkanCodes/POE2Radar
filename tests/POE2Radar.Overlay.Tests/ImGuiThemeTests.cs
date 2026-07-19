@@ -24,4 +24,25 @@ public sealed class ImGuiThemeTests
         var resolved = OverlayFonts.ResolveFontPath(segoe);
         Assert.Equal(segoe, resolved);
     }
+
+    [Fact]
+    public void StashUtilityModifierNames_AreNotPassedToImGuiAsFormatStrings()
+    {
+        var repositoryRoot = Path.GetFullPath(
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var overlaySource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "POE2Radar.Overlay",
+                "Overlay",
+                "ImGuiRadarOverlay.cs"));
+
+        Assert.DoesNotContain(
+            "ImGui.TextColored(new Vector4(tierRgb, 1f), definition.Name);",
+            overlaySource);
+        Assert.DoesNotContain(
+            "ImGui.TextWrapped(modifier.Modifier);",
+            overlaySource);
+    }
 }

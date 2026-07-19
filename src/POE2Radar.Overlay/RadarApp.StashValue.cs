@@ -16,7 +16,7 @@ public sealed partial class RadarApp
     private string _stashValuePricingConfigKey = "";
     private StashValueLabel[] _stashValueLabels = [];
     private StashUtilityHighlight[] _stashUtilityHighlights = [];
-    private HoveredTabletTierView? _hoveredTabletTier;
+    private HoveredStashTierView? _hoveredStashTier;
     private Poe2Live.StashValueSlot[] _stashValueSlots = [];
     private HashSet<nint> _stashInventoryEntities = [];
     private StashValueRuntimeStatus _stashValueStatus = StashValueRuntimeStatus.Empty;
@@ -93,7 +93,7 @@ public sealed partial class RadarApp
 
         var labels = BuildStashValueLabels(read);
         var highlights = BuildStashUtilityHighlights(read);
-        _hoveredTabletTier = BuildHoveredTabletTier(read);
+        _hoveredStashTier = BuildHoveredStashTier(read);
         var scanMs = ElapsedMs(scanStart);
 
         _stashValueLabels = labels;
@@ -125,7 +125,7 @@ public sealed partial class RadarApp
             _stashValueLabels = [];
         if (_stashUtilityHighlights.Length > 0)
             _stashUtilityHighlights = [];
-        _hoveredTabletTier = null;
+        _hoveredStashTier = null;
         if (_stashValueSlots.Length > 0)
             _stashValueSlots = [];
         if (_stashInventoryEntities.Count > 0)
@@ -323,24 +323,38 @@ public sealed partial class RadarApp
         return result.Count == 0 ? [] : result.ToArray();
     }
 
-    private HoveredTabletTierView? BuildHoveredTabletTier(Poe2Live.StashValueRead read)
+    private HoveredStashTierView? BuildHoveredStashTier(Poe2Live.StashValueRead read)
     {
-        if (!_settings.StashUtility.ShowTabletTiersOnHover)
+        var settings = _settings.StashUtility;
+        if (!settings.ShowTabletTiersOnHover && !settings.ShowWaystoneTiersOnHover)
             return null;
 
         foreach (var slot in read.Slots)
         {
-            if (!TabletTierHover.TryBuild(slot, out var summary))
+            StashTierHoverSummary summary = default;
+            var found = settings.ShowTabletTiersOnHover
+                        && TabletTierHover.TryBuild(slot, out summary);
+            if (!found && settings.ShowWaystoneTiersOnHover)
+                found = WaystoneTierHover.TryBuild(slot, out summary);
+            if (!found)
                 continue;
 
-            return new HoveredTabletTierView(
+            return new HoveredStashTierView(
                 new NumVec2(slot.Rect.X, slot.Rect.Y),
                 new NumVec2(slot.Rect.W, slot.Rect.H),
-                summary.TabletType,
+                summary.ItemType,
                 summary.OverallTier,
                 PackColor(summary.OverallColor),
+                summary.TierNote,
+                summary.Metrics
+                    .Select(metric => new StashTierMetricView(
+                        metric.Label,
+                        metric.Value,
+                        metric.Tier,
+                        PackColor(metric.Color)))
+                    .ToArray(),
                 summary.Modifiers
-                    .Select(modifier => new TabletTierLineView(
+                    .Select(modifier => new StashTierLineView(
                         modifier.Tier,
                         PackColor(modifier.Color),
                         modifier.Modifier,

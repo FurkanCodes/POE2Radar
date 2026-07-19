@@ -456,7 +456,7 @@ public sealed class StashUtilityRulesTests
             default) with { Hovered = true };
 
         Assert.True(TabletTierHover.TryBuild(slot, out var hover));
-        Assert.Equal("Ritual Tablet", hover.TabletType);
+        Assert.Equal("Ritual Tablet", hover.ItemType);
         Assert.Equal("S", hover.OverallTier);
         Assert.Equal("#FFD166", hover.OverallColor);
         Assert.Equal(["S", "A", "C"], hover.Modifiers.Select(modifier => modifier.Tier));
@@ -471,6 +471,80 @@ public sealed class StashUtilityRulesTests
         var tablet = Tablet(new Poe2Live.StashItemMod("TowerRitualAdditionalReroll", 3, float.NaN, true));
         Assert.False(TabletTierHover.TryBuild(tablet, out _));
         Assert.False(TabletTierHover.TryBuild(Waystone() with { Hovered = true }, out _));
+    }
+
+    [Fact]
+    public void WaystoneMarketTiers_UsePerModifierDropChanceContribution()
+    {
+        Assert.Equal("S", WaystoneMod("MapMonsterSpeedIncrease").MarketTier);
+        Assert.Equal("A", WaystoneMod("MapMonsterDamageIncrease").MarketTier);
+        Assert.Equal("B", WaystoneMod("MapMonsterDamageAsCold").MarketTier);
+        Assert.Equal("C", WaystoneMod("MapMonstersBaseSelfCriticalMultiplier").MarketTier);
+        Assert.Equal("D", StashUtilityCatalog.WaystoneRewardTier(5));
+    }
+
+    [Fact]
+    public void WaystoneTierHover_RanksEveryExplicitModifierByReward()
+    {
+        var slot = Waystone(
+            mods:
+            [
+                new Poe2Live.StashItemMod("MapMonstersBaseSelfCriticalMultiplier", 25, float.NaN, true),
+                new Poe2Live.StashItemMod("MapMonsterDamageAsCold", 14, float.NaN, true),
+                new Poe2Live.StashItemMod("MapMonsterDamageIncrease", 20, float.NaN, true),
+                new Poe2Live.StashItemMod("MapMonsterSpeedIncrease", 18, float.NaN, true),
+            ]) with { Hovered = true };
+
+        Assert.True(WaystoneTierHover.TryBuild(slot, out var hover));
+        Assert.Equal("Waystone Tier 15", hover.ItemType);
+        Assert.Equal("S", hover.OverallTier);
+        Assert.Equal(["S", "A", "B", "C"], hover.Modifiers.Select(modifier => modifier.Tier));
+        Assert.Contains("danger is build-specific", hover.TierNote);
+        var metrics = hover.Metrics.ToDictionary(metric => metric.Label);
+        Assert.Equal(("+14%", "D"), (metrics["Item rarity"].Value, metrics["Item rarity"].Tier));
+        Assert.Equal(("+9%", "D"), (metrics["Pack size"].Value, metrics["Pack size"].Tier));
+        Assert.Equal(("+43%", "A"), (metrics["Monster rarity"].Value, metrics["Monster rarity"].Tier));
+        Assert.Equal(
+            ("+0%", "D"),
+            (metrics["Monster effectiveness"].Value, metrics["Monster effectiveness"].Tier));
+        Assert.Equal(
+            ("+70%", "D"),
+            (metrics["Waystone drop chance"].Value, metrics["Waystone drop chance"].Tier));
+        Assert.Equal(("2", "B"), (metrics["Revives available"].Value, metrics["Revives available"].Tier));
+        Assert.All(hover.Metrics, metric => Assert.StartsWith("#", metric.Color));
+    }
+
+    [Fact]
+    public void WaystoneAggregateRewardTiers_UseIndependentMarketBreakpoints()
+    {
+        AssertTierBands(
+            WaystoneTierHover.RewardMetric.ItemRarity,
+            (65, "S"), (50, "A"), (40, "B"), (20, "C"), (19, "D"));
+        AssertTierBands(
+            WaystoneTierHover.RewardMetric.PackSize,
+            (42, "S"), (30, "A"), (20, "B"), (10, "C"), (9, "D"));
+        AssertTierBands(
+            WaystoneTierHover.RewardMetric.MonsterRarity,
+            (50, "S"), (40, "A"), (30, "B"), (20, "C"), (19, "D"));
+        AssertTierBands(
+            WaystoneTierHover.RewardMetric.MonsterEffectiveness,
+            (40, "S"), (30, "A"), (20, "B"), (10, "C"), (9, "D"));
+        AssertTierBands(
+            WaystoneTierHover.RewardMetric.WaystoneDropChance,
+            (145, "S"), (120, "A"), (100, "B"), (75, "C"), (74, "D"));
+        AssertTierBands(
+            WaystoneTierHover.RewardMetric.Revives,
+            (0, "S"), (1, "A"), (2, "B"), (3, "C"), (4, "D"));
+    }
+
+    [Fact]
+    public void WaystoneTierHover_OnlyAppearsForHoveredWaystones()
+    {
+        Assert.False(WaystoneTierHover.TryBuild(Waystone(), out _));
+        Assert.False(WaystoneTierHover.TryBuild(
+            Tablet(new Poe2Live.StashItemMod("TowerPackSizeIncrease", 7, float.NaN, true))
+                with { Hovered = true },
+            out _));
     }
 
     [Theory]
@@ -522,6 +596,17 @@ public sealed class StashUtilityRulesTests
 
     private static StashUtilityModDefinition TabletMod(string id)
         => Assert.Single(StashUtilityCatalog.TabletMods, definition => definition.Id == id);
+
+    private static StashUtilityModDefinition WaystoneMod(string id)
+        => Assert.Single(StashUtilityCatalog.WaystoneMods, definition => definition.Id == id);
+
+    private static void AssertTierBands(
+        WaystoneTierHover.RewardMetric metric,
+        params (int Value, string Tier)[] bands)
+    {
+        foreach (var band in bands)
+            Assert.Equal(band.Tier, WaystoneTierHover.AggregateRewardTier(metric, band.Value));
+    }
 
     private static Poe2Live.StashValueSlot Slot(
         string path,

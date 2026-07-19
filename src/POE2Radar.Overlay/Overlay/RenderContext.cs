@@ -247,19 +247,27 @@ public readonly record struct StashUtilityHighlight(
     float RarityCornerSize,
     string Tooltip);
 
-public readonly record struct TabletTierLineView(
+public readonly record struct StashTierLineView(
     string Tier,
     uint TierColor,
     string Modifier,
     string Roll);
 
-public readonly record struct HoveredTabletTierView(
+public readonly record struct StashTierMetricView(
+    string Label,
+    string Value,
+    string Tier,
+    uint TierColor);
+
+public readonly record struct HoveredStashTierView(
     NumVec2 Pos,
     NumVec2 Size,
-    string TabletType,
+    string ItemType,
     string OverallTier,
     uint OverallColor,
-    TabletTierLineView[] Modifiers);
+    string TierNote,
+    StashTierMetricView[] Metrics,
+    StashTierLineView[] Modifiers);
 
 public readonly record struct WaystoneAlchemyHint(
     NumVec2 Pos,
@@ -530,7 +538,7 @@ public sealed record RenderContext(
     ExpeditionPlannerView ExpeditionPlanner,
     StashValueLabel[] StashValueLabels,
     StashUtilityHighlight[] StashUtilityHighlights,
-    HoveredTabletTierView? HoveredTabletTier,
+    HoveredStashTierView? HoveredStashTier,
     WaystoneAlchemyHint[] WaystoneAlchemyHints,
     string WaystoneAlchemyStatus,
     string PickupStatus,

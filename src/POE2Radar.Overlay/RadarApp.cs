@@ -724,7 +724,8 @@ public sealed partial class RadarApp : IDisposable
         if (windowWidth <= 0 || windowHeight <= 0)
             ResolveGameClientSize(out windowWidth, out windowHeight);
         var realActive = IsGameFocused();
-        var drawActive = ShouldDrawOverlay(_renderingEnabled, realActive);
+        var overlayFocused = _imguiOverlay?.IsOverlayFocused == true;
+        var drawActive = ShouldDrawOverlay(_renderingEnabled, realActive, overlayFocused);
 
         if (_liveCadence.IsDue(PerformanceCadence.ClampHz(_settings.LiveRefreshHz, 5, 120)))
             _liveFrame = RefreshLiveFrame(snap, windowWidth, windowHeight, drawActive, realActive);
@@ -906,7 +907,7 @@ public sealed partial class RadarApp : IDisposable
             ExpeditionPlanner: _expeditionView,
             StashValueLabels: _stashValueLabels,
             StashUtilityHighlights: _stashUtilityHighlights,
-            HoveredTabletTier: _hoveredTabletTier,
+            HoveredStashTier: _hoveredStashTier,
             WaystoneAlchemyHints: _waystoneAlchemyHints,
             WaystoneAlchemyStatus: _waystoneAlchemyStatus,
             PickupStatus: _pickupView.Status,
@@ -992,9 +993,10 @@ public sealed partial class RadarApp : IDisposable
             MapDiag: _mapDiag,
             PathDiagNote: pathDiag,
             Amanamu: BuildAmanamuView());
-        // Manual content hiding keeps the compact taskbar available, but an alt-tab suppresses
-        // the entire overlay window until PoE2 is foreground again.
-        _imguiOverlay?.SetDrawEnabled(live.InGame && realActive);
+        // Manual content hiding keeps the compact taskbar available. Clicking our own menu can
+        // briefly move foreground focus from PoE2 to the overlay; only a genuinely external
+        // Alt-Tab should suppress the whole overlay window.
+        _imguiOverlay?.SetDrawEnabled(ShouldShowOverlayWindow(live.InGame, realActive, overlayFocused));
         _imguiOverlay?.UpdateContext(ctx);
 
         var overlayMetrics = _imguiOverlay?.GetRenderMetrics().Snapshot() ?? default;
@@ -3237,8 +3239,17 @@ public sealed partial class RadarApp : IDisposable
     private bool IsGameFocused()
         => OverlayNative.IsGameFocused(_gameHwnd, _process.ProcessId);
 
-    internal static bool ShouldDrawOverlay(bool renderingEnabled, bool gameFocused)
-        => renderingEnabled && gameFocused;
+    internal static bool ShouldDrawOverlay(
+        bool renderingEnabled,
+        bool gameFocused,
+        bool overlayFocused = false)
+        => renderingEnabled && (gameFocused || overlayFocused);
+
+    internal static bool ShouldShowOverlayWindow(
+        bool inGame,
+        bool gameFocused,
+        bool overlayFocused)
+        => inGame && (gameFocused || overlayFocused);
 
     private void ResolveGameClientSize(out int width, out int height)
     {
