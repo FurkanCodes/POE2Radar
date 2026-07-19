@@ -56,8 +56,9 @@ namespace POE2Radar.Overlay.Pricing
 
         // Bump whenever the cache shape or price semantics change, so caches written by an older plugin
         // version are discarded instead of trusted. (v3: poe.ninja PoE2 primaryValue is converted from
-        // core.primary using core.rates.chaos/exalted instead of inferred from tiny currency rows.)
-        private const int CacheSchemaVersion = 3;
+        // core.primary using core.rates.chaos/exalted instead of inferred from tiny currency rows.
+        // v4: shared API/icon IDs are marked ambiguous instead of assigned to the last item seen.)
+        private const int CacheSchemaVersion = 4;
 
         private static readonly string[] ScoutCurrencyCategories =
         {
@@ -879,7 +880,22 @@ namespace POE2Radar.Overlay.Pricing
         private static void IndexPathName(Dictionary<string, string> pathNames, string? pathBasename, string? displayName)
         {
             if (string.IsNullOrWhiteSpace(pathBasename) || string.IsNullOrWhiteSpace(displayName)) return;
-            pathNames[NormalizeKey(pathBasename)] = displayName.Trim();
+            var key = NormalizeKey(pathBasename);
+            if (key.Length == 0) return;
+
+            var candidate = displayName.Trim();
+            if (!pathNames.TryGetValue(key, out var existing))
+            {
+                pathNames[key] = candidate;
+                return;
+            }
+
+            // poe2scout can reuse one ApiId for several tiers, for example
+            // CurrencyAddModToRare for Exalted, Greater Exalted, and Perfect Exalted Orbs.
+            // An empty sentinel keeps later rows from turning that collision back into a
+            // seemingly valid one-to-one mapping.
+            if (!string.Equals(existing, candidate, StringComparison.OrdinalIgnoreCase))
+                pathNames[key] = string.Empty;
         }
 
         private static string ExtractIconBasename(string? iconUrl)

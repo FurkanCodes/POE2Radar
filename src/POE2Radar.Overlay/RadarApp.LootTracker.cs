@@ -599,6 +599,17 @@ public sealed partial class RadarApp
         var internalName = LastPathSegment(metadata);
         var metaArt = LootMetaArt();
 
+        // The live Base component is the authoritative item identity. Prefer it over art/API IDs,
+        // which can be shared by multiple currency tiers (for example all Exalted Orb tiers).
+        if (_lootFacts.TryGetValue(key, out var fact) &&
+            !PoeNinjaPriceFetcher.IsGenericLookupName(fact.BaseName) &&
+            PoeNinjaPriceFetcher.TryGetExaltedByName(fact.BaseName, out unitEx) &&
+            unitEx > 0)
+        {
+            label = fact.BaseName;
+            return true;
+        }
+
         var artCandidates = new List<string>();
         if (!string.IsNullOrWhiteSpace(renderArt)) artCandidates.Add(renderArt);
         if (metaArt.TryGetValue(internalName, out var mappedArt)) artCandidates.Add(mappedArt);
@@ -615,7 +626,7 @@ public sealed partial class RadarApp
             }
         }
 
-        if (_lootFacts.TryGetValue(key, out var fact))
+        if (_lootFacts.TryGetValue(key, out fact))
         {
             foreach (var name in new[] { fact.BaseName, fact.InternalName, label })
             {
