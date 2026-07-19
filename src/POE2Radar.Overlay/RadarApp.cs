@@ -724,7 +724,7 @@ public sealed partial class RadarApp : IDisposable
         if (windowWidth <= 0 || windowHeight <= 0)
             ResolveGameClientSize(out windowWidth, out windowHeight);
         var realActive = IsGameFocused();
-        var drawActive = ShouldDrawOverlay(_renderingEnabled);
+        var drawActive = ShouldDrawOverlay(_renderingEnabled, realActive);
 
         if (_liveCadence.IsDue(PerformanceCadence.ClampHz(_settings.LiveRefreshHz, 5, 120)))
             _liveFrame = RefreshLiveFrame(snap, windowWidth, windowHeight, drawActive, realActive);
@@ -906,6 +906,7 @@ public sealed partial class RadarApp : IDisposable
             ExpeditionPlanner: _expeditionView,
             StashValueLabels: _stashValueLabels,
             StashUtilityHighlights: _stashUtilityHighlights,
+            HoveredTabletTier: _hoveredTabletTier,
             WaystoneAlchemyHints: _waystoneAlchemyHints,
             WaystoneAlchemyStatus: _waystoneAlchemyStatus,
             PickupStatus: _pickupView.Status,
@@ -991,9 +992,9 @@ public sealed partial class RadarApp : IDisposable
             MapDiag: _mapDiag,
             PathDiagNote: pathDiag,
             Amanamu: BuildAmanamuView());
-        // Keep the compact taskbar alive while overlay content is hidden; its eye button is the
-        // discoverable way to turn content back on. Out of game there is nothing useful to draw.
-        _imguiOverlay?.SetDrawEnabled(live.InGame);
+        // Manual content hiding keeps the compact taskbar available, but an alt-tab suppresses
+        // the entire overlay window until PoE2 is foreground again.
+        _imguiOverlay?.SetDrawEnabled(live.InGame && realActive);
         _imguiOverlay?.UpdateContext(ctx);
 
         var overlayMetrics = _imguiOverlay?.GetRenderMetrics().Snapshot() ?? default;
@@ -3236,7 +3237,8 @@ public sealed partial class RadarApp : IDisposable
     private bool IsGameFocused()
         => OverlayNative.IsGameFocused(_gameHwnd, _process.ProcessId);
 
-    internal static bool ShouldDrawOverlay(bool renderingEnabled) => renderingEnabled;
+    internal static bool ShouldDrawOverlay(bool renderingEnabled, bool gameFocused)
+        => renderingEnabled && gameFocused;
 
     private void ResolveGameClientSize(out int width, out int height)
     {

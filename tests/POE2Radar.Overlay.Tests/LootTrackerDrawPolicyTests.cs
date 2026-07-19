@@ -93,6 +93,15 @@ public sealed class LootTrackerDrawPolicyTests
         Assert.False(window.Flags.HasFlag(ImGuiWindowFlags.NoSavedSettings));
     }
 
+    [Fact]
+    public void HiddenTracker_CanBeRestoredFromSettingsWhenNoBarIsDrawable()
+    {
+        Assert.True(LootTrackerDrawPolicy.HasRecoveryControl(
+            hidden: true,
+            barMode: LootTrackerBarMode.None,
+            settingsOpen: true));
+    }
+
     [Theory]
     [InlineData("MapLostTowers", 80, 123u, true)]
     [InlineData("Sanctum_1_Foyer_1", 80, 123u, true)]

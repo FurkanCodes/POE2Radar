@@ -10,7 +10,27 @@ internal readonly record struct StashUtilityModDefinition(
     int MonsterEffectiveness = 0,
     int DropChance = 0,
     float MinRoll = 0,
-    float MaxRoll = 0);
+    float MaxRoll = 0,
+    string MarketTier = "C")
+{
+    public int TierSortOrder => MarketTier switch
+    {
+        "S" => 0,
+        "A" => 1,
+        "B" => 2,
+        "C" => 3,
+        _ => 4,
+    };
+
+    public string TierColor => MarketTier switch
+    {
+        "S" => "#FFD166",
+        "A" => "#6EEB87",
+        "B" => "#63B3ED",
+        "D" => "#FF6B6B",
+        _ => "#AAB2BF",
+    };
+}
 
 internal readonly record struct TabletRuleGroup(
     string Name,
@@ -91,95 +111,95 @@ internal static class StashUtilityCatalog
 
     public static readonly StashUtilityModDefinition[] TabletMods =
     [
-        T("TowerDroppedItemRarityIncrease", "Item rarity", "General", 8, 12),
-        T("TowerAdditionalStoneCircle", "Additional Summoning Circle", "General", 1, 1),
-        T("TowerAdditionalExile", "Additional Rogue Exile", "General", 1, 1),
-        T("TowerAdditionalAzmeriWisp", "Additional Azmeri Spirits", "General", 1, 2),
-        T("TowerMonsterEffectiveness", "Monster effectiveness", "General", 10, 15),
-        T("TowerRareChestCount", "Additional rare chests", "General", 2, 3),
-        T("TowerExperienceGainIncrease", "Experience gain", "General", 12, 18),
-        T("TowerDroppedGoldIncrease", "Gold found", "General", 25, 35),
-        T("TowerMonsterRarityIncrease", "Monster rarity", "General", 15, 20),
-        T("TowerRarePackIncrease", "Rare monsters", "General", 25, 35),
-        T("TowerMagicPackIncrease", "Magic monsters", "General", 30, 40),
-        T("TowerPackSizeIncrease", "Pack size", "General", 5, 15),
-        T("TowerMapBossExperience", "Map boss experience", "General", 40, 80),
-        T("TowerMapBossWaystoneChance", "Waystones from map bosses", "General", 18, 30),
-        T("TowerMapBossAdditionalSpirit", "Map boss adds Azmeri Spirits", "General"),
-        T("TowerMapBossAdditionalEssence", "Map boss adds Essences", "General"),
-        T("TowerAdditionalEssence", "Additional Essence", "General", 1, 2),
-        T("TowerMapBossAdditionalShrine", "Map boss adds Shrines", "General"),
-        T("TowerAdditionalShrine", "Additional Shrine", "General", 1, 1),
-        T("TowerMapBossAdditionalStrongbox", "Map boss adds Strongboxes", "General"),
-        T("TowerAdditionalStrongbox", "Additional Strongbox", "General", 1, 1),
-        T("TowerMapBossRarity", "Item rarity from map bosses", "General", 35, 60),
-        T("TowerMapBossQuantity", "Item quantity from map bosses", "General", 13, 20),
-        T("TowerMapAdditionalUniqueMonsterModifier", "Unique monsters gain a rare modifier", "General", 1, 1),
-        T("TowerMapAdditionalModifier", "Additional random map modifiers", "General", 1, 2),
-        T("TowerStoneCircleChance", "Summoning Circle chance", "General", 70, 100),
-        T("TowerAdditionalSpiritChance", "Azmeri Spirit chance", "General", 70, 100),
-        T("TowerAdditionalEssenceChance", "Essence chance", "General", 70, 100),
-        T("TowerAdditionalStrongboxChance", "Strongbox chance", "General", 70, 100),
-        T("TowerAdditionalShrineChance", "Shrine chance", "General", 70, 100),
-        T("TowerRareAdditionalModChance", "Rare monsters gain an additional modifier", "General"),
-        T("TowerMapDroppedMapsIncrease", "Waystones found", "General", 30, 40),
-        T("TowerAdditionalExileChance", "Rogue Exile chance", "General", 70, 100),
+        T("TowerDroppedItemRarityIncrease", "(8-12)% increased Rarity of Items found in Map", "General", 8, 12),
+        T("TowerAdditionalStoneCircle", "Map contains an additional Summoning Circle", "General", 1, 1, tier: "D"),
+        T("TowerAdditionalExile", "Map is inhabited by 1 additional Rogue Exile", "General", 1, 1),
+        T("TowerAdditionalAzmeriWisp", "Map contains 1 additional Azmeri Spirit", "General", 1, 1),
+        T("TowerMonsterEffectiveness", "Monsters have (10-15)% increased Effectiveness", "General", 10, 15, tier: "B"),
+        T("TowerRareChestCount", "Map contains (2-3) additional Rare Chests", "General", 2, 3, tier: "D"),
+        T("TowerExperienceGainIncrease", "(12-18)% increased Experience gain in Map", "General", 12, 18),
+        T("TowerDroppedGoldIncrease", "(25-35)% increased Gold found in Map", "General", 25, 35),
+        T("TowerMonsterRarityIncrease", "Map has (15-20)% increased Monster Rarity", "General", 15, 20, tier: "B"),
+        T("TowerRarePackIncrease", "Map has (25-35)% increased number of Rare Monsters", "General", 25, 35, tier: "B"),
+        T("TowerMagicPackIncrease", "Map has (30-40)% increased Magic Monsters", "General", 30, 40),
+        T("TowerPackSizeIncrease", "(5-7)% increased Pack Size in Map", "General", 5, 7),
+        T("TowerMapBossExperience", "Map Bosses grant (40-80)% increased Experience", "General", 40, 80, tier: "D"),
+        T("TowerMapBossWaystoneChance", "(18-30)% increased Quantity of Waystones dropped by Map Bosses", "General", 18, 30, tier: "A"),
+        T("TowerMapBossAdditionalSpirit", "Map contains (1-2) additional Azmeri Spirits", "General", 1, 2),
+        T("TowerMapBossAdditionalEssence", "Map contains (1-2) additional Essences", "General", 1, 2),
+        T("TowerAdditionalEssence", "Map contains an additional Essence", "General", 1, 1),
+        T("TowerMapBossAdditionalShrine", "Map contains (1-2) additional Shrines", "General", 1, 2, tier: "D"),
+        T("TowerAdditionalShrine", "Map contains an additional Shrine", "General", 1, 1, tier: "D"),
+        T("TowerMapBossAdditionalStrongbox", "Map contains (1-2) additional Strongboxes", "General", 1, 2, tier: "D"),
+        T("TowerAdditionalStrongbox", "Map contains an additional Strongbox", "General", 1, 1, tier: "D"),
+        T("TowerMapBossRarity", "(35-60)% increased Rarity of Items dropped by Map Bosses", "General", 35, 60, tier: "B"),
+        T("TowerMapBossQuantity", "(13-20)% increased Quantity of Items dropped by Map Bosses", "General", 13, 20, tier: "B"),
+        T("TowerMapAdditionalUniqueMonsterModifier", "Unique Monsters have 1 additional Rare Modifier", "General", 1, 1),
+        T("TowerMapAdditionalModifier", "Map has (1-2) additional random Modifiers", "General", 1, 2, tier: "A"),
+        T("TowerStoneCircleChance", "Map has (70-100)% increased chance to contain a Summoning Circle", "General", 70, 100, tier: "D"),
+        T("TowerAdditionalSpiritChance", "Map has (70-100)% increased chance to contain Azmeri Spirits", "General", 70, 100),
+        T("TowerAdditionalEssenceChance", "Map has (70-100)% increased chance to contain Essences", "General", 70, 100),
+        T("TowerAdditionalStrongboxChance", "Map has (70-100)% increased chance to contain Strongboxes", "General", 70, 100, tier: "D"),
+        T("TowerAdditionalShrineChance", "Map has (70-100)% increased chance to contain Shrines", "General", 70, 100, tier: "D"),
+        T("TowerRareAdditionalModChance", "Rare Monsters in Map have a (50-80)% Surpassing chance to have an additional Modifier", "General", 50, 80, tier: "B"),
+        T("TowerMapDroppedMapsIncrease", "(30-40)% increased Quantity of Waystones found in Map", "General", 30, 40, tier: "A"),
+        T("TowerAdditionalExileChance", "Map has (70-100)% increased chance to contain Rogue Exiles", "General", 70, 100),
 
-        T("TowerRitualOmenChance", "Ritual Favours are Omens", "Ritual", 35, 70),
-        T("TowerRitualMagicMonsters", "Ritual monsters become Rare", "Ritual", 25, 40),
-        T("TowerRitualRareMonsters", "Ritual monsters become Magic", "Ritual", 35, 70),
-        T("TowerRitualChanceForNoCost", "Free Ritual rerolls", "Ritual", 3, 6),
-        T("TowerRitualAdditionalReroll", "Additional Ritual rerolls", "Ritual", 1, 3),
-        T("TowerRitualDeferSpeed", "Deferred Favours return sooner", "Ritual", 25, 40),
-        T("TowerRitualDeferCostIncrease", "Reduced deferral cost", "Ritual", 20, 30),
-        T("TowerRitualRerollCostIncrease", "Reduced reroll cost", "Ritual", 20, 30),
-        T("TowerRitualTributeIncrease", "Increased Ritual Tribute", "Ritual", 18, 30),
+        T("TowerRitualOmenChance", "Ritual Favours in Map have (35-70)% increased chance to be Omens", "Ritual", 35, 70, tier: "A"),
+        T("TowerRitualMagicMonsters", "Revived Monsters from Ritual Altars in Map have (25-40)% increased chance to be Rare", "Ritual", 25, 40, tier: "B"),
+        T("TowerRitualRareMonsters", "Revived Monsters from Ritual Altars in Map have (35-70)% increased chance to be Magic", "Ritual", 35, 70),
+        T("TowerRitualChanceForNoCost", "Favours Rerolled at Ritual Altars in Map have (3-6)% chance to cost no Tribute", "Ritual", 3, 6, tier: "B"),
+        T("TowerRitualAdditionalReroll", "Ritual Altars in Map allow rerolling Favours (1-3) additional times", "Ritual", 1, 3, tier: "S"),
+        T("TowerRitualDeferSpeed", "Favours Deferred at Ritual Altars in Map reappear (25-40)% sooner", "Ritual", 25, 40, tier: "B"),
+        T("TowerRitualDeferCostIncrease", "Deferring Favours at Ritual Altars in Map costs (20-30)% reduced Tribute", "Ritual", 20, 30, tier: "A"),
+        T("TowerRitualRerollCostIncrease", "Rerolling Favours at Ritual Altars in Map costs (20-30)% reduced Tribute", "Ritual", 20, 30, tier: "A"),
+        T("TowerRitualTributeIncrease", "Monsters Sacrificed at Ritual Altars in Map grant (18-30)% increased Tribute", "Ritual", 18, 30, tier: "A"),
 
-        T("TowerIncursionRareChestChance", "Rare Vaal Beacon chests", "Incursion", 30, 60),
-        T("TowerIncursionBossChance", "Vaal Beacon unique monster", "Incursion", 10, 25),
-        T("TowerIncursionTokenChance", "Additional Vaal Beacon Crystal", "Incursion", 5, 10),
-        T("TowerIncursionSecondaryEncounters", "Vaal Beacons summon more monsters", "Incursion", 25, 50),
-        T("TowerIncursionExtraPacksChance", "Extra packs around Vaal Beacons", "Incursion", 30, 60),
-        T("TowerIncursionExtraPacks", "Extra Vaal Beacon monster packs", "Incursion", 1, 1),
-        T("TowerIncursionPackSize", "Vaal Beacon pack size", "Incursion", 10, 30),
+        T("TowerIncursionRareChestChance", "(30-60)% increased chance Vaal Beacon Chests are Rare in Map", "Incursion", 30, 60),
+        T("TowerIncursionBossChance", "(10-25)% chance to add a Vaal Beacon Unique Monster to the Map", "Incursion", 10, 25, tier: "B"),
+        T("TowerIncursionTokenChance", "(5-10)% chance to gain an additional Crystal from Vaal Beacons in Map", "Incursion", 5, 10, tier: "A"),
+        T("TowerIncursionSecondaryEncounters", "(25-50)% increased chance Vaal Beacons summon additional Monsters in Map", "Incursion", 25, 50),
+        T("TowerIncursionExtraPacksChance", "(30-60)% chance for an extra packs of Monsters around Vaal Beacons in Map", "Incursion", 30, 60),
+        T("TowerIncursionExtraPacks", "1 extra pack of Monsters around Vaal Beacons in Map", "Incursion", 1, 1),
+        T("TowerIncursionPackSize", "(10-30)% increased Pack Size for Monsters around Vaal Beacons in Map", "Incursion", 10, 30, tier: "B"),
 
-        T("TowerAbyss4AdditionalChance", "Four additional Abysses", "Abyss", 20, 40),
-        T("TowerAbyssExtraTickets", "Desecrated Currency from Abysses", "Abyss", 20, 30),
-        T("TowerAbyssExtraModifiers", "Abyssal modifiers", "Abyss", 20, 30),
-        T("TowerAbyssIncreasedRewards", "Abyss Pits more likely to reward", "Abyss"),
-        T("TowerAbyssAdditionalChance", "Additional Abyss", "Abyss", 1, 1),
-        T("TowerAbyssDepthsChance", "Abyssal Depths chance", "Abyss", 10, 20),
-        T("TowerAbyssEffectivenessPerChasm", "Abyssal monster effectiveness", "Abyss", 8, 12),
-        T("TowerAbyssEnhancedMonstersPerChasm", "Enhanced Abyssal monsters", "Abyss"),
-        T("TowerAbyssRareMonsterIncrease", "Rare Abyssal monsters", "Abyss", 1, 2),
-        T("TowerAbyssMonsterIncrease", "More Abyssal monsters", "Abyss", 20, 30),
+        T("TowerAbyss4AdditionalChance", "Map has (20-40)% chance to contain four additional Abysses", "Abyss", 20, 40, tier: "A"),
+        T("TowerAbyssExtraTickets", "(20-30)% increased chance for Desecrated Currency from Abysses in Map", "Abyss", 20, 30, tier: "B"),
+        T("TowerAbyssExtraModifiers", "(20-30)% increased chance for Abyssal monsters in Map to have Abyssal Modifiers", "Abyss", 20, 30, tier: "B"),
+        T("TowerAbyssIncreasedRewards", "Abyss Pits in Map are twice as likely to have Rewards", "Abyss", tier: "B"),
+        T("TowerAbyssAdditionalChance", "Map contains an additional Abyss", "Abyss", 1, 1, tier: "B"),
+        T("TowerAbyssDepthsChance", "Abysses in Map have (10-20)% increased chance to lead to an Abyssal Depths", "Abyss", 10, 20, tier: "B"),
+        T("TowerAbyssEffectivenessPerChasm", "Abyssal Monsters have (8-12)% increased Effectiveness for each closed Pit, up to 100%", "Abyss", 8, 12, tier: "A"),
+        T("TowerAbyssEnhancedMonstersPerChasm", "Abyssal Monsters in Map have increased Difficulty and Reward for each closed Pit", "Abyss", tier: "B"),
+        T("TowerAbyssRareMonsterIncrease", "(1-2) additional Rare Monsters are spawned from Abysses in Map", "Abyss", 1, 2, tier: "B"),
+        T("TowerAbyssMonsterIncrease", "Abysses in Map spawn (20-30)% increased Monsters", "Abyss", 20, 30),
 
-        T("TowerBreachAdditionalRares", "Rare monsters from Breaches", "Breach", 1, 3),
-        T("TowerBreachBossChance", "Vruun chance", "Breach", 20, 50),
-        T("TowerBreachWombgiftLevelChance", "Higher-level Wombgifts", "Breach", 10, 30),
-        T("TowerBreachWombgiftQuantity", "Wombgift quantity", "Breach", 30, 60),
-        T("TowerBreachHivebloodQuantity", "Hiveblood quantity", "Breach", 30, 60),
-        T("TowerBreachRareMonsterPotency", "Rare Breach monster effectiveness", "Breach", 5, 20),
-        T("TowerBreachMonsterQuantity", "Breach pack size", "Breach"),
+        T("TowerBreachAdditionalRares", "Unstable Breaches in Map spawn (1-3) additional Rare Monsters when Stabilised", "Breach", 1, 3, tier: "B"),
+        T("TowerBreachBossChance", "Unstable Breaches in Map have (20-50)% increased chance to contain Vruun, Marshal of Xesht", "Breach", 20, 50),
+        T("TowerBreachWombgiftLevelChance", "Wombgifts have (10-30)% chance to drop one Level higher in Map", "Breach", 10, 30),
+        T("TowerBreachWombgiftQuantity", "(30-60)% increased Quantity of Wombgifts found in Map", "Breach", 30, 60, tier: "B"),
+        T("TowerBreachHivebloodQuantity", "(30-60)% increased Quantity of Hiveblood found in Map", "Breach", 30, 60, tier: "B"),
+        T("TowerBreachRareMonsterPotency", "(5-20)% increased Effectiveness of Rare Breach Monsters in Map", "Breach", 5, 20, tier: "B"),
+        T("TowerBreachMonsterQuantity", "Breaches in Map have (5-15)% increased Pack Size", "Breach", 5, 15, tier: "B"),
 
-        T("TowerDeliriumAdditionalShardsChance", "MirrorShards from Delirium", "Delirium", 12, 26),
-        T("TowerDeliriumRareMonsterPause", "Rare kills pause Delirium timer", "Delirium", 3, 5),
-        T("TowerDeliriumDoodadsIncrease", "Fracturing Mirrors", "Delirium", 15, 30),
-        T("TowerDeliriumPackSizeIncrease", "Delirium pack size", "Delirium", 15, 30),
-        T("TowerDeliriumDifficultyIncrease", "Deliriousness", "Delirium", 15, 30),
-        T("TowerDeliriumFogPersistence", "Slower Delirium Fog dissipation", "Delirium", 20, 30),
-        T("TowerDeliriumFogDissipationDelayNew", "Delirium Fog delay", "Delirium", 6, 12),
-        T("TowerDeliriumMonsterSplinterIncrease", "Simulacrum Splinter stack size", "Delirium", 15, 30),
-        T("TowerDeliriumBossChance", "Delirium boss chance", "Delirium", 15, 30),
+        T("TowerDeliriumAdditionalShardsChance", "Delirium Fog in Map spawns (12-26)% increased MirrorShards", "Delirium", 12, 26, tier: "A"),
+        T("TowerDeliriumRareMonsterPause", "Slaying Rare Monsters in Map pauses the Delirium Mirror Timer for (3-5) seconds", "Delirium", 3, 5),
+        T("TowerDeliriumDoodadsIncrease", "Delirium Fog in Map spawns (15-30)% increased Fracturing Mirrors", "Delirium", 15, 30, tier: "B"),
+        T("TowerDeliriumPackSizeIncrease", "Delirium Monsters in Map have (15-30)% increased Pack Size", "Delirium", 15, 30, tier: "B"),
+        T("TowerDeliriumDifficultyIncrease", "Delirium Fog in Map applies (15-30)% increased Deliriousness to Players", "Delirium", 15, 30, tier: "B"),
+        T("TowerDeliriumFogPersistence", "Delirium Fog in Map dissipates (20-30)% slower", "Delirium", 20, 30),
+        T("TowerDeliriumFogDissipationDelayNew", "Delirium Fog in Map lasts (6-12) additional seconds before dissipating", "Delirium", 6, 12),
+        T("TowerDeliriumMonsterSplinterIncrease", "(15-30)% increased Stack size of Simulacrum Splinters found in Map", "Delirium", 15, 30, tier: "B"),
+        T("TowerDeliriumBossChance", "Delirium Encounters in Map are (15-30)% more likely to spawn Unique Bosses", "Delirium", 15, 30, tier: "B"),
 
-        T("TowerExpeditionRelicModEffect", "Expedition Remnant effect", "Expedition"),
-        T("TowerExpeditionRunicMonsters", "Runic Monster markers", "Expedition"),
-        T("TowerExpeditionRareMonsters", "Rare Expedition monsters", "Expedition"),
-        T("TowerExpeditionLogbookIncrease", "Expedition Logbooks", "Expedition"),
-        T("TowerExpeditionExplosionRadius", "Explosive radius", "Expedition"),
-        T("TowerExpeditionRelicIncrease", "Additional Remnants", "Expedition"),
-        T("TowerExpeditionExplosionPlacement", "Explosive placement range", "Expedition"),
-        T("TowerExpeditionArtifactIncrease", "Expedition Artifacts", "Expedition"),
+        T("TowerExpeditionRelicModEffect", "(12-18)% increased Effect of Expedition Remnants in Map", "Expedition", 12, 18, tier: "B"),
+        T("TowerExpeditionRunicMonsters", "Map contains (15-30)% increased number of Runic Monster Markers", "Expedition", 15, 30, tier: "B"),
+        T("TowerExpeditionRareMonsters", "(25-40)% increased number of Rare Expedition Monsters in Map", "Expedition", 25, 40, tier: "B"),
+        T("TowerExpeditionLogbookIncrease", "(15-30)% increased Quantity of Expedition Logbooks dropped by Runic Monsters in Map", "Expedition", 15, 30, tier: "B"),
+        T("TowerExpeditionExplosionRadius", "(15-30)% increased Expedition Explosive Radius in Map", "Expedition", 15, 30),
+        T("TowerExpeditionRelicIncrease", "Expeditions in Map have +(1-2) Remnants", "Expedition", 1, 2, tier: "B"),
+        T("TowerExpeditionExplosionPlacement", "(15-30)% increased Expedition Explosive Placement Range in Map", "Expedition", 15, 30),
+        T("TowerExpeditionArtifactIncrease", "(15-30)% increased quantity of Expedition Artifacts dropped by Monsters in Map", "Expedition", 15, 30, tier: "B"),
     ];
 
     public static StashUtilityModDefinition? MatchWaystone(string rawId)
@@ -192,6 +212,17 @@ internal static class StashUtilityCatalog
         => TabletMods.Where(definition => group.ModifierCategories.Contains(
             definition.Category,
             StringComparer.OrdinalIgnoreCase));
+
+    public static bool MatchesTabletSearch(StashUtilityModDefinition definition, string? search)
+    {
+        if (string.IsNullOrWhiteSpace(search)) return true;
+        var haystack = $"{definition.Name} {definition.Id} {definition.Category} Tier {definition.MarketTier}";
+        var tokens = search.Split(
+            [' ', '\t', '\r', '\n', '-', '_', '/', '\\', '(', ')', '[', ']', '%', '+'],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return tokens.Length > 0
+               && tokens.All(token => haystack.Contains(token, StringComparison.OrdinalIgnoreCase));
+    }
 
     public static string TabletCategoryHeading(TabletRuleGroup group, string category)
     {
@@ -223,6 +254,12 @@ internal static class StashUtilityCatalog
         string id, string name, int rarity = 0, int pack = 0, int monsterRarity = 0, int effect = 0, int drop = 0)
         => new(id, name, "Waystone", rarity, pack, monsterRarity, effect, drop);
 
-    private static StashUtilityModDefinition T(string id, string name, string category, float min = 0, float max = 0)
-        => new(id, name, category, MinRoll: min, MaxRoll: max);
+    private static StashUtilityModDefinition T(
+        string id,
+        string name,
+        string category,
+        float min = 0,
+        float max = 0,
+        string tier = "C")
+        => new(id, name, category, MinRoll: min, MaxRoll: max, MarketTier: tier);
 }

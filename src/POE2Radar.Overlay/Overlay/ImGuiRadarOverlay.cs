@@ -356,7 +356,10 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                     DrawRitualLabels(ImGui.GetForegroundDrawList(), ctx);
                     DrawRunecraftLabels(ImGui.GetForegroundDrawList(), ctx);
                     DrawRunecraftMapLabels(ImGui.GetForegroundDrawList(), ctx);
-                    DrawStashUtilityHighlights(ImGui.GetForegroundDrawList(), ctx);
+                    // Borders belong above the game but below our ImGui windows, so hover panels
+                    // such as Tablet tiers are never crossed by filter outlines.
+                    DrawStashUtilityHighlights(ImGui.GetBackgroundDrawList(), ctx);
+                    DrawHoveredTabletTier(ctx);
                     DrawWaystoneAlchemyHints(ImGui.GetForegroundDrawList(), ctx);
                     DrawPickupTargetHint(ImGui.GetForegroundDrawList(), ctx);
                     DrawStashValueLabels(ImGui.GetForegroundDrawList(), ctx);
@@ -992,6 +995,95 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             dl.AddTriangle(tip, left, right, 0xFF000000u, Math.Max(1f, 1.5f * scale));
         }
     }
+
+    private static void DrawHoveredTabletTier(RenderContext ctx)
+    {
+        if (ctx.HoveredTabletTier is not { } hover)
+            return;
+
+        var width = Math.Clamp(ctx.WindowWidth * 0.28f, 340f, 520f);
+        var estimatedHeight = 78f + hover.Modifiers.Length * 42f;
+        var cursor = ImGui.GetMousePos();
+        const float cursorGap = 18f;
+        const float screenPadding = 8f;
+        var x = cursor.X + cursorGap;
+        if (x + width > ctx.WindowWidth - screenPadding)
+            x = cursor.X - width - cursorGap;
+        x = Math.Clamp(x, screenPadding, Math.Max(screenPadding, ctx.WindowWidth - width - screenPadding));
+
+        var y = cursor.Y + cursorGap;
+        if (y + estimatedHeight > ctx.WindowHeight - screenPadding)
+            y = cursor.Y - estimatedHeight - cursorGap;
+        y = Math.Clamp(
+            y,
+            screenPadding,
+            Math.Max(screenPadding, ctx.WindowHeight - estimatedHeight - screenPadding));
+
+        var dl = ImGui.GetForegroundDrawList();
+        var badgeSize = Math.Clamp(hover.Size.X * 0.46f, 22f, 36f);
+        var badgeMin = hover.Pos + new NumVec2(2f, 2f);
+        var badgeMax = badgeMin + new NumVec2(badgeSize, badgeSize);
+        dl.AddRectFilled(badgeMin, badgeMax, 0xE6111518u, 4f);
+        dl.AddRect(badgeMin, badgeMax, hover.OverallColor, 4f, ImDrawFlags.None, 2f);
+        var badgeTextSize = ImGui.CalcTextSize(hover.OverallTier);
+        dl.AddText(
+            badgeMin + new NumVec2((badgeSize - badgeTextSize.X) * 0.5f, (badgeSize - badgeTextSize.Y) * 0.5f),
+            hover.OverallColor,
+            hover.OverallTier);
+
+        ImGui.SetNextWindowPos(new NumVec2(x, y), ImGuiCond.Always);
+        ImGui.SetNextWindowSize(new NumVec2(width, 0f), ImGuiCond.Always);
+        ImGui.SetNextWindowBgAlpha(0.96f);
+        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration
+                                       | ImGuiWindowFlags.NoInputs
+                                       | ImGuiWindowFlags.NoNav
+                                       | ImGuiWindowFlags.NoFocusOnAppearing
+                                       | ImGuiWindowFlags.AlwaysAutoResize;
+        if (!ImGui.Begin("##hovered_tablet_tiers", flags))
+        {
+            ImGui.End();
+            return;
+        }
+
+        ImGui.TextUnformatted(hover.TabletType);
+        ImGui.SameLine();
+        ImGui.TextDisabled("Overall");
+        ImGui.SameLine();
+        ImGui.TextColored(ColorVector(hover.OverallColor), hover.OverallTier);
+        ImGui.Separator();
+
+        if (hover.Modifiers.Length == 0)
+        {
+            ImGui.TextDisabled("No ranked explicit modifiers");
+        }
+        else
+        {
+            foreach (var modifier in hover.Modifiers)
+            {
+                ImGui.TextColored(ColorVector(modifier.TierColor), modifier.Tier);
+                ImGui.SameLine();
+                if (!string.IsNullOrEmpty(modifier.Roll))
+                {
+                    ImGui.TextColored(ColorVector(modifier.TierColor), $"[{modifier.Roll}]");
+                    ImGui.SameLine();
+                }
+                ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + width - 68f);
+                ImGui.TextWrapped(modifier.Modifier);
+                ImGui.PopTextWrapPos();
+            }
+        }
+
+        ImGui.Separator();
+        ImGui.TextDisabled("Price-informed market tier · Runes of Aldur");
+        ImGui.End();
+    }
+
+    private static Vector4 ColorVector(uint color)
+        => new(
+            ((color >> 16) & 0xFF) / 255f,
+            ((color >> 8) & 0xFF) / 255f,
+            (color & 0xFF) / 255f,
+            ((color >> 24) & 0xFF) / 255f);
 
     private void DrawWaystoneAlchemyHints(ImDrawListPtr dl, RenderContext ctx)
     {
@@ -1689,16 +1781,17 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         var y = ctx.WindowHeight - Math.Clamp(s.BarBottomOffset, 0f, 200f);
         ImGui.SetNextWindowPos(
             new NumVec2(x, y),
-            ImGuiCond.FirstUseEver,
+            ImGuiCond.Always,
             new NumVec2(s.BarOnRight ? 1f : 0f, 1f));
-        ImGui.SetNextWindowBgAlpha(Math.Clamp(s.BarOpacity, 0f, 1f));
+        ImGui.SetNextWindowBgAlpha(Math.Clamp(s.BarOpacity, 0.45f, 1f));
         const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration |
             ImGuiWindowFlags.NoNav |
+            ImGuiWindowFlags.NoMove |
             ImGuiWindowFlags.AlwaysAutoResize |
             ImGuiWindowFlags.NoFocusOnAppearing;
         if (!ImGui.Begin("##loottracker_restore", flags)) { ImGui.End(); return; }
         ImGui.SetWindowFontScale(LootTrackerUiScale(ctx));
-        if (DrawLootIconButton("##loot_restore", "Exalt", "Show Loot Tracker", selected: false))
+        if (ImGui.Button("Show Loot Tracker"))
             _lootTrackerHidden = false;
         ImGui.End();
     }
@@ -3900,6 +3993,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             "Filter Tablet juice independently as Required, GREAT, or BAD.");
         if (tabletMods)
         {
+            var hoverTiers = s.ShowTabletTiersOnHover;
+            if (ImGui.Checkbox("Show modifier tiers when hovering Tablets", ref hoverTiers))
+                s.ShowTabletTiersOnHover = hoverTiers;
             var allRequired = s.RequireAllGoodTabletMods;
             if (ImGui.Checkbox("Require all selected Required mods##Tablet", ref allRequired))
                 s.RequireAllGoodTabletMods = allRequired;
@@ -3916,6 +4012,8 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             ImGui.TextDisabled("Same rule model as Waystones. Minimum rolls remain per modifier.");
             ImGui.TextDisabled("Required: cyan border  |  GREAT: arrow  |  BAD: red border");
             ImGui.TextDisabled("Choose the Tablet you are rolling. Universal selections are shared across Tablet tabs.");
+            ImGui.TextDisabled("Market tiers (Runes of Aldur, Jul 2026): S gold | A green | B blue | C grey | D red.");
+            ImGui.TextDisabled("Tiers are price-informed guidance; exact value still depends on roll, uses remaining, and modifier combinations.");
             if (ImGui.BeginTabBar("StashUtilityTabletTypes", ImGuiTabBarFlags.FittingPolicyScroll))
             {
                 foreach (var group in StashUtilityCatalog.TabletGroups)
@@ -4245,7 +4343,11 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private void DrawStashUtilitySearch()
     {
         ImGui.SetNextItemWidth(UiW(18f));
-        ImGui.InputTextWithHint("##stashUtilitySearch", "Search modifier or category", ref _stashUtilityModSearch, 128);
+        ImGui.InputTextWithHint(
+            "##stashUtilitySearch",
+            "Search exact modifier text, tier, ID, or category",
+            ref _stashUtilityModSearch,
+            128);
         ImGui.SameLine();
         if (ImGui.SmallButton("Clear search")) _stashUtilityModSearch = "";
     }
@@ -4274,12 +4376,13 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                     | ImGuiTableFlags.RowBg
                     | ImGuiTableFlags.ScrollY
                     | ImGuiTableFlags.SizingStretchProp;
-        if (!ImGui.BeginTable($"StashUtilityTabletRules##{group.Name}", 5, flags, new NumVec2(0, 380)))
+        if (!ImGui.BeginTable($"StashUtilityTabletRules##{group.Name}", 6, flags, new NumVec2(0, 380)))
             return;
 
         var checkWidth = ImGui.GetFontSize() * 3.5f;
         ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableSetupColumn("Modifier", ImGuiTableColumnFlags.WidthStretch);
+        ImGui.TableSetupColumn("Tier", ImGuiTableColumnFlags.WidthFixed, checkWidth);
         ImGui.TableSetupColumn("Required", ImGuiTableColumnFlags.WidthFixed, checkWidth * 1.5f);
         ImGui.TableSetupColumn("GREAT", ImGuiTableColumnFlags.WidthFixed, checkWidth);
         ImGui.TableSetupColumn("BAD", ImGuiTableColumnFlags.WidthFixed, checkWidth);
@@ -4290,8 +4393,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         {
             var definitions = groupMods
                 .Where(definition => string.Equals(definition.Category, category, StringComparison.OrdinalIgnoreCase))
-                .Where(MatchesStashUtilitySearch)
-                .OrderBy(definition => definition.Name)
+                .Where(definition => StashUtilityCatalog.MatchesTabletSearch(definition, _stashUtilityModSearch))
+                .OrderBy(definition => definition.TierSortOrder)
+                .ThenBy(definition => definition.Name)
                 .ToArray();
             if (definitions.Length == 0) continue;
 
@@ -4344,10 +4448,16 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         ImGui.PushID(definition.Id);
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        ImGui.TextUnformatted(definition.Name);
+        var tierRgb = ParseHexColor(definition.TierColor);
+        ImGui.TextColored(new Vector4(tierRgb, 1f), definition.Name);
         if (ImGui.IsItemHovered()) ImGui.SetTooltip(definition.Id);
 
         ImGui.TableSetColumnIndex(1);
+        ImGui.TextColored(new Vector4(tierRgb, 1f), definition.MarketTier);
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Advisory market tier based on current Runes of Aldur listings and reported sales.");
+
+        ImGui.TableSetColumnIndex(2);
         var required = ContainsSetting(settings.GoodTabletMods, definition.Id);
         if (ImGui.Checkbox("##required", ref required))
         {
@@ -4355,7 +4465,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             if (required) SetSetting(settings.BadTabletMods, definition.Id, false);
         }
 
-        ImGui.TableSetColumnIndex(2);
+        ImGui.TableSetColumnIndex(3);
         var great = ContainsSetting(settings.GodTabletMods, definition.Id);
         if (ImGui.Checkbox("##great", ref great))
         {
@@ -4363,7 +4473,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             if (great) SetSetting(settings.BadTabletMods, definition.Id, false);
         }
 
-        ImGui.TableSetColumnIndex(3);
+        ImGui.TableSetColumnIndex(4);
         var bad = ContainsSetting(settings.BadTabletMods, definition.Id);
         if (ImGui.Checkbox("##bad", ref bad))
         {
@@ -4375,7 +4485,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             }
         }
 
-        ImGui.TableSetColumnIndex(4);
+        ImGui.TableSetColumnIndex(5);
         if ((required || great) && definition.MaxRoll > definition.MinRoll)
         {
             var minimum = settings.TabletMinimumRolls.TryGetValue(definition.Id, out var configured)
@@ -4445,6 +4555,18 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         {
             var enabled = lt.Enabled;
             if (ImGui.Checkbox("Enable Loot Tracker", ref enabled)) lt.Enabled = enabled;
+
+            if (LootTrackerDrawPolicy.HasRecoveryControl(
+                    _lootTrackerHidden,
+                    LootTrackerBarMode.None,
+                    settingsOpen: true))
+            {
+                ImGui.SameLine();
+                if (ImGui.Button("Show tracker"))
+                    _lootTrackerHidden = false;
+                if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
+                    ImGui.SetTooltip("Restore the Loot Tracker window.");
+            }
 
             if (ImGui.Button("New session"))
                 _enqueue(_newLootSession);

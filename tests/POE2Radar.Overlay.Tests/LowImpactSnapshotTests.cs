@@ -42,10 +42,15 @@ public sealed class LowImpactSnapshotTests
     }
 
     [Theory]
-    [InlineData(true, true)]
-    [InlineData(false, false)]
-    public void ShouldDrawOverlay_UsesManualRenderingToggle(bool renderingEnabled, bool expected)
-        => Assert.Equal(expected, RadarApp.ShouldDrawOverlay(renderingEnabled));
+    [InlineData(true, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, false)]
+    public void ShouldDrawOverlay_RequiresManualToggleAndGameFocus(
+        bool renderingEnabled,
+        bool gameFocused,
+        bool expected)
+        => Assert.Equal(expected, RadarApp.ShouldDrawOverlay(renderingEnabled, gameFocused));
 
     private static PropertyInfo Property(PropertyInfo[] properties, string name)
         => properties.Single(p => p.Name == name);

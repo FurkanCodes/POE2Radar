@@ -16,6 +16,7 @@ public sealed partial class RadarApp
     private string _stashValuePricingConfigKey = "";
     private StashValueLabel[] _stashValueLabels = [];
     private StashUtilityHighlight[] _stashUtilityHighlights = [];
+    private HoveredTabletTierView? _hoveredTabletTier;
     private Poe2Live.StashValueSlot[] _stashValueSlots = [];
     private HashSet<nint> _stashInventoryEntities = [];
     private StashValueRuntimeStatus _stashValueStatus = StashValueRuntimeStatus.Empty;
@@ -92,6 +93,7 @@ public sealed partial class RadarApp
 
         var labels = BuildStashValueLabels(read);
         var highlights = BuildStashUtilityHighlights(read);
+        _hoveredTabletTier = BuildHoveredTabletTier(read);
         var scanMs = ElapsedMs(scanStart);
 
         _stashValueLabels = labels;
@@ -113,6 +115,7 @@ public sealed partial class RadarApp
         if (!drawActive) return false;
         return s.ShowOverlay || s.ShowInventoryOverlay || s.ShowDebugInfo
             || StashUtilityRules.IsEnabled(_settings.StashUtility)
+            || _settings.StashUtility.ShowTabletTiersOnHover
             || _settings.WaystoneAlchemy.Enabled;
     }
 
@@ -122,6 +125,7 @@ public sealed partial class RadarApp
             _stashValueLabels = [];
         if (_stashUtilityHighlights.Length > 0)
             _stashUtilityHighlights = [];
+        _hoveredTabletTier = null;
         if (_stashValueSlots.Length > 0)
             _stashValueSlots = [];
         if (_stashInventoryEntities.Count > 0)
@@ -317,6 +321,34 @@ public sealed partial class RadarApp
         }
 
         return result.Count == 0 ? [] : result.ToArray();
+    }
+
+    private HoveredTabletTierView? BuildHoveredTabletTier(Poe2Live.StashValueRead read)
+    {
+        if (!_settings.StashUtility.ShowTabletTiersOnHover)
+            return null;
+
+        foreach (var slot in read.Slots)
+        {
+            if (!TabletTierHover.TryBuild(slot, out var summary))
+                continue;
+
+            return new HoveredTabletTierView(
+                new NumVec2(slot.Rect.X, slot.Rect.Y),
+                new NumVec2(slot.Rect.W, slot.Rect.H),
+                summary.TabletType,
+                summary.OverallTier,
+                PackColor(summary.OverallColor),
+                summary.Modifiers
+                    .Select(modifier => new TabletTierLineView(
+                        modifier.Tier,
+                        PackColor(modifier.Color),
+                        modifier.Modifier,
+                        modifier.Roll))
+                    .ToArray());
+        }
+
+        return null;
     }
 
     internal static bool ShouldHoldStashUtilityReadMiss(int slotCount, int priorHighlightCount, int missStreak)

@@ -51,4 +51,10 @@ internal static class LootTrackerDrawPolicy
             ? LootTrackerBarMode.Compact
             : LootTrackerBarMode.None;
     }
+
+    internal static bool HasRecoveryControl(
+        bool hidden,
+        LootTrackerBarMode barMode,
+        bool settingsOpen)
+        => hidden && (barMode != LootTrackerBarMode.None || settingsOpen);
 }

@@ -385,6 +385,105 @@ public sealed class StashUtilityRulesTests
         Assert.All(StashUtilityCatalog.TabletMods, definition => Assert.Contains(definition.Id, groupedIds));
     }
 
+    [Fact]
+    public void TabletCatalog_CoversAllCurrentAffixesWithCanonicalText()
+    {
+        Assert.Equal(83, StashUtilityCatalog.TabletMods.Length);
+        Assert.Equal(
+            StashUtilityCatalog.TabletMods.Length,
+            StashUtilityCatalog.TabletMods.Select(definition => definition.Id).Distinct(StringComparer.Ordinal).Count());
+
+        Assert.Equal(
+            "Map has (1-2) additional random Modifiers",
+            TabletMod("TowerMapAdditionalModifier").Name);
+        Assert.Equal(
+            "(5-7)% increased Pack Size in Map",
+            TabletMod("TowerPackSizeIncrease").Name);
+        Assert.Equal(
+            "Ritual Altars in Map allow rerolling Favours (1-3) additional times",
+            TabletMod("TowerRitualAdditionalReroll").Name);
+    }
+
+    [Fact]
+    public void TabletCatalog_CanonicalTextFingerprint_DoesNotDriftSilently()
+    {
+        var canonicalText = string.Join(
+            '\n',
+            StashUtilityCatalog.TabletMods.Select(definition => $"{definition.Id}|{definition.Name}"));
+        var fingerprint = Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(canonicalText)));
+
+        Assert.Equal("10051255067F88D109F0E406F46769FC2387BFFED47E9E2AA4BA387959C90E00", fingerprint);
+    }
+
+    [Fact]
+    public void TabletSearch_MatchesAllWordsInExactModifierText()
+    {
+        var additionalModifiers = TabletMod("TowerMapAdditionalModifier");
+
+        Assert.True(StashUtilityCatalog.MatchesTabletSearch(additionalModifiers, "Additional Modifiers"));
+        Assert.True(StashUtilityCatalog.MatchesTabletSearch(additionalModifiers, "map random"));
+        Assert.False(StashUtilityCatalog.MatchesTabletSearch(additionalModifiers, "Ritual Tribute"));
+    }
+
+    [Fact]
+    public void TabletMarketTiers_HighlightPriceDefiningModifiers()
+    {
+        var ritualRerolls = TabletMod("TowerRitualAdditionalReroll");
+        var additionalMapMods = TabletMod("TowerMapAdditionalModifier");
+
+        Assert.Equal("S", ritualRerolls.MarketTier);
+        Assert.Equal("#FFD166", ritualRerolls.TierColor);
+        Assert.Equal("A", additionalMapMods.MarketTier);
+        Assert.Equal("#6EEB87", additionalMapMods.TierColor);
+        Assert.All(
+            StashUtilityCatalog.TabletMods,
+            definition => Assert.Contains(definition.MarketTier, new[] { "S", "A", "B", "C", "D" }));
+    }
+
+    [Fact]
+    public void TabletTierHover_DetectsTypeAndRanksEveryExplicitModifier()
+    {
+        var slot = Slot(
+            "Metadata/Items/Tablet/PrecursorTabletRitual",
+            "Ritual Tablet",
+            [
+                new Poe2Live.StashItemMod("TowerPackSizeIncrease", 7, float.NaN, true),
+                new Poe2Live.StashItemMod("TowerRitualAdditionalReroll", 3, float.NaN, true),
+                new Poe2Live.StashItemMod("TowerRitualOmenChance", 62, float.NaN, true),
+            ],
+            default) with { Hovered = true };
+
+        Assert.True(TabletTierHover.TryBuild(slot, out var hover));
+        Assert.Equal("Ritual Tablet", hover.TabletType);
+        Assert.Equal("S", hover.OverallTier);
+        Assert.Equal("#FFD166", hover.OverallColor);
+        Assert.Equal(["S", "A", "C"], hover.Modifiers.Select(modifier => modifier.Tier));
+        Assert.Equal("3", hover.Modifiers[0].Roll);
+        Assert.Equal("62%", hover.Modifiers[1].Roll);
+        Assert.Equal("7%", hover.Modifiers[2].Roll);
+    }
+
+    [Fact]
+    public void TabletTierHover_OnlyAppearsForHoveredTablets()
+    {
+        var tablet = Tablet(new Poe2Live.StashItemMod("TowerRitualAdditionalReroll", 3, float.NaN, true));
+        Assert.False(TabletTierHover.TryBuild(tablet, out _));
+        Assert.False(TabletTierHover.TryBuild(Waystone() with { Hovered = true }, out _));
+    }
+
+    [Theory]
+    [InlineData("Metadata/Items/Tablet/PrecursorTabletIncursion", "Temple Tablet")]
+    [InlineData("Metadata/Items/Tablet/PrecursorTabletBoss", "Overseer Tablet")]
+    [InlineData("Metadata/Items/Tablet/PrecursorTabletGeneric", "Irradiated Tablet")]
+    public void TabletTierHover_DetectsMetadataOnlyTabletFamilies(string path, string expected)
+    {
+        var slot = Slot(path, "", [], default);
+
+        Assert.Equal(expected, TabletTierHover.DetectTabletType(slot));
+    }
+
     [Theory]
     [InlineData("Abyss Tablet")]
     [InlineData("Breach Tablet")]
@@ -420,6 +519,9 @@ public sealed class StashUtilityRulesTests
 
     private static Poe2Live.StashValueSlot Tablet(params Poe2Live.StashItemMod[] mods)
         => Slot("Metadata/Items/Tablet/TowerAugment", "Precursor Tablet", mods, default);
+
+    private static StashUtilityModDefinition TabletMod(string id)
+        => Assert.Single(StashUtilityCatalog.TabletMods, definition => definition.Id == id);
 
     private static Poe2Live.StashValueSlot Slot(
         string path,
