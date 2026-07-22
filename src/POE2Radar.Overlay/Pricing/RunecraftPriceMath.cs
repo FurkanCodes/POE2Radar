@@ -105,6 +105,18 @@ public static class RunecraftPriceMath
         return n % 2 == 1 ? arr[n / 2] : (arr[n / 2 - 1] + arr[n / 2]) * 0.5;
     }
 
+    public static double BestOf(IReadOnlyList<double> values)
+    {
+        if (values.Count == 0) return double.NegativeInfinity;
+        var best = values[0];
+        for (var i = 1; i < values.Count; i++)
+            if (values[i] > best) best = values[i];
+        return best;
+    }
+
+    public static bool IsBest(double total, double best)
+        => double.IsFinite(best) && total >= best;
+
     public static uint PickColor(double totalEx, double median, RunecraftColorMode mode)
     {
         const uint white = 0xFFFFFFFFu;

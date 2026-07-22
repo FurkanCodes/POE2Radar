@@ -11,6 +11,15 @@ public sealed partial class RadarApp
     private const string ExpeditionMarker = "Metadata/MiscellaneousObjects/Expedition/ExpeditionMarker";
     private const string ExpeditionRelic = "Metadata/MiscellaneousObjects/Expedition/ExpeditionRelic";
 
+    private static readonly IReadOnlyDictionary<string, float> ExpeditionDefaultGrandRewardWeights =
+        new Dictionary<string, float>(StringComparer.Ordinal)
+        {
+            ["RewardChestCurrencyRare"] = 40f,
+            ["RewardChestArmour"] = 10f,
+            ["RewardChestWeapons"] = 10f,
+            ["RewardChestCurrency"] = 25f,
+        };
+
     private sealed record CachedExpeditionEntity(
         uint Id,
         nint Address,
@@ -25,7 +34,16 @@ public sealed partial class RadarApp
     private DateTime _nextExpeditionScanUtc = DateTime.MinValue;
     private Task<ExpeditionPlan>? _expeditionPlanTask;
     private CancellationTokenSource? _expeditionPlanCts;
+    private int _expeditionPlanTaskFingerprint;
+    private int _expeditionPlanTaskBasePlaced;
+    private NumVec2 _expeditionPlanTaskStartGrid;
+    private float _expeditionPlanTaskStartHeight;
     private int _expeditionFingerprint;
+    private int _expeditionPlanBasePlaced;
+    private NumVec2 _expeditionPlanStartGrid;
+    private float _expeditionPlanStartHeight;
+    private bool _expeditionHasLockedPlan;
+    private bool _expeditionManualRunRequested;
     private ExpeditionPlannerView _expeditionView = ExpeditionPlannerView.Empty;
 
     internal static bool IsExpeditionPlannerEntity(string metadata)
@@ -39,11 +57,13 @@ public sealed partial class RadarApp
 
     private void RefreshExpeditionPlanner(LiveFrameState live, WorldSnapshot snap, bool drawActive)
     {
-        if (!_settings.Runecraft.ShowExpeditionPlanner || !drawActive || !live.InGame)
+        if (!_settings.Runecraft.ShowExpeditionPlanner || !live.InGame)
         {
             ClearExpeditionPlanner();
             return;
         }
+        if (!drawActive)
+            return;
 
         if (live.AreaInstance != _expeditionArea)
         {
@@ -51,14 +71,16 @@ public sealed partial class RadarApp
             _expeditionArea = live.AreaInstance;
             _expeditionEntities.Clear();
             _expeditionFingerprint = 0;
+            _expeditionPlanBasePlaced = 0;
+            _expeditionPlanStartGrid = NumVec2.Zero;
+            _expeditionPlanStartHeight = 0f;
+            _expeditionHasLockedPlan = false;
+            _expeditionManualRunRequested = false;
             _expeditionView = ExpeditionPlannerView.Empty;
         }
 
         if (DateTime.UtcNow < _nextExpeditionScanUtc)
-        {
-            ApplyCompletedExpeditionPlan();
             return;
-        }
         _nextExpeditionScanUtc = DateTime.UtcNow.AddMilliseconds(500);
 
         foreach (var e in snap.Entities)
@@ -83,8 +105,7 @@ public sealed partial class RadarApp
             .FirstOrDefault(e => e.Metadata.Equals(ExpeditionDetonator, StringComparison.OrdinalIgnoreCase));
         if (detonator is null || _live.IsExpeditionDetonated(detonator.Address))
         {
-            CancelExpeditionPlan();
-            _expeditionView = ExpeditionPlannerView.Empty;
+            ClearExpeditionPlanner();
             return;
         }
 
@@ -92,13 +113,15 @@ public sealed partial class RadarApp
         var total = controller.Resolved
             ? controller.Total
             : Math.Clamp(_settings.Runecraft.ExpeditionManualCharges, 1, 64);
-        var charges = _expeditionEntities.Values
+        var cachedCharges = _expeditionEntities.Values
             .Where(e => e.Metadata.Equals(ExpeditionExplosive, StringComparison.OrdinalIgnoreCase))
             .OrderBy(e => e.Id)
             .ToArray();
         var placed = controller.Resolved
             ? controller.Placed
-            : Math.Min(total, charges.Length);
+            : Math.Min(total, cachedCharges.Length);
+        var charges = ActiveExpeditionCharges(
+            cachedCharges, controller.Resolved, placed);
         var remaining = Math.Max(0, total - placed);
         var grand = total >= 10;
         var mapMods = _live.ReadExpeditionMapModifiers(live.AreaInstance);
@@ -118,20 +141,35 @@ public sealed partial class RadarApp
 
         var fingerprint = ExpeditionFingerprint(
             snap.AreaHash, total, placed, mapMods, start, targets, snap.Terrain?.Width ?? 0, snap.Terrain?.Height ?? 0);
-        ApplyCompletedExpeditionPlan();
+        ApplyCompletedExpeditionPlan(fingerprint);
+        var inputsChanged = fingerprint != _expeditionFingerprint;
+        if (ShouldCancelStaleExpeditionPlan(inputsChanged, _expeditionPlanTask is not null))
+            CancelExpeditionPlan();
 
         if (snap.Terrain is null)
         {
+            var waiting = ViewToPlan(_expeditionView) with { Status = "Waiting for walkable terrain" };
             _expeditionView = BuildExpeditionView(
                 detonator, controller, total, placed, mapMods, effectiveDistance, effectiveRadius, grand,
-                targets.Count, ExpeditionPlan.Empty with { Status = "Waiting for walkable terrain" }, planning: false);
+                targets.Count, waiting, planning: false, _expeditionPlanBasePlaced,
+                _expeditionHasLockedPlan ? _expeditionPlanStartGrid : detonator.Grid,
+                _expeditionHasLockedPlan ? _expeditionPlanStartHeight : detonator.TerrainHeight);
             return;
         }
 
-        if (_expeditionPlanTask is null && fingerprint != _expeditionFingerprint)
+        if (ShouldStartExpeditionPlan(
+                _expeditionHasLockedPlan,
+                _expeditionManualRunRequested,
+                inputsChanged,
+                _expeditionPlanTask is not null))
         {
+            _expeditionManualRunRequested = false;
             _expeditionFingerprint = fingerprint;
             _expeditionPlanCts = new CancellationTokenSource();
+            _expeditionPlanTaskFingerprint = fingerprint;
+            _expeditionPlanTaskBasePlaced = placed;
+            _expeditionPlanTaskStartGrid = start;
+            _expeditionPlanTaskStartHeight = charges.Length > 0 ? charges[^1].TerrainHeight : detonator.TerrainHeight;
             var terrain = snap.Terrain;
             var targetCopy = targets.ToArray();
             var token = _expeditionPlanCts.Token;
@@ -141,12 +179,18 @@ public sealed partial class RadarApp
                 token);
         }
 
-        var current = _expeditionPlanTask is null
-            ? ViewToPlan(_expeditionView)
-            : ViewToPlan(_expeditionView) with { Status = "Planning route…" };
+        var current = ViewToPlan(_expeditionView);
+        if (_expeditionPlanTask is not null)
+            current = current with { Status = _expeditionHasLockedPlan
+                ? "Calculating new route; current plan remains locked"
+                : "Calculating route…" };
+        else if (_expeditionHasLockedPlan && inputsChanged)
+            current = current with { Status = "Plan locked · press Run to recalculate" };
         _expeditionView = BuildExpeditionView(
             detonator, controller, total, placed, mapMods, effectiveDistance, effectiveRadius, grand,
-            targets.Count, current, planning: _expeditionPlanTask is not null);
+            targets.Count, current, planning: _expeditionPlanTask is not null, _expeditionPlanBasePlaced,
+            _expeditionHasLockedPlan ? _expeditionPlanStartGrid : detonator.Grid,
+            _expeditionHasLockedPlan ? _expeditionPlanStartHeight : detonator.TerrainHeight);
     }
 
     private List<ExpeditionTarget> BuildExpeditionTargets(bool grand)
@@ -161,6 +205,9 @@ public sealed partial class RadarApp
         var markerBaseline = markerOffsets.Length == 0
             ? 0
             : markerOffsets.GroupBy(v => v).OrderByDescending(g => g.Count()).ThenBy(g => g.Key).First().Key;
+        var hasLogbookMarker = _expeditionEntities.Values
+            .Where(e => e.Metadata.Equals(ExpeditionMarker, StringComparison.OrdinalIgnoreCase))
+            .Any(e => markerBaseline - (int)MathF.Round(e.World.Z - e.TerrainHeight) >= 45);
         var monolithValues = _runecraftMonoliths.ToDictionary(v => v.DeviceAddress, v => (float)v.Best);
 
         var result = new List<ExpeditionTarget>(_expeditionEntities.Count);
@@ -175,7 +222,7 @@ public sealed partial class RadarApp
             {
                 kind = ExpeditionTargetKind.RewardMarker;
                 if (grand)
-                    (weight, label) = GrandMarkerWeight(e.Info.IconName, s);
+                    (weight, label) = GrandMarkerWeight(e.Info.IconName, s.ExpeditionRewardWeights);
                 else
                     (weight, label) = NormalMarkerWeight(markerBaseline, e, s);
             }
@@ -192,15 +239,16 @@ public sealed partial class RadarApp
             {
                 kind = ExpeditionTargetKind.Monolith;
                 monolithValues.TryGetValue(e.Address, out var value);
-                if (value < s.ExpeditionMonolithMinExalted) continue;
-                weight = MathF.Max(20f, value * 10f);
+                if (value <= 0 || value < s.ExpeditionMonolithMinExalted) continue;
+                weight = value;
                 label = value > 0 ? $"Runeshape {value:F1} ex" : "Runeshape monolith";
                 primary = true;
             }
             else if (e.Metadata.Contains("Sentinel/SentinelRandomEncounterObject", StringComparison.OrdinalIgnoreCase))
             {
                 kind = ExpeditionTargetKind.Sentinel;
-                weight = 80f;
+                if (grand || !hasLogbookMarker) continue;
+                weight = s.ExpeditionLogbookMarkerWeight * 1.5f + 1f;
                 label = "Kalguur Sentinel";
                 primary = true;
             }
@@ -224,15 +272,23 @@ public sealed partial class RadarApp
         return (s.ExpeditionTinyMarkerWeight, "Small marker");
     }
 
-    private static (float Weight, string Label) GrandMarkerWeight(string iconName, Config.RunecraftSettings s)
+    private static (float Weight, string Label) GrandMarkerWeight(
+        string iconName,
+        IReadOnlyDictionary<string, float>? overrides)
     {
         var icon = iconName ?? "";
-        if (icon.Contains("Logbook", StringComparison.OrdinalIgnoreCase)) return (s.ExpeditionLogbookMarkerWeight, "Logbook reward");
-        if (icon.Contains("Currency", StringComparison.OrdinalIgnoreCase)) return (s.ExpeditionGoldMarkerWeight, "Currency reward");
-        if (icon.Contains("Unique", StringComparison.OrdinalIgnoreCase)) return (s.ExpeditionGoldMarkerWeight, "Unique reward");
-        if (icon.Contains("Artifact", StringComparison.OrdinalIgnoreCase)) return (s.ExpeditionMagicMarkerWeight, "Artifact reward");
-        if (icon.Contains("Gem", StringComparison.OrdinalIgnoreCase)) return (s.ExpeditionMagicMarkerWeight, "Gem reward");
-        return (s.ExpeditionWhiteMarkerWeight, icon.Length == 0 ? "Reward marker" : FriendlyIconName(icon));
+        return (
+            ExpeditionGrandRewardWeight(icon, overrides),
+            icon.Length == 0 ? "Reward marker" : FriendlyIconName(icon));
+    }
+
+    internal static float ExpeditionGrandRewardWeight(
+        string icon,
+        IReadOnlyDictionary<string, float>? overrides)
+    {
+        if (overrides is not null && overrides.TryGetValue(icon, out var configured))
+            return configured;
+        return ExpeditionDefaultGrandRewardWeights.TryGetValue(icon, out var value) ? value : 1f;
     }
 
     private static string FriendlyIconName(string icon)
@@ -264,16 +320,54 @@ public sealed partial class RadarApp
         return h.ToHashCode();
     }
 
-    private void ApplyCompletedExpeditionPlan()
+    internal static bool ShouldApplyExpeditionPlanResult(
+        int completedFingerprint,
+        int currentFingerprint)
+        => completedFingerprint == currentFingerprint;
+
+    internal static bool ShouldStartExpeditionPlan(
+        bool hasLockedPlan,
+        bool manualRunRequested,
+        bool inputsChanged,
+        bool taskRunning)
+        => !taskRunning && (!hasLockedPlan || manualRunRequested || inputsChanged);
+
+    internal static bool ShouldCancelStaleExpeditionPlan(
+        bool inputsChanged,
+        bool taskRunning)
+        => inputsChanged && taskRunning;
+
+    internal static T[] ActiveExpeditionCharges<T>(
+        IReadOnlyList<T> cachedCharges,
+        bool controllerResolved,
+        int controllerPlaced)
+    {
+        if (!controllerResolved)
+            return cachedCharges.ToArray();
+
+        var activeCount = Math.Clamp(controllerPlaced, 0, cachedCharges.Count);
+        return cachedCharges.Skip(cachedCharges.Count - activeCount).ToArray();
+    }
+
+    private void RequestExpeditionPlanFromUi()
+        => _expeditionManualRunRequested = true;
+
+    private void ApplyCompletedExpeditionPlan(int currentFingerprint)
     {
         if (_expeditionPlanTask is null || !_expeditionPlanTask.IsCompleted) return;
         var task = _expeditionPlanTask;
+        var completedFingerprint = _expeditionPlanTaskFingerprint;
         _expeditionPlanTask = null;
         _expeditionPlanCts?.Dispose();
         _expeditionPlanCts = null;
-        if (task.IsCompletedSuccessfully)
+        if (task.IsCompletedSuccessfully
+            && ShouldApplyExpeditionPlanResult(completedFingerprint, currentFingerprint))
         {
             var p = task.Result;
+            _expeditionHasLockedPlan = true;
+            _expeditionPlanBasePlaced = _expeditionPlanTaskBasePlaced;
+            _expeditionPlanStartGrid = _expeditionPlanTaskStartGrid;
+            _expeditionPlanStartHeight = _expeditionPlanTaskStartHeight;
             _expeditionView = _expeditionView with
             {
                 Planning = false,
@@ -284,6 +378,24 @@ public sealed partial class RadarApp
                 Status = p.Status,
                 Route = p.Placements.Select(x => new ExpeditionPlacementView(
                     x.Grid, x.TerrainHeight, x.CapturedWeight, x.CapturedCount, x.Bridge, x.Label)).ToArray(),
+            };
+        }
+        else if (!task.IsCompletedSuccessfully)
+        {
+            _expeditionView = _expeditionView with
+            {
+                Planning = false,
+                Status = _expeditionHasLockedPlan
+                    ? "Recalculation interrupted; current plan remains locked"
+                    : "Planner interrupted; retrying…",
+            };
+        }
+        else if (_expeditionHasLockedPlan)
+        {
+            _expeditionView = _expeditionView with
+            {
+                Planning = false,
+                Status = "Encounter changed during calculation; press Run to retry",
             };
         }
     }
@@ -305,7 +417,10 @@ public sealed partial class RadarApp
         bool grand,
         int targetCount,
         ExpeditionPlan plan,
-        bool planning)
+        bool planning,
+        int planBasePlaced,
+        NumVec2 routeStartGrid,
+        float routeStartHeight)
         => new(
             true,
             planning,
@@ -313,6 +428,7 @@ public sealed partial class RadarApp
             controller.Resolved ? "encounter state" : "manual fallback",
             total,
             placed,
+            planBasePlaced,
             mapMods.PlacementRangePercent,
             mapMods.BlastRadiusPercent,
             distance,
@@ -323,8 +439,8 @@ public sealed partial class RadarApp
             plan.CapturedWeight,
             plan.ComputeMilliseconds,
             plan.Status,
-            detonator.Grid,
-            detonator.TerrainHeight,
+            routeStartGrid,
+            routeStartHeight,
             plan.Placements.Select(x => new ExpeditionPlacementView(
                 x.Grid, x.TerrainHeight, x.CapturedWeight, x.CapturedCount, x.Bridge, x.Label)).ToArray());
 
@@ -334,11 +450,21 @@ public sealed partial class RadarApp
         _expeditionPlanCts?.Dispose();
         _expeditionPlanCts = null;
         _expeditionPlanTask = null;
+        _expeditionPlanTaskFingerprint = 0;
+        _expeditionPlanTaskBasePlaced = 0;
+        _expeditionPlanTaskStartGrid = NumVec2.Zero;
+        _expeditionPlanTaskStartHeight = 0f;
     }
 
     private void ClearExpeditionPlanner()
     {
         CancelExpeditionPlan();
+        _expeditionFingerprint = 0;
+        _expeditionPlanBasePlaced = 0;
+        _expeditionPlanStartGrid = NumVec2.Zero;
+        _expeditionPlanStartHeight = 0f;
+        _expeditionHasLockedPlan = false;
+        _expeditionManualRunRequested = false;
         _expeditionView = ExpeditionPlannerView.Empty;
     }
 }

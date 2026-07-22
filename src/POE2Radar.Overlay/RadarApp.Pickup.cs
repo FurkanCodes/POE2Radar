@@ -234,7 +234,9 @@ public sealed partial class RadarApp
                 ? PickupClickResult.TargetUnavailable
                 : PickupClickResult.InputFailed;
 
-        return SendInputNative.Click(point.X, point.Y, rightButton: false)
+        // Give the standalone client one frame slice to commit the SetCursorPos hover before the
+        // click. The input adapter deliberately emits no second cursor movement.
+        return SendInputNative.Click(point.X, point.Y, rightButton: false, settleMs: 12)
             ? PickupClickResult.Sent
             : PickupClickResult.InputFailed;
     }

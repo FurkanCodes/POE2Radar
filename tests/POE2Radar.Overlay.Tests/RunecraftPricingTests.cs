@@ -111,6 +111,18 @@ public sealed class RunecraftPricingTests
     }
 
     [Fact]
+    public void BestPanelReward_UsesTotalStackValueAndHighlightsTies()
+    {
+        var totals = new[] { 4.5, 18.0, 18.0, 7.0 };
+
+        var best = RunecraftPriceMath.BestOf(totals);
+
+        Assert.Equal(18.0, best);
+        Assert.False(RunecraftPriceMath.IsBest(4.5, best));
+        Assert.True(RunecraftPriceMath.IsBest(18.0, best));
+    }
+
+    [Fact]
     public void Catalog_BuildsAnchoredAndUniqueMonolithOffers()
     {
         var catalog = LoadCatalog();

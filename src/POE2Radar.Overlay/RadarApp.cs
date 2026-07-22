@@ -629,6 +629,7 @@ public sealed partial class RadarApp : IDisposable
             () => StartNewLootTrackerSession(),
             StartWaystoneAlchemyFromUi,
             StopWaystoneAlchemyFromUi,
+            RequestExpeditionPlanFromUi,
             _settings,
             generation == 1 ? "POE2Radar Radar" : $"POE2Radar Radar {generation}");
     }

@@ -21,8 +21,7 @@ internal static class SendInputNative
     private const uint KEYEVENTF_KEYUP = 0x0002;
     private const uint KEYEVENTF_SCANCODE = 0x0008;
     private const uint MAPVK_VK_TO_VSC = 0;
-    private const int SM_CXSCREEN = 0;
-    private const int SM_CYSCREEN = 1;
+    internal const uint CursorMovementFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct KEYBDINPUT
@@ -69,9 +68,6 @@ internal static class SendInputNative
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetCursorPos(int x, int y);
 
-    [DllImport("user32.dll")]
-    private static extern int GetSystemMetrics(int nIndex);
-
     /// <summary>Press and release a virtual key (e.g. 0x31 = '1') as a scancode keystroke.</summary>
     public static void Tap(ushort vk)
     {
@@ -94,34 +90,25 @@ internal static class SendInputNative
     /// </summary>
     public static bool Click(int screenX, int screenY, bool rightButton, int settleMs = 0)
     {
-        var screenW = GetSystemMetrics(SM_CXSCREEN);
-        var screenH = GetSystemMetrics(SM_CYSCREEN);
-        if (screenW <= 1 || screenH <= 1) return false;
-
         if (!SetCursorPos(screenX, screenY)) return false;
         if (settleMs > 0)
             Thread.Sleep(Math.Clamp(settleMs, 1, 250));
 
-        var absX = (int)Math.Round(screenX * 65535.0 / (screenW - 1));
-        var absY = (int)Math.Round(screenY * 65535.0 / (screenH - 1));
-        absX = Math.Clamp(absX, 0, 65535);
-        absY = Math.Clamp(absY, 0, 65535);
-
-        var down = rightButton ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_LEFTDOWN;
-        var up = rightButton ? MOUSEEVENTF_RIGHTUP : MOUSEEVENTF_LEFTUP;
-
-        var inputs = new INPUT[3];
-        inputs[0].type = INPUT_MOUSE;
-        inputs[0].U.mi = new MOUSEINPUT
+        // SetCursorPos already moved the cursor in the caller's screen coordinate space. Sending
+        // another absolute MOVE here can be interpreted in a different DPI/desktop coordinate
+        // space and shift the cursor off the loot label immediately before the button event.
+        var flags = PostCursorClickFlags(rightButton);
+        var inputs = new INPUT[flags.Length];
+        for (var i = 0; i < flags.Length; i++)
         {
-            dx = absX,
-            dy = absY,
-            dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
-        };
-        inputs[1].type = INPUT_MOUSE;
-        inputs[1].U.mi = new MOUSEINPUT { dwFlags = down };
-        inputs[2].type = INPUT_MOUSE;
-        inputs[2].U.mi = new MOUSEINPUT { dwFlags = up };
-        return SendInput(3, inputs, Marshal.SizeOf<INPUT>()) == 3;
+            inputs[i].type = INPUT_MOUSE;
+            inputs[i].U.mi = new MOUSEINPUT { dwFlags = flags[i] };
+        }
+        return SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>()) == inputs.Length;
     }
+
+    internal static uint[] PostCursorClickFlags(bool rightButton)
+        => rightButton
+            ? [MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP]
+            : [MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP];
 }

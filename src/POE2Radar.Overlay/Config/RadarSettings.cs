@@ -886,6 +886,7 @@ public sealed class RunecraftSettings
     public float MapValueScaleMultiplier { get; set; } = 1f;
     public float MapValueXOffset { get; set; } = 0f;
     public float MapValueYOffset { get; set; } = 0f;
+    public bool HighlightBestRecipe { get; set; } = true;
     public bool HighlightLockedRecipe { get; set; } = true;
     public bool DiagnosePricing { get; set; } = false;
 
@@ -896,11 +897,12 @@ public sealed class RunecraftSettings
     public bool ShowExpeditionNextPlacementWorld { get; set; } = true;
     public int ExpeditionManualCharges { get; set; } = 5;
     public float ExpeditionMonolithMinExalted { get; set; } = 0f;
-    public float ExpeditionTinyMarkerWeight { get; set; } = 5f;
-    public float ExpeditionWhiteMarkerWeight { get; set; } = 15f;
-    public float ExpeditionMagicMarkerWeight { get; set; } = 35f;
-    public float ExpeditionGoldMarkerWeight { get; set; } = 65f;
+    public float ExpeditionTinyMarkerWeight { get; set; } = 0f;
+    public float ExpeditionWhiteMarkerWeight { get; set; } = 10f;
+    public float ExpeditionMagicMarkerWeight { get; set; } = 30f;
+    public float ExpeditionGoldMarkerWeight { get; set; } = 60f;
     public float ExpeditionLogbookMarkerWeight { get; set; } = 100f;
+    public Dictionary<string, float> ExpeditionRewardWeights { get; set; } = new(StringComparer.Ordinal);
     public float ExpeditionPreferredRelicWeight { get; set; } = 40f;
     public float ExpeditionDangerousRelicPenalty { get; set; } = 100f;
     public List<string> ExpeditionPreferredRelicMods { get; set; } =

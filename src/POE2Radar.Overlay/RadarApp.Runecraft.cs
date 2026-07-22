@@ -595,6 +595,7 @@ public sealed partial class RadarApp
         var median = colorMode == RunecraftColorMode.Relative
             ? RunecraftPriceMath.MedianOf(pricedRows.Select(p => p.Total).ToArray())
             : 0;
+        var bestTotal = RunecraftPriceMath.BestOf(pricedRows.Select(p => p.Total).ToArray());
 
         var result = new List<RunecraftPriceLabel>(pricedRows.Count);
         foreach (var (row, total, locked) in pricedRows)
@@ -624,6 +625,7 @@ public sealed partial class RadarApp
                 text,
                 color,
                 fontPx,
+                s.HighlightBestRecipe && RunecraftPriceMath.IsBest(total, bestTotal),
                 locked,
                 panel.ViewportRect.Y,
                 panel.ViewportRect.Y + panel.ViewportRect.H,
@@ -754,6 +756,7 @@ public sealed partial class RadarApp
             if (TryGetBool(root, "showMapLabels", out var map)) r.ShowMapLabels = map;
             if (TryGetBool(root, "hideMapValueWhenPanelOpen", out var hideMap)) r.HideMapValueWhenPanelOpen = hideMap;
             if (TryGetBool(root, "highlightLockedRecipe", out var hl)) r.HighlightLockedRecipe = hl;
+            if (TryGetBool(root, "highlightBestRecipe", out var hb)) r.HighlightBestRecipe = hb;
             if (TryGetBool(root, "showMonolithWindow", out var win)) r.ShowMonolithWindow = win;
             if (TryGetBool(root, "autoShowMonolithWithGamepad", out var autoWin)) r.AutoShowMonolithWithGamepad = autoWin;
             if (TryGetBool(root, "diagnosePricing", out var diag)) r.DiagnosePricing = diag;

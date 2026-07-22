@@ -44,6 +44,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private readonly Action _newLootSession;
     private readonly Action _startWaystoneAlchemy;
     private readonly Action _stopWaystoneAlchemy;
+    private readonly Action _runExpeditionPlanner;
     private readonly TextureRegistry _textures = new();
     private readonly TerrainTextureCache _terrainTextures = new();
     private readonly OverlayRenderMetrics _renderMetrics = new();
@@ -134,6 +135,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         Action newLootSession,
         Action startWaystoneAlchemy,
         Action stopWaystoneAlchemy,
+        Action runExpeditionPlanner,
         RadarSettings settings,
         string windowTitle = "POE2Radar Radar")
         : base(windowTitle, true, 3840, 2160)
@@ -148,6 +150,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         _newLootSession = newLootSession;
         _startWaystoneAlchemy = startWaystoneAlchemy;
         _stopWaystoneAlchemy = stopWaystoneAlchemy;
+        _runExpeditionPlanner = runExpeditionPlanner;
         _settings = settings;
         _settingsLock = new object();
         _navMenuCorner = settings.NavMenuCorner;
@@ -1188,6 +1191,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         float ambient = Math.Max(1f, ImGui.GetFontSize());
         const uint shadow = 0xCC000000u;
         const uint plate = 0xE6000000u;
+        const uint green = 0xFF55FF55u;
         const uint gold = 0xFF00D7FFu;
 
         foreach (var label in labels)
@@ -1205,6 +1209,11 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             var at = new NumVec2(x, y);
             var bgPad = new NumVec2(4f * k, 2f * k);
             dl.AddRectFilled(at - bgPad, at + ts + bgPad, plate, 3f * k);
+            if (label.Best)
+            {
+                var outerPad = bgPad + new NumVec2(2f * k, 2f * k);
+                dl.AddRect(at - outerPad, at + ts + outerPad, green, 4f * k, ImDrawFlags.None, 2f * k);
+            }
             if (label.Locked)
                 dl.AddRect(at - bgPad, at + ts + bgPad, gold, 3f * k, ImDrawFlags.None, 2f * k);
             dl.AddText(font, label.FontPx, at + new NumVec2(1f, 1f), shadow, label.ValueText);
@@ -1353,9 +1362,15 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
         ImGui.Separator();
         if (view.Planning)
-            TextColoredUnformatted(new Vector4(0.95f, 0.77f, 0.20f, 1f), "Planning automatically…");
+            TextColoredUnformatted(new Vector4(0.95f, 0.77f, 0.20f, 1f), view.Status);
         else
             ImGui.TextWrapped(view.Status);
+        if (view.Planning) ImGui.BeginDisabled();
+        if (ImGui.Button("Run", new NumVec2(90f, 0f)))
+            _enqueue(_runExpeditionPlanner);
+        if (view.Planning) ImGui.EndDisabled();
+        ImGui.SameLine();
+        ImGui.TextDisabled("recalculate from current explosives");
         ImGui.TextUnformatted($"Targets: {view.TargetCount} · covered: {view.CapturedCount} · score: {view.CapturedWeight:F0}");
         if (view.ComputeMilliseconds > 0)
             ImGui.TextDisabled($"Route compute: {view.ComputeMilliseconds:F1} ms (background)");
@@ -1363,22 +1378,34 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         if (view.Route.Length > 0)
         {
             ImGui.Separator();
-            var next = view.Route[0];
-            TextColoredUnformatted(new Vector4(0.35f, 1f, 0.55f, 1f),
-                $"NEXT #{view.Placed + 1}: {next.Label}");
-            var preview = Math.Min(5, view.Route.Length);
-            for (var i = 1; i < preview; i++)
+            var nextIndex = NextExpeditionRouteIndex(view);
+            if (nextIndex >= 0)
             {
-                var p = view.Route[i];
-                ImGui.TextDisabled($"#{view.Placed + i + 1} {(p.Bridge ? "bridge" : p.Label)}");
+                var next = view.Route[nextIndex];
+                TextColoredUnformatted(new Vector4(0.35f, 1f, 0.55f, 1f),
+                    $"NEXT #{view.PlanBasePlaced + nextIndex + 1}: {next.Label}");
+                var previewEnd = Math.Min(view.Route.Length, nextIndex + 5);
+                for (var i = nextIndex + 1; i < previewEnd; i++)
+                {
+                    var p = view.Route[i];
+                    ImGui.TextDisabled($"#{view.PlanBasePlaced + i + 1} {(p.Bridge ? "bridge" : p.Label)}");
+                }
+                if (view.Route.Length > previewEnd)
+                    ImGui.TextDisabled($"…and {view.Route.Length - previewEnd} more");
             }
-            if (view.Route.Length > preview)
-                ImGui.TextDisabled($"…and {view.Route.Length - preview} more");
+            else
+                ImGui.TextDisabled("Locked route completed");
         }
 
         ImGui.Separator();
-        ImGui.TextDisabled("Automatic guidance only · controller needs no cursor or Run button");
+        ImGui.TextDisabled("Updates automatically after each explosive · Run forces refresh");
         ImGui.End();
+    }
+
+    private static int NextExpeditionRouteIndex(ExpeditionPlannerView view)
+    {
+        var next = Math.Max(0, view.Placed - view.PlanBasePlaced);
+        return next < view.Route.Length ? next : -1;
     }
 
     private static void DrawExpeditionRouteMap(
@@ -1392,23 +1419,26 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             => Project(p.Grid, player, center, scale, p.TerrainHeight - frame.PlayerTerrainHeight);
 
         var previous = Project(
-            view.DetonatorGrid, player, center, scale,
-            view.DetonatorHeight - frame.PlayerTerrainHeight);
+            view.RouteStartGrid, player, center, scale,
+            view.RouteStartHeight - frame.PlayerTerrainHeight);
         dl.AddCircleFilled(previous, 5f, ColorU32(90, 190, 255, 0.95f), 16);
+        var nextIndex = NextExpeditionRouteIndex(view);
 
         for (var i = 0; i < view.Route.Length; i++)
         {
             var placement = view.Route[i];
             var point = ProjectPlacement(placement);
-            var color = i == 0
+            var color = i < nextIndex
+                ? ColorU32(145, 150, 155, 0.72f)
+                : i == nextIndex
                 ? ColorU32(75, 255, 120, 0.98f)
                 : placement.Bridge
                     ? ColorU32(255, 205, 70, 0.92f)
                     : ColorU32(255, 105, 75, 0.92f);
-            dl.AddLine(previous, point, color, i == 0 ? 3.5f : 2.5f);
+            dl.AddLine(previous, point, color, i == nextIndex ? 3.5f : 2.5f);
             DrawExpeditionMapRadius(dl, ctx, frame, center, scale, placement, view.EffectiveRadius, color);
-            dl.AddCircleFilled(point, i == 0 ? 8f : 6f, color, 20);
-            var number = (view.Placed + i + 1).ToString();
+            dl.AddCircleFilled(point, i == nextIndex ? 8f : 6f, color, 20);
+            var number = (view.PlanBasePlaced + i + 1).ToString();
             var size = ImGui.CalcTextSize(number);
             dl.AddText(point - size * 0.5f, 0xFF101010u, number);
             previous = point;
@@ -1451,7 +1481,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         if (!_settings.Runecraft.ShowExpeditionNextPlacementWorld || ctx.Map.IsVisible) return;
         var view = ctx.ExpeditionPlanner;
         if (!view.Active || view.Route.Length == 0 || ctx.CameraMatrix is not { Length: >= 16 } matrix) return;
-        var next = view.Route[0];
+        var nextIndex = NextExpeditionRouteIndex(view);
+        if (nextIndex < 0) return;
+        var next = view.Route[nextIndex];
         var W = (float)ctx.WindowWidth;
         var H = (float)ctx.WindowHeight;
         const uint color = 0xFF60FF70u;
@@ -1478,7 +1510,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                 matrix, W, H, out var cx, out var cy)) return;
         var center = new NumVec2(cx, cy);
         dl.AddCircleFilled(center, 7f, color, 20);
-        var text = $"NEXT #{view.Placed + 1} · {next.Label}";
+        var text = $"NEXT #{view.PlanBasePlaced + nextIndex + 1} · {next.Label}";
         var textSize = ImGui.CalcTextSize(text);
         var at = center + new NumVec2(-textSize.X * 0.5f, -30f);
         dl.AddRectFilled(at - new NumVec2(5f, 3f), at + textSize + new NumVec2(5f, 3f), 0xD9111518u, 4f);
@@ -4890,6 +4922,10 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                 rc.OverlayXOffset = ox;
             ImGuiTheme.Tooltip(SettingHints.Runecraft.OverlayXOffset);
 
+            bool best = rc.HighlightBestRecipe;
+            if (ImGui.Checkbox("Highlight best reward", ref best)) rc.HighlightBestRecipe = best;
+            ImGuiTheme.Tooltip(SettingHints.Runecraft.HighlightBestRecipe);
+
             bool locked = rc.HighlightLockedRecipe;
             if (ImGui.Checkbox("Highlight locked recipe", ref locked)) rc.HighlightLockedRecipe = locked;
             ImGuiTheme.Tooltip(SettingHints.Runecraft.HighlightLockedRecipe);
@@ -5029,7 +5065,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             var showWorld = rc.ShowExpeditionNextPlacementWorld;
             if (ImGui.Checkbox("Next placement in world", ref showWorld)) rc.ShowExpeditionNextPlacementWorld = showWorld;
 
-            ImGui.TextDisabled("Controller-safe: reads encounter state and replans automatically; no Run button.");
+            ImGui.TextDisabled("Controller-safe: follows the GameHelper runestone spine and replans automatically.");
 
             var manual = Math.Clamp(rc.ExpeditionManualCharges, 1, 64);
             ImGui.SetNextItemWidth(UiW(8f));
@@ -5049,6 +5085,20 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                 rc.ExpeditionLogbookMarkerWeight = DrawExpeditionWeightSlider("Logbook marker", rc.ExpeditionLogbookMarkerWeight, 0f, 500f);
                 rc.ExpeditionPreferredRelicWeight = DrawExpeditionWeightSlider("Preferred remnant", rc.ExpeditionPreferredRelicWeight, 0f, 300f);
                 rc.ExpeditionDangerousRelicPenalty = DrawExpeditionWeightSlider("Danger penalty", rc.ExpeditionDangerousRelicPenalty, 0f, 500f);
+                ImGui.SeparatorText("Grand reward markers");
+                ImGui.TextDisabled("GameHelper profile weights · 0 ignores a reward type");
+                DrawExpeditionRewardWeight(rc, "RewardChestCurrencyRare", "Currency (rare)", 40f);
+                DrawExpeditionRewardWeight(rc, "RewardChestCurrency", "Currency", 25f);
+                DrawExpeditionRewardWeight(rc, "RewardChestRunes", "Runes", 1f);
+                DrawExpeditionRewardWeight(rc, "RewardChestArmour", "Armour", 10f);
+                DrawExpeditionRewardWeight(rc, "RewardChestWeapons", "Weapons", 10f);
+                DrawExpeditionRewardWeight(rc, "RewardChestUnique", "Uniques", 1f);
+                DrawExpeditionRewardWeight(rc, "RewardChestGems", "Gems", 1f);
+                DrawExpeditionRewardWeight(rc, "RewardChestMaps", "Maps / Waystones", 1f);
+                DrawExpeditionRewardWeight(rc, "RewardChestTrinkets", "Trinkets", 1f);
+                DrawExpeditionRewardWeight(rc, "RewardChestBreach", "Breach", 1f);
+                DrawExpeditionRewardWeight(rc, "RewardChestRitual", "Ritual", 1f);
+                DrawExpeditionRewardWeight(rc, "RewardChestExpedition", "Expedition", 1f);
                 ImGui.TreePop();
             }
 
@@ -5114,6 +5164,21 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         return ImGui.SliderFloat(label, ref next, min, max, "%.0f")
             ? Math.Clamp(next, min, max)
             : value;
+    }
+
+    private static void DrawExpeditionRewardWeight(
+        RunecraftSettings settings,
+        string icon,
+        string label,
+        float defaultValue)
+    {
+        settings.ExpeditionRewardWeights ??= new Dictionary<string, float>(StringComparer.Ordinal);
+        var value = settings.ExpeditionRewardWeights.TryGetValue(icon, out var configured)
+            ? configured
+            : defaultValue;
+        var next = DrawExpeditionWeightSlider(label, value, 0f, 500f);
+        if (MathF.Abs(next - value) > 0.001f)
+            settings.ExpeditionRewardWeights[icon] = next;
     }
 
     private void DrawAtlasTab(RadarSettings s)

@@ -142,6 +142,7 @@ public readonly record struct RunecraftPriceLabel(
     string ValueText,
     uint TextColor,
     float FontPx,
+    bool Best,
     bool Locked,
     float ClipTop,
     float ClipBottom,
@@ -429,6 +430,7 @@ public sealed record ExpeditionPlannerView(
     string CountSource,
     int Total,
     int Placed,
+    int PlanBasePlaced,
     int PlacementRangePercent,
     int BlastRadiusPercent,
     float EffectiveDistance,
@@ -439,12 +441,12 @@ public sealed record ExpeditionPlannerView(
     float CapturedWeight,
     double ComputeMilliseconds,
     string Status,
-    NumVec2 DetonatorGrid,
-    float DetonatorHeight,
+    NumVec2 RouteStartGrid,
+    float RouteStartHeight,
     ExpeditionPlacementView[] Route)
 {
     public static readonly ExpeditionPlannerView Empty = new(
-        false, false, false, "manual", 0, 0, 0, 0, 0f, 0f, "Normal",
+        false, false, false, "manual", 0, 0, 0, 0, 0, 0f, 0f, "Normal",
         0, 0, 0f, 0d, "Waiting for an Expedition encounter", NumVec2.Zero, 0f, []);
 }
 

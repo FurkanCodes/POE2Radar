@@ -1,3 +1,5 @@
+// Route orchestration is derived from MordWraith/Gamehelper RunecraftHelper at
+// 7e7a23571c494090cbc6a7faafa633e17762a78d (GPL-3.0). See RunecraftHelper.GPLv3.LICENSE.txt.
 using System.Diagnostics;
 using POE2Radar.Core.Game;
 using POE2Radar.Core.Pathfinding;
@@ -48,6 +50,12 @@ public sealed record ExpeditionPlan(
 public static class ExpeditionPlanner
 {
     private const float Epsilon = 0.001f;
+    private static readonly TimeSpan DefaultComputeBudget = TimeSpan.FromMilliseconds(1000);
+    private static readonly (int X, int Y)[] Neighbors =
+    [
+        (1, 0), (-1, 0), (0, 1), (0, -1),
+        (1, 1), (1, -1), (-1, 1), (-1, -1),
+    ];
 
     public static ExpeditionPlan Build(
         Poe2Live.TerrainData terrain,
@@ -56,9 +64,12 @@ public static class ExpeditionPlanner
         int chargeBudget,
         float placementDistance,
         float blastRadius,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        TimeSpan? computeBudget = null)
     {
         var started = Stopwatch.GetTimestamp();
+        var budget = computeBudget.GetValueOrDefault(DefaultComputeBudget);
+        if (budget <= TimeSpan.Zero) budget = DefaultComputeBudget;
         if (chargeBudget <= 0)
             return Finish([], targets.Count, 0, 0f, started, "No explosives remaining");
         if (terrain.Width <= 0 || terrain.Height <= 0 || terrain.Walkable.Length < terrain.Width * terrain.Height)
@@ -73,25 +84,92 @@ public static class ExpeditionPlanner
         var captured = new HashSet<uint>();
         var unreachable = new HashSet<uint>();
         var placements = new List<ExpeditionPlacement>(chargeBudget);
+        var placementCells = new HashSet<int>();
         var current = Snap(start, terrain);
+        var startCell = SnapToWalkable(
+            reader,
+            new PathCell((int)current.X, (int)current.Y),
+            maxRadius: 32);
+        if (startCell is null)
+            return Finish([], targets.Count, 0, 0f, started, "No walkable Expedition start");
+        current = new NumVec2(startCell.Value.X, startCell.Value.Y);
+        var reachableMask = BuildReachableMask(
+            reader,
+            startCell.Value,
+            cancellationToken,
+            started,
+            budget,
+            out var connectivityBudgetReached);
+        if (connectivityBudgetReached)
+            return Finish(
+                [], targets.Count, 0, 0f, started,
+                "Planning budget reached before connectivity scan completed");
+        var primaryOrder = OrderPrimarySpine(
+            targets,
+            current,
+            reader,
+            reachableMask,
+            astar,
+            cancellationToken,
+            started,
+            budget,
+            out var orderingBudgetReached);
+        if (orderingBudgetReached)
+            return Finish(
+                [], targets.Count, 0, 0f, started,
+                "Planning budget reached while ordering runestone spine");
+        var primaryIndex = 0;
         float totalWeight = 0f;
         int totalCaptured = 0;
+        var budgetReached = false;
 
         for (var charge = 0; charge < chargeBudget; charge++)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (Stopwatch.GetElapsedTime(started) >= budget)
+            {
+                budgetReached = true;
+                break;
+            }
             Candidate? bestCapture = null;
             Candidate? bestBridge = null;
+
+            while (primaryIndex < primaryOrder.Count
+                   && (captured.Contains(primaryOrder[primaryIndex].Id)
+                       || unreachable.Contains(primaryOrder[primaryIndex].Id)))
+                primaryIndex++;
+            var spineGoal = primaryIndex < primaryOrder.Count
+                ? primaryOrder[primaryIndex]
+                : (ExpeditionTarget?)null;
 
             foreach (var target in targets)
             {
                 if (target.Weight <= 0 || captured.Contains(target.Id) || unreachable.Contains(target.Id)) continue;
+                // GameHelper routes a continuous spine through runestones/monoliths and other primary
+                // anchors before spare explosives are allowed to pursue secondary reward markers.
+                if (spineGoal is { } anchor && target.Id != anchor.Id) continue;
                 cancellationToken.ThrowIfCancellationRequested();
+                if (Stopwatch.GetElapsedTime(started) >= budget)
+                {
+                    budgetReached = true;
+                    break;
+                }
+
+                var targetCell = SnapToWalkable(
+                    reader,
+                    new PathCell((int)MathF.Round(target.Grid.X), (int)MathF.Round(target.Grid.Y)),
+                    maxRadius: 32);
+                if (targetCell is null
+                    || !reachableMask[targetCell.Value.Y * terrain.Width + targetCell.Value.X])
+                {
+                    unreachable.Add(target.Id);
+                    continue;
+                }
 
                 var path = astar.FindPath(
                     reader,
                     new PathCell((int)MathF.Round(current.X), (int)MathF.Round(current.Y)),
-                    new PathCell((int)MathF.Round(target.Grid.X), (int)MathF.Round(target.Grid.Y)),
+                    targetCell.Value,
                     maxNodes: 250_000,
                     flatCost: true);
                 if (!path.Found || path.Cells.Count == 0)
@@ -106,6 +184,7 @@ public static class ExpeditionPlanner
                 // decision and must pass the net-weight test below (important for build-breaking remnants).
                 for (var i = reachable.Count - 1; i >= 0; i--)
                 {
+                    if (placementCells.Contains(reachable[i].Y * terrain.Width + reachable[i].X)) continue;
                     var bridge = ScoreCandidate(reachable[i], path.Cost, target, targets, captured, blastRadius, bridge: true);
                     if (bridge.CapturedPositive != 0 || MathF.Abs(bridge.NetWeight) > Epsilon) continue;
                     if (bestBridge is null || BetterBridge(bridge, bestBridge.Value)) bestBridge = bridge;
@@ -114,6 +193,7 @@ public static class ExpeditionPlanner
 
                 foreach (var cell in reachable)
                 {
+                    if (placementCells.Contains(cell.Y * terrain.Width + cell.X)) continue;
                     var candidate = ScoreCandidate(cell, path.Cost, target, targets, captured, blastRadius, bridge: false);
                     if (candidate.CapturedPositive <= 0 || candidate.NetWeight <= 0) continue;
                     if (bestCapture is null || BetterCapture(candidate, bestCapture.Value)) bestCapture = candidate;
@@ -123,6 +203,7 @@ public static class ExpeditionPlanner
             var chosen = bestCapture ?? bestBridge;
             if (chosen is null) break;
             var c = chosen.Value;
+            placementCells.Add((int)c.Grid.Y * terrain.Width + (int)c.Grid.X);
             var ids = new List<uint>();
             float capturedWeight = 0f;
             int positiveCount = 0;
@@ -155,12 +236,191 @@ public static class ExpeditionPlanner
         }
 
         var remaining = targets.Count(t => t.Weight > 0 && !captured.Contains(t.Id));
-        var status = placements.Count == 0
+        var status = budgetReached
+            ? placements.Count == 0
+                ? "Planning budget reached before a safe route was found"
+                : "Planning budget reached; showing best partial route"
+            : placements.Count == 0
             ? "No reachable Expedition targets"
             : remaining == 0
                 ? "All reachable weighted targets covered"
                 : $"Best route within {chargeBudget} remaining explosive{(chargeBudget == 1 ? "" : "s")}";
         return Finish(placements.ToArray(), targets.Count, totalCaptured, totalWeight, started, status);
+    }
+
+    private static List<ExpeditionTarget> OrderPrimarySpine(
+        IReadOnlyList<ExpeditionTarget> targets,
+        NumVec2 start,
+        TerrainCellReader reader,
+        bool[] reachableMask,
+        AStar astar,
+        CancellationToken cancellationToken,
+        long started,
+        TimeSpan budget,
+        out bool budgetReached)
+    {
+        budgetReached = false;
+        var anchors = targets
+            .Where(t => t.Primary && t.Weight > 0)
+            .Where(t =>
+            {
+                var c = SnapToWalkable(
+                    reader,
+                    new PathCell((int)MathF.Round(t.Grid.X), (int)MathF.Round(t.Grid.Y)),
+                    maxRadius: 32);
+                return c is { } cell && reachableMask[cell.Y * reader.Width + cell.X];
+            })
+            .ToList();
+        if (anchors.Count == 0) return anchors;
+
+        var points = new NumVec2[anchors.Count + 1];
+        points[0] = start;
+        for (var i = 0; i < anchors.Count; i++) points[i + 1] = anchors[i].Grid;
+        var distance = new float[points.Length, points.Length];
+        for (var i = 0; i < points.Length; i++)
+        for (var j = i + 1; j < points.Length; j++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (Stopwatch.GetElapsedTime(started) >= budget)
+            {
+                budgetReached = true;
+                return [];
+            }
+            var path = astar.FindPath(
+                reader,
+                new PathCell((int)MathF.Round(points[i].X), (int)MathF.Round(points[i].Y)),
+                new PathCell((int)MathF.Round(points[j].X), (int)MathF.Round(points[j].Y)),
+                maxNodes: 250_000,
+                flatCost: true);
+            var d = path.Found ? PathLength(path.Cells) : float.PositiveInfinity;
+            distance[i, j] = d;
+            distance[j, i] = d;
+        }
+
+        // Same open-tour model as GameHelper: nearest-neighbour seed from the detonator, then 2-opt.
+        var remaining = Enumerable.Range(0, anchors.Count).ToList();
+        var order = new List<int>(anchors.Count);
+        var currentNode = 0;
+        while (remaining.Count > 0)
+        {
+            var best = remaining
+                .OrderBy(i => distance[currentNode, i + 1])
+                .ThenByDescending(i => anchors[i].Weight)
+                .First();
+            if (!float.IsFinite(distance[currentNode, best + 1])) break;
+            order.Add(best);
+            remaining.Remove(best);
+            currentNode = best + 1;
+        }
+
+        var improved = true;
+        while (improved)
+        {
+            improved = false;
+            for (var i = 0; i < order.Count - 1 && !improved; i++)
+            for (var k = i + 1; k < order.Count; k++)
+            {
+                var prev = i == 0 ? 0 : order[i - 1] + 1;
+                var first = order[i] + 1;
+                var last = order[k] + 1;
+                var oldCost = distance[prev, first];
+                var newCost = distance[prev, last];
+                if (k + 1 < order.Count)
+                {
+                    var next = order[k + 1] + 1;
+                    oldCost += distance[last, next];
+                    newCost += distance[first, next];
+                }
+                if (newCost + Epsilon >= oldCost) continue;
+                order.Reverse(i, k - i + 1);
+                improved = true;
+                break;
+            }
+        }
+
+        // GameHelper pins the Kalguur Sentinel first to maximize its encounter-wide uptime.
+        var sentinel = order.FindIndex(i => anchors[i].Kind == ExpeditionTargetKind.Sentinel);
+        if (sentinel > 0)
+        {
+            var pinned = order[sentinel];
+            order.RemoveAt(sentinel);
+            order.Insert(0, pinned);
+        }
+        return order.Select(i => anchors[i]).ToList();
+    }
+
+    private static float PathLength(IReadOnlyList<PathCell> cells)
+    {
+        var length = 0f;
+        for (var i = 1; i < cells.Count; i++)
+            length += cells[i - 1].X != cells[i].X && cells[i - 1].Y != cells[i].Y
+                ? 1.4142136f
+                : 1f;
+        return length;
+    }
+
+    private static bool[] BuildReachableMask(
+        TerrainCellReader reader,
+        PathCell start,
+        CancellationToken cancellationToken,
+        long started,
+        TimeSpan budget,
+        out bool budgetReached)
+    {
+        budgetReached = false;
+        var mask = new bool[reader.Width * reader.Height];
+        var queue = new Queue<PathCell>();
+        mask[start.Y * reader.Width + start.X] = true;
+        queue.Enqueue(start);
+        var visited = 0;
+        while (queue.TryDequeue(out var cell))
+        {
+            if ((visited++ & 2047) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (Stopwatch.GetElapsedTime(started) >= budget)
+                {
+                    budgetReached = true;
+                    break;
+                }
+            }
+            foreach (var (dx, dy) in Neighbors)
+            {
+                var x = cell.X + dx;
+                var y = cell.Y + dy;
+                if ((uint)x >= (uint)reader.Width || (uint)y >= (uint)reader.Height) continue;
+                var index = y * reader.Width + x;
+                if (mask[index] || reader.Read(x, y) == 0) continue;
+                if (dx != 0 && dy != 0
+                    && (reader.Read(cell.X + dx, cell.Y) == 0
+                        || reader.Read(cell.X, cell.Y + dy) == 0))
+                    continue;
+                mask[index] = true;
+                queue.Enqueue(new PathCell(x, y));
+            }
+        }
+        return mask;
+    }
+
+    private static PathCell? SnapToWalkable(
+        TerrainCellReader reader,
+        PathCell cell,
+        int maxRadius)
+    {
+        var x = Math.Clamp(cell.X, 0, reader.Width - 1);
+        var y = Math.Clamp(cell.Y, 0, reader.Height - 1);
+        if (reader.Read(x, y) > 0) return new PathCell(x, y);
+        for (var radius = 1; radius <= maxRadius; radius++)
+        for (var dy = -radius; dy <= radius; dy++)
+        for (var dx = -radius; dx <= radius; dx++)
+        {
+            if (Math.Abs(dx) != radius && Math.Abs(dy) != radius) continue;
+            var nx = x + dx;
+            var ny = y + dy;
+            if ((uint)nx >= (uint)reader.Width || (uint)ny >= (uint)reader.Height) continue;
+            if (reader.Read(nx, ny) > 0) return new PathCell(nx, ny);
+        }
+        return null;
     }
 
     private readonly record struct Candidate(
