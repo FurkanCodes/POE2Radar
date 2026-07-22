@@ -35,11 +35,23 @@ public sealed class MapViewportLogicTests
         Assert.True(pick.ScreenLeft > 1600f);
     }
 
-    [Fact]
-    public void IsTabMapOpen_CornerLocalVisibleMeansTabOpen()
+    [Theory]
+    [InlineData(false, true, false, true)]
+    [InlineData(true, false, true, false)]
+    [InlineData(true, true, true, false)]
+    [InlineData(false, false, false, false)]
+    public void ResolveMapVisibility_UsesHierarchicalStateFromTheActualMapElements(
+        bool largeHierarchicallyVisible,
+        bool miniHierarchicallyVisible,
+        bool expectedLarge,
+        bool expectedMini)
     {
-        Assert.True(MapViewportLogic.IsTabMapOpen(cornerLocalVisible: true));
-        Assert.False(MapViewportLogic.IsTabMapOpen(cornerLocalVisible: false));
+        var state = MapViewportLogic.ResolveMapVisibility(
+            largeHierarchicallyVisible,
+            miniHierarchicallyVisible);
+
+        Assert.Equal(expectedLarge, state.LargeVisible);
+        Assert.Equal(expectedMini, state.MiniVisible);
     }
 
     [Fact]

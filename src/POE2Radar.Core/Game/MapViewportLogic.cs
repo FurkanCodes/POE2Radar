@@ -30,9 +30,14 @@ public static class MapViewportLogic
         => right > left + 1f && bottom > top + 1f;
 
     /// <summary>
-    /// Live-validated (Research --map-probe): Tab open = local visible bit on the corner widget.
+    /// Resolve the mutually-exclusive large-map/minimap state from hierarchical visibility. Local
+    /// visibility is not sufficient: current PoE2 keeps both MapUiElements locally visible while the
+    /// fullscreen element is hidden by an ancestor. Research --map-probe validates the hierarchy.
     /// </summary>
-    public static bool IsTabMapOpen(bool cornerLocalVisible) => cornerLocalVisible;
+    public static (bool LargeVisible, bool MiniVisible) ResolveMapVisibility(
+        bool largeHierarchicallyVisible,
+        bool miniHierarchicallyVisible)
+        => (largeHierarchicallyVisible, !largeHierarchicallyVisible && miniHierarchicallyVisible);
 
     /// <summary>
     /// The Tab map and corner minimap are the two live MapUiElements. GH2 MapParent field names are

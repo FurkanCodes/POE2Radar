@@ -38,8 +38,10 @@ public sealed partial class RadarApp
     private int _runecraftReadMissStreak;
 
     private const int RunecraftMonolithOnlyTickHz = 8;
-    private const int RunecraftHudClosedScanHz = 120;
-    private const int RunecraftHudOpenScanHz = 120;
+    // External UI traversal is synchronous on the main tick. Keep it bounded so recipe-panel reads
+    // cannot starve the map snapshot/render path while an Expedition encounter is active.
+    private const int RunecraftHudClosedScanHz = 1;
+    private const int RunecraftHudOpenScanHz = 12;
     private const int RunecraftMonolithScanMs = 750;
     private const int RunecraftMonolithScanMsActive = 750;
 
@@ -730,6 +732,7 @@ public sealed partial class RadarApp
         monoliths = _runecraftMonoliths.Count,
         monolithValues = _runecraftMonolithDiagnostics,
         mapLabels = _runecraftMapLabelStatus,
+        expedition = _expeditionView,
         recipesLoaded = _runecraftCatalog.IsLoaded,
     };
 

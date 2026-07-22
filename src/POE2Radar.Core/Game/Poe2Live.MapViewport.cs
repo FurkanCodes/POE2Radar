@@ -40,27 +40,53 @@ public sealed partial class Poe2Live
 
         var uiScale = windowHeight > 0 ? windowHeight / 1600f : 1f;
 
-        // ── Tab large map: corner element local-vis (live-validated toggle signal).
-        MapViewport large = default;
-        if (_classifiedMiniEl != 0
-            && TryReadMapElement(_classifiedMiniEl, out var cornerLocal, out _, out var csx, out var csy, out var czoom))
+        // Tab map and minimap: hierarchical visibility is authoritative. Current PoE2 keeps both
+        // MapUiElements locally visible even when the fullscreen element is hidden by its parent.
+        var miniHierVisible = false;
+        var miniShiftX = 0f;
+        var miniShiftY = 0f;
+        var miniZoom = 0f;
+        var largeHierVisible = false;
+        var largeShiftX = 0f;
+        var largeShiftY = 0f;
+        var largeZoom = 0f;
+        var miniRead = _classifiedMiniEl != 0
+            && TryReadMapElement(
+                _classifiedMiniEl, out _, out miniHierVisible,
+                out miniShiftX, out miniShiftY, out miniZoom);
+        var largeRead = _classifiedLargeEl != 0
+            && TryReadMapElement(
+                _classifiedLargeEl, out _, out largeHierVisible,
+                out largeShiftX, out largeShiftY, out largeZoom);
+
+        MapViewport large;
+        bool miniVisible;
+        if (miniRead || largeRead)
         {
-            var tabOpen = MapViewportLogic.IsTabMapOpen(cornerLocal);
-            if (!tabOpen && _classifiedLargeEl != 0
-                && TryReadMapElement(_classifiedLargeEl, out var fullLocal, out _, out var fsx, out var fsy, out var fzoom))
-            {
-                large = new MapViewport(false, fsx, fsy, fzoom, 0, 0, 0, 0);
-            }
-            else
-                large = new MapViewport(tabOpen, csx, csy, czoom, 0, 0, 0, 0);
+            var visibility = MapViewportLogic.ResolveMapVisibility(
+                largeRead && largeHierVisible,
+                miniRead && miniHierVisible);
+            miniVisible = visibility.MiniVisible;
+            large = largeRead
+                ? new MapViewport(
+                    visibility.LargeVisible,
+                    largeShiftX, largeShiftY, largeZoom,
+                    0, 0, 0, 0)
+                : new MapViewport(
+                    false,
+                    miniShiftX, miniShiftY, miniZoom,
+                    0, 0, 0, 0);
         }
         else
+        {
             large = FallbackLargeMapViewport();
+            miniVisible = !large.Visible;
+        }
 
         // ── Corner minimap: only while Tab map is closed; clip rect from the square frame sibling
         // (live --map-scan-frames), not the 0×0 MapUiElement's parent-chain rect.
         MapViewport mini = default;
-        if (!large.Visible && _classifiedMiniEl != 0
+        if (!large.Visible && miniVisible && _classifiedMiniEl != 0
             && TryReadActiveMapProjection(_classifiedMiniEl, _classifiedLargeEl, out var msx, out var msy, out var mzoom))
         {
             float cl, ct, cr, cb;

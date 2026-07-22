@@ -40,9 +40,9 @@ public sealed class RunecraftPricingTests
         => Assert.Equal(expected, RunecraftPriceMath.MonolithValueColor(best, maxBest, threshold, mode));
 
     [Theory]
-    [InlineData(false, 120)]
-    [InlineData(true, 120)]
-    public void PanelScanHz_MatchesGameHelperEveryFrameCadence(bool wasOpen, int expected)
+    [InlineData(false, 1)]
+    [InlineData(true, 12)]
+    public void PanelScanHz_IsBoundedSoUiTraversalCannotStarveMapPublishing(bool wasOpen, int expected)
         => Assert.Equal(expected, RadarApp.RunecraftPanelScanHz(wasOpen));
 
     [Fact]

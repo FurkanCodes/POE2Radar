@@ -55,16 +55,13 @@ public sealed partial class RadarApp
            || metadata.Contains("Expedition2Encounter", StringComparison.OrdinalIgnoreCase)
            || metadata.Contains("Sentinel/SentinelRandomEncounterObject", StringComparison.OrdinalIgnoreCase);
 
-    private void RefreshExpeditionPlanner(LiveFrameState live, WorldSnapshot snap, bool drawActive)
+    private void RefreshExpeditionPlanner(LiveFrameState live, WorldSnapshot snap)
     {
         if (!_settings.Runecraft.ShowExpeditionPlanner || !live.InGame)
         {
             ClearExpeditionPlanner();
             return;
         }
-        if (!drawActive)
-            return;
-
         if (live.AreaInstance != _expeditionArea)
         {
             CancelExpeditionPlan();

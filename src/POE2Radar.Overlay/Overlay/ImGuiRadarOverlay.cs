@@ -524,7 +524,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             if (frame.IsMinimap ? ctx.ShowPathMinimap : ctx.ShowPathMap)
                 DrawPathsMap(dl, ctx, frame, center, scale);
 
-            if (!frame.IsMinimap && _settings.Runecraft.ShowExpeditionRouteOnMap)
+            if (_settings.Runecraft.ShowExpeditionRouteOnMap)
                 DrawExpeditionRouteMap(dl, ctx, frame, center, scale);
 
             if (!frame.IsMinimap)
@@ -5036,7 +5036,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             if (ImGui.Checkbox("Auto-show during Expedition", ref enabled)) rc.ShowExpeditionPlanner = enabled;
 
             var showMap = rc.ShowExpeditionRouteOnMap;
-            if (ImGui.Checkbox("Numbered route on large map", ref showMap)) rc.ShowExpeditionRouteOnMap = showMap;
+            if (ImGui.Checkbox("Numbered route on map + minimap", ref showMap)) rc.ShowExpeditionRouteOnMap = showMap;
 
             var showWorld = rc.ShowExpeditionNextPlacementWorld;
             if (ImGui.Checkbox("Next placement in world", ref showWorld)) rc.ShowExpeditionNextPlacementWorld = showWorld;

@@ -746,7 +746,7 @@ public sealed partial class RadarApp : IDisposable
             ClearRunecraftSession(open: false);
 
         if (live.InGame)
-            RefreshExpeditionPlanner(live, snap, drawActive);
+            RefreshExpeditionPlanner(live, snap);
         else
             ClearExpeditionPlanner();
 
