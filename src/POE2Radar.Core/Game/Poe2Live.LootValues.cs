@@ -52,14 +52,14 @@ public sealed partial class Poe2Live
         return _league;
     }
 
-    private (Rarity, string?, bool, string?) ReadItemIdentity(nint entity)
+    private (Rarity, string?, bool, string?, string?) ReadItemIdentity(nint entity)
     {
         if (_itemIdent.TryGetValue(entity, out var cached)) return cached;
-        if (_itemReadBudget <= 0) return (Rarity.NonMonster, null, true, null);
+        if (_itemReadBudget <= 0) return (Rarity.NonMonster, null, true, null, null);
 
         var wi = ResolveComponent(entity, "WorldItem");
         var item = wi == 0 ? 0 : Ptr(wi + Poe2.WorldItemComponent.ItemEntity);
-        if (item == 0) { var v = (Rarity.NonMonster, (string?)null, true, (string?)null); _itemIdent[entity] = v; return v; }
+        if (item == 0) { var v = (Rarity.NonMonster, (string?)null, true, (string?)null, (string?)null); _itemIdent[entity] = v; return v; }
         _itemReadBudget--;
 
         var result0 = ReadIdentityFromItem(item);
@@ -67,7 +67,7 @@ public sealed partial class Poe2Live
         return result0;
     }
 
-    private (Rarity, string?, bool, string?) ReadIdentityFromItem(nint item)
+    private (Rarity, string?, bool, string?, string?) ReadIdentityFromItem(nint item)
     {
         var rarity = Rarity.NonMonster;
         var identified = true;
@@ -105,7 +105,11 @@ public sealed partial class Poe2Live
             }
         }
 
-        return (rarity, art, identified, name);
+        var metadata = ReadMetadata(item);
+        if (!metadata.StartsWith("Metadata/Items/", StringComparison.Ordinal))
+            metadata = null;
+
+        return (rarity, art, identified, name, metadata);
     }
 
     private static string? ArtBasename(string path)

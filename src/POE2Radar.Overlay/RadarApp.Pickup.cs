@@ -32,6 +32,7 @@ public sealed partial class RadarApp
         var emergencyDown = settings.EmergencyStopHotkey > 0 && HotkeyPoll.IsDown(settings.EmergencyStopHotkey);
         var ground = snapshot.Entities
             .Where(IsGroundItem)
+            .Where(x => PickupItemPolicy.ShouldPickup(x.ItemMetadata))
             .ToArray();
         var groundAddresses = ground.Select(x => x.Address).ToHashSet();
 
@@ -143,7 +144,11 @@ public sealed partial class RadarApp
             _pickupNearbyTargets = [];
         }
         if (now < _pickupNextLabelScanStamp) return;
-        var scanDelayMs = _settings.PickupHelper.Mode == (int)PickupMode.Assist ? 250 : 160;
+        var scanDelayMs = _settings.PickupHelper.Mode == (int)PickupMode.Assist
+            ? 250
+            : _settings.PickupHelper.HumanSpeed
+                ? PickupTimingProfile.HumanSpeed.ScanIntervalMs
+                : 160;
         _pickupNextLabelScanStamp = now + MillisecondsToTicks(scanDelayMs);
 
         // Confirmation only needs the cheap world-entity snapshot; avoid walking the UI tree again
@@ -236,7 +241,10 @@ public sealed partial class RadarApp
 
         // Give the standalone client one frame slice to commit the SetCursorPos hover before the
         // click. The input adapter deliberately emits no second cursor movement.
-        return SendInputNative.Click(point.X, point.Y, rightButton: false, settleMs: 12)
+        var settleMs = _settings.PickupHelper.HumanSpeed
+            ? PickupTimingProfile.HumanSpeed.CursorSettleMs
+            : 12;
+        return SendInputNative.Click(point.X, point.Y, rightButton: false, settleMs)
             ? PickupClickResult.Sent
             : PickupClickResult.InputFailed;
     }

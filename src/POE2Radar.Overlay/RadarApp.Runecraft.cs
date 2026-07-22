@@ -38,10 +38,9 @@ public sealed partial class RadarApp
     private int _runecraftReadMissStreak;
 
     private const int RunecraftMonolithOnlyTickHz = 8;
-    private const int RunecraftHudClosedScanHz = 1;
-    private const int RunecraftHudOpenScanHz = 12;
-    private const int RunecraftTransientMissGrace = 4;
-    private const int RunecraftMonolithScanMs = 1500;
+    private const int RunecraftHudClosedScanHz = 120;
+    private const int RunecraftHudOpenScanHz = 120;
+    private const int RunecraftMonolithScanMs = 750;
     private const int RunecraftMonolithScanMsActive = 750;
 
     private sealed record RunecraftRuntimeStatus(
@@ -284,9 +283,7 @@ public sealed partial class RadarApp
         int priorRowCount,
         int labelCount,
         int missStreak)
-        => wasPanelOpen
-           && (priorRowCount > 0 || labelCount > 0)
-           && missStreak is > 0 and <= RunecraftTransientMissGrace;
+        => false;
 
     private void RefreshRunecraftMapLabels(LiveFrameState live, bool panelOpen, int windowWidth, int windowHeight, bool drawActive)
     {
@@ -322,14 +319,15 @@ public sealed partial class RadarApp
             return;
         }
 
-        var minEx = Math.Max(0f, _settings.Runecraft.MapLabelMinExalted);
         var labels = new List<RunecraftMapLabel>(_runecraftMonoliths.Count);
         var large = live.Maps.LargeMap;
         var player = live.PlayerGrid;
+        var maxBest = _runecraftMonoliths.Count == 0 ? 0 : _runecraftMonoliths.Max(m => m.Best);
+        var colorMode = (RunecraftColorMode)Math.Clamp(_settings.Runecraft.ColorMode, 0, 2);
 
         foreach (var m in _runecraftMonoliths)
         {
-            if (m.Best < minEx) continue;
+            if (m.Best <= 0) continue;
             var mapFrame = BuildLargeMapFrame(large, windowWidth, windowHeight, live.PlayerTerrainHeight);
             var screen = ProjectRunecraftMapLabel(
                 m.Grid,
@@ -341,7 +339,11 @@ public sealed partial class RadarApp
                 _settings.Runecraft.MapValueXOffset,
                 _settings.Runecraft.MapValueYOffset);
             if (!float.IsFinite(screen.X) || !float.IsFinite(screen.Y)) continue;
-            var color = PickMonolithMapColor(m.Best);
+            var color = RunecraftPriceMath.MonolithValueColor(
+                m.Best,
+                maxBest,
+                _settings.Runecraft.MonolithHighlightThreshold,
+                colorMode);
             labels.Add(new RunecraftMapLabel(screen, $"{m.Best:F0} ex", color));
         }
 
@@ -382,16 +384,6 @@ public sealed partial class RadarApp
             scale,
             terrainHeight - playerHeight);
         return new NumVec2(projected.X, projected.Y);
-    }
-
-    private uint PickMonolithMapColor(double bestEx)
-    {
-        var threshold = _settings.Runecraft.MonolithHighlightThreshold;
-        if (threshold <= 0)
-            return RunecraftPriceMath.PickColor(bestEx, 0, (RunecraftColorMode)Math.Clamp(_settings.Runecraft.ColorMode, 0, 2));
-        if (bestEx >= threshold) return 0xFF55FF55u;
-        if (bestEx >= threshold * 0.6) return 0xFF55FFFFu;
-        return 0xFFFFFFFFu;
     }
 
     private void ScanRunecraftMonoliths(LiveFrameState live, WorldSnapshot snap)
@@ -472,10 +464,11 @@ public sealed partial class RadarApp
         var median = colorMode == RunecraftColorMode.Relative
             ? RunecraftPriceMath.MedianOf(pricedTotals.ToArray())
             : 0;
+        var maxBest = monoliths.Max(v => v.Best);
 
         var rows = new RunecraftMonolithPanelRow[monoliths.Count];
         for (var i = 0; i < monoliths.Count; i++)
-            rows[i] = BuildMonolithPanelRow(monoliths[i], colorMode, median, minEx);
+            rows[i] = BuildMonolithPanelRow(monoliths[i], colorMode, median, maxBest, minEx);
         return rows;
     }
 
@@ -483,22 +476,25 @@ public sealed partial class RadarApp
         RunecraftRecipeCatalog.MonolithView v,
         RunecraftColorMode colorMode,
         double median,
+        double maxBest,
         float minEx)
     {
         string hdr;
         if (v.IsRerolled && v.Candidates.Count > 0)
-            hdr = $"{(v.PanelOpen ? "▶ " : "")}[locked] {v.Candidates[0].Reward} · {v.Distance:F0}";
+            hdr = $"{(v.PanelOpen ? "▶ " : "")}[locked] {v.Candidates[0].Reward} · {v.Distance:F0} · {v.Best:F0} ex###m{v.DeviceAddress}";
         else if (v.IsUnique)
-            hdr = $"{(v.PanelOpen ? "▶ " : "")}Unique · {v.HoleCount} holes · {v.Distance:F0}";
+            hdr = $"{(v.PanelOpen ? "▶ " : "")}Unique Monolith · {v.HoleCount} holes · {v.Distance:F0} · best {v.Best:F0} ex###m{v.DeviceAddress}";
         else if (v.AnchorIdx >= 0)
-            hdr = $"{(v.PanelOpen ? "▶ " : "")}{v.AnchorName} · hole {v.AnchorPos + 1}/{v.HoleCount} · {v.Distance:F0}";
+            hdr = $"{(v.PanelOpen ? "▶ " : "")}{v.AnchorName} · hole {v.AnchorPos + 1}/{v.HoleCount} · {v.Distance:F0} · best {v.Best:F0} ex###m{v.DeviceAddress}";
         else
-            hdr = $"{(v.PanelOpen ? "▶ " : "")}(anchor ?) · {v.HoleCount} holes · {v.Distance:F0}";
+            hdr = $"{(v.PanelOpen ? "▶ " : "")}(anchor ?) · {v.HoleCount} holes · {v.Distance:F0}###m{v.DeviceAddress}";
 
         var showAnchorWarning = v.AnchorIdx < 0 && !v.IsUnique && !(v.IsRerolled && v.Candidates.Count > 0);
-        var headerColor = colorMode == RunecraftColorMode.Off
-            ? 0xFFFFFFFFu
-            : RunecraftPriceMath.PickColor(v.Best, median, colorMode);
+        var headerColor = RunecraftPriceMath.MonolithValueColor(
+            v.Best,
+            maxBest,
+            _settings.Runecraft.MonolithHighlightThreshold,
+            colorMode);
 
         var candidates = new List<RunecraftMonolithCandidate>(v.Candidates.Count);
         foreach (var c in v.Candidates)
@@ -535,10 +531,8 @@ public sealed partial class RadarApp
 
     private double RecipeUnitPrice(RunecraftRecipeCatalog.RecipeRow rec)
     {
-        var metaId = RunecraftPriceMath.LastMetaSegment(rec.reward?.id ?? "");
         var english = rec.reward?.name ?? "";
-        RunecraftPriceMath.TryGetUnitPriceExalted(metaId, "", english, english, out var ex);
-        return ex;
+        return PoeNinjaPriceFetcher.TryGetExaltedByName(english, out var ex) && ex > 0 ? ex : 0;
     }
 
     private void ResolveLockedPanelReward()
@@ -595,8 +589,6 @@ public sealed partial class RadarApp
         var median = colorMode == RunecraftColorMode.Relative
             ? RunecraftPriceMath.MedianOf(pricedRows.Select(p => p.Total).ToArray())
             : 0;
-        var bestTotal = RunecraftPriceMath.BestOf(pricedRows.Select(p => p.Total).ToArray());
-
         var result = new List<RunecraftPriceLabel>(pricedRows.Count);
         foreach (var (row, total, locked) in pricedRows)
         {
@@ -625,7 +617,7 @@ public sealed partial class RadarApp
                 text,
                 color,
                 fontPx,
-                s.HighlightBestRecipe && RunecraftPriceMath.IsBest(total, bestTotal),
+                false,
                 locked,
                 panel.ViewportRect.Y,
                 panel.ViewportRect.Y + panel.ViewportRect.H,

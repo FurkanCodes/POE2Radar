@@ -1,4 +1,4 @@
-// Runecraft price/format helpers — logic traced from GameHelper RunecraftHelper (MIT/community plugin).
+// Runecraft price/format helpers — derived from GameHelper RunecraftHelper (GPL-3.0).
 using System.Globalization;
 
 namespace POE2Radar.Overlay.Pricing;
@@ -91,8 +91,10 @@ public static class RunecraftPriceMath
         if (value >= 100) return $"{value:F0} ex";
         int decimals = value >= 1 ? 1 : value >= 0.1 ? 2 : 3;
         double rounded = Math.Round(value, decimals, MidpointRounding.AwayFromZero);
-        string num = rounded.ToString("0.###", CultureInfo.InvariantCulture);
-        if (!num.Contains('.')) num += ".0";
+        var culture = CultureInfo.CurrentCulture;
+        string num = rounded.ToString("0.###", culture);
+        var separator = culture.NumberFormat.NumberDecimalSeparator;
+        if (!num.Contains(separator, StringComparison.Ordinal)) num += separator + "0";
         return $"{num} ex";
     }
 
@@ -135,6 +137,40 @@ public static class RunecraftPriceMath
             RunecraftColorMode.Relative => yellow,
             _ => white,
         };
+    }
+
+    /// <summary>
+    /// GameHelper RunecraftHelper's monolith header/map color policy. Relative mode compares each
+    /// monolith with the best monolith on screen; a configured threshold takes precedence.
+    /// </summary>
+    public static uint MonolithValueColor(
+        double best,
+        double maxBest,
+        float threshold,
+        RunecraftColorMode mode)
+    {
+        const uint white = 0xFFFFFFFFu;
+        const uint green = 0xFF55FF55u;
+        const uint yellow = 0xFF55FFFFu;
+        const uint red = 0xFF4040FFu;
+
+        if (best <= 0) return white;
+        if (threshold > 0)
+        {
+            if (best >= threshold) return green;
+            if (best >= threshold * 0.6f) return yellow;
+            return white;
+        }
+
+        if (mode == RunecraftColorMode.Absolute)
+            return PickColor(best, 0, mode);
+        if (mode != RunecraftColorMode.Relative || maxBest <= 0)
+            return white;
+
+        var ratio = best / maxBest;
+        if (ratio >= 0.5) return green;
+        if (ratio <= 0.2) return red;
+        return yellow;
     }
 
     public static bool TryGetUnitPriceExalted(

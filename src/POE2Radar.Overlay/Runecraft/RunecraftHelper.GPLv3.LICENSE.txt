@@ -4,8 +4,8 @@ Runecraft Helper source notice
 POE2Radar's Runecraft and Expedition-planner implementation is derived from:
 https://github.com/MordWraith/Gamehelper/tree/main/Plugins/RunecraftHelper
 
-Upstream snapshot used for this port:
-7e7a23571c494090cbc6a7faafa633e17762a78d
+Upstream snapshot used for the current parity port:
+ea39f8dea864922bdcb7a1ad30c81d4177320bc4
 
 The upstream repository and RunecraftHelper sources are licensed under the GNU
 General Public License, version 3. Copyright remains with the upstream authors

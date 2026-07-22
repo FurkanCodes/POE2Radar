@@ -1,4 +1,5 @@
 using POE2Radar.Overlay.Pricing;
+using System.Security.Cryptography;
 using Xunit;
 
 namespace POE2Radar.Overlay.Tests;
@@ -13,10 +14,35 @@ public sealed class RunecraftPricingTests
         return catalog;
     }
 
+    [Fact]
+    public void RecipeCatalog_MatchesGameHelperSnapshotByteForByte()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Runecraft", "expedition2_recipes.json");
+        var hash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)));
+
+        Assert.Equal("38300E47EA6C9B06DEC4C7F35F41DD7551D4A09F193FFC90FB96718C4F22A34A", hash);
+    }
+
     [Theory]
-    [InlineData(false, 1)]
-    [InlineData(true, 12)]
-    public void PanelScanHz_IsBoundedForClosedAndOpenPanels(bool wasOpen, int expected)
+    [InlineData(50, 100, 0, RunecraftColorMode.Relative, 0xFF55FF55u)]
+    [InlineData(40, 100, 0, RunecraftColorMode.Relative, 0xFF55FFFFu)]
+    [InlineData(20, 100, 0, RunecraftColorMode.Relative, 0xFF4040FFu)]
+    [InlineData(80, 100, 80, RunecraftColorMode.Relative, 0xFF55FF55u)]
+    [InlineData(48, 100, 80, RunecraftColorMode.Relative, 0xFF55FFFFu)]
+    [InlineData(47, 100, 80, RunecraftColorMode.Relative, 0xFFFFFFFFu)]
+    [InlineData(100, 100, 0, RunecraftColorMode.Off, 0xFFFFFFFFu)]
+    public void MonolithValueColor_MatchesGameHelperReference(
+        double best,
+        double maxBest,
+        float threshold,
+        RunecraftColorMode mode,
+        uint expected)
+        => Assert.Equal(expected, RunecraftPriceMath.MonolithValueColor(best, maxBest, threshold, mode));
+
+    [Theory]
+    [InlineData(false, 120)]
+    [InlineData(true, 120)]
+    public void PanelScanHz_MatchesGameHelperEveryFrameCadence(bool wasOpen, int expected)
         => Assert.Equal(expected, RadarApp.RunecraftPanelScanHz(wasOpen));
 
     [Fact]
@@ -42,12 +68,12 @@ public sealed class RunecraftPricingTests
         => Assert.Equal(expected, RadarApp.IsRunecraftMonolithMetadata(metadata));
 
     [Theory]
-    [InlineData(true, 6, 3, 1, true)]
-    [InlineData(true, 6, 3, 4, true)]
+    [InlineData(true, 6, 3, 1, false)]
+    [InlineData(true, 6, 3, 4, false)]
     [InlineData(true, 6, 3, 5, false)]
     [InlineData(false, 6, 3, 1, false)]
     [InlineData(true, 0, 0, 1, false)]
-    public void ShortPanelReadMisses_PreservePopulatedControllerSessions(
+    public void PanelReadMisses_ClearImmediatelyLikeGameHelper(
         bool wasOpen,
         int priorRows,
         int labels,
@@ -100,7 +126,22 @@ public sealed class RunecraftPricingTests
     {
         var text = RunecraftPriceMath.FormatExalted(1.0);
         Assert.Contains("ex", text);
-        Assert.Contains(".", text);
+        Assert.Contains(System.Globalization.CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator, text);
+    }
+
+    [Fact]
+    public void FormatExalted_UsesTheClientCultureLikeGameHelper()
+    {
+        var before = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("tr-TR");
+            Assert.Equal("1,0 ex", RunecraftPriceMath.FormatExalted(1.0));
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = before;
+        }
     }
 
     [Fact]

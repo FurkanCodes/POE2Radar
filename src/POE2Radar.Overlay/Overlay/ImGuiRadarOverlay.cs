@@ -72,7 +72,6 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private readonly List<MapLabelCandidate> _atlasLabelScratch = new(256);
     private readonly Dictionary<string, ScreenPointState> _screenPoints = new(StringComparer.Ordinal);
     private readonly HashSet<string> _screenKeysThisFrame = new(StringComparer.Ordinal);
-    private readonly HashSet<long> _runecraftAutoOpenedMonoliths = new();
     private long _renderStamp;
     private long _lastRenderStamp;
     private int _spritePickerRuleIndex = -1;
@@ -1191,7 +1190,6 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         float ambient = Math.Max(1f, ImGui.GetFontSize());
         const uint shadow = 0xCC000000u;
         const uint plate = 0xE6000000u;
-        const uint green = 0xFF55FF55u;
         const uint gold = 0xFF00D7FFu;
 
         foreach (var label in labels)
@@ -1209,11 +1207,6 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             var at = new NumVec2(x, y);
             var bgPad = new NumVec2(4f * k, 2f * k);
             dl.AddRectFilled(at - bgPad, at + ts + bgPad, plate, 3f * k);
-            if (label.Best)
-            {
-                var outerPad = bgPad + new NumVec2(2f * k, 2f * k);
-                dl.AddRect(at - outerPad, at + ts + outerPad, green, 4f * k, ImDrawFlags.None, 2f * k);
-            }
             if (label.Locked)
                 dl.AddRect(at - bgPad, at + ts + bgPad, gold, 3f * k, ImDrawFlags.None, 2f * k);
             dl.AddText(font, label.FontPx, at + new NumVec2(1f, 1f), shadow, label.ValueText);
@@ -1250,40 +1243,18 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     {
         if (!ctx.RunecraftShowMonolithWindow) return;
         var rows = ctx.RunecraftMonolithRows ?? [];
+        if (rows.Length == 0) return;
 
         ImGui.SetNextWindowSizeConstraints(new NumVec2(260, 0), new NumVec2(640, 900));
         if (!ImGui.Begin("Monolith Rewards", ImGuiWindowFlags.AlwaysAutoResize)) { ImGui.End(); return; }
 
-        if (rows.Length == 0)
-        {
-            ImGui.TextDisabled("No monoliths nearby.");
-            ImGui.End();
-            return;
-        }
-
         foreach (var row in rows)
         {
-            var hdr = $"{row.Header} · best {RunecraftPriceMath.FormatExalted(row.BestEx)}###rch{row.MonolithKey}";
-            var highlightOpen = row.PanelOpen;
-            if (highlightOpen)
-            {
-                _runecraftAutoOpenedMonoliths.Add(row.MonolithKey);
-                ImGui.SetNextItemOpen(true, ImGuiCond.Always);
-                ImGui.PushStyleColor(ImGuiCol.Header, new Vector4(0.95f, 0.72f, 0.14f, 0.42f));
-                ImGui.PushStyleColor(ImGuiCol.HeaderHovered, new Vector4(1.0f, 0.78f, 0.20f, 0.55f));
-                ImGui.PushStyleColor(ImGuiCol.HeaderActive, new Vector4(1.0f, 0.68f, 0.12f, 0.72f));
-            }
-            else if (_runecraftAutoOpenedMonoliths.Remove(row.MonolithKey))
-            {
-                ImGui.SetNextItemOpen(false, ImGuiCond.Always);
-            }
             if (row.HeaderColor != 0xFFFFFFFFu)
                 ImGui.PushStyleColor(ImGuiCol.Text, row.HeaderColor);
-            var open = ImGui.CollapsingHeader(hdr);
+            var open = ImGui.CollapsingHeader(row.Header);
             if (row.HeaderColor != 0xFFFFFFFFu)
                 ImGui.PopStyleColor();
-            if (highlightOpen)
-                ImGui.PopStyleColor(3);
             if (!open) continue;
 
             if (row.ShowAnchorWarning)
@@ -1298,9 +1269,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                 continue;
 
             ImGui.TableSetupColumn("Reward", ImGuiTableColumnFlags.WidthStretch);
-            ImGui.TableSetupColumn("×", ImGuiTableColumnFlags.WidthFixed, 26f);
-            ImGui.TableSetupColumn("Unit", ImGuiTableColumnFlags.WidthFixed, 72f);
-            ImGui.TableSetupColumn("Total", ImGuiTableColumnFlags.WidthFixed, 76f);
+            ImGui.TableSetupColumn("x", ImGuiTableColumnFlags.WidthFixed, 26f);
+            ImGui.TableSetupColumn("Unit", ImGuiTableColumnFlags.WidthFixed, 58f);
+            ImGui.TableSetupColumn("Total", ImGuiTableColumnFlags.WidthFixed, 62f);
             ImGui.TableHeadersRow();
 
             if (row.Candidates.Length == 0)
@@ -1324,15 +1295,21 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
                     ImGui.TableSetColumnIndex(2);
                     if (c.Priced)
-                        DrawExaltedPriceInline(c.UnitEx, 0xFFFFFFFFu);
+                        ImGui.Text(c.UnitEx.ToString("F0"));
                     else
-                        ImGui.TextDisabled("—");
+                        ImGui.Text("—");
 
                     ImGui.TableSetColumnIndex(3);
-                    if (c.Priced)
-                        DrawExaltedPriceInline(c.TotalEx, c.TotalColor);
+                    if (c.Priced && c.TotalColor != 0xFFFFFFFFu)
+                    {
+                        ImGui.PushStyleColor(ImGuiCol.Text, c.TotalColor);
+                        ImGui.Text(c.TotalEx.ToString("F0"));
+                        ImGui.PopStyleColor();
+                    }
+                    else if (c.Priced)
+                        ImGui.Text(c.TotalEx.ToString("F0"));
                     else
-                        ImGui.TextDisabled("—");
+                        ImGui.Text("—");
                 }
             }
 
@@ -4280,7 +4257,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         {
             var enabled = s.Enabled;
             if (ImGui.Checkbox("Enable Pickup Helper", ref enabled)) s.Enabled = enabled;
-            ImGui.TextWrapped("The game filter remains the source of truth. Nearby mode only targets labels that are currently visible in-game.");
+            ImGui.TextWrapped("The game filter remains the source of truth. Nearby mode only targets visible labels and skips equippable gear.");
 
             var modes = new[]
             {
@@ -4319,6 +4296,14 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             if (ImGui.SliderInt("Maximum pickup range", ref distance, 5, 100, "%d grid"))
                 s.MaxPickupDistance = distance;
 
+            var humanSpeed = s.HumanSpeed;
+            if (ImGui.Checkbox("Instant human-speed pickup", ref humanSpeed))
+                s.HumanSpeed = humanSpeed;
+            ImGui.TextDisabled(s.HumanSpeed
+                ? "Fast profile: 16 ms scan, immediate reaction, 12 ms click settle, 50 ms confirmed-item cooldown."
+                : "Custom timing controls are active.");
+
+            ImGui.BeginDisabled(s.HumanSpeed);
             var minDelay = Math.Clamp(s.MinPickupDelayMs, 0, 500);
             var maxDelay = Math.Clamp(s.MaxPickupDelayMs, minDelay, 750);
             ImGui.SetNextItemWidth(UiW(8f));
@@ -4332,6 +4317,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             ImGui.SetNextItemWidth(UiW(8f));
             if (ImGui.SliderInt("Click cooldown", ref cooldown, 100, 1000, "%d ms"))
                 s.ClickCooldownMs = cooldown;
+            ImGui.EndDisabled();
             var timeout = Math.Clamp(s.ConfirmationTimeoutMs, 500, 4000);
             ImGui.SetNextItemWidth(UiW(8f));
             if (ImGui.SliderInt("Confirmation timeout", ref timeout, 500, 4000, "%d ms"))
@@ -4922,10 +4908,6 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                 rc.OverlayXOffset = ox;
             ImGuiTheme.Tooltip(SettingHints.Runecraft.OverlayXOffset);
 
-            bool best = rc.HighlightBestRecipe;
-            if (ImGui.Checkbox("Highlight best reward", ref best)) rc.HighlightBestRecipe = best;
-            ImGuiTheme.Tooltip(SettingHints.Runecraft.HighlightBestRecipe);
-
             bool locked = rc.HighlightLockedRecipe;
             if (ImGui.Checkbox("Highlight locked recipe", ref locked)) rc.HighlightLockedRecipe = locked;
             ImGuiTheme.Tooltip(SettingHints.Runecraft.HighlightLockedRecipe);
@@ -4994,12 +4976,6 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             bool hide = rc.HideMapValueWhenPanelOpen;
             if (ImGui.Checkbox("Hide map values when panel open", ref hide)) rc.HideMapValueWhenPanelOpen = hide;
             ImGuiTheme.Tooltip(SettingHints.Runecraft.HideMapValueWhenPanelOpen);
-
-            var minEx = rc.MapLabelMinExalted;
-            ImGui.SetNextItemWidth(UiW(8f));
-            if (ImGui.SliderFloat("Min map label (ex)", ref minEx, 0f, 50f, "%.0f"))
-                rc.MapLabelMinExalted = Math.Clamp(minEx, 0f, 1000f);
-            ImGuiTheme.Tooltip(SettingHints.Runecraft.MapLabelMinExalted);
 
             var scale = rc.MapValueScaleMultiplier;
             ImGui.SetNextItemWidth(UiW(8f));

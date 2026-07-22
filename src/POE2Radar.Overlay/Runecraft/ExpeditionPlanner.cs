@@ -1,5 +1,6 @@
-// Route orchestration is derived from MordWraith/Gamehelper RunecraftHelper at
-// 7e7a23571c494090cbc6a7faafa633e17762a78d (GPL-3.0). See RunecraftHelper.GPLv3.LICENSE.txt.
+// Monolith valuation comes from the MordWraith/Gamehelper RunecraftHelper parity layer. The
+// physical explosive route is POE2Radar integration code; upstream does not contain a placement
+// planner. See RunecraftHelper.GPLv3.LICENSE.txt.
 using System.Diagnostics;
 using POE2Radar.Core.Game;
 using POE2Radar.Core.Pathfinding;

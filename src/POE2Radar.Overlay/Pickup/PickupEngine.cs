@@ -1,4 +1,5 @@
 using POE2Radar.Overlay.Config;
+using POE2Radar.Overlay.Input;
 
 namespace POE2Radar.Overlay.Pickup;
 
@@ -156,12 +157,15 @@ internal sealed class PickupEngine(Func<PickupTarget, PickupClickResult> click)
                 _misses.Remove(_target.Address);
                 _stage = Stage.Idle;
                 _target = default;
-                _nextActionStamp = frame.Now + MillisecondsToTicks(Math.Clamp(settings.ClickCooldownMs, 100, 1000));
+                var clickCooldownMs = settings.HumanSpeed
+                    ? PickupTimingProfile.HumanSpeed.ClickCooldownMs
+                    : Math.Clamp(settings.ClickCooldownMs, 100, 1000);
+                _nextActionStamp = frame.Now + MillisecondsToTicks(clickCooldownMs);
                 return new PickupView($"PICKED · {completed}", true, null);
             }
 
-            if (frame.Now >= _confirmationTimeoutStamp && mode == PickupMode.AutoNearby)
-                return RecoverAutomaticMiss(frame.Now, settings);
+            if (frame.Now >= _confirmationTimeoutStamp && CanRecoverMiss(mode))
+                return RecoverMiss(frame.Now, settings);
             if (frame.Now >= _confirmationTimeoutStamp)
                 return Block("Stopped: pickup was not confirmed");
 
@@ -183,11 +187,17 @@ internal sealed class PickupEngine(Func<PickupTarget, PickupClickResult> click)
         {
             _target = next;
             _stage = Stage.Delay;
-            var min = Math.Clamp(settings.MinPickupDelayMs, 0, 500);
-            var max = Math.Clamp(settings.MaxPickupDelayMs, min, 750);
+            var timing = PickupTimingProfile.HumanSpeed;
+            var min = settings.HumanSpeed
+                ? timing.ReactionMinMs
+                : Math.Clamp(settings.MinPickupDelayMs, 0, 500);
+            var max = settings.HumanSpeed
+                ? timing.ReactionMaxMs
+                : Math.Clamp(settings.MaxPickupDelayMs, min, 750);
             var delay = min == max ? min : Random.Shared.Next(min, max + 1);
             _nextActionStamp = Math.Max(_nextActionStamp, frame.Now + MillisecondsToTicks(delay));
-            return new PickupView($"TARGET · {_target.Label}", true, _target);
+            if (!settings.HumanSpeed || delay > 0 || frame.Now < _nextActionStamp)
+                return new PickupView($"TARGET · {_target.Label}", true, _target);
         }
 
         // Keep the scheduled target and timer, but use its newest validated moving-label rectangle.
@@ -196,8 +206,8 @@ internal sealed class PickupEngine(Func<PickupTarget, PickupClickResult> click)
             return new PickupView($"TARGET · {_target.Label}", true, _target);
 
         var clickResult = _click(_target);
-        if (clickResult == PickupClickResult.TargetUnavailable && mode == PickupMode.AutoNearby)
-            return RecoverAutomaticMiss(frame.Now, settings);
+        if (clickResult == PickupClickResult.TargetUnavailable && CanRecoverMiss(mode))
+            return RecoverMiss(frame.Now, settings);
         if (clickResult != PickupClickResult.Sent)
             return Block("Stopped: label click failed");
 
@@ -225,7 +235,10 @@ internal sealed class PickupEngine(Func<PickupTarget, PickupClickResult> click)
     private bool CanRetry(nint address, long now)
         => !_misses.TryGetValue(address, out var miss) || now >= miss.RetryAfter;
 
-    private PickupView RecoverAutomaticMiss(long now, PickupHelperSettings settings)
+    private static bool CanRecoverMiss(PickupMode mode)
+        => mode is PickupMode.NearbyHold or PickupMode.AutoNearby;
+
+    private PickupView RecoverMiss(long now, PickupHelperSettings settings)
     {
         var missed = _target;
         _misses.TryGetValue(missed.Address, out var prior);
@@ -240,7 +253,10 @@ internal sealed class PickupEngine(Func<PickupTarget, PickupClickResult> click)
         _stage = Stage.Idle;
         _target = default;
         _confirmationTimeoutStamp = 0;
-        _nextActionStamp = now + MillisecondsToTicks(Math.Clamp(settings.ClickCooldownMs, 100, 1000));
+        var clickCooldownMs = settings.HumanSpeed
+            ? PickupTimingProfile.HumanSpeed.ClickCooldownMs
+            : Math.Clamp(settings.ClickCooldownMs, 100, 1000);
+        _nextActionStamp = now + MillisecondsToTicks(clickCooldownMs);
         return new PickupView($"MISSED · reacquiring {missed.Label}", true, null);
     }
 

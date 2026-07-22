@@ -27,7 +27,7 @@ public sealed partial class Poe2Live
     private readonly Dictionary<nint, string> _meta = new();
     private readonly Dictionary<nint, nint> _iconAddr = new();     // entity → MinimapIcon component (0 = none); game POI
     private readonly Dictionary<nint, Rarity> _rarity = new();     // entity → rarity (static per spawn; cached)
-    private readonly Dictionary<nint, (Rarity rarity, string? art, bool identified, string? name)> _itemIdent = new();
+    private readonly Dictionary<nint, (Rarity rarity, string? art, bool identified, string? name, string? metadata)> _itemIdent = new();
     private int _itemReadBudget;
     private const int ItemReadBudgetPerPass = 12;
     private readonly Dictionary<nint, uint> _idAt = new();         // entity address → last-seen std::map key id (recycle guard)
@@ -57,7 +57,7 @@ public sealed partial class Poe2Live
     public readonly record struct EntityDot(
         uint Id, nint Address, System.Numerics.Vector2 Grid, Vector3 World, float TerrainHeight, EntityCategory Category, string Metadata,
         int HpCur, int HpMax, bool Poi, byte Reaction, Rarity Rarity, bool Opened, bool IconComplete = false, bool IsSleeping = false,
-        string? ItemArt = null, bool ItemIdentified = true, string? ItemName = null)
+        string? ItemArt = null, bool ItemIdentified = true, string? ItemName = null, string? ItemMetadata = null)
     {
         /// <summary>Monsters are "alive" only with positive HP; non-life entities are always shown.</summary>
         public bool IsAlive => HpMax <= 0 || HpCur > 0;
@@ -426,14 +426,14 @@ public sealed partial class Poe2Live
                 opened = ReadChestOpened(entity);
 
             var (poi, iconComplete) = ReadIcon(entity);
-            string? itemArt = null, itemName = null;
+            string? itemArt = null, itemName = null, itemMetadata = null;
             var itemIdentified = true;
             if (cat == EntityCategory.Other && _meta.GetValueOrDefault(entity, "").Contains("WorldItem", StringComparison.Ordinal))
             {
-                (rarity, itemArt, itemIdentified, itemName) = ReadItemIdentity(entity);
+                (rarity, itemArt, itemIdentified, itemName, itemMetadata) = ReadItemIdentity(entity);
             }
             byId[id] = new EntityDot(id, entity, g, wv, terrainHeight, cat, meta, hpCur, hpMax,
-                poi, ReadReaction(entity), rarity, opened, iconComplete, isSleeping, itemArt, itemIdentified, itemName);
+                poi, ReadReaction(entity), rarity, opened, iconComplete, isSleeping, itemArt, itemIdentified, itemName, itemMetadata);
             count++;
         }
         return count;

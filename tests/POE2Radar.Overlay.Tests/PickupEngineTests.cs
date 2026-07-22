@@ -9,6 +9,89 @@ public sealed class PickupEngineTests
     private static readonly PickupTarget Target = new(7, (nint)0x1234, "Exalted Orb", 12f, 10f, 20f, 80f, 24f);
 
     [Fact]
+    public void NearbyHold_CrowdedStaleLabelReacquiresAnotherItemWithoutRelease()
+    {
+        var second = Target with { Id = 8, Address = (nint)0x5678, Label = "Chaos Orb", Distance = 13f };
+        var clicked = new List<nint>();
+        var engine = new PickupEngine(target =>
+        {
+            clicked.Add(target.Address);
+            return target.Address == Target.Address
+                ? PickupClickResult.TargetUnavailable
+                : PickupClickResult.Sent;
+        });
+        var settings = Settings(mode: PickupMode.NearbyHold);
+        settings.HumanSpeed = true;
+
+        var recovering = engine.Tick(Frame(
+            settings,
+            targets: [Target, second],
+            ground: Set(Target.Address, second.Address)));
+        var continued = engine.Tick(Frame(
+            settings,
+            now: 1 + MillisecondsToTicks(100),
+            targets: [Target, second],
+            ground: Set(Target.Address, second.Address)));
+
+        Assert.True(recovering.Running);
+        Assert.True(continued.Running);
+        Assert.Equal([Target.Address, second.Address], clicked);
+        Assert.Contains("PICKING", continued.Status);
+    }
+
+    [Fact]
+    public void NearbyHold_UnconfirmedCrowdedItemReacquiresAnotherItemWithoutRelease()
+    {
+        var second = Target with { Id = 8, Address = (nint)0x5678, Label = "Chaos Orb", Distance = 13f };
+        var clicked = new List<nint>();
+        var engine = new PickupEngine(target =>
+        {
+            clicked.Add(target.Address);
+            return PickupClickResult.Sent;
+        });
+        var settings = Settings(mode: PickupMode.NearbyHold);
+        settings.HumanSpeed = true;
+        settings.ConfirmationTimeoutMs = 500;
+
+        _ = engine.Tick(Frame(
+            settings,
+            targets: [Target, second],
+            ground: Set(Target.Address, second.Address)));
+        var timeoutAt = 1 + MillisecondsToTicks(600);
+        var recovering = engine.Tick(Frame(
+            settings,
+            now: timeoutAt,
+            targets: [Target, second],
+            ground: Set(Target.Address, second.Address)));
+        var continued = engine.Tick(Frame(
+            settings,
+            now: timeoutAt + MillisecondsToTicks(100),
+            targets: [Target, second],
+            ground: Set(Target.Address, second.Address)));
+
+        Assert.True(recovering.Running);
+        Assert.True(continued.Running);
+        Assert.Equal([Target.Address, second.Address], clicked);
+        Assert.Contains("PICKING", continued.Status);
+    }
+
+    [Fact]
+    public void HumanSpeedProfile_ClicksNewlyAcquiredTargetInSameTick()
+    {
+        var clicks = 0;
+        var engine = new PickupEngine(_ => { clicks++; return PickupClickResult.Sent; });
+        var settings = Settings(mode: PickupMode.NearbyHold);
+        settings.HumanSpeed = true;
+        settings.MinPickupDelayMs = 500;
+        settings.MaxPickupDelayMs = 500;
+
+        var view = engine.Tick(Frame(settings, targets: [Target], ground: Set(Target.Address)));
+
+        Assert.Equal(1, clicks);
+        Assert.Contains("PICKING", view.Status);
+    }
+
+    [Fact]
     public void ActivationBindingAlsoUsedForShowHidden_DoesNotCancelPickup()
     {
         var settings = Settings(mode: PickupMode.NearbyHold);
@@ -287,6 +370,7 @@ public sealed class PickupEngineTests
             Enabled = true,
             Mode = (int)mode,
             AutoModeAcknowledged = true,
+            HumanSpeed = false,
             MinPickupDelayMs = 0,
             MaxPickupDelayMs = 0,
             ClickCooldownMs = 100,

@@ -1166,6 +1166,8 @@ public sealed class WaystoneAlchemySettings
 public sealed class PickupHelperSettings
 {
     public bool Enabled { get; set; }
+    /// <summary>Uses the bounded low-latency pickup cadence while preserving all safety gates.</summary>
+    public bool HumanSpeed { get; set; } = true;
     /// <summary>0 = assist, 1 = hovered/held, 2 = nearby/held, 3 = nearby automatic toggle.</summary>
     public int Mode { get; set; }
     /// <summary>Keyboard VK or encoded XInput button. The action only runs while this binding is held.</summary>
