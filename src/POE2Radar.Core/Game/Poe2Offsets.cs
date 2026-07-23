@@ -340,16 +340,18 @@ public static class Poe2
         public const int TgtPath = 0x08; // ✓ StdWString — full tile .tdt path (e.g. .../Feature/arena_01.tdt)
     }
 
-    // ── Map UI — GH2, not yet live-checked ──
+    // ── Map UI — validated live against the standalone client ──
     public static class ImportantUi
     {
-        public const int MapParentPtr = 0x738; // (GH2) from UiRoot/GameUi
+        public const int MapParentPtr = 0x7C8; // ✓ live standalone 2026-07-23, from GameUi manager
     }
 
     public static class MapParent
     {
-        public const int LargeMapPtr = 0x50; // (GH2)
-        public const int MiniMapPtr  = 0x58; // (GH2)
+        // The legacy names are retained for callers, but these are not two MapUiElements:
+        // +0x28 is shared map content (Shift/Zoom + live anchor); +0x30 is the corner frame UiElement.
+        public const int LargeMapPtr = 0x28; // ✓ shared map-content MapUiElement, live standalone 2026-07-23
+        public const int MiniMapPtr  = 0x30; // ✓ 402x402 corner-minimap frame UiElement, live standalone 2026-07-23
     }
 
     /// <summary>

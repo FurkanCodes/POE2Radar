@@ -34,6 +34,7 @@
   <ItemGroup>
     <None Include="fonts\DejaVuSans.ttf" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <None Include="Overlay\icons.png" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="Overlay\Radar.GameHelper.GPLv3.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" TargetPath="Radar\Radar.GameHelper.GPLv3.LICENSE.txt" />
     <None Include="Overlay\AtlasContentIcons\*.png" CopyToOutputDirectory="PreserveNewest" TargetPath="atlas-content-icons\%(Filename)%(Extension)" ExcludeFromSingleFile="true" />
     <None Include="Overlay\Textures\*.png" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <None Include="Pricing\item_names.json" CopyToOutputDirectory="PreserveNewest" TargetPath="RitualHelper\item_names.json" />

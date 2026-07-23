@@ -51,6 +51,12 @@ public sealed class RunecraftRecipeCatalog
         public string Runes = "";
         public string RewardId = "";
         public string MetaId = "";
+        public int Row;
+        public int Category;
+        public int RewardIdx = -1;
+        public int MinLevel;
+        public int MaxLevel;
+        public bool Full;
     }
 
     public sealed class MonolithView
@@ -68,6 +74,12 @@ public sealed class RunecraftRecipeCatalog
         public bool IsRerolled;
         public bool PanelOpen;
         public string SelectedRecipeId = "";
+        public nint StationAddress;
+        public int SocketsState = -1;
+        public int AreaLevel;
+        public int Field40 = int.MinValue;
+        public int Field44 = int.MinValue;
+        public string StatesDump = "";
         public List<Candidate> Candidates = new();
     }
 
@@ -213,6 +225,12 @@ public sealed class RunecraftRecipeCatalog
             Runes = rec.runes != null ? string.Join(" · ", rec.runes) : "",
             RewardId = rec.reward?.id ?? "",
             MetaId = metaId,
+            Row = rec.row,
+            Category = rec.category,
+            RewardIdx = rec.reward?.idx ?? -1,
+            MinLevel = rec.minLevel,
+            MaxLevel = rec.maxLevel,
+            Full = rec.size == view.HoleCount,
         });
     }
 

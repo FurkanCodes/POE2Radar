@@ -52,9 +52,11 @@ public sealed partial class ImGuiRadarOverlay
         var view = context.Sekhema;
         var settings = _settings.Sekhema;
         if (!settings.Enabled || !view.InTrial || !context.Map.IsVisible) return;
+        var projectionOrigin = MapProjectionMotion.PlayerReference(
+            frame, context.SmoothOverlayMotion, context.PlayerGrid, context.RawPlayerGrid);
 
         if (settings.Debug && settings.HazardDebugDrawWalkable && context.Terrain is { } terrain)
-            DrawSekhemaWalkableDebug(drawList, context, terrain, center, scale, settings);
+            DrawSekhemaWalkableDebug(drawList, context, frame, terrain, center, scale, settings);
 
         if (settings.Debug)
         {
@@ -64,7 +66,7 @@ public sealed partial class ImGuiRadarOverlay
             {
                 var point = Project(
                     crystal.Grid,
-                    MapProjectionMotion.PlayerReference(context),
+                    projectionOrigin,
                     center,
                     scale,
                     crystal.TerrainHeight - frame.PlayerTerrainHeight);
@@ -94,7 +96,7 @@ public sealed partial class ImGuiRadarOverlay
                                  (leg.EndTerrainHeight - leg.StartTerrainHeight) * progress;
                     var projected = Project(
                         leg.Points[pointIndex],
-                        MapProjectionMotion.PlayerReference(context),
+                        projectionOrigin,
                         center,
                         scale,
                         height - frame.PlayerTerrainHeight);
@@ -105,7 +107,7 @@ public sealed partial class ImGuiRadarOverlay
 
                 var endpoint = Project(
                     leg.Points[^1],
-                    MapProjectionMotion.PlayerReference(context),
+                    projectionOrigin,
                     center,
                     scale,
                     leg.EndTerrainHeight - frame.PlayerTerrainHeight);
@@ -127,7 +129,7 @@ public sealed partial class ImGuiRadarOverlay
                                          (leg.EndTerrainHeight - leg.StartTerrainHeight) * midpointProgress;
                     var midpoint = Project(
                         leg.Points[midpointIndex],
-                        MapProjectionMotion.PlayerReference(context),
+                        projectionOrigin,
                         center,
                         scale,
                         midpointHeight - frame.PlayerTerrainHeight);
@@ -143,7 +145,7 @@ public sealed partial class ImGuiRadarOverlay
         {
             var point = Project(
                 marker.Grid,
-                MapProjectionMotion.PlayerReference(context),
+                projectionOrigin,
                 center,
                 scale,
                 marker.TerrainHeight - frame.PlayerTerrainHeight);
@@ -189,6 +191,7 @@ public sealed partial class ImGuiRadarOverlay
     private static void DrawSekhemaWalkableDebug(
         ImDrawListPtr drawList,
         RenderContext context,
+        MapFrame frame,
         Core.Game.Poe2Live.TerrainData terrain,
         NumVec2 center,
         float scale,
@@ -196,9 +199,10 @@ public sealed partial class ImGuiRadarOverlay
     {
         var radius = (int)Math.Clamp(settings.HazardDebugWalkableRadius, 50, 1200);
         var stride = Math.Max(2, radius / 120);
-        var player = MapProjectionMotion.PlayerReference(context);
-        var playerX = (int)player.X;
-        var playerY = (int)player.Y;
+        var projectionOrigin = MapProjectionMotion.PlayerReference(
+            frame, context.SmoothOverlayMotion, context.PlayerGrid, context.RawPlayerGrid);
+        var playerX = (int)projectionOrigin.X;
+        var playerY = (int)projectionOrigin.Y;
         var color = ColorU32("#33FF4D", 0.28f);
         var cellSize = Math.Max(1f, scale * stride * 0.6f);
         var half = new NumVec2(cellSize);
@@ -208,7 +212,7 @@ public sealed partial class ImGuiRadarOverlay
             if ((uint)x >= (uint)terrain.Width || (uint)y >= (uint)terrain.Height ||
                 terrain.Walkable[y * terrain.Width + x] == 0)
                 continue;
-            var point = Project(new NumVec2(x, y), player, center, scale);
+            var point = Project(new NumVec2(x, y), projectionOrigin, center, scale);
             drawList.AddRectFilled(point - half, point + half, color);
         }
     }

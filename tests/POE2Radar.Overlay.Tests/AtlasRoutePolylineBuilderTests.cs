@@ -7,6 +7,19 @@ namespace POE2Radar.Overlay.Tests;
 public sealed class AtlasRoutePolylineBuilderTests
 {
     [Fact]
+    public void IsDrawableEdge_RequiresAtLeastOneEndpointOnScreen()
+    {
+        Assert.False(AtlasRoutePolylineBuilder.IsDrawableEdge(
+            new(-200, -200), new(-100, -100), 100, 100, margin: 0));
+        Assert.True(AtlasRoutePolylineBuilder.IsDrawableEdge(
+            new(-100, -100), new(50, 50), 100, 100, margin: 0));
+        Assert.True(AtlasRoutePolylineBuilder.IsDrawableEdge(
+            new(50, 50), new(150, 50), 100, 100, margin: 0));
+        Assert.False(AtlasRoutePolylineBuilder.IsDrawableEdge(
+            new(150, 50), new(250, 50), 100, 100, margin: 0));
+    }
+
+    [Fact]
     public void BuildSegments_ReturnsEmptyForMissingPath()
     {
         var segments = AtlasRoutePolylineBuilder.BuildSegments(null, new Dictionary<(int, int), NumVec2>(), "Target", "#ffffff", 3);

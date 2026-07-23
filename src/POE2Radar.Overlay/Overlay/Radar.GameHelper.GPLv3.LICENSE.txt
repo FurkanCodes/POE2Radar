@@ -1,0 +1,33 @@
+GameHelper Radar source notice
+================================
+
+POE2Radar's map projection and map-frame behavior is derived from:
+https://github.com/MordWraith/Gamehelper/tree/main/Plugins/Radar
+
+Upstream snapshot used for this parity port:
+554e8123d4997c4a5acbc8a4b19e1b585fe8b2d0
+
+The port follows the projection behavior in Plugins/Radar/Helper.cs and
+Plugins/Radar/Radar.cs: live-player-relative deltas, the 38.7-degree camera
+angle, height-scaled map diagonal, calibrated large/minimap zoom baselines,
+map center/shift/default-shift handling, and viewport culling.
+
+The upstream repository and Radar sources are licensed under the GNU General
+Public License, version 3. Copyright remains with the upstream authors and
+contributors.
+
+GNU GENERAL PUBLIC LICENSE
+Version 3, 29 June 2007
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.

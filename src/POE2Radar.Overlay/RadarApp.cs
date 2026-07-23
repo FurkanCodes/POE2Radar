@@ -12,6 +12,7 @@ using POE2Radar.Overlay.Native;
 using POE2Radar.Overlay.Navigation;
 using POE2Radar.Overlay.Web;
 using PathCell = POE2Radar.Core.Pathfinding.PathCell;
+using GameHelperRadarProjection = POE2Radar.Core.Pathfinding.GameHelperRadarProjection;
 using RoutePlanStatus = POE2Radar.Core.Pathfinding.RoutePlanStatus;
 
 namespace POE2Radar.Overlay;
@@ -800,7 +801,11 @@ public sealed partial class RadarApp : IDisposable
             PathDiag: pathDiag);
 
         var atlasProj = AtlasProjection();
-        var mapFrame = BuildLargeMapFrame(largeMap, windowWidth, windowHeight, live.PlayerTerrainHeight);
+        var mapFrame = BuildLargeMapFrame(
+            largeMap,
+            windowWidth,
+            windowHeight,
+            live.PlayerTerrainHeight);
         var miniMapFrame = BuildMiniMapFrame(miniMap, windowWidth, windowHeight, live.PlayerTerrainHeight);
         var visual = _visualSmoother.Update(
             Stopwatch.GetTimestamp(),
@@ -820,9 +825,14 @@ public sealed partial class RadarApp : IDisposable
                 miniMapFrame,
                 _atlasOpen,
                 live.CameraMatrix));
-        _lastMapFrame = mapFrame;
+        var renderMapFrame = _settings.SmoothOverlayMotion
+            ? mapFrame with { PlayerTerrainHeight = visual.PlayerTerrainHeight }
+            : mapFrame;
+        _lastMapFrame = renderMapFrame;
         _lastMiniMapFrame = miniMapFrame;
-        _lastPlayerGrid = live.PlayerGrid;
+        _lastPlayerGrid = _settings.SmoothOverlayMotion
+            ? visual.PlayerGrid
+            : live.PlayerGrid;
         if (live.InGame)
         {
             UpdateCursorInspect(live);
@@ -845,7 +855,7 @@ public sealed partial class RadarApp : IDisposable
             RawPlayerWorld: live.PlayerWorld,
             Map: largeMap,
             MiniMap: miniMap,
-            MapFrame: mapFrame,
+            MapFrame: renderMapFrame,
             MiniMapFrame: miniMapFrame,
             Entities: snap.Entities,
             Landmarks: snap.Landmarks,
@@ -903,6 +913,7 @@ public sealed partial class RadarApp : IDisposable
             RunecraftLabels: _runecraftLabels,
             RunecraftMapLabels: _runecraftMapLabels,
             RunecraftShowMonolithWindow: RunecraftMonolithWindowActive(),
+            RunecraftShowMonolithDebugWindow: _settings.Runecraft.ShowMonolithDebugWindow,
             RunecraftMonolithRows: _runecraftMonolithRows,
             Sekhema: _sekhemaView,
             ExpeditionPlanner: _expeditionView,
@@ -1201,29 +1212,43 @@ public sealed partial class RadarApp : IDisposable
     }
 
 
-    private MapFrame BuildLargeMapFrame(Poe2Live.MapUi map, int windowWidth, int windowHeight, float playerTerrainHeight)
+    private MapFrame BuildLargeMapFrame(
+        Poe2Live.MapUi map,
+        int windowWidth,
+        int windowHeight,
+        float playerTerrainHeight)
     {
-        // Sikaka/v1.3.0 parity — fullscreen Tab overlay only (draw gated on Map.IsVisible):
-        //   center = window center + Shift + DefaultShiftY(-20) + manual offset
-        //   scale  = Zoom × (WindowHeight / 677) × LargeMapScaleMultiplier
+        // MordWraith/Gamehelper Radar parity: live UI center + pan/default shift + calibrated bias.
+        // Scale is its 2560x1600 base diagonal adjusted only by the live map height and zoom.
         var w = MathF.Max(1f, windowWidth);
         var h = MathF.Max(1f, windowHeight);
-        var (cx, cy) = MapViewportLogic.MapProjectionCenter(
-            windowWidth,
-            windowHeight,
-            map.ShiftX,
-            map.ShiftY,
-            _settings.OffX,
-            _settings.OffY,
-            minimapClip: false,
-            clipLeft: 0,
-            clipTop: 0,
-            clipRight: 0,
-            clipBottom: 0);
-        var center = new NumVec2(cx, cy);
+        var hasLiveAnchor =
+            map.HasScreenRect &&
+            float.IsFinite(map.CenterX) &&
+            float.IsFinite(map.CenterY);
+        var mapCenter = hasLiveAnchor
+            ? new NumVec2(map.CenterX, map.CenterY)
+            : new NumVec2(w * 0.5f, h * 0.5f);
+        var center = GameHelperRadarProjection.LargeMapCenter(
+            mapCenter,
+            new NumVec2(map.ShiftX, map.ShiftY),
+            new NumVec2(map.DefaultShiftX, map.DefaultShiftY),
+            new NumVec2(_settings.OffX, _settings.OffY));
         var zoom = map.Zoom > 0f ? map.Zoom : 1f;
-        var scale = MapViewportLogic.LargeMapOverlayScale(h, zoom, _settings.LargeMapScaleMultiplier);
-        return new MapFrame(center, scale, w, h, map.Element, playerTerrainHeight, NumVec2.Zero, IsMinimap: false);
+        var mapHeight = map.Height > 1f ? map.Height : h;
+        var scale = GameHelperRadarProjection.LargeMapScale(
+            mapHeight,
+            zoom,
+            MathF.Max(0.01f, _settings.LargeMapScaleMultiplier));
+        return new MapFrame(
+            center,
+            scale,
+            w,
+            h,
+            map.Element,
+            playerTerrainHeight,
+            NumVec2.Zero,
+            IsMinimap: false);
     }
 
     private MapFrame BuildMiniMapFrame(Poe2Live.MapUi map, int windowWidth, int windowHeight, float playerTerrainHeight)
@@ -1249,22 +1274,17 @@ public sealed partial class RadarApp : IDisposable
             y = 18f;
         }
 
-        var (cx, cy) = MapViewportLogic.MapProjectionCenter(
-            windowWidth,
-            windowHeight,
-            map.ShiftX,
-            map.ShiftY,
-            offsetX: 0f,
-            offsetY: 0f,
-            minimapClip: true,
-            clipLeft: x,
-            clipTop: y,
-            clipRight: x + width,
-            clipBottom: y + height);
-        var center = new NumVec2(cx, cy);
-        // v1.3.0 parity: minimap scale = Zoom × (clipSide / 677) × ScaleMul
-        var referenceSide = MathF.Max(1f, MathF.Min(width, height));
-        var scale = MapViewportLogic.MinimapOverlayScale(referenceSide, map.Zoom, _settings.ScaleMul);
+        var center = GameHelperRadarProjection.MiniMapCenter(
+            new NumVec2(x, y),
+            new NumVec2(width, height),
+            new NumVec2(map.ShiftX, map.ShiftY),
+            new NumVec2(map.DefaultShiftX, map.DefaultShiftY),
+            userXOffset: 0f);
+        // GameHelper minimap scale uses the same height-derived diagonal with its 0.748 baseline.
+        var scale = GameHelperRadarProjection.MiniMapScale(
+            MathF.Max(1f, height),
+            map.Zoom > 0f ? map.Zoom : 1f,
+            MathF.Max(0.01f, _settings.ScaleMul));
         return new MapFrame(center, scale, width, height, map.Element, playerTerrainHeight, new NumVec2(x, y), IsMinimap: true);
     }
 
@@ -2966,7 +2986,10 @@ public sealed partial class RadarApp : IDisposable
                     continue;
                 foreach (var n in nodes)
                 {
-                    if (n.Completed || !Atlas2Defaults.IsCorruptedNexus(n)) continue;
+                    if (n.Completed
+                        || !AtlasCategoryTargetAllowed(search, n.MapName, n.MapCode, n.Tags, n.Badges)
+                        || !Atlas2Defaults.IsCorruptedNexus(n))
+                        continue;
                     targets.Add(new AtlasRouteTarget(n, "Corrupted Nexus", color, maxHops, thickness));
                     if (targets.Count >= 512) break;
                 }
@@ -2980,7 +3003,10 @@ public sealed partial class RadarApp : IDisposable
                     continue;
                 foreach (var n in nodes)
                 {
-                    if (n.Completed || !Atlas2Defaults.IsGrandMirror(n)) continue;
+                    if (n.Completed
+                        || !AtlasCategoryTargetAllowed(search, n.MapName, n.MapCode, n.Tags, n.Badges)
+                        || !Atlas2Defaults.IsGrandMirror(n))
+                        continue;
                     targets.Add(new AtlasRouteTarget(n, "Grand Mirror", color, maxHops, thickness));
                     if (targets.Count >= 512) break;
                 }
@@ -2995,6 +3021,8 @@ public sealed partial class RadarApp : IDisposable
                 foreach (var n in nodes)
                 {
                     if (n.Completed) continue;
+                    if (!AtlasCategoryTargetAllowed(search, n.MapName, n.MapCode, n.Tags, n.Badges))
+                        continue;
                     if (!AtlasRouteEntryMatches(n, match)
                         && !(match.StartsWith("name:", StringComparison.OrdinalIgnoreCase)
                              && !string.IsNullOrEmpty(n.MapName)
@@ -3013,6 +3041,14 @@ public sealed partial class RadarApp : IDisposable
             .Take(512)
             .ToList();
     }
+
+    internal static bool AtlasCategoryTargetAllowed(
+        AtlasSearch.Query search,
+        string? mapName,
+        string? mapCode,
+        IReadOnlyList<string>? tags,
+        IReadOnlyList<string>? badges)
+        => search.IsEmpty || search.Matches(mapName, mapCode, tags, badges);
 
     private static bool AtlasTrackedRuleMatches(
         in Poe2Atlas.AtlasNodeLive node,

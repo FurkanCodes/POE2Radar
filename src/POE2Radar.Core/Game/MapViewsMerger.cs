@@ -1,41 +1,38 @@
 namespace POE2Radar.Core.Game;
 
 /// <summary>
-/// Combines direct GameUi map reads (accurate screen rects / element pointers) with
-/// <see cref="Poe2Live.ReadMapState"/> viewport reads (Tab toggler Shift/Zoom parity with v1.3.0).
+/// Combines direct GameUi map reads with the UI-tree viewport fallback. The direct shared-content /
+/// corner-frame layout is authoritative for visibility and screen geometry; the viewport retains
+/// the validated pan/zoom projection values.
 /// </summary>
 public static class MapViewsMerger
 {
-    /// <summary>
-    /// Viewport supplies projection + Tab visibility; direct supplies element addresses and minimap screen rects.
-    /// </summary>
+    /// <summary>Merge direct UI state into the validated viewport projection when available.</summary>
     public static Poe2Live.MapViews Merge(Poe2Live.MapViews viewport, Poe2Live.MapViews direct)
         => new(MergeLargeMap(viewport.LargeMap, direct.LargeMap), MergeMiniMap(viewport.MiniMap, direct.MiniMap));
 
     public static Poe2Live.MapUi MergeLargeMap(Poe2Live.MapUi viewport, Poe2Live.MapUi direct)
-    {
-        var element = direct.Element != 0 ? direct.Element : viewport.Element;
-        return viewport with { Element = element };
-    }
+        => MergeDirectUiState(viewport, direct);
 
     public static Poe2Live.MapUi MergeMiniMap(Poe2Live.MapUi viewport, Poe2Live.MapUi direct)
-    {
-        var element = direct.Element != 0 ? direct.Element : viewport.Element;
-        if (!direct.HasScreenRect)
-            return viewport with { Element = element };
+        => MergeDirectUiState(viewport, direct);
 
+    private static Poe2Live.MapUi MergeDirectUiState(Poe2Live.MapUi viewport, Poe2Live.MapUi direct)
+    {
+        if (direct.Element == 0) return viewport;
         return viewport with
         {
-            Element = element,
+            IsVisible = direct.IsVisible,
+            Element = direct.Element,
             CenterX = direct.CenterX,
             CenterY = direct.CenterY,
             Width = direct.Width,
             Height = direct.Height,
             PositionX = direct.PositionX,
             PositionY = direct.PositionY,
-            HasScreenRect = true,
             LocalScaleMultiplier = direct.LocalScaleMultiplier,
             ScaleIndex = direct.ScaleIndex,
+            HasScreenRect = direct.HasScreenRect,
         };
     }
 }

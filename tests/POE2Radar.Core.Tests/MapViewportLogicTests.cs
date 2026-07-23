@@ -1,4 +1,5 @@
 using POE2Radar.Core.Game;
+using POE2Radar.Core.Pathfinding;
 using System.Reflection;
 using Xunit;
 
@@ -7,6 +8,14 @@ namespace POE2Radar.Core.Tests;
 public sealed class MapViewportLogicTests
 {
     private const int W = 1920, H = 1080;
+
+    [Fact]
+    public void MapOffsets_MatchValidatedLiveStandaloneLayout()
+    {
+        Assert.Equal(0x7C8, Poe2.ImportantUi.MapParentPtr);
+        Assert.Equal(0x28, Poe2.MapParent.LargeMapPtr);
+        Assert.Equal(0x30, Poe2.MapParent.MiniMapPtr);
+    }
 
     [Fact]
     public void TrySelectLocalVisibleMini_PicksSmallestLocallyVisible()
@@ -36,19 +45,41 @@ public sealed class MapViewportLogicTests
     }
 
     [Theory]
-    [InlineData(false, true, false, true)]
-    [InlineData(true, false, true, false)]
-    [InlineData(true, true, true, false)]
-    [InlineData(false, false, false, false)]
+    [InlineData(false, true, false, false, true)]
+    [InlineData(false, false, true, false, true)]
+    [InlineData(true, false, true, true, false)]
+    [InlineData(true, true, true, true, false)]
+    [InlineData(false, false, false, false, false)]
     public void ResolveMapVisibility_UsesHierarchicalStateFromTheActualMapElements(
         bool largeHierarchicallyVisible,
         bool miniHierarchicallyVisible,
+        bool minimapFrameVisible,
         bool expectedLarge,
         bool expectedMini)
     {
         var state = MapViewportLogic.ResolveMapVisibility(
             largeHierarchicallyVisible,
-            miniHierarchicallyVisible);
+            miniHierarchicallyVisible,
+            minimapFrameVisible);
+
+        Assert.Equal(expectedLarge, state.LargeVisible);
+        Assert.Equal(expectedMini, state.MiniVisible);
+    }
+
+    [Theory]
+    [InlineData(true, false, true, false)]
+    [InlineData(false, true, false, true)]
+    [InlineData(false, false, false, false)]
+    [InlineData(true, true, false, true)]
+    public void ResolveSharedMapVisibility_UsesContentAndCornerFrame(
+        bool contentVisible,
+        bool minimapFrameVisible,
+        bool expectedLarge,
+        bool expectedMini)
+    {
+        var state = MapViewportLogic.ResolveSharedMapVisibility(
+            contentVisible,
+            minimapFrameVisible);
 
         Assert.Equal(expectedLarge, state.LargeVisible);
         Assert.Equal(expectedMini, state.MiniVisible);
@@ -132,6 +163,22 @@ public sealed class MapViewportLogicTests
     }
 
     [Fact]
+    public void MapProjectionCenter_LargeMapUsesLiveContentAnchorOnUltrawide()
+    {
+        // Live standalone trace, 3440x1440 with Tab open: the shared map content moves to
+        // (1276.2,720) while Shift remains (0,0). Window center (1720,720) is 443.8px wrong.
+        var (x, y) = MapViewportLogic.MapProjectionCenter(
+            3440, 1440, shiftX: 0f, shiftY: 0f, offsetX: 0f, offsetY: 0f,
+            minimapClip: false, 0, 0, 0, 0,
+            hasLargeMapAnchor: true,
+            largeMapAnchorX: 1276.2f,
+            largeMapAnchorY: 720f);
+
+        Assert.Equal(1276.2f, x, 1);
+        Assert.Equal(700f, y, 1);
+    }
+
+    [Fact]
     public void TrySelectMinimapFrameRect_PicksLargestTopRightSquareSibling()
     {
         // Live --map-scan-frames @ 3440×1440: 402×402 frame (362px) beats smaller HUD icons.
@@ -181,23 +228,23 @@ public sealed class MapViewportLogicTests
     }
 
     [Fact]
-    public void LargeMapOverlayScale_UsesWindowHeightNotDiagonal()
+    public void LargeMapOverlayScale_MatchesGameHelperHeightScaledDiagonal()
     {
         const float zoom = 1f;
         const float mul = 1f;
         var scale1440 = MapViewportLogic.LargeMapOverlayScale(1440, zoom, mul);
-        Assert.Equal(zoom * (1440f / 677f) * mul, scale1440, 3);
+        Assert.Equal(GameHelperRadarProjection.LargeMapScale(1440f, zoom, mul), scale1440, 5);
 
-        // Ultrawide: height-only formula must not grow with width (diagonal/240 would).
+        // GameHelper derives the diagonal from vertical UI scale, so ultrawide width does not change it.
         var scaleUltrawide = MapViewportLogic.LargeMapOverlayScale(1440, zoom, mul);
-        Assert.Equal(scale1440, scaleUltrawide, 3);
+        Assert.Equal(scale1440, scaleUltrawide, 5);
     }
 
     [Fact]
-    public void MinimapOverlayScale_ScalesWithClipSide()
+    public void MinimapOverlayScale_MatchesGameHelperHeightScaledDiagonal()
     {
         var scale = MapViewportLogic.MinimapOverlayScale(274f, 0.5f, 1.1f);
-        Assert.Equal(0.5f * (274f / 677f) * 1.1f, scale, 4);
+        Assert.Equal(GameHelperRadarProjection.MiniMapScale(274f, 0.5f, 1.1f), scale, 5);
     }
 
     private static Poe2Live.MapUi Map(bool visible, bool rect, nint element)

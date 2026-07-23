@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using ImGuiNET;
 using POE2Radar.Core.Game;
+using POE2Radar.Overlay.Navigation;
 using NumVec2 = System.Numerics.Vector2;
 
 namespace POE2Radar.Overlay;
@@ -649,6 +650,7 @@ public sealed partial class ImGuiRadarOverlay
         float uiScale, float spacingMul, bool chevrons, int phaseIndex)
     {
         if (pts.Count < 2) return;
+        var display = ImGui.GetIO().DisplaySize;
         var chevron = MathF.Max(7f * uiScale, thickness * 2.2f);
         var spacing = chevron * MathF.Max(1.5f, spacingMul);
         var guide = MathF.Max(1f, thickness * 0.5f);
@@ -657,22 +659,22 @@ public sealed partial class ImGuiRadarOverlay
         var carry = carryStart;
 
         dl.ChannelsSetCurrent(AtlasChannelLines);
-        NumVec2? prev = null;
-        for (var i = 0; i < pts.Count; i++)
+        for (var i = 1; i < pts.Count; i++)
         {
+            var p = pts[i - 1];
             var c = pts[i];
-            if (prev is { } p)
-            {
-                dl.AddLine(p, c, col, guide);
-                if (chevrons)
-                    DrawAtlasPathChevrons(dl, p, c, col, chevron, spacing, ref carry);
-            }
-            prev = c;
+            if (!AtlasRoutePolylineBuilder.IsDrawableEdge(p, c, display.X, display.Y))
+                continue;
+
+            dl.AddLine(p, c, col, guide);
+            if (chevrons)
+                DrawAtlasPathChevrons(dl, p, c, col, chevron, spacing, ref carry);
         }
 
         dl.ChannelsSetCurrent(AtlasChannelDots);
         foreach (var c in pts)
-            dl.AddCircleFilled(c, MathF.Max(2f, thickness * 0.9f), col, 8);
+            if (AtlasRoutePolylineBuilder.IsInViewport(c, display.X, display.Y))
+                dl.AddCircleFilled(c, MathF.Max(2f, thickness * 0.9f), col, 8);
     }
 
     private static void DrawAtlasPathChevrons(ImDrawListPtr dl, NumVec2 a, NumVec2 b, uint col, float size, float spacing, ref float carry)

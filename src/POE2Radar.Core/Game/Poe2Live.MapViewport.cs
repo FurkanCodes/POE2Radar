@@ -58,24 +58,35 @@ public sealed partial class Poe2Live
             && TryReadMapElement(
                 _classifiedLargeEl, out _, out largeHierVisible,
                 out largeShiftX, out largeShiftY, out largeZoom);
+        var frameLeft = 0f;
+        var frameTop = 0f;
+        var frameRight = 0f;
+        var frameBottom = 0f;
+        var minimapFrameVisible = _classifiedMiniEl != 0
+            && TryReadMinimapFrameRect(
+                _classifiedMiniEl, uiScale, windowWidth, windowHeight,
+                out _, out frameLeft, out frameTop, out frameRight, out frameBottom);
 
         MapViewport large;
         bool miniVisible;
-        if (miniRead || largeRead)
+        if (miniRead || largeRead || minimapFrameVisible)
         {
             var visibility = MapViewportLogic.ResolveMapVisibility(
                 largeRead && largeHierVisible,
-                miniRead && miniHierVisible);
+                miniRead && miniHierVisible,
+                minimapFrameVisible);
             miniVisible = visibility.MiniVisible;
             large = largeRead
                 ? new MapViewport(
                     visibility.LargeVisible,
                     largeShiftX, largeShiftY, largeZoom,
                     0, 0, 0, 0)
-                : new MapViewport(
+                : miniRead
+                ? new MapViewport(
                     false,
                     miniShiftX, miniShiftY, miniZoom,
-                    0, 0, 0, 0);
+                    0, 0, 0, 0)
+                : default;
         }
         else
         {
@@ -90,7 +101,14 @@ public sealed partial class Poe2Live
             && TryReadActiveMapProjection(_classifiedMiniEl, _classifiedLargeEl, out var msx, out var msy, out var mzoom))
         {
             float cl, ct, cr, cb;
-            if (!TryReadMinimapFrameRect(
+            if (minimapFrameVisible)
+            {
+                cl = frameLeft;
+                ct = frameTop;
+                cr = frameRight;
+                cb = frameBottom;
+            }
+            else if (!TryReadMinimapFrameRect(
                     _classifiedMiniEl, uiScale, windowWidth, windowHeight, out _, out cl, out ct, out cr, out cb))
             {
                 var rect = ReadElementScreenRect(_classifiedMiniEl, uiScale, windowWidth, windowHeight);
@@ -107,7 +125,7 @@ public sealed partial class Poe2Live
         return new MapState(large, mini);
     }
 
-    /// <summary>Assign Tab-map vs corner-minimap from intrinsic UiElement size (MapParent is not valid in PoE2).</summary>
+    /// <summary>Fallback assignment for tree-discovered map elements when the direct MapParent read is unavailable.</summary>
     private void ClassifyMapPair()
     {
         if (_classifiedLargeEl != 0 && _classifiedMiniEl != 0) return;
@@ -177,7 +195,7 @@ public sealed partial class Poe2Live
         return anyVp with { Visible = visibleCount >= 2 };
     }
 
-    /// <summary>GH2 MapParent (+0x738) — not valid in PoE2 live (both ptrs identical). Research only.</summary>
+    /// <summary>Resolve the live GameUi MapParent pair before falling back to UI-tree discovery.</summary>
     private bool TryMapParentElements(nint inGameState, out nint largeEl, out nint miniEl)
     {
         largeEl = miniEl = 0;

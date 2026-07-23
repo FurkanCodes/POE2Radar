@@ -4420,9 +4420,9 @@ static void DumpMapParent(MemoryReader reader, nint inGameState)
         if (mapParent == 0) continue;
         var p50 = SafePtr(reader, mapParent + Poe2.MapParent.LargeMapPtr);
         var p58 = SafePtr(reader, mapParent + Poe2.MapParent.MiniMapPtr);
-        Console.WriteLine($"  MapParent 0x{mapParent:X} (anchor 0x{anchor:X})  +0x50→0x{p50:X}  +0x58→0x{p58:X}");
-        if (p50 != 0) { var (w, h) = ReadUiSize(reader, p50); Console.WriteLine($"    +0x50 size {w:F0}x{h:F0}  localVis={IsUiVisibleLocal(reader, p50)}  hierVis={IsUiHierarchicallyVisible(reader, p50)}"); }
-        if (p58 != 0) { var (w, h) = ReadUiSize(reader, p58); Console.WriteLine($"    +0x58 size {w:F0}x{h:F0}  localVis={IsUiVisibleLocal(reader, p58)}  hierVis={IsUiHierarchicallyVisible(reader, p58)}"); }
+        Console.WriteLine($"  MapParent 0x{mapParent:X} (anchor 0x{anchor:X})  large@+0x{Poe2.MapParent.LargeMapPtr:X}→0x{p50:X}  mini@+0x{Poe2.MapParent.MiniMapPtr:X}→0x{p58:X}");
+        if (p50 != 0) { var (w, h) = ReadUiSize(reader, p50); Console.WriteLine($"    large size {w:F0}x{h:F0}  localVis={IsUiVisibleLocal(reader, p50)}  hierVis={IsUiHierarchicallyVisible(reader, p50)}"); }
+        if (p58 != 0) { var (w, h) = ReadUiSize(reader, p58); Console.WriteLine($"    mini size {w:F0}x{h:F0}  localVis={IsUiVisibleLocal(reader, p58)}  hierVis={IsUiHierarchicallyVisible(reader, p58)}"); }
     }
     Console.WriteLine();
 }

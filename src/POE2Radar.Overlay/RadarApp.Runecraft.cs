@@ -98,6 +98,7 @@ public sealed partial class RadarApp
         if (_settings.Runecraft.ShowOverlay) return true;
         if (_settings.Runecraft.ShowMapLabels) return true;
         if (_settings.Runecraft.ShowMonolithWindow) return true;
+        if (_settings.Runecraft.ShowMonolithDebugWindow) return true;
         if (_settings.Runecraft.ShowExpeditionPlanner) return true;
         // Pad auto-open only: entity scans at monolith-only cadence, no HUD overlay reads.
         return RunecraftMonolithWindowActive() && !_settings.Runecraft.ShowMonolithWindow;
@@ -111,6 +112,7 @@ public sealed partial class RadarApp
         bool monolithWindowActive)
         => settings.ShowMapLabels
            || settings.ShowMonolithWindow
+           || settings.ShowMonolithDebugWindow
            || settings.ShowExpeditionPlanner
            || monolithWindowActive;
 
@@ -330,7 +332,11 @@ public sealed partial class RadarApp
         foreach (var m in _runecraftMonoliths)
         {
             if (m.Best <= 0) continue;
-            var mapFrame = BuildLargeMapFrame(large, windowWidth, windowHeight, live.PlayerTerrainHeight);
+            var mapFrame = BuildLargeMapFrame(
+                large,
+                windowWidth,
+                windowHeight,
+                live.PlayerTerrainHeight);
             var screen = ProjectRunecraftMapLabel(
                 m.Grid,
                 m.TerrainHeight,
@@ -378,7 +384,7 @@ public sealed partial class RadarApp
         var scale = Math.Max(0.1f, scaleMultiplier) * mapFrame.Scale;
         if (scale <= 0) return new NumVec2(float.NaN, float.NaN);
 
-        var center = mapFrame.Center + new NumVec2(0.6f + xOffset, 0.3f + yOffset);
+        var center = mapFrame.Center + new NumVec2(xOffset, yOffset);
         var projected = MapProjection.GridToMapPoint(
             new POE2Radar.Core.Game.Vector2 { X = grid.X, Y = grid.Y },
             new POE2Radar.Core.Game.Vector2 { X = playerGrid.X, Y = playerGrid.Y },
@@ -420,6 +426,12 @@ public sealed partial class RadarApp
                 IsRerolled = st.IsRerolled,
                 PanelOpen = st.PanelOpen,
                 SelectedRecipeId = st.SelectedRecipeId,
+                StationAddress = st.StationAddress,
+                SocketsState = st.SocketsState,
+                AreaLevel = snap.AreaLevel,
+                Field40 = st.Field40,
+                Field44 = st.Field44,
+                StatesDump = st.StatesDump,
             };
 
             _runecraftCatalog.BuildCandidates(view, snap.AreaLevel, RecipeUnitPrice);
@@ -518,8 +530,21 @@ public sealed partial class RadarApp
                 c.Priced,
                 runes,
                 c.Size,
-                totalColor));
+                totalColor,
+                c.Row,
+                c.Category,
+                c.RewardIdx,
+                c.RewardId,
+                c.MinLevel,
+                c.MaxLevel,
+                c.Full));
         }
+
+        var debugLabel = v.IsUnique
+            ? $"Unique  {v.HoleCount}h  ({v.Distance:F0})"
+            : v.AnchorIdx >= 0
+                ? $"{v.AnchorName}  hole {v.AnchorPos + 1}/{v.HoleCount}  ({v.Distance:F0})"
+                : $"(anchor ?)  {v.HoleCount}h  ({v.Distance:F0})";
 
         return new RunecraftMonolithPanelRow(
             (long)v.DeviceAddress,
@@ -528,7 +553,20 @@ public sealed partial class RadarApp
             headerColor,
             showAnchorWarning,
             v.PanelOpen,
-            candidates.ToArray());
+            candidates.ToArray(),
+            debugLabel,
+            v.IsUnique,
+            v.AnchorIdx,
+            v.AnchorPos,
+            v.AnchorName,
+            v.HoleCount,
+            v.Distance,
+            (long)v.StationAddress,
+            v.SocketsState,
+            v.AreaLevel,
+            v.Field40,
+            v.Field44,
+            v.StatesDump);
     }
 
     private double RecipeUnitPrice(RunecraftRecipeCatalog.RecipeRow rec)
@@ -753,6 +791,7 @@ public sealed partial class RadarApp
             if (TryGetBool(root, "highlightLockedRecipe", out var hl)) r.HighlightLockedRecipe = hl;
             if (TryGetBool(root, "highlightBestRecipe", out var hb)) r.HighlightBestRecipe = hb;
             if (TryGetBool(root, "showMonolithWindow", out var win)) r.ShowMonolithWindow = win;
+            if (TryGetBool(root, "showMonolithDebugWindow", out var debugWin)) r.ShowMonolithDebugWindow = debugWin;
             if (TryGetBool(root, "autoShowMonolithWithGamepad", out var autoWin)) r.AutoShowMonolithWithGamepad = autoWin;
             if (TryGetBool(root, "diagnosePricing", out var diag)) r.DiagnosePricing = diag;
             if (TryGetInt(root, "priceSource", out var source)) r.PriceSource = Math.Clamp(source, 0, 1);

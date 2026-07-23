@@ -1,4 +1,5 @@
 using POE2Radar.Core.Game;
+using POE2Radar.Core.Pathfinding;
 using POE2Radar.Overlay.Runecraft;
 using NumVec2 = System.Numerics.Vector2;
 
@@ -53,7 +54,8 @@ public sealed partial class RadarApp
            || metadata.Equals(ExpeditionRelic, StringComparison.OrdinalIgnoreCase)
            || metadata.StartsWith("Metadata/Chests/LeaguesExpedition", StringComparison.OrdinalIgnoreCase)
            || metadata.Contains("Expedition2Encounter", StringComparison.OrdinalIgnoreCase)
-           || metadata.Contains("Sentinel/SentinelRandomEncounterObject", StringComparison.OrdinalIgnoreCase);
+           || metadata.Contains("Sentinel/SentinelRandomEncounterObject", StringComparison.OrdinalIgnoreCase)
+           || metadata.Contains("DevourerSegment", StringComparison.OrdinalIgnoreCase);
 
     private void RefreshExpeditionPlanner(LiveFrameState live, WorldSnapshot snap)
     {
@@ -90,6 +92,9 @@ public sealed partial class RadarApp
                     Grid = e.Grid,
                     World = e.World,
                     TerrainHeight = e.TerrainHeight,
+                    Info = e.Metadata.Contains("DevourerSegment", StringComparison.OrdinalIgnoreCase)
+                        ? _live.ReadExpeditionEntityInfo(e.Address)
+                        : old.Info,
                 };
                 continue;
             }
@@ -117,9 +122,6 @@ public sealed partial class RadarApp
         var placed = controller.Resolved
             ? controller.Placed
             : Math.Min(total, cachedCharges.Length);
-        var charges = ActiveExpeditionCharges(
-            cachedCharges, controller.Resolved, placed);
-        var remaining = Math.Max(0, total - placed);
         var grand = total >= 10;
         var mapMods = _live.ReadExpeditionMapModifiers(live.AreaInstance);
         var baseDistance = grand ? 108f : 90f;
@@ -128,20 +130,11 @@ public sealed partial class RadarApp
         var effectiveRadius = baseRadius * (1f + mapMods.BlastRadiusPercent / 100f);
 
         var targets = BuildExpeditionTargets(grand);
-        if (charges.Length > 0)
-        {
-            // Charges already on the ground have consumed nearby targets. Starting at the newest charge
-            // makes controller placement continue naturally without requiring a Run button or mouse click.
-            targets.RemoveAll(t => charges.Any(c => NumVec2.Distance(c.Grid, t.Grid) <= effectiveRadius));
-        }
-        var start = charges.Length > 0 ? charges[^1].Grid : detonator.Grid;
-
         var fingerprint = ExpeditionFingerprint(
-            snap.AreaHash, total, placed, mapMods, start, targets, snap.Terrain?.Width ?? 0, snap.Terrain?.Height ?? 0);
-        ApplyCompletedExpeditionPlan(fingerprint);
+            snap.AreaHash, total, mapMods, detonator.Grid, targets,
+            snap.Terrain?.Width ?? 0, snap.Terrain?.Height ?? 0);
+        ApplyCompletedExpeditionPlan();
         var inputsChanged = fingerprint != _expeditionFingerprint;
-        if (ShouldCancelStaleExpeditionPlan(inputsChanged, _expeditionPlanTask is not null))
-            CancelExpeditionPlan();
 
         if (snap.Terrain is null)
         {
@@ -154,25 +147,26 @@ public sealed partial class RadarApp
             return;
         }
 
-        if (ShouldStartExpeditionPlan(
-                _expeditionHasLockedPlan,
-                _expeditionManualRunRequested,
-                inputsChanged,
-                _expeditionPlanTask is not null))
+        if (ShouldStartExpeditionPlan(_expeditionManualRunRequested, _expeditionPlanTask is not null))
         {
             _expeditionManualRunRequested = false;
             _expeditionFingerprint = fingerprint;
             _expeditionPlanCts = new CancellationTokenSource();
             _expeditionPlanTaskFingerprint = fingerprint;
-            _expeditionPlanTaskBasePlaced = placed;
-            _expeditionPlanTaskStartGrid = start;
-            _expeditionPlanTaskStartHeight = charges.Length > 0 ? charges[^1].TerrainHeight : detonator.TerrainHeight;
+            _expeditionPlanTaskBasePlaced = 0;
+            _expeditionPlanTaskStartGrid = detonator.Grid;
+            _expeditionPlanTaskStartHeight = detonator.TerrainHeight;
             var terrain = snap.Terrain;
             var targetCopy = targets.ToArray();
+            var doors = BuildExpeditionDoorOverrides(terrain, snap.DoorOverrides, _expeditionEntities.Values);
             var token = _expeditionPlanCts.Token;
             _expeditionPlanTask = Task.Run(
                 () => ExpeditionPlanner.Build(
-                    terrain, start, targetCopy, remaining, effectiveDistance, effectiveRadius, token),
+                    terrain, detonator.Grid, targetCopy, total, effectiveDistance, effectiveRadius, token,
+                    doorOverrides: doors,
+                    markerCoverageMode: !grand,
+                    minMarkers: grand ? Math.Max(1, _settings.Runecraft.ExpeditionMinMarkersPerSpareCharge) : 1,
+                    startTerrainHeight: detonator.TerrainHeight),
                 token);
         }
 
@@ -182,7 +176,9 @@ public sealed partial class RadarApp
                 ? "Calculating new route; current plan remains locked"
                 : "Calculating route…" };
         else if (_expeditionHasLockedPlan && inputsChanged)
-            current = current with { Status = "Plan locked · press Run to recalculate" };
+            current = current with { Status = "Settings or targets changed · press Run* to rebuild the route" };
+        else if (!_expeditionHasLockedPlan)
+            current = current with { Status = "Press Run to build the complete explosive chain" };
         _expeditionView = BuildExpeditionView(
             detonator, controller, total, placed, mapMods, effectiveDistance, effectiveRadius, grand,
             targets.Count, current, planning: _expeditionPlanTask is not null, _expeditionPlanBasePlaced,
@@ -296,10 +292,102 @@ public sealed partial class RadarApp
             : icon;
     }
 
+    private static PathCell[] BuildExpeditionDoorOverrides(
+        Poe2Live.TerrainData terrain,
+        IReadOnlyCollection<PathCell> existing,
+        IEnumerable<CachedExpeditionEntity> entities)
+    {
+        var result = existing.ToHashSet();
+        var gates = entities
+            .Where(e => e.Metadata.Contains("DevourerSegment", StringComparison.OrdinalIgnoreCase)
+                        && e.Info.IsBlocked.HasValue)
+            .ToArray();
+
+        // GameHelper first treats every TriggerableBlockage as traversable, then removes the
+        // footprint of the Devourer gates that are currently closed.
+        foreach (var gate in gates)
+        {
+            var x = (int)MathF.Round(gate.Grid.X);
+            var y = (int)MathF.Round(gate.Grid.Y);
+            for (var dy = -2; dy <= 2; dy++)
+            for (var dx = -2; dx <= 2; dx++)
+                result.Add(new PathCell(x + dx, y + dy));
+        }
+        foreach (var gate in gates.Where(g => g.Info.IsBlocked == true))
+        {
+            var x = (int)MathF.Round(gate.Grid.X);
+            var y = (int)MathF.Round(gate.Grid.Y);
+            for (var dy = -2; dy <= 2; dy++)
+            for (var dx = -2; dx <= 2; dx++)
+                result.Remove(new PathCell(x + dx, y + dy));
+            foreach (var cell in FloodExpeditionGateFootprint(terrain, x, y, 1_200, 36, 7))
+                result.Remove(cell);
+        }
+        return result.ToArray();
+    }
+
+    private static IReadOnlyList<PathCell> FloodExpeditionGateFootprint(
+        Poe2Live.TerrainData terrain,
+        int centerX,
+        int centerY,
+        int maxCells,
+        int maxRadius,
+        int diskRadius)
+    {
+        var startX = -1;
+        var startY = -1;
+        for (var radius = 0; radius <= 4 && startX < 0; radius++)
+        for (var dy = -radius; dy <= radius && startX < 0; dy++)
+        for (var dx = -radius; dx <= radius; dx++)
+        {
+            var x = centerX + dx;
+            var y = centerY + dy;
+            if ((uint)x >= (uint)terrain.Width || (uint)y >= (uint)terrain.Height) continue;
+            if (terrain.Walkable[y * terrain.Width + x] != 0) continue;
+            startX = x;
+            startY = y;
+            break;
+        }
+        if (startX < 0) return [];
+
+        var seen = new HashSet<PathCell> { new(startX, startY) };
+        var stack = new Stack<PathCell>();
+        stack.Push(new PathCell(startX, startY));
+        var footprint = new List<PathCell>();
+        while (stack.TryPop(out var cell))
+        {
+            if (Math.Abs(cell.X - centerX) > maxRadius || Math.Abs(cell.Y - centerY) > maxRadius) continue;
+            footprint.Add(cell);
+            if (footprint.Count > maxCells)
+            {
+                var disk = new List<PathCell>();
+                for (var dy = -diskRadius; dy <= diskRadius; dy++)
+                for (var dx = -diskRadius; dx <= diskRadius; dx++)
+                    if (dx * dx + dy * dy <= diskRadius * diskRadius
+                        && centerX + dx >= 0 && centerY + dy >= 0)
+                        disk.Add(new PathCell(centerX + dx, centerY + dy));
+                return disk;
+            }
+            TryPush(cell.X + 1, cell.Y);
+            TryPush(cell.X - 1, cell.Y);
+            TryPush(cell.X, cell.Y + 1);
+            TryPush(cell.X, cell.Y - 1);
+        }
+        return footprint;
+
+        void TryPush(int x, int y)
+        {
+            if ((uint)x >= (uint)terrain.Width || (uint)y >= (uint)terrain.Height) return;
+            var next = new PathCell(x, y);
+            if (seen.Contains(next) || terrain.Walkable[y * terrain.Width + x] != 0) return;
+            seen.Add(next);
+            stack.Push(next);
+        }
+    }
+
     private static int ExpeditionFingerprint(
         uint areaHash,
         int total,
-        int placed,
         Poe2Live.ExpeditionMapModifiersRead mapMods,
         NumVec2 start,
         IReadOnlyList<ExpeditionTarget> targets,
@@ -307,7 +395,7 @@ public sealed partial class RadarApp
         int terrainHeight)
     {
         var h = new HashCode();
-        h.Add(areaHash); h.Add(total); h.Add(placed);
+        h.Add(areaHash); h.Add(total);
         h.Add(mapMods.PlacementRangePercent); h.Add(mapMods.BlastRadiusPercent);
         h.Add((int)start.X); h.Add((int)start.Y); h.Add(terrainWidth); h.Add(terrainHeight);
         foreach (var t in targets.OrderBy(t => t.Id))
@@ -317,39 +405,21 @@ public sealed partial class RadarApp
         return h.ToHashCode();
     }
 
-    internal static bool ShouldApplyExpeditionPlanResult(
-        int completedFingerprint,
-        int currentFingerprint)
-        => completedFingerprint == currentFingerprint;
-
     internal static bool ShouldStartExpeditionPlan(
-        bool hasLockedPlan,
         bool manualRunRequested,
-        bool inputsChanged,
         bool taskRunning)
-        => !taskRunning && (!hasLockedPlan || manualRunRequested || inputsChanged);
+        => manualRunRequested && !taskRunning;
 
-    internal static bool ShouldCancelStaleExpeditionPlan(
-        bool inputsChanged,
-        bool taskRunning)
-        => inputsChanged && taskRunning;
-
-    internal static T[] ActiveExpeditionCharges<T>(
-        IReadOnlyList<T> cachedCharges,
-        bool controllerResolved,
-        int controllerPlaced)
+    internal static int ExpeditionNextRouteIndex(int placed, int routeLength)
     {
-        if (!controllerResolved)
-            return cachedCharges.ToArray();
-
-        var activeCount = Math.Clamp(controllerPlaced, 0, cachedCharges.Count);
-        return cachedCharges.Skip(cachedCharges.Count - activeCount).ToArray();
+        var next = Math.Max(0, placed);
+        return next < routeLength ? next : -1;
     }
 
     private void RequestExpeditionPlanFromUi()
         => _expeditionManualRunRequested = true;
 
-    private void ApplyCompletedExpeditionPlan(int currentFingerprint)
+    private void ApplyCompletedExpeditionPlan()
     {
         if (_expeditionPlanTask is null || !_expeditionPlanTask.IsCompleted) return;
         var task = _expeditionPlanTask;
@@ -357,10 +427,10 @@ public sealed partial class RadarApp
         _expeditionPlanTask = null;
         _expeditionPlanCts?.Dispose();
         _expeditionPlanCts = null;
-        if (task.IsCompletedSuccessfully
-            && ShouldApplyExpeditionPlanResult(completedFingerprint, currentFingerprint))
+        if (task.IsCompletedSuccessfully)
         {
             var p = task.Result;
+            _expeditionFingerprint = completedFingerprint;
             _expeditionHasLockedPlan = true;
             _expeditionPlanBasePlaced = _expeditionPlanTaskBasePlaced;
             _expeditionPlanStartGrid = _expeditionPlanTaskStartGrid;

@@ -15,7 +15,9 @@ public sealed class MapViewsMergerTests
         float posX = 0,
         float posY = 0,
         float width = 0,
-        float height = 0)
+        float height = 0,
+        float? centerX = null,
+        float? centerY = null)
         => new(
             IsVisible: visible,
             ShiftX: shiftX,
@@ -24,8 +26,8 @@ public sealed class MapViewsMergerTests
             DefaultShiftY: -20,
             Zoom: zoom,
             Element: element,
-            CenterX: 0,
-            CenterY: 0,
+            CenterX: centerX ?? (posX + width * 0.5f),
+            CenterY: centerY ?? (posY + height * 0.5f),
             Width: width,
             Height: height,
             PositionX: posX,
@@ -35,18 +37,63 @@ public sealed class MapViewsMergerTests
             HasScreenRect: rect);
 
     [Fact]
-    public void MergeLargeMap_UsesViewportProjection_WhenDirectDiffers()
+    public void MergeLargeMap_UsesDirectVisibilityAndViewportProjection_WhenDirectDiffers()
     {
         var viewport = Map(visible: true, shiftX: 14, shiftY: 173, zoom: 0.5f, element: 1);
         var direct = Map(visible: false, shiftX: 999, shiftY: -500, zoom: 2f, element: 2);
 
         var merged = MapViewsMerger.MergeLargeMap(viewport, direct);
 
+        Assert.False(merged.IsVisible);
+        Assert.Equal(14f, merged.ShiftX);
+        Assert.Equal(173f, merged.ShiftY);
+        Assert.Equal(0.5f, merged.Zoom);
+        Assert.Equal(2, merged.Element);
+    }
+
+    [Fact]
+    public void MergeLargeMap_UsesAuthoritativeDirectVisibility_WhenFallbackMisclassifiesTabMap()
+    {
+        var fallback = Map(visible: false, shiftX: 14, shiftY: 173, zoom: 0.5f, element: 1);
+        var direct = Map(visible: true, shiftX: 999, shiftY: -500, zoom: 2f, element: 2);
+
+        var merged = MapViewsMerger.MergeLargeMap(fallback, direct);
+
         Assert.True(merged.IsVisible);
         Assert.Equal(14f, merged.ShiftX);
         Assert.Equal(173f, merged.ShiftY);
         Assert.Equal(0.5f, merged.Zoom);
         Assert.Equal(2, merged.Element);
+    }
+
+    [Fact]
+    public void MergeLargeMap_PreservesDirectLiveAnchorAndViewportProjection()
+    {
+        var viewport = Map(
+            visible: false,
+            shiftX: 0,
+            shiftY: 0,
+            zoom: 0.5f,
+            element: 1);
+        var direct = Map(
+            visible: true,
+            shiftX: 14,
+            shiftY: 173,
+            zoom: 0.75f,
+            element: 2,
+            rect: true,
+            centerX: 1276.2f,
+            centerY: 720f);
+
+        var merged = MapViewsMerger.MergeLargeMap(viewport, direct);
+
+        Assert.True(merged.IsVisible);
+        Assert.Equal(0f, merged.ShiftX);
+        Assert.Equal(0f, merged.ShiftY);
+        Assert.Equal(0.5f, merged.Zoom);
+        Assert.Equal(1276.2f, merged.CenterX, 1);
+        Assert.Equal(720f, merged.CenterY, 1);
+        Assert.True(merged.HasScreenRect);
     }
 
     [Fact]
@@ -71,6 +118,7 @@ public sealed class MapViewsMergerTests
         Assert.Equal(2f, merged.ShiftY);
         Assert.Equal(0.4f, merged.Zoom);
         Assert.Equal(20, merged.Element);
+        Assert.True(merged.IsVisible);
         Assert.True(merged.HasScreenRect);
         Assert.Equal(12f, merged.PositionX);
         Assert.Equal(34f, merged.PositionY);
@@ -85,7 +133,7 @@ public sealed class MapViewsMergerTests
             LargeMap: Map(visible: true, shiftX: 14, shiftY: 173, zoom: 0.5f, element: 1),
             MiniMap: Map(visible: false, shiftX: 0, shiftY: 0, zoom: 0.25f, element: 3));
         var direct = new Poe2Live.MapViews(
-            LargeMap: Map(visible: false, shiftX: 500, shiftY: -200, zoom: 1.5f, element: 2),
+            LargeMap: Map(visible: true, shiftX: 500, shiftY: -200, zoom: 1.5f, element: 2),
             MiniMap: Map(
                 visible: true,
                 shiftX: 100,

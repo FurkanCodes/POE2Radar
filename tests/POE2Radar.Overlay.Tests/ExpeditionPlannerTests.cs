@@ -35,18 +35,18 @@ public sealed class ExpeditionPlannerTests
             [new ExpeditionTarget(1, new Vector2(20, 2), 0, 50, ExpeditionTargetKind.RewardMarker, "Logbook")],
             chargeBudget: 2,
             placementDistance: 10,
-            blastRadius: 3);
+            blastRadius: 4);
 
         Assert.Equal(2, plan.Placements.Length);
         Assert.True(plan.Placements[0].Bridge);
         Assert.False(plan.Placements[1].Bridge);
         Assert.Equal(1, plan.CapturedCount);
         Assert.InRange(Vector2.Distance(plan.Placements[0].Grid, new Vector2(2, 2)), 0, 9.001f);
-        Assert.InRange(Vector2.Distance(plan.Placements[1].Grid, plan.Placements[0].Grid), 0, 9.001f);
+        Assert.InRange(Vector2.Distance(plan.Placements[1].Grid, plan.Placements[0].Grid), 0, 10.001f);
     }
 
     [Fact]
-    public void DangerousRemnant_SteersRouteTowardSaferReward()
+    public void NonPositiveRemnant_IsNotPromotedToARouteAnchor()
     {
         var targets = new[]
         {
@@ -59,8 +59,8 @@ public sealed class ExpeditionPlannerTests
             chargeBudget: 1, placementDistance: 12, blastRadius: 2);
 
         var placement = Assert.Single(plan.Placements);
-        Assert.Equal("Safe reward", placement.Label);
-        Assert.Equal(60, plan.CapturedWeight);
+        Assert.Equal("High reward", placement.Label);
+        Assert.Equal(100, plan.CapturedWeight);
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public sealed class ExpeditionPlannerTests
     }
 
     [Fact]
-    public void NetNegativeBlast_IsNeverRecommendedAsCapture()
+    public void NonPositiveTarget_DoesNotSuppressAPositiveRouteAnchor()
     {
         var targets = new[]
         {
@@ -113,8 +113,8 @@ public sealed class ExpeditionPlannerTests
             OpenTerrain(20, 12), new Vector2(2, 2), targets,
             chargeBudget: 1, placementDistance: 10, blastRadius: 3);
 
-        Assert.Equal(0, plan.CapturedCount);
-        Assert.DoesNotContain(plan.Placements, p => !p.Bridge);
+        Assert.Equal(1, plan.CapturedCount);
+        Assert.Contains(plan.Placements, p => !p.Bridge);
     }
 
     [Fact]
@@ -176,65 +176,37 @@ public sealed class ExpeditionPlannerTests
     }
 
     [Fact]
-    public void StaleBackgroundPlan_IsNotPublishedAfterEncounterStateChanges()
+    public void PlacingAnExplosive_DoesNotRecalculateTheLockedFullRoute()
     {
-        Assert.True(RadarApp.ShouldApplyExpeditionPlanResult(
-            completedFingerprint: 441,
-            currentFingerprint: 441));
-        Assert.False(RadarApp.ShouldApplyExpeditionPlanResult(
-            completedFingerprint: 441,
-            currentFingerprint: 442));
-    }
-
-    [Fact]
-    public void LockedPlan_AutomaticallyRecalculatesWhenAnExplosiveIsPlaced()
-    {
-        Assert.True(RadarApp.ShouldStartExpeditionPlan(
-            hasLockedPlan: true,
+        Assert.False(RadarApp.ShouldStartExpeditionPlan(
             manualRunRequested: false,
-            inputsChanged: true,
             taskRunning: false));
-        Assert.True(RadarApp.ShouldCancelStaleExpeditionPlan(
-            inputsChanged: true,
-            taskRunning: true));
     }
 
     [Fact]
     public void ManualRun_RecalculatesALockedPlan()
     {
         Assert.True(RadarApp.ShouldStartExpeditionPlan(
-            hasLockedPlan: true,
             manualRunRequested: true,
-            inputsChanged: false,
             taskRunning: false));
     }
 
     [Fact]
-    public void EncounterWithoutAPlan_CalculatesOnceAutomatically()
+    public void EncounterWithoutAPlan_WaitsForTheGameHelperStyleRunButton()
     {
-        Assert.True(RadarApp.ShouldStartExpeditionPlan(
-            hasLockedPlan: false,
+        Assert.False(RadarApp.ShouldStartExpeditionPlan(
             manualRunRequested: false,
-            inputsChanged: false,
             taskRunning: false));
         Assert.False(RadarApp.ShouldStartExpeditionPlan(
-            hasLockedPlan: false,
-            manualRunRequested: false,
-            inputsChanged: false,
+            manualRunRequested: true,
             taskRunning: true));
     }
 
     [Fact]
-    public void RemovedExplosives_AreNotUsedAsTheRouteStartWhenControllerReportsZeroPlaced()
+    public void RemovingAllExplosives_ResetsNextToTheFirstPointOfTheLockedRoute()
     {
-        var staleCachedExplosives = new[] { "old explosive position" };
-
-        var active = RadarApp.ActiveExpeditionCharges(
-            staleCachedExplosives,
-            controllerResolved: true,
-            controllerPlaced: 0);
-
-        Assert.Empty(active);
+        Assert.Equal(3, RadarApp.ExpeditionNextRouteIndex(placed: 3, routeLength: 8));
+        Assert.Equal(0, RadarApp.ExpeditionNextRouteIndex(placed: 0, routeLength: 8));
     }
 
     [Fact]
@@ -266,7 +238,8 @@ public sealed class ExpeditionPlannerTests
             blastRadius: 7);
 
         stopwatch.Stop();
-        Assert.Empty(plan.Placements);
+        Assert.Equal(0, plan.CapturedCount);
+        Assert.All(plan.Placements, placement => Assert.True(placement.Bridge));
         Assert.True(
             stopwatch.Elapsed < TimeSpan.FromMilliseconds(500),
             $"Disconnected plan took {stopwatch.Elapsed.TotalMilliseconds:F0} ms.");

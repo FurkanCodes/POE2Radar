@@ -1,6 +1,6 @@
-// Monolith valuation comes from the MordWraith/Gamehelper RunecraftHelper parity layer. The
-// physical explosive route is POE2Radar integration code; upstream does not contain a placement
-// planner. See RunecraftHelper.GPLv3.LICENSE.txt.
+// Planner logic ported from the Expedition planner embedded in MordWraith/Gamehelper's
+// RunecraftHelper.dll. The original plugin is GPL-3.0; see RunecraftHelper.GPLv3.LICENSE.txt.
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using POE2Radar.Core.Game;
 using POE2Radar.Core.Pathfinding;
@@ -31,7 +31,8 @@ public readonly record struct ExpeditionPlacement(
     float CapturedWeight,
     int CapturedCount,
     bool Bridge,
-    string Label);
+    string Label,
+    bool Sentinel = false);
 
 public sealed record ExpeditionPlan(
     ExpeditionPlacement[] Placements,
@@ -45,18 +46,120 @@ public sealed record ExpeditionPlan(
 }
 
 /// <summary>
-/// Read-only Expedition route planner. It uses the radar's terrain and A* implementation and returns
-/// placement guidance only; it never moves the player or sends input.
+/// Read-only port of GameHelper RunecraftHelper's strict-spine Expedition route planner. It plans
+/// the entire explosive chain once from the detonator. Placed explosives advance the displayed
+/// route index; they do not cause this solver to rebuild the chain.
 /// </summary>
 public static class ExpeditionPlanner
 {
     private const float Epsilon = 0.001f;
-    private static readonly TimeSpan DefaultComputeBudget = TimeSpan.FromMilliseconds(1000);
-    private static readonly (int X, int Y)[] Neighbors =
-    [
-        (1, 0), (-1, 0), (0, 1), (0, -1),
-        (1, 1), (1, -1), (-1, 1), (-1, -1),
-    ];
+    private const float SpineSampleStep = 4f;
+
+    private sealed class Inputs
+    {
+        public required Poe2Live.TerrainData Terrain;
+        public HashSet<(int X, int Y)>? Doors;
+        public NumVec2 Detonator;
+        public float DetonatorHeight;
+        public int Budget;
+        public float EffectiveDistance;
+        public float EffectiveRadius;
+        public float StepDistance;
+        public bool MarkerCoverageMode;
+        public int MinMarkers = 2;
+        public required CancellationToken CancellationToken;
+        public required long Started;
+        public required TimeSpan ComputeBudget;
+        public readonly List<NumVec2> Positions = [];
+        public readonly List<float> Heights = [];
+        public readonly List<double> Weights = [];
+        public readonly List<bool> Primary = [];
+        public readonly List<bool> Sentinel = [];
+        public readonly List<string> Labels = [];
+        public readonly PathCache Cache = new();
+        public bool BudgetReached;
+    }
+
+    private readonly record struct RoutePoint(
+        NumVec2 Grid,
+        float Height,
+        double Marginal,
+        int Captured,
+        bool Bridge,
+        string Label,
+        bool Sentinel);
+
+    private sealed class PathCache
+    {
+        private readonly ConcurrentDictionary<object, int> _doorIds =
+            new(ReferenceEqualityComparer.Instance);
+        private readonly ConcurrentDictionary<int, int[]?> _components = new();
+        private readonly object _componentsLock = new();
+        private int _nextDoorId;
+
+        public readonly ConcurrentDictionary<(int, int, int, int, int), float> Length = new();
+        public readonly ConcurrentDictionary<(int, int, int, int, int), List<NumVec2>?> Path = new();
+        public readonly ConcurrentDictionary<(int, int, int, int, int), float> ReachLength = new();
+
+        public int DoorId(HashSet<(int X, int Y)>? doors)
+            => doors is null ? 0 : _doorIds.GetOrAdd(doors, _ => Interlocked.Increment(ref _nextDoorId));
+
+        public int[]? Components(
+            Poe2Live.TerrainData terrain,
+            HashSet<(int X, int Y)>? doors,
+            int doorId)
+        {
+            lock (_componentsLock)
+            {
+                if (_components.TryGetValue(doorId, out var cached)) return cached;
+                int[]? labels = null;
+                var cells = (long)terrain.Width * terrain.Height;
+                if (terrain.Width > 0 && terrain.Height > 0 && cells <= 16_000_000)
+                {
+                    labels = Enumerable.Repeat(-1, checked((int)cells)).ToArray();
+                    var stack = new Stack<int>();
+                    var nextLabel = 0;
+                    for (var y = 0; y < terrain.Height; y++)
+                    for (var x = 0; x < terrain.Width; x++)
+                    {
+                        var index = y * terrain.Width + x;
+                        if (labels[index] != -1) continue;
+                        if (!GameHelperExpeditionLineWalker.IsWalkable(terrain, x, y, doors))
+                        {
+                            labels[index] = -2;
+                            continue;
+                        }
+                        var label = labels[index] = nextLabel++;
+                        stack.Push(index);
+                        while (stack.TryPop(out var cell))
+                        {
+                            var cx = cell % terrain.Width;
+                            var cy = cell / terrain.Width;
+                            for (var dy = -1; dy <= 1; dy++)
+                            for (var dx = -1; dx <= 1; dx++)
+                            {
+                                if (dx == 0 && dy == 0) continue;
+                                var nx = cx + dx;
+                                var ny = cy + dy;
+                                if ((uint)nx >= (uint)terrain.Width || (uint)ny >= (uint)terrain.Height) continue;
+                                var next = ny * terrain.Width + nx;
+                                if (labels[next] != -1) continue;
+                                if (!GameHelperExpeditionLineWalker.IsWalkable(terrain, nx, ny, doors))
+                                {
+                                    labels[next] = -2;
+                                    continue;
+                                }
+                                labels[next] = label;
+                                stack.Push(next);
+                            }
+                        }
+                    }
+                }
+                _components[doorId] = labels;
+                return labels;
+            }
+        }
+    }
 
     public static ExpeditionPlan Build(
         Poe2Live.TerrainData terrain,
@@ -66,444 +169,803 @@ public static class ExpeditionPlanner
         float placementDistance,
         float blastRadius,
         CancellationToken cancellationToken = default,
-        TimeSpan? computeBudget = null)
+        TimeSpan? computeBudget = null,
+        IReadOnlyCollection<PathCell>? doorOverrides = null,
+        bool markerCoverageMode = false,
+        int minMarkers = 2,
+        float startTerrainHeight = 0f)
     {
         var started = Stopwatch.GetTimestamp();
-        var budget = computeBudget.GetValueOrDefault(DefaultComputeBudget);
-        if (budget <= TimeSpan.Zero) budget = DefaultComputeBudget;
+        var budget = computeBudget.GetValueOrDefault(TimeSpan.FromSeconds(15));
+        if (budget <= TimeSpan.Zero) budget = TimeSpan.FromSeconds(15);
         if (chargeBudget <= 0)
-            return Finish([], targets.Count, 0, 0f, started, "No explosives remaining");
-        if (terrain.Width <= 0 || terrain.Height <= 0 || terrain.Walkable.Length < terrain.Width * terrain.Height)
+            return Finish([], targets.Count, 0, 0f, started, "No explosives available");
+        if (terrain.Width <= 0 || terrain.Height <= 0
+            || terrain.Walkable.Length < terrain.Width * terrain.Height)
             return Finish([], targets.Count, 0, 0f, started, "Waiting for walkable terrain");
-        if (targets.Count == 0 || !targets.Any(t => t.Weight > 0))
-            return Finish([], targets.Count, 0, 0f, started, "No weighted Expedition targets found");
 
-        placementDistance = MathF.Max(2f, placementDistance - 1f); // one-cell safety margin
-        blastRadius = MathF.Max(1f, blastRadius);
-        var reader = new TerrainCellReader(terrain);
-        var astar = new AStar(terrain.Width, terrain.Height);
-        var captured = new HashSet<uint>();
-        var unreachable = new HashSet<uint>();
-        var placements = new List<ExpeditionPlacement>(chargeBudget);
-        var placementCells = new HashSet<int>();
-        var current = Snap(start, terrain);
-        var startCell = SnapToWalkable(
-            reader,
-            new PathCell((int)current.X, (int)current.Y),
-            maxRadius: 32);
-        if (startCell is null)
-            return Finish([], targets.Count, 0, 0f, started, "No walkable Expedition start");
-        current = new NumVec2(startCell.Value.X, startCell.Value.Y);
-        var reachableMask = BuildReachableMask(
-            reader,
-            startCell.Value,
-            cancellationToken,
-            started,
-            budget,
-            out var connectivityBudgetReached);
-        if (connectivityBudgetReached)
-            return Finish(
-                [], targets.Count, 0, 0f, started,
-                "Planning budget reached before connectivity scan completed");
-        var primaryOrder = OrderPrimarySpine(
-            targets,
-            current,
-            reader,
-            reachableMask,
-            astar,
-            cancellationToken,
-            started,
-            budget,
-            out var orderingBudgetReached);
-        if (orderingBudgetReached)
-            return Finish(
-                [], targets.Count, 0, 0f, started,
-                "Planning budget reached while ordering runestone spine");
-        var primaryIndex = 0;
-        float totalWeight = 0f;
-        int totalCaptured = 0;
-        var budgetReached = false;
-
-        for (var charge = 0; charge < chargeBudget; charge++)
+        var input = new Inputs
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (Stopwatch.GetElapsedTime(started) >= budget)
-            {
-                budgetReached = true;
-                break;
-            }
-            Candidate? bestCapture = null;
-            Candidate? bestBridge = null;
+            Terrain = terrain,
+            Doors = BuildDoorSet(doorOverrides),
+            Detonator = start,
+            DetonatorHeight = startTerrainHeight,
+            Budget = chargeBudget,
+            EffectiveDistance = placementDistance,
+            EffectiveRadius = blastRadius,
+            StepDistance = Math.Max(1f, placementDistance - 1f),
+            MarkerCoverageMode = markerCoverageMode,
+            MinMarkers = Math.Max(1, minMarkers),
+            CancellationToken = cancellationToken,
+            Started = started,
+            ComputeBudget = budget,
+        };
 
-            while (primaryIndex < primaryOrder.Count
-                   && (captured.Contains(primaryOrder[primaryIndex].Id)
-                       || unreachable.Contains(primaryOrder[primaryIndex].Id)))
-                primaryIndex++;
-            var spineGoal = primaryIndex < primaryOrder.Count
-                ? primaryOrder[primaryIndex]
-                : (ExpeditionTarget?)null;
-
-            foreach (var target in targets)
-            {
-                if (target.Weight <= 0 || captured.Contains(target.Id) || unreachable.Contains(target.Id)) continue;
-                // GameHelper routes a continuous spine through runestones/monoliths and other primary
-                // anchors before spare explosives are allowed to pursue secondary reward markers.
-                if (spineGoal is { } anchor && target.Id != anchor.Id) continue;
-                cancellationToken.ThrowIfCancellationRequested();
-                if (Stopwatch.GetElapsedTime(started) >= budget)
-                {
-                    budgetReached = true;
-                    break;
-                }
-
-                var targetCell = SnapToWalkable(
-                    reader,
-                    new PathCell((int)MathF.Round(target.Grid.X), (int)MathF.Round(target.Grid.Y)),
-                    maxRadius: 32);
-                if (targetCell is null
-                    || !reachableMask[targetCell.Value.Y * terrain.Width + targetCell.Value.X])
-                {
-                    unreachable.Add(target.Id);
-                    continue;
-                }
-
-                var path = astar.FindPath(
-                    reader,
-                    new PathCell((int)MathF.Round(current.X), (int)MathF.Round(current.Y)),
-                    targetCell.Value,
-                    maxNodes: 250_000,
-                    flatCost: true);
-                if (!path.Found || path.Cells.Count == 0)
-                {
-                    unreachable.Add(target.Id);
-                    continue;
-                }
-
-                var reachable = ReachablePrefix(path.Cells, placementDistance);
-                if (reachable.Count == 0) continue;
-                // Pick the furthest safe bridge. A cell touching a positive target is a real capture
-                // decision and must pass the net-weight test below (important for build-breaking remnants).
-                for (var i = reachable.Count - 1; i >= 0; i--)
-                {
-                    if (placementCells.Contains(reachable[i].Y * terrain.Width + reachable[i].X)) continue;
-                    var bridge = ScoreCandidate(reachable[i], path.Cost, target, targets, captured, blastRadius, bridge: true);
-                    if (bridge.CapturedPositive != 0 || MathF.Abs(bridge.NetWeight) > Epsilon) continue;
-                    if (bestBridge is null || BetterBridge(bridge, bestBridge.Value)) bestBridge = bridge;
-                    break;
-                }
-
-                foreach (var cell in reachable)
-                {
-                    if (placementCells.Contains(cell.Y * terrain.Width + cell.X)) continue;
-                    var candidate = ScoreCandidate(cell, path.Cost, target, targets, captured, blastRadius, bridge: false);
-                    if (candidate.CapturedPositive <= 0 || candidate.NetWeight <= 0) continue;
-                    if (bestCapture is null || BetterCapture(candidate, bestCapture.Value)) bestCapture = candidate;
-                }
-            }
-
-            var chosen = bestCapture ?? bestBridge;
-            if (chosen is null) break;
-            var c = chosen.Value;
-            placementCells.Add((int)c.Grid.Y * terrain.Width + (int)c.Grid.X);
-            var ids = new List<uint>();
-            float capturedWeight = 0f;
-            int positiveCount = 0;
-            foreach (var target in targets)
-            {
-                if (captured.Contains(target.Id) || NumVec2.Distance(c.Grid, target.Grid) > blastRadius + Epsilon) continue;
-                ids.Add(target.Id);
-                capturedWeight += target.Weight;
-                if (target.Weight > 0) positiveCount++;
-            }
-            foreach (var id in ids) captured.Add(id);
-
-            var isBridge = positiveCount == 0;
-            var label = isBridge
-                ? $"Bridge toward {c.Goal.Label}"
-                : JoinCapturedLabels(targets, ids);
-            placements.Add(new ExpeditionPlacement(
-                c.Grid,
-                InterpolateHeight(c.Grid, targets, c.Goal.TerrainHeight),
-                capturedWeight,
-                positiveCount,
-                isBridge,
-                label));
-            current = c.Grid;
-            totalWeight += capturedWeight;
-            totalCaptured += positiveCount;
-
-            if (!targets.Any(t => t.Weight > 0 && !captured.Contains(t.Id) && !unreachable.Contains(t.Id)))
-                break;
+        foreach (var target in targets)
+        {
+            if (target.Weight <= 0f) continue;
+            input.Positions.Add(target.Grid);
+            input.Heights.Add(target.TerrainHeight);
+            input.Weights.Add(target.Weight);
+            input.Primary.Add(target.Primary);
+            input.Sentinel.Add(target.Kind == ExpeditionTargetKind.Sentinel);
+            input.Labels.Add(target.Label);
         }
+        if (!input.Primary.Any(static primary => primary))
+            for (var i = 0; i < input.Primary.Count; i++) input.Primary[i] = true;
+        if (input.Positions.Count == 0)
+            return Finish([], 0, 0, 0f, started, "No weighted Expedition targets found");
 
-        var remaining = targets.Count(t => t.Weight > 0 && !captured.Contains(t.Id));
-        var status = budgetReached
-            ? placements.Count == 0
-                ? "Planning budget reached before a safe route was found"
-                : "Planning budget reached; showing best partial route"
-            : placements.Count == 0
-            ? "No reachable Expedition targets"
-            : remaining == 0
-                ? "All reachable weighted targets covered"
-                : $"Best route within {chargeBudget} remaining explosive{(chargeBudget == 1 ? "" : "s")}";
-        return Finish(placements.ToArray(), targets.Count, totalCaptured, totalWeight, started, status);
+        var route = ComputeRoute(input, out var covered, out var weight, out var phase);
+        var placements = route.Select(p => new ExpeditionPlacement(
+            p.Grid, p.Height, (float)p.Marginal, p.Captured, p.Bridge, p.Label, p.Sentinel)).ToArray();
+        var status = input.BudgetReached
+            ? placements.Length == 0
+                ? "Planning budget reached before a route was found"
+                : $"{phase} · planning budget reached; showing partial route"
+            : phase;
+        return Finish(placements, input.Positions.Count, covered, (float)weight, started, status);
     }
 
-    private static List<ExpeditionTarget> OrderPrimarySpine(
-        IReadOnlyList<ExpeditionTarget> targets,
-        NumVec2 start,
-        TerrainCellReader reader,
-        bool[] reachableMask,
-        AStar astar,
-        CancellationToken cancellationToken,
-        long started,
-        TimeSpan budget,
-        out bool budgetReached)
+    private static HashSet<(int X, int Y)>? BuildDoorSet(IReadOnlyCollection<PathCell>? overrides)
     {
-        budgetReached = false;
-        var anchors = targets
-            .Where(t => t.Primary && t.Weight > 0)
-            .Where(t =>
-            {
-                var c = SnapToWalkable(
-                    reader,
-                    new PathCell((int)MathF.Round(t.Grid.X), (int)MathF.Round(t.Grid.Y)),
-                    maxRadius: 32);
-                return c is { } cell && reachableMask[cell.Y * reader.Width + cell.X];
-            })
-            .ToList();
-        if (anchors.Count == 0) return anchors;
+        if (overrides is null || overrides.Count == 0) return null;
+        return overrides.Select(c => (c.X, c.Y)).ToHashSet();
+    }
 
-        var points = new NumVec2[anchors.Count + 1];
-        points[0] = start;
-        for (var i = 0; i < anchors.Count; i++) points[i + 1] = anchors[i].Grid;
-        var distance = new float[points.Length, points.Length];
-        for (var i = 0; i < points.Length; i++)
-        for (var j = i + 1; j < points.Length; j++)
+    private static List<RoutePoint> ComputeRoute(
+        Inputs input,
+        out int covered,
+        out double weight,
+        out string phase)
+    {
+        var targetCount = input.Positions.Count;
+        var primaryIndices = Enumerable.Range(0, targetCount).Where(i => input.Primary[i]).ToList();
+        if (input.Budget <= 0 || targetCount == 0 || primaryIndices.Count == 0)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (Stopwatch.GetElapsedTime(started) >= budget)
-            {
-                budgetReached = true;
-                return [];
-            }
-            var path = astar.FindPath(
-                reader,
-                new PathCell((int)MathF.Round(points[i].X), (int)MathF.Round(points[i].Y)),
-                new PathCell((int)MathF.Round(points[j].X), (int)MathF.Round(points[j].Y)),
-                maxNodes: 250_000,
-                flatCost: true);
-            var d = path.Found ? PathLength(path.Cells) : float.PositiveInfinity;
-            distance[i, j] = d;
-            distance[j, i] = d;
+            covered = 0; weight = 0; phase = "No valuable route anchors"; return [];
         }
 
-        // Same open-tour model as GameHelper: nearest-neighbour seed from the detonator, then 2-opt.
-        var remaining = Enumerable.Range(0, anchors.Count).ToList();
-        var order = new List<int>(anchors.Count);
-        var currentNode = 0;
-        while (remaining.Count > 0)
+        var ordered = TourOrder(input, primaryIndices.Select(i => input.Positions[i]).ToList());
+        for (var i = primaryIndices.Count - 1; i >= 0; i--)
         {
-            var best = remaining
-                .OrderBy(i => distance[currentNode, i + 1])
-                .ThenByDescending(i => anchors[i].Weight)
-                .First();
-            if (!float.IsFinite(distance[currentNode, best + 1])) break;
+            if (!input.Sentinel[primaryIndices[i]]) continue;
+            var sentinel = input.Positions[primaryIndices[i]];
+            if (ordered.Count == 0 || ordered[0] != sentinel)
+            {
+                ordered.Remove(sentinel);
+                ordered.Insert(0, sentinel);
+            }
+        }
+
+        BuildSpinePolyline(input, ordered, out var points, out var heights, out var anchorIndices);
+        var captured = new bool[targetCount];
+        var radiusSquared = input.EffectiveRadius * input.EffectiveRadius;
+        var route = PlaceAlongSpine(
+            input, points, heights, anchorIndices, ordered, radiusSquared, captured, out weight);
+        var primaryCovered = primaryIndices.Count(i => captured[i]);
+        weight += SpareOptimize(input, route, captured, radiusSquared);
+
+        covered = 0;
+        var actuallyCovered = new bool[targetCount];
+        foreach (var point in route)
+        for (var i = 0; i < targetCount; i++)
+        {
+            if (actuallyCovered[i] || DistanceSquared(point.Grid, input.Positions[i]) > radiusSquared) continue;
+            actuallyCovered[i] = true;
+            covered++;
+        }
+        phase = $"spine: anchors {primaryCovered}/{primaryIndices.Count}, {route.Count} charges, " +
+                $"{input.Budget - route.Count} spare";
+        return route;
+    }
+
+    private static void BuildSpinePolyline(
+        Inputs input,
+        List<NumVec2> ordered,
+        out List<NumVec2> points,
+        out List<float> heights,
+        out List<int> anchorIndices)
+    {
+        points = [input.Detonator];
+        heights = [input.DetonatorHeight];
+        anchorIndices = [];
+        var previous = input.Detonator;
+        var previousHeight = input.DetonatorHeight;
+        foreach (var anchor in ordered)
+        {
+            CheckBudget(input);
+            var anchorHeight = previousHeight;
+            var targetIndex = input.Positions.IndexOf(anchor);
+            if (targetIndex >= 0) anchorHeight = input.Heights[targetIndex];
+            var found = GameHelperExpeditionLineWalker.IsLineClear(
+                    input.Terrain, previous, anchor, input.Doors)
+                ? new List<NumVec2> { previous, anchor }
+                : GameHelperExpeditionPathfinder.FindPath(
+                    input.Terrain, previous, anchor, input.Doors,
+                    cancellationToken: input.CancellationToken);
+            var path = found is { Count: >= 2 } ? found : [previous, anchor];
+            var totalLength = PolylineLength(path);
+            var traversed = 0f;
+            for (var i = 1; i < path.Count; i++)
+            {
+                var from = path[i - 1];
+                var to = path[i];
+                var length = NumVec2.Distance(from, to);
+                var samples = Math.Max(1, (int)MathF.Ceiling(length / SpineSampleStep));
+                for (var sample = 1; sample <= samples; sample++)
+                {
+                    var amount = (float)sample / samples;
+                    traversed += length / samples;
+                    var along = totalLength > 0f ? traversed / totalLength : 1f;
+                    points.Add(NumVec2.Lerp(from, to, amount));
+                    heights.Add(previousHeight + (anchorHeight - previousHeight) * along);
+                }
+            }
+            anchorIndices.Add(points.Count - 1);
+            previous = anchor;
+            previousHeight = anchorHeight;
+        }
+    }
+
+    private static List<RoutePoint> PlaceAlongSpine(
+        Inputs input,
+        List<NumVec2> points,
+        List<float> heights,
+        List<int> anchorIndices,
+        List<NumVec2> ordered,
+        float radiusSquared,
+        bool[] captured,
+        out double weight)
+    {
+        weight = 0;
+        var route = new List<RoutePoint>();
+        if (points.Count == 0 || ordered.Count == 0) return route;
+        var targetIndexByAnchor = ordered.Select(anchor => input.Positions.IndexOf(anchor)).ToArray();
+        var lookAhead = (int)MathF.Ceiling(2f * input.EffectiveRadius / SpineSampleStep) + 4;
+        var previous = input.Detonator;
+        var spineIndex = 0;
+        var anchorIndex = 0;
+        var guard = 0;
+        while (anchorIndex < ordered.Count && route.Count < input.Budget
+               && ++guard <= points.Count + ordered.Count + 8)
+        {
+            CheckBudget(input);
+            var targetIndex = targetIndexByAnchor[anchorIndex];
+            if (targetIndex >= 0 && captured[targetIndex]) { anchorIndex++; continue; }
+            var targetSpineIndex = Math.Min(anchorIndices[anchorIndex], points.Count - 1);
+            var anchor = targetIndex >= 0 ? input.Positions[targetIndex] : points[targetSpineIndex];
+            var bestSpineIndex = -1;
+            var bestReach = 0f;
+            var bestGain = double.NegativeInfinity;
+            NumVec2 bestPoint = default;
+            var bestHeight = 0f;
+
+            for (var candidateIndex = Math.Min(points.Count - 1, targetSpineIndex + lookAhead);
+                 candidateIndex > spineIndex;
+                 candidateIndex--)
+            {
+                if (DistanceSquared(points[candidateIndex], anchor) > radiusSquared) continue;
+                var gain = CoverGain(input, captured, points[candidateIndex], radiusSquared, out _)
+                           + candidateIndex * 1e-6;
+                if (gain <= bestGain) continue;
+                var reach = Reach(input, previous, points[candidateIndex], input.EffectiveDistance);
+                if (reach < 0f) continue;
+                bestGain = gain;
+                bestSpineIndex = candidateIndex;
+                bestReach = reach;
+                bestPoint = points[candidateIndex];
+                bestHeight = heights[candidateIndex];
+            }
+
+            var nearbyDistance = 2f * input.EffectiveRadius;
+            for (var i = 0; i < input.Positions.Count; i++)
+            {
+                if (captured[i] || input.Primary[i]) continue;
+                var distance = NumVec2.Distance(anchor, input.Positions[i]);
+                if (distance < Epsilon || distance > nearbyDistance) continue;
+                var direction = (input.Positions[i] - anchor) / distance;
+                var candidate = anchor + direction * Math.Min(distance, input.EffectiveRadius * 0.999f);
+                if (DistanceSquared(candidate, anchor) > radiusSquared
+                    || DistanceSquared(candidate, input.Positions[i]) > radiusSquared
+                    || !IsWalkable(input, candidate))
+                    continue;
+                var gain = CoverGain(input, captured, candidate, radiusSquared, out _);
+                if (gain <= bestGain) continue;
+                var reach = Reach(input, previous, candidate, input.EffectiveDistance);
+                if (reach < 0f) continue;
+                bestGain = gain;
+                bestReach = reach;
+                bestPoint = candidate;
+                bestSpineIndex = targetSpineIndex;
+                bestHeight = targetIndex >= 0 ? input.Heights[targetIndex] : heights[targetSpineIndex];
+            }
+
+            if (bestSpineIndex >= 0)
+            {
+                var sentinel = targetIndex >= 0 && input.Sentinel[targetIndex];
+                weight += Commit(input, captured, route, bestPoint, bestHeight, radiusSquared,
+                    bridge: false, sentinel);
+                previous = bestPoint;
+                spineIndex = bestSpineIndex;
+                while (anchorIndex < ordered.Count
+                       && (targetIndexByAnchor[anchorIndex] < 0
+                           || captured[targetIndexByAnchor[anchorIndex]]))
+                    anchorIndex++;
+                continue;
+            }
+
+            var bridgeIndex = -1;
+            var bridgeReach = 0f;
+            for (var candidateIndex = targetSpineIndex; candidateIndex > spineIndex; candidateIndex--)
+            {
+                var reach = Reach(input, previous, points[candidateIndex], input.EffectiveDistance);
+                if (reach < 0f) continue;
+                bridgeIndex = candidateIndex;
+                bridgeReach = reach;
+                break;
+            }
+            if (bridgeIndex < 0) { anchorIndex++; continue; }
+            var backwardLook = (int)MathF.Ceiling(input.EffectiveRadius / SpineSampleStep);
+            var selected = bridgeIndex;
+            var mostCovered = CountUncovered(input.Positions, captured, points[bridgeIndex], radiusSquared);
+            for (var i = bridgeIndex - 1; i >= Math.Max(spineIndex + 1, bridgeIndex - backwardLook); i--)
+            {
+                var count = CountUncovered(input.Positions, captured, points[i], radiusSquared);
+                if (count <= mostCovered) continue;
+                mostCovered = count;
+                selected = i;
+            }
+            var selectedReach = selected == bridgeIndex
+                ? bridgeReach
+                : Reach(input, previous, points[selected], input.EffectiveDistance);
+            weight += Commit(input, captured, route, points[selected], heights[selected], radiusSquared,
+                bridge: true, sentinel: false, selectedReach);
+            previous = points[selected];
+            spineIndex = selected;
+        }
+        return route;
+    }
+
+    private static double SpareOptimize(
+        Inputs input,
+        List<RoutePoint> route,
+        bool[] captured,
+        float radiusSquared)
+    {
+        var originalSpare = input.Budget - route.Count;
+        if (originalSpare <= 0) return 0;
+        var addedWeight = 0d;
+        var guard = 0;
+        while (input.Budget - route.Count > 0 && guard++ < originalSpare + 8)
+        {
+            CheckBudget(input);
+            var available = input.Budget - route.Count;
+            var minEdge = 0;
+            for (var i = 0; i < route.Count; i++) if (route[i].Sentinel) minEdge = i;
+
+            NumVec2 bestCluster = default;
+            var bestPerCharge = 0d;
+            var bestHeight = 0f;
+            var bestPath = float.MaxValue;
+            var bestEdge = -1;
+            for (var i = 0; i < input.Positions.Count; i++)
+            {
+                if (captured[i]) continue;
+                var count = 0;
+                var gain = 0d;
+                for (var j = 0; j < input.Positions.Count; j++)
+                {
+                    if (captured[j] || DistanceSquared(input.Positions[i], input.Positions[j]) > radiusSquared) continue;
+                    count++;
+                    gain += input.Weights[j];
+                }
+                if (count < input.MinMarkers || gain <= 0d) continue;
+                var edge = BestDetourEdge(input, route, input.Positions[i], minEdge,
+                    out var outboundPath, out _, out var hops);
+                if (edge < 0 || hops > available) continue;
+                var perCharge = gain / hops;
+                if (perCharge <= bestPerCharge + 1e-9
+                    && (perCharge <= bestPerCharge - 1e-9 || outboundPath >= bestPath))
+                    continue;
+                bestPerCharge = perCharge;
+                bestCluster = input.Positions[i];
+                bestHeight = input.Heights[i];
+                bestPath = outboundPath;
+                bestEdge = edge;
+            }
+            if (bestPerCharge <= 0d || bestEdge < 0) break;
+
+            var current = route[bestEdge].Grid;
+            var currentHeight = route[bestEdge].Height;
+            var terminalSpur = bestEdge >= route.Count - 1;
+            var beforeCaptured = (bool[])captured.Clone();
+            var beforeWeight = addedWeight;
+            var detour = new List<RoutePoint>();
+            var failed = false;
+            var harvested = false;
+            while (input.Budget - (route.Count + detour.Count) > 0)
+            {
+                CheckBudget(input);
+                if (Reach(input, current, bestCluster, input.EffectiveDistance) >= 0f)
+                {
+                    var point = MaxCoverPoint(input, captured, current, bestCluster, radiusSquared,
+                        input.EffectiveDistance, out var reach);
+                    addedWeight += Commit(input, captured, detour, point, bestHeight, radiusSquared,
+                        bridge: false, sentinel: false, reach);
+                    current = point;
+                    harvested = true;
+                    break;
+                }
+                if (!StepToward(input, current, bestCluster, input.StepDistance, out var step))
+                { failed = true; break; }
+
+                var fullDistance = FullPath(input, current, bestCluster);
+                var estimatedHops = Math.Max(1, (int)MathF.Ceiling(fullDistance / input.EffectiveDistance));
+                var selected = step;
+                var selectedGain = CoverGain(input, captured, step, radiusSquared, out _);
+                var selectedReach = Reach(input, current, step, input.EffectiveDistance);
+                for (var i = 0; i < input.Positions.Count; i++)
+                {
+                    if (captured[i]) continue;
+                    var distance = NumVec2.Distance(current, input.Positions[i]);
+                    if (distance - input.EffectiveRadius > input.EffectiveDistance) continue;
+                    var maxLerp = distance > 1f ? Math.Min(1f, input.EffectiveRadius / distance) : 1f;
+                    for (var amount = 0f; amount <= maxLerp + Epsilon; amount += 0.1f)
+                    {
+                        var candidate = NumVec2.Lerp(input.Positions[i], current, amount);
+                        if (!IsWalkable(input, candidate)) continue;
+                        var reach = Reach(input, current, candidate, input.EffectiveDistance);
+                        if (reach < 0f) continue;
+                        var gain = CoverGain(input, captured, candidate, radiusSquared, out _);
+                        if (gain > selectedGain)
+                        {
+                            var remaining = FullPath(input, candidate, bestCluster);
+                            if (remaining >= 0f
+                                && 1 + (int)MathF.Ceiling(remaining / input.EffectiveDistance) <= estimatedHops)
+                            {
+                                selected = candidate;
+                                selectedGain = gain;
+                                selectedReach = reach;
+                            }
+                        }
+                        break;
+                    }
+                }
+                if (selectedReach < 0f) { failed = true; break; }
+                var height = NearestUncapturedHeight(input, captured, selected, currentHeight);
+                addedWeight += Commit(input, captured, detour, selected, height, radiusSquared,
+                    bridge: true, sentinel: false, selectedReach);
+                current = selected;
+            }
+            if (!harvested) failed = true;
+
+            if (!failed && !terminalSpur)
+            {
+                var rejoin = route[bestEdge + 1].Grid;
+                while (Reach(input, current, rejoin, input.EffectiveDistance) < 0f
+                       && input.Budget - (route.Count + detour.Count) > 0)
+                {
+                    if (!StepToward(input, current, rejoin, input.StepDistance, out var step))
+                    { failed = true; break; }
+                    var reach = Reach(input, current, step, input.EffectiveDistance);
+                    if (reach < 0f) { failed = true; break; }
+                    var height = NearestUncapturedHeight(input, captured, step, currentHeight);
+                    addedWeight += Commit(input, captured, detour, step, height, radiusSquared,
+                        bridge: true, sentinel: false, reach);
+                    current = step;
+                }
+                if (!failed && Reach(input, current, rejoin, input.EffectiveDistance) < 0f) failed = true;
+            }
+            if (failed)
+            {
+                Array.Copy(beforeCaptured, captured, captured.Length);
+                addedWeight = beforeWeight;
+                break;
+            }
+            if (detour.Count > 0) route.InsertRange(bestEdge + 1, detour);
+        }
+        return addedWeight;
+    }
+
+    private static int BestDetourEdge(
+        Inputs input,
+        List<RoutePoint> route,
+        NumVec2 candidate,
+        int minEdge,
+        out float outboundPath,
+        out float reconnectPath,
+        out int totalHops)
+    {
+        outboundPath = -1f; reconnectPath = 0f; totalHops = 0;
+        if (route.Count == 0) return -1;
+        var nearestIndices = Enumerable.Range(minEdge, route.Count - minEdge)
+            .OrderBy(i => NumVec2.Distance(route[i].Grid, candidate)).Take(5);
+        var bestEdge = -1;
+        var bestHops = int.MaxValue;
+        var bestOutbound = -1f;
+        var bestReconnect = 0f;
+        foreach (var edge in nearestIndices)
+        {
+            var outbound = FullPath(input, route[edge].Grid, candidate);
+            if (outbound < 0f) continue;
+            var outboundHops = Math.Max(1, (int)MathF.Ceiling(outbound / input.EffectiveDistance));
+            var reconnect = 0f;
+            var reconnectHops = 0;
+            if (edge != route.Count - 1)
+            {
+                reconnect = FullPath(input, candidate, route[edge + 1].Grid);
+                if (reconnect < 0f) continue;
+                reconnectHops = Math.Max(0, (int)MathF.Ceiling(reconnect / input.EffectiveDistance) - 1);
+            }
+            var hops = outboundHops + reconnectHops;
+            if (hops >= bestHops) continue;
+            bestHops = hops;
+            bestEdge = edge;
+            bestOutbound = outbound;
+            bestReconnect = reconnect;
+        }
+        if (bestEdge < 0) return -1;
+        outboundPath = bestOutbound;
+        reconnectPath = bestReconnect;
+        totalHops = Math.Max(1, bestHops);
+        return bestEdge;
+    }
+
+    private static List<NumVec2> TourOrder(Inputs input, List<NumVec2> stops)
+    {
+        if (stops.Count <= 2) return [.. stops];
+        var count = stops.Count;
+        var distances = new float[count, count];
+        var fromDetonator = new float[count];
+        Parallel.For(0, count, new ParallelOptions { CancellationToken = input.CancellationToken }, i =>
+        {
+            fromDetonator[i] = Distance(input, input.Detonator, stops[i]);
+            for (var j = i + 1; j < count; j++)
+            {
+                var distance = Distance(input, stops[i], stops[j]);
+                distances[i, j] = distance;
+                distances[j, i] = distance;
+            }
+        });
+
+        var visited = new bool[count];
+        var order = new List<int>(count);
+        var previous = -1;
+        for (var step = 0; step < count; step++)
+        {
+            CheckBudget(input);
+            var best = -1;
+            var bestDistance = float.MaxValue;
+            for (var i = 0; i < count; i++)
+            {
+                if (visited[i]) continue;
+                var distance = previous < 0 ? fromDetonator[i] : distances[previous, i];
+                if (distance >= bestDistance) continue;
+                bestDistance = distance;
+                best = i;
+            }
+            if (best < 0) break;
+            visited[best] = true;
             order.Add(best);
-            remaining.Remove(best);
-            currentNode = best + 1;
+            previous = best;
         }
 
         var improved = true;
-        while (improved)
+        var passes = 0;
+        while (improved && passes++ < 60)
         {
             improved = false;
-            for (var i = 0; i < order.Count - 1 && !improved; i++)
+            for (var i = 0; i < order.Count - 1; i++)
             for (var k = i + 1; k < order.Count; k++)
             {
-                var prev = i == 0 ? 0 : order[i - 1] + 1;
-                var first = order[i] + 1;
-                var last = order[k] + 1;
-                var oldCost = distance[prev, first];
-                var newCost = distance[prev, last];
-                if (k + 1 < order.Count)
-                {
-                    var next = order[k + 1] + 1;
-                    oldCost += distance[last, next];
-                    newCost += distance[first, next];
-                }
-                if (newCost + Epsilon >= oldCost) continue;
+                var oldFirst = i == 0 ? fromDetonator[order[i]] : distances[order[i - 1], order[i]];
+                var newFirst = i == 0 ? fromDetonator[order[k]] : distances[order[i - 1], order[k]];
+                var hasNext = k + 1 < order.Count;
+                var oldLast = hasNext ? distances[order[k], order[k + 1]] : 0f;
+                var newLast = hasNext ? distances[order[i], order[k + 1]] : 0f;
+                if (newFirst + newLast + Epsilon >= oldFirst + oldLast) continue;
                 order.Reverse(i, k - i + 1);
                 improved = true;
-                break;
             }
         }
+        return order.Select(i => stops[i]).ToList();
 
-        // GameHelper pins the Kalguur Sentinel first to maximize its encounter-wide uptime.
-        var sentinel = order.FindIndex(i => anchors[i].Kind == ExpeditionTargetKind.Sentinel);
-        if (sentinel > 0)
+        float Distance(Inputs inp, NumVec2 a, NumVec2 b)
         {
-            var pinned = order[sentinel];
-            order.RemoveAt(sentinel);
-            order.Insert(0, pinned);
+            var path = FullPath(inp, a, b);
+            return path >= 0f ? path : NumVec2.Distance(a, b) * 4f;
         }
-        return order.Select(i => anchors[i]).ToList();
     }
 
-    private static float PathLength(IReadOnlyList<PathCell> cells)
+    private static RoutePoint MakeRoutePoint(
+        Inputs input,
+        bool[] captured,
+        NumVec2 point,
+        float height,
+        float radiusSquared,
+        bool bridge,
+        bool sentinel,
+        out double marginal)
     {
-        var length = 0f;
-        for (var i = 1; i < cells.Count; i++)
-            length += cells[i - 1].X != cells[i].X && cells[i - 1].Y != cells[i].Y
-                ? 1.4142136f
-                : 1f;
-        return length;
-    }
-
-    private static bool[] BuildReachableMask(
-        TerrainCellReader reader,
-        PathCell start,
-        CancellationToken cancellationToken,
-        long started,
-        TimeSpan budget,
-        out bool budgetReached)
-    {
-        budgetReached = false;
-        var mask = new bool[reader.Width * reader.Height];
-        var queue = new Queue<PathCell>();
-        mask[start.Y * reader.Width + start.X] = true;
-        queue.Enqueue(start);
-        var visited = 0;
-        while (queue.TryDequeue(out var cell))
+        marginal = 0d;
+        var count = 0;
+        var labels = new List<string>();
+        for (var i = 0; i < input.Positions.Count; i++)
         {
-            if ((visited++ & 2047) == 0)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (Stopwatch.GetElapsedTime(started) >= budget)
-                {
-                    budgetReached = true;
-                    break;
-                }
-            }
-            foreach (var (dx, dy) in Neighbors)
-            {
-                var x = cell.X + dx;
-                var y = cell.Y + dy;
-                if ((uint)x >= (uint)reader.Width || (uint)y >= (uint)reader.Height) continue;
-                var index = y * reader.Width + x;
-                if (mask[index] || reader.Read(x, y) == 0) continue;
-                if (dx != 0 && dy != 0
-                    && (reader.Read(cell.X + dx, cell.Y) == 0
-                        || reader.Read(cell.X, cell.Y + dy) == 0))
-                    continue;
-                mask[index] = true;
-                queue.Enqueue(new PathCell(x, y));
-            }
+            if (captured[i] || DistanceSquared(point, input.Positions[i]) > radiusSquared) continue;
+            captured[i] = true;
+            count++;
+            marginal += input.Weights[i];
+            if (!string.IsNullOrWhiteSpace(input.Labels[i])) labels.Add(input.Labels[i]);
         }
-        return mask;
+        var label = bridge && count == 0
+            ? "Bridge toward anchor"
+            : labels.Count == 0
+                ? $"Cover {count} target{(count == 1 ? "" : "s")}"
+                : string.Join(" + ", labels.Distinct(StringComparer.Ordinal).Take(3));
+        return new RoutePoint(point, height, marginal, count, bridge && count == 0, label, sentinel);
     }
 
-    private static PathCell? SnapToWalkable(
-        TerrainCellReader reader,
-        PathCell cell,
-        int maxRadius)
+    private static double Commit(
+        Inputs input,
+        bool[] captured,
+        List<RoutePoint> route,
+        NumVec2 point,
+        float height,
+        float radiusSquared,
+        bool bridge,
+        bool sentinel,
+        float reach = 0f)
     {
-        var x = Math.Clamp(cell.X, 0, reader.Width - 1);
-        var y = Math.Clamp(cell.Y, 0, reader.Height - 1);
-        if (reader.Read(x, y) > 0) return new PathCell(x, y);
-        for (var radius = 1; radius <= maxRadius; radius++)
-        for (var dy = -radius; dy <= radius; dy++)
-        for (var dx = -radius; dx <= radius; dx++)
+        _ = reach; // Retained to mirror the source planner's reach-aware placement calls.
+        var routePoint = MakeRoutePoint(
+            input, captured, point, height, radiusSquared, bridge, sentinel, out var marginal);
+        route.Add(routePoint);
+        return marginal;
+    }
+
+    private static NumVec2 MaxCoverPoint(
+        Inputs input,
+        bool[] captured,
+        NumVec2 node,
+        NumVec2 initial,
+        float radiusSquared,
+        float effectiveDistance,
+        out float reach)
+    {
+        var result = initial;
+        var bestGain = CoverGain(input, captured, initial, radiusSquared, out _);
+        reach = Reach(input, node, initial, effectiveDistance);
+        var nearby = new List<int>();
+        var totalWeight = 0d;
+        var weightedX = 0d;
+        var weightedY = 0d;
+        for (var i = 0; i < input.Positions.Count; i++)
         {
-            if (Math.Abs(dx) != radius && Math.Abs(dy) != radius) continue;
-            var nx = x + dx;
-            var ny = y + dy;
-            if ((uint)nx >= (uint)reader.Width || (uint)ny >= (uint)reader.Height) continue;
-            if (reader.Read(nx, ny) > 0) return new PathCell(nx, ny);
+            if (captured[i] || DistanceSquared(initial, input.Positions[i]) > 4f * radiusSquared) continue;
+            nearby.Add(i);
+            totalWeight += input.Weights[i];
+            weightedX += input.Positions[i].X * input.Weights[i];
+            weightedY += input.Positions[i].Y * input.Weights[i];
         }
-        return null;
-    }
-
-    private readonly record struct Candidate(
-        NumVec2 Grid,
-        ExpeditionTarget Goal,
-        float NetWeight,
-        int CapturedPositive,
-        float GoalProgress,
-        float Priority);
-
-    private static Candidate ScoreCandidate(
-        PathCell cell,
-        float pathCost,
-        ExpeditionTarget goal,
-        IReadOnlyList<ExpeditionTarget> targets,
-        HashSet<uint> captured,
-        float radius,
-        bool bridge)
-    {
-        var grid = new NumVec2(cell.X, cell.Y);
-        float net = 0f;
-        int positives = 0;
-        foreach (var target in targets)
+        var candidates = new List<NumVec2>();
+        for (var i = 0; i < nearby.Count; i++)
         {
-            if (captured.Contains(target.Id) || NumVec2.Distance(grid, target.Grid) > radius + Epsilon) continue;
-            net += target.Weight;
-            if (target.Weight > 0) positives++;
+            candidates.Add(NumVec2.Lerp(initial, input.Positions[nearby[i]], 0.5f));
+            for (var j = i + 1; j < nearby.Count; j++)
+                candidates.Add(NumVec2.Lerp(input.Positions[nearby[i]], input.Positions[nearby[j]], 0.5f));
         }
-        var remaining = NumVec2.Distance(grid, goal.Grid);
-        var priority = (goal.Primary ? 2f : 1f) * goal.Weight / MathF.Max(1f, pathCost);
-        return new Candidate(grid, goal, net, positives, -remaining, priority + (bridge ? 0f : 0.001f));
-    }
-
-    private static bool BetterCapture(Candidate a, Candidate b)
-    {
-        if (MathF.Abs(a.NetWeight - b.NetWeight) > Epsilon) return a.NetWeight > b.NetWeight;
-        if (a.CapturedPositive != b.CapturedPositive) return a.CapturedPositive > b.CapturedPositive;
-        if (MathF.Abs(a.Priority - b.Priority) > Epsilon) return a.Priority > b.Priority;
-        return a.GoalProgress > b.GoalProgress;
-    }
-
-    private static bool BetterBridge(Candidate a, Candidate b)
-    {
-        if (MathF.Abs(a.Priority - b.Priority) > Epsilon) return a.Priority > b.Priority;
-        return a.GoalProgress > b.GoalProgress;
-    }
-
-    private static List<PathCell> ReachablePrefix(IReadOnlyList<PathCell> cells, float maxDistance)
-    {
-        var result = new List<PathCell>();
-        float distance = 0f;
-        for (var i = 1; i < cells.Count; i++)
+        if (totalWeight > 0d)
+            candidates.Add(new NumVec2((float)(weightedX / totalWeight), (float)(weightedY / totalWeight)));
+        foreach (var candidate in candidates)
         {
-            var prev = cells[i - 1];
-            var next = cells[i];
-            distance += prev.X != next.X && prev.Y != next.Y ? 1.4142136f : 1f;
-            if (distance > maxDistance + Epsilon) break;
-            result.Add(next);
+            var gain = CoverGain(input, captured, candidate, radiusSquared, out _);
+            if (gain <= bestGain) continue;
+            var candidateReach = Reach(input, node, candidate, effectiveDistance);
+            if (candidateReach < 0f) continue;
+            result = candidate;
+            bestGain = gain;
+            reach = candidateReach;
         }
         return result;
     }
 
-    private static NumVec2 Snap(NumVec2 point, Poe2Live.TerrainData terrain)
-        => new(
-            Math.Clamp(MathF.Round(point.X), 0, terrain.Width - 1),
-            Math.Clamp(MathF.Round(point.Y), 0, terrain.Height - 1));
-
-    private static float InterpolateHeight(NumVec2 grid, IReadOnlyList<ExpeditionTarget> targets, float fallback)
+    private static double CoverGain(Inputs input, bool[] captured, NumVec2 point, float radiusSquared, out int count)
     {
-        var nearest = targets.OrderBy(t => NumVec2.DistanceSquared(grid, t.Grid)).FirstOrDefault();
-        return nearest.Id == 0 ? fallback : nearest.TerrainHeight;
+        var gain = 0d;
+        count = 0;
+        for (var i = 0; i < input.Positions.Count; i++)
+        {
+            if (captured[i] || DistanceSquared(point, input.Positions[i]) > radiusSquared) continue;
+            gain += input.Weights[i];
+            count++;
+        }
+        return gain;
     }
 
-    private static string JoinCapturedLabels(IReadOnlyList<ExpeditionTarget> targets, IReadOnlyCollection<uint> ids)
+    private static int CountUncovered(
+        List<NumVec2> positions,
+        bool[] captured,
+        NumVec2 point,
+        float radiusSquared)
     {
-        var labels = targets.Where(t => ids.Contains(t.Id) && t.Weight > 0)
-            .OrderByDescending(t => t.Weight)
-            .Select(t => t.Label)
-            .Distinct(StringComparer.Ordinal)
-            .Take(3)
-            .ToArray();
-        return labels.Length == 0 ? "Coverage" : string.Join(" + ", labels);
+        var count = 0;
+        for (var i = 0; i < positions.Count; i++)
+            if (!captured[i] && DistanceSquared(point, positions[i]) <= radiusSquared) count++;
+        return count;
+    }
+
+    private static float Reach(Inputs input, NumVec2 from, NumVec2 to, float maxDistance)
+    {
+        var key = PathKey(input, from, to);
+        if (input.Cache.ReachLength.TryGetValue(key, out var cached)) return cached;
+        if (GameHelperExpeditionLineWalker.IsLineClear(input.Terrain, from, to, input.Doors))
+        {
+            var direct = NumVec2.Distance(from, to);
+            var result = direct <= maxDistance ? direct : -1f;
+            input.Cache.ReachLength[key] = result;
+            return result;
+        }
+        var path = GameHelperExpeditionPathfinder.FindPath(
+            input.Terrain, from, to, input.Doors, maxCost: maxDistance * 1.5f,
+            cancellationToken: input.CancellationToken);
+        var length = path is { Count: >= 2 } ? PolylineLength(path) : -1f;
+        if (length > maxDistance) length = -1f;
+        input.Cache.ReachLength[key] = length;
+        return length;
+    }
+
+    private static float FullPath(Inputs input, NumVec2 from, NumVec2 to)
+    {
+        var key = PathKey(input, from, to);
+        if (input.Cache.Length.TryGetValue(key, out var cached)) return cached;
+
+        var doorId = input.Cache.DoorId(input.Doors);
+        var components = input.Cache.Components(input.Terrain, input.Doors, doorId);
+        var x1 = (int)MathF.Round(from.X);
+        var y1 = (int)MathF.Round(from.Y);
+        var x2 = (int)MathF.Round(to.X);
+        var y2 = (int)MathF.Round(to.Y);
+        if (components is not null
+            && (uint)x1 < (uint)input.Terrain.Width && (uint)y1 < (uint)input.Terrain.Height
+            && (uint)x2 < (uint)input.Terrain.Width && (uint)y2 < (uint)input.Terrain.Height)
+        {
+            var first = components[y1 * input.Terrain.Width + x1];
+            var second = components[y2 * input.Terrain.Width + x2];
+            if (first >= 0 && second >= 0 && first != second)
+            {
+                input.Cache.Length[key] = -1f;
+                return -1f;
+            }
+        }
+
+        if (GameHelperExpeditionLineWalker.IsLineClear(input.Terrain, from, to, input.Doors))
+        {
+            var direct = NumVec2.Distance(from, to);
+            input.Cache.Length[key] = direct;
+            return direct;
+        }
+
+        var path = GameHelperExpeditionPathfinder.FindPath(
+            input.Terrain, from, to, input.Doors, cancellationToken: input.CancellationToken);
+        var length = path is { Count: >= 2 } ? PolylineLength(path) : -1f;
+        input.Cache.Length[key] = length;
+        return length;
+    }
+
+    private static bool StepToward(
+        Inputs input,
+        NumVec2 from,
+        NumVec2 toward,
+        float maxDistance,
+        out NumVec2 step)
+    {
+        step = from;
+        var key = PathKey(input, from, toward);
+        if (GameHelperExpeditionLineWalker.IsLineClear(input.Terrain, from, toward, input.Doors))
+        {
+            var distance = NumVec2.Distance(from, toward);
+            if (distance <= 1f) return false;
+            step = NumVec2.Lerp(from, toward, Math.Min(1f, maxDistance / distance));
+            return NumVec2.Distance(from, step) > 1f;
+        }
+        if (!input.Cache.Path.TryGetValue(key, out var path))
+        {
+            path = GameHelperExpeditionPathfinder.FindPath(
+                input.Terrain, from, toward, input.Doors, cancellationToken: input.CancellationToken);
+            input.Cache.Path[key] = path;
+        }
+        if (path is not { Count: >= 2 }) return false;
+        var travelled = 0f;
+        var lastSample = path[0];
+        var lastWalkable = from;
+        for (var i = 1; i < path.Count; i++)
+        {
+            var a = path[i - 1];
+            var b = path[i];
+            var segment = NumVec2.Distance(a, b);
+            var samples = Math.Max(1, (int)MathF.Ceiling(segment));
+            for (var sample = 1; sample <= samples; sample++)
+            {
+                var point = NumVec2.Lerp(a, b, (float)sample / samples);
+                var delta = NumVec2.Distance(lastSample, point);
+                if (travelled + delta > maxDistance)
+                {
+                    var fraction = delta <= Epsilon ? 0f : (maxDistance - travelled) / delta;
+                    var limit = NumVec2.Lerp(lastSample, point, fraction);
+                    if (IsWalkable(input, limit)) lastWalkable = limit;
+                    step = lastWalkable;
+                    return NumVec2.Distance(from, step) > 1f;
+                }
+                travelled += delta;
+                lastSample = point;
+                if (IsWalkable(input, point)) lastWalkable = point;
+            }
+        }
+        step = lastWalkable;
+        return NumVec2.Distance(from, step) > 1f;
+    }
+
+    private static (int, int, int, int, int) PathKey(Inputs input, NumVec2 a, NumVec2 b)
+        => (input.Cache.DoorId(input.Doors),
+            (int)MathF.Round(a.X), (int)MathF.Round(a.Y),
+            (int)MathF.Round(b.X), (int)MathF.Round(b.Y));
+
+    private static bool IsWalkable(Inputs input, NumVec2 point)
+        => GameHelperExpeditionLineWalker.IsWalkable(
+            input.Terrain, (int)(point.X + 0.5f), (int)(point.Y + 0.5f), input.Doors);
+
+    private static float NearestUncapturedHeight(
+        Inputs input,
+        bool[] captured,
+        NumVec2 point,
+        float fallback)
+    {
+        for (var i = 0; i < input.Positions.Count; i++)
+            if (!captured[i] && DistanceSquared(point, input.Positions[i]) <= 4f) return input.Heights[i];
+        return fallback;
+    }
+
+    private static float PolylineLength(IReadOnlyList<NumVec2> points)
+    {
+        var length = 0f;
+        for (var i = 1; i < points.Count; i++) length += NumVec2.Distance(points[i - 1], points[i]);
+        return length;
+    }
+
+    private static float DistanceSquared(NumVec2 a, NumVec2 b)
+    {
+        var dx = a.X - b.X;
+        var dy = a.Y - b.Y;
+        return dx * dx + dy * dy;
+    }
+
+    private static void CheckBudget(Inputs input)
+    {
+        input.CancellationToken.ThrowIfCancellationRequested();
+        if (Stopwatch.GetElapsedTime(input.Started) >= input.ComputeBudget)
+            input.BudgetReached = true;
     }
 
     private static ExpeditionPlan Finish(
@@ -513,11 +975,6 @@ public static class ExpeditionPlanner
         float capturedWeight,
         long started,
         string status)
-        => new(
-            placements,
-            targetCount,
-            capturedCount,
-            capturedWeight,
-            Stopwatch.GetElapsedTime(started).TotalMilliseconds,
-            status);
+        => new(placements, targetCount, capturedCount, capturedWeight,
+            Stopwatch.GetElapsedTime(started).TotalMilliseconds, status);
 }

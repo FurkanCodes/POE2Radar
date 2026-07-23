@@ -36,8 +36,24 @@ public static class MapViewportLogic
     /// </summary>
     public static (bool LargeVisible, bool MiniVisible) ResolveMapVisibility(
         bool largeHierarchicallyVisible,
-        bool miniHierarchicallyVisible)
-        => (largeHierarchicallyVisible, !largeHierarchicallyVisible && miniHierarchicallyVisible);
+        bool miniHierarchicallyVisible,
+        bool minimapFrameVisible)
+        => (
+            largeHierarchicallyVisible,
+            !largeHierarchicallyVisible && (miniHierarchicallyVisible || minimapFrameVisible));
+
+    /// <summary>
+    /// Current standalone layout exposes one shared map-content MapUiElement and a separate corner
+    /// minimap frame. Tab-open makes the content visible and hides the frame; Tab-closed does the
+    /// inverse. If both appear visible during a transition, prefer the corner frame so the two draw
+    /// layers remain mutually exclusive.
+    /// </summary>
+    public static (bool LargeVisible, bool MiniVisible) ResolveSharedMapVisibility(
+        bool contentVisible,
+        bool minimapFrameVisible)
+        => (
+            contentVisible && !minimapFrameVisible,
+            minimapFrameVisible);
 
     /// <summary>
     /// The Tab map and corner minimap are the two live MapUiElements. GH2 MapParent field names are
@@ -126,7 +142,10 @@ public static class MapViewportLogic
         float shiftX, float shiftY,
         float offsetX, float offsetY,
         bool minimapClip,
-        float clipLeft, float clipTop, float clipRight, float clipBottom)
+        float clipLeft, float clipTop, float clipRight, float clipBottom,
+        bool hasLargeMapAnchor = false,
+        float largeMapAnchorX = 0f,
+        float largeMapAnchorY = 0f)
     {
         if (minimapClip)
         {
@@ -135,9 +154,15 @@ public static class MapViewportLogic
                 (clipTop + clipBottom) * 0.5f + offsetY);
         }
 
+        var anchorX = hasLargeMapAnchor && float.IsFinite(largeMapAnchorX)
+            ? largeMapAnchorX
+            : windowWidth * 0.5f;
+        var anchorY = hasLargeMapAnchor && float.IsFinite(largeMapAnchorY)
+            ? largeMapAnchorY
+            : windowHeight * 0.5f;
         return (
-            windowWidth * 0.5f + shiftX + offsetX,
-            windowHeight * 0.5f + shiftY + MapDefaultShiftY + offsetY);
+            anchorX + shiftX + offsetX,
+            anchorY + shiftY + MapDefaultShiftY + offsetY);
     }
 
     /// <summary>Per-element snapshot for corner-minimap selection (unit-tested).</summary>
@@ -185,20 +210,26 @@ public static class MapViewportLogic
             top + size);
     }
 
-    /// <summary>PoE2 / v1.3.0 fullscreen Tab-map overlay scale: Zoom × (window height / 677) × user multiplier.</summary>
+    /// <summary>GameHelper Radar large-map scale from the height-adjusted base diagonal.</summary>
     public static float LargeMapOverlayScale(float windowHeight, float zoom, float largeMapScaleMultiplier)
     {
         var h = MathF.Max(1f, windowHeight);
         var z = zoom > 0f ? zoom : 1f;
-        return z * (h / 677f) * MathF.Max(0.01f, largeMapScaleMultiplier);
+        return Pathfinding.GameHelperRadarProjection.LargeMapScale(
+            h,
+            z,
+            MathF.Max(0.01f, largeMapScaleMultiplier));
     }
 
-    /// <summary>Corner minimap overlay scale: Zoom × (clip side / 677) × user multiplier.</summary>
+    /// <summary>GameHelper Radar minimap scale from the height-adjusted base diagonal.</summary>
     public static float MinimapOverlayScale(float referenceSide, float zoom, float scaleMul)
     {
         var side = MathF.Max(1f, referenceSide);
         var z = zoom > 0f ? zoom : 1f;
-        return z * (side / 677f) * MathF.Max(0.01f, scaleMul);
+        return Pathfinding.GameHelperRadarProjection.MiniMapScale(
+            side,
+            z,
+            MathF.Max(0.01f, scaleMul));
     }
 
     /// <summary>Alias kept for callers that still mention a generic fallback.</summary>

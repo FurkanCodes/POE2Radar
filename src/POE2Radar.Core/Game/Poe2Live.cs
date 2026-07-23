@@ -1120,12 +1120,31 @@ public sealed partial class Poe2Live
         var mapParent = Ptr(importantUi + Poe2.ImportantUi.MapParentPtr);
         if (mapParent == 0) return false;
 
-        var largeMap = Ptr(mapParent + Poe2.MapParent.LargeMapPtr);
-        var miniMap = Ptr(mapParent + Poe2.MapParent.MiniMapPtr);
-        if (largeMap == 0 || miniMap == 0 || largeMap == miniMap) return false;
+        var mapContent = Ptr(mapParent + Poe2.MapParent.LargeMapPtr);
+        var minimapFrame = Ptr(mapParent + Poe2.MapParent.MiniMapPtr);
+        if (mapContent == 0 || minimapFrame == 0 || mapContent == minimapFrame) return false;
 
-        if (!TryReadMapElementUi(largeMap, windowWidth, windowHeight, out var large)) return false;
-        if (!TryReadMapElementUi(miniMap, windowWidth, windowHeight, out var mini)) return false;
+        // Standalone live layout: +0x28 is the shared MapUiElement carrying Shift/Zoom and its live
+        // screen anchor; +0x30 is an ordinary 402x402 UiElement that frames the corner minimap.
+        // Tab-open shows the content and hides the frame, while Tab-closed does the inverse.
+        if (!TryReadMapElementUi(mapContent, windowWidth, windowHeight, out var content)) return false;
+        if (!TryReadPlainUiElement(minimapFrame, windowWidth, windowHeight, out var frame)) return false;
+        var visibility = MapViewportLogic.ResolveSharedMapVisibility(content.IsVisible, frame.IsVisible);
+        var large = content with { IsVisible = visibility.LargeVisible };
+        var mini = content with
+        {
+            IsVisible = visibility.MiniVisible,
+            Element = minimapFrame,
+            CenterX = frame.CenterX,
+            CenterY = frame.CenterY,
+            Width = frame.Width,
+            Height = frame.Height,
+            PositionX = frame.PositionX,
+            PositionY = frame.PositionY,
+            LocalScaleMultiplier = frame.LocalScaleMultiplier,
+            ScaleIndex = frame.ScaleIndex,
+            HasScreenRect = frame.HasScreenRect,
+        };
         maps = new MapViews(large, mini);
         return true;
     }
@@ -1158,13 +1177,13 @@ public sealed partial class Poe2Live
             if (b == 0) { sb.Append($"[{name}:null] "); continue; }
             var mapParent = Ptr(b + Poe2.ImportantUi.MapParentPtr);
             if (mapParent == 0) { sb.Append($"[{name}:noMapParent] "); continue; }
-            var lp = Ptr(mapParent + Poe2.MapParent.LargeMapPtr);
-            var mp = Ptr(mapParent + Poe2.MapParent.MiniMapPtr);
-            MapUi large = default, mini = default;
-            var lOk = lp != 0 && TryReadMapElementUi(lp, windowWidth, windowHeight, out large);
-            var mOk = mp != 0 && TryReadMapElementUi(mp, windowWidth, windowHeight, out mini);
-            sb.Append($"[{name}: L{(lOk ? $"(vis={large.IsVisible},rect={large.HasScreenRect},{large.Width:F0}x{large.Height:F0})" : "x")} "
-                    + $"M{(mOk ? $"(vis={mini.IsVisible},rect={mini.HasScreenRect},{mini.Width:F0}x{mini.Height:F0})" : "x")}] ");
+            var contentPtr = Ptr(mapParent + Poe2.MapParent.LargeMapPtr);
+            var framePtr = Ptr(mapParent + Poe2.MapParent.MiniMapPtr);
+            MapUi content = default, frame = default;
+            var contentOk = contentPtr != 0 && TryReadMapElementUi(contentPtr, windowWidth, windowHeight, out content);
+            var frameOk = framePtr != 0 && TryReadPlainUiElement(framePtr, windowWidth, windowHeight, out frame);
+            sb.Append($"[{name}: C{(contentOk ? $"(vis={content.IsVisible},anchor={content.CenterX:F0},{content.CenterY:F0})" : "x")} "
+                    + $"F{(frameOk ? $"(vis={frame.IsVisible},rect={frame.HasScreenRect},{frame.Width:F0}x{frame.Height:F0})" : "x")}] ");
         }
         sb.Append($"preferred=0x{_preferredUiAnchor:X} discoveredEls={_mapEls.Count} largeEl=0x{_classifiedLargeEl:X} miniEl=0x{_classifiedMiniEl:X}");
         return sb.ToString();
@@ -1208,14 +1227,12 @@ public sealed partial class Poe2Live
         var screenHeight = height;
         var hasScreenRect = false;
         if (windowWidth > 0 && windowHeight > 0 &&
-            TryResolveUiScreenRect(el, windowWidth, windowHeight, out var sx, out var sy, out var sw, out var sh, out var sm, out var si))
+            TryResolveMapUiScreenRect(el, windowHeight, out var sx, out var sy, out var sw, out var sh))
         {
             positionX = sx;
             positionY = sy;
             screenWidth = sw;
             screenHeight = sh;
-            localScaleMultiplier = sm;
-            scaleIndex = si;
             hasScreenRect = true;
         }
 
@@ -1237,6 +1254,95 @@ public sealed partial class Poe2Live
             scaleIndex,
             hasScreenRect);
         return true;
+    }
+
+    private bool TryReadPlainUiElement(nint el, int windowWidth, int windowHeight, out MapUi ui)
+    {
+        ui = default;
+        if (el == 0) return false;
+        if (!_reader.TryReadStruct<float>(el + Poe2.UiElement.SizeW, out var width)) return false;
+        if (!_reader.TryReadStruct<float>(el + Poe2.UiElement.SizeH, out var height)) return false;
+        _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos, out var relX);
+        _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos + 4, out var relY);
+        _reader.TryReadStruct<float>(el + Poe2.UiElement.LocalScaleMultiplier, out var localScaleMultiplier);
+        _reader.TryReadStruct<byte>(el + Poe2.UiElement.ScaleIndex, out var scaleIndex);
+        if (!float.IsFinite(localScaleMultiplier) || localScaleMultiplier <= 0f) localScaleMultiplier = 1f;
+
+        var positionX = relX;
+        var positionY = relY;
+        var screenWidth = width;
+        var screenHeight = height;
+        var hasScreenRect = false;
+        if (windowWidth > 0 && windowHeight > 0 &&
+            TryResolveMapUiScreenRect(el, windowHeight, out var sx, out var sy, out var sw, out var sh))
+        {
+            positionX = sx;
+            positionY = sy;
+            screenWidth = sw;
+            screenHeight = sh;
+            hasScreenRect = true;
+        }
+
+        ui = new MapUi(
+            IsVisible(el),
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            el,
+            positionX + screenWidth * 0.5f,
+            positionY + screenHeight * 0.5f,
+            screenWidth,
+            screenHeight,
+            positionX,
+            positionY,
+            localScaleMultiplier,
+            scaleIndex,
+            hasScreenRect);
+        return true;
+    }
+
+    /// <summary>
+    /// Resolve map HUD geometry with the live PoE2 rule: sum RelativePos through the parent chain,
+    /// then apply the global height-based UI scale. The generic mixed ScaleIndex resolver applies an
+    /// extra ultrawide cull to this tree and moves the 3440x1440 Tab anchor hundreds of pixels right.
+    /// </summary>
+    private bool TryResolveMapUiScreenRect(
+        nint el,
+        int windowHeight,
+        out float x,
+        out float y,
+        out float width,
+        out float height)
+    {
+        x = y = width = height = 0f;
+        if (el == 0 || windowHeight <= 0) return false;
+
+        var current = el;
+        var visited = new HashSet<nint>();
+        while (current != 0 && visited.Count < 32 && visited.Add(current))
+        {
+            if (!_reader.TryReadStruct<float>(current + Poe2.UiElement.RelativePos, out var relativeX))
+                return false;
+            if (!_reader.TryReadStruct<float>(current + Poe2.UiElement.RelativePos + 4, out var relativeY))
+                return false;
+            x += relativeX;
+            y += relativeY;
+
+            var parent = Ptr(current + Poe2.UiElement.Parent);
+            if (parent == 0 || parent == current) break;
+            current = parent;
+        }
+
+        if (!_reader.TryReadStruct<float>(el + Poe2.UiElement.SizeW, out width)) return false;
+        if (!_reader.TryReadStruct<float>(el + Poe2.UiElement.SizeH, out height)) return false;
+        var uiScale = windowHeight / 1600f;
+        x *= uiScale;
+        y *= uiScale;
+        width *= uiScale;
+        height *= uiScale;
+        return float.IsFinite(x) && float.IsFinite(y) && float.IsFinite(width) && float.IsFinite(height);
     }
 
     private readonly record struct UiElementSnapshot(

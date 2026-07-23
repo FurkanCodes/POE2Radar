@@ -138,6 +138,11 @@ The Runecraft pricing and Expedition spine-planner behavior is derived from
 under GPL-3.0, pinned to commit `7e7a23571c494090cbc6a7faafa633e17762a78d`. Its license notice is bundled
 with the overlay output under `Runecraft/`.
 
+The map projection and viewport behavior is ported from
+[MordWraith/Gamehelper's Radar](https://github.com/MordWraith/Gamehelper/tree/main/Plugins/Radar)
+under GPL-3.0, pinned to commit `554e8123d4997c4a5acbc8a4b19e1b585fe8b2d0`. Its license notice is bundled
+with the overlay output under `Radar/`.
+
 The Amanamu identifiers and user-facing behavior are informed by
 [MordWraith/AmanamuVoidAlert](https://github.com/MordWraith/AmanamuVoidAlert), originally by
 [1k4ru5g3](https://github.com/1k4ru5g3/AmanamuVoidAlertPlugin). POE2Radar uses an independent,
@@ -149,3 +154,6 @@ Original POE2Radar code is MIT — see [LICENSE](LICENSE). The integrated Sekhem
 Helper behavior is derived from GPL-3.0 source; distributions containing it must also comply with
 GPL-3.0. Pinned source notices and license information are included under `SekhemaHelper/` and
 `Runecraft/` in the overlay output.
+
+The Radar map-projection port is likewise GPL-3.0-derived; its pinned source notice is included under
+`Radar/` in the overlay output.

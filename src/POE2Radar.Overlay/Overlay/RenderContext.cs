@@ -210,7 +210,14 @@ public readonly record struct RunecraftMonolithCandidate(
     bool Priced,
     string RunesTooltip,
     int Size,
-    uint TotalColor);
+    uint TotalColor,
+    int Row,
+    int Category,
+    int RewardIdx,
+    string RewardId,
+    int MinLevel,
+    int MaxLevel,
+    bool Full);
 
 public readonly record struct RunecraftMonolithPanelRow(
     long MonolithKey,
@@ -219,7 +226,20 @@ public readonly record struct RunecraftMonolithPanelRow(
     uint HeaderColor,
     bool ShowAnchorWarning,
     bool PanelOpen,
-    RunecraftMonolithCandidate[] Candidates);
+    RunecraftMonolithCandidate[] Candidates,
+    string DebugLabel,
+    bool IsUnique,
+    int AnchorIndex,
+    int AnchorPosition,
+    string AnchorName,
+    int HoleCount,
+    double Distance,
+    long StationAddress,
+    int SocketsState,
+    int AreaLevel,
+    int Field40,
+    int Field44,
+    string StatesDump);
 
 public readonly record struct StashValueLabel(
     NumVec2 Pos,
@@ -535,6 +555,7 @@ public sealed record RenderContext(
     RunecraftPriceLabel[] RunecraftLabels,
     RunecraftMapLabel[] RunecraftMapLabels,
     bool RunecraftShowMonolithWindow,
+    bool RunecraftShowMonolithDebugWindow,
     RunecraftMonolithPanelRow[] RunecraftMonolithRows,
     SekhemaView Sekhema,
     ExpeditionPlannerView ExpeditionPlanner,
@@ -563,8 +584,8 @@ public sealed record RenderContext(
     bool AtlasOffScreenArrows = true,
     float AtlasIconScale = 1f,
     float AtlasLabelScale = 1f,
-    bool AtlasShowRouteChevrons = true,
-    float AtlasRouteLineThickness = 3.5f,
+    bool AtlasShowRouteChevrons = false,
+    float AtlasRouteLineThickness = 6f,
     float AtlasRouteChevronSpacing = 28f,
     bool AtlasShowBiomeBorders = true,
     bool AtlasShowContentBadges = true,

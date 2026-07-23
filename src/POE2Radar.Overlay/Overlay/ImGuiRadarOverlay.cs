@@ -74,6 +74,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private readonly HashSet<string> _screenKeysThisFrame = new(StringComparer.Ordinal);
     private long _renderStamp;
     private long _lastRenderStamp;
+    private int _runecraftMonolithDebugSelection;
     private int _spritePickerRuleIndex = -1;
     private int _selectedRuleIndex = -1;
     private bool _forceOpenDisplayRules;
@@ -392,6 +393,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             if (ctx is { Active: true, RunecraftShowMonolithWindow: true })
                 DrawRunecraftMonolithWindow(ctx);
 
+            if (ctx is { Active: true, RunecraftShowMonolithDebugWindow: true })
+                DrawRunecraftMonolithDebugWindow(ctx);
+
             if (ctx is { Active: true, ExpeditionPlanner.Active: true })
                 DrawExpeditionPlannerWindow(ctx);
 
@@ -504,7 +508,8 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         var H = ctx.WindowHeight;
         var center = frame.Center;
         var scale = MathF.Max(0.01f, frame.Scale);
-        var player = MapProjectionMotion.PlayerReference(ctx);
+        var player = MapProjectionMotion.PlayerReference(
+            frame, ctx.SmoothOverlayMotion, ctx.PlayerGrid, ctx.RawPlayerGrid);
 
         var clipped = frame.IsMinimap && frame.Width > 1f && frame.Height > 1f;
         if (clipped)
@@ -540,7 +545,12 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             {
                 foreach (var e in ctx.MapEntities)
                 {
-                    var p = Project(e.Grid, player, center, scale);
+                    var p = Project(
+                        e.Grid,
+                        player,
+                        center,
+                        scale,
+                        e.TerrainHeight - frame.PlayerTerrainHeight);
                     if (p.X < clipL - 40 || p.Y < clipT - 40 || p.X > clipR + 40 || p.Y > clipB + 40) continue;
                     DrawIconOrShapePacked(dl, p, e.Size, e.Color, e.Sprite, e.Shape, ctx.GlobalIconScale);
                     if (e.Label.Length > 0 && !MapLabelAlreadyPresent(mapLabels, e.Label))
@@ -550,7 +560,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
             foreach (var lm in ctx.MapLandmarks)
             {
-                var p = Project(lm.Center, player, center, scale);
+                var p = Project(lm.Center, player, center, scale, -frame.PlayerTerrainHeight);
                 if (p.X < clipL - 40 || p.Y < clipT - 40 || p.X > clipR + 40 || p.Y > clipB + 40) continue;
                 DrawIconOrShapePacked(dl, p, lm.Size, lm.Color, lm.Sprite, lm.Shape, ctx.GlobalIconScale);
                 if (lm.Label.Length > 0 && !MapLabelAlreadyPresent(mapLabels, lm.Label))
@@ -559,7 +569,12 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
             foreach (var s in ctx.MapServerIcons)
             {
-                var p = Project(s.Grid, player, center, scale);
+                var p = Project(
+                    s.Grid,
+                    player,
+                    center,
+                    scale,
+                    s.TerrainHeight - frame.PlayerTerrainHeight);
                 if (p.X < clipL - 40 || p.Y < clipT - 40 || p.X > clipR + 40 || p.Y > clipB + 40) continue;
                 DrawIconOrShapePacked(dl, p, s.Size, s.Color, s.Sprite, s.Shape, ctx.GlobalIconScale);
                 if (s.Label.Length > 0 && !MapLabelAlreadyPresent(mapLabels, s.Label))
@@ -580,7 +595,18 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                     pixelSnap: ctx.PixelSnapLabels);
 
             if (ctx.ShowPlayerBlip)
-                DrawIconOrShape(dl, center, ctx.Styles.Player.Size, ctx.Styles.Player.Color, ctx.Styles.Player.Opacity, ctx.Styles.Player.Sprite, ctx.Styles.Player.Shape, ctx.GlobalIconScale);
+            {
+                var playerPoint = Project(player, player, center, scale);
+                DrawIconOrShape(
+                    dl,
+                    playerPoint,
+                    ctx.Styles.Player.Size,
+                    ctx.Styles.Player.Color,
+                    ctx.Styles.Player.Opacity,
+                    ctx.Styles.Player.Sprite,
+                    ctx.Styles.Player.Shape,
+                    ctx.GlobalIconScale);
+            }
         }
         finally
         {
@@ -594,11 +620,13 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         if (!_terrainTextures.TryGet(this, _textures, terrain, ctx.AreaHash, ctx.TerrainStyle, out var tex))
             return false;
 
-        var player = MapProjectionMotion.PlayerReference(ctx);
-        var p0 = Project(new NumVec2(0, 0), player, center, scale);
-        var p1 = Project(new NumVec2(terrain.Width, 0), player, center, scale);
-        var p2 = Project(new NumVec2(terrain.Width, terrain.Height), player, center, scale);
-        var p3 = Project(new NumVec2(0, terrain.Height), player, center, scale);
+        var player = MapProjectionMotion.PlayerReference(
+            frame, ctx.SmoothOverlayMotion, ctx.PlayerGrid, ctx.RawPlayerGrid);
+        var deltaZ = -frame.PlayerTerrainHeight;
+        var p0 = Project(new NumVec2(0, 0), player, center, scale, deltaZ);
+        var p1 = Project(new NumVec2(terrain.Width, 0), player, center, scale, deltaZ);
+        var p2 = Project(new NumVec2(terrain.Width, terrain.Height), player, center, scale, deltaZ);
+        var p3 = Project(new NumVec2(0, terrain.Height), player, center, scale, deltaZ);
 
         dl.AddImageQuad(
             tex.Id,
@@ -677,7 +705,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         var rows = data.Length / bytesPerRow;
         var W = ctx.WindowWidth;
         var H = ctx.WindowHeight;
-        var player = MapProjectionMotion.PlayerReference(ctx);
+        var player = MapProjectionMotion.PlayerReference(
+            frame, ctx.SmoothOverlayMotion, ctx.PlayerGrid, ctx.RawPlayerGrid);
+        var deltaZ = -frame.PlayerTerrainHeight;
 
         var edgeStride = Math.Max(1, (int)MathF.Ceiling(0.8f / MathF.Max(scale, 0.15f)));
         const int maxFallbackSamples = 350_000;
@@ -698,7 +728,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                 var isEdge = data[idx - 1] == 0 || data[idx + 1] == 0
                           || data[idx - bytesPerRow] == 0 || data[idx + bytesPerRow] == 0;
 
-                var p = Project(new NumVec2(x, y), player, center, scale);
+                var p = Project(new NumVec2(x, y), player, center, scale, deltaZ);
                 if (p.X < -8 || p.Y < -8 || p.X > W + 8 || p.Y > H + 8) continue;
 
                 if (isEdge)
@@ -708,7 +738,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                         var rightIdx = row + x + edgeStride;
                         if (rightIdx < data.Length && data[rightIdx] != 0)
                         {
-                            var pr = Project(new NumVec2(x + edgeStride, y), player, center, scale);
+                            var pr = Project(new NumVec2(x + edgeStride, y), player, center, scale, deltaZ);
                             if (MathF.Abs(pr.X - p.X) < 80f && MathF.Abs(pr.Y - p.Y) < 80f)
                                 dl.AddLine(p, pr, edgeCol, thickness);
                         }
@@ -719,7 +749,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                         var bottomIdx = (y + edgeStride) * bytesPerRow + x;
                         if (bottomIdx < data.Length && data[bottomIdx] != 0)
                         {
-                            var pb = Project(new NumVec2(x, y + edgeStride), player, center, scale);
+                            var pb = Project(new NumVec2(x, y + edgeStride), player, center, scale, deltaZ);
                             if (MathF.Abs(pb.X - p.X) < 80f && MathF.Abs(pb.Y - p.Y) < 80f)
                                 dl.AddLine(p, pb, edgeCol, thickness);
                         }
@@ -736,18 +766,19 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
     private void DrawPathsMap(ImDrawListPtr dl, RenderContext ctx, MapFrame frame, NumVec2 center, float scale)
     {
-        var player = MapProjectionMotion.PlayerReference(ctx);
+        var projectionOrigin = MapProjectionMotion.PlayerReference(
+            frame, ctx.SmoothOverlayMotion, ctx.PlayerGrid, ctx.RawPlayerGrid);
         var smoothPaths = !frame.IsMinimap && ctx.SmoothOverlayMotion;
         foreach (var path in ctx.SelectedPaths)
         {
-            var poly = NavigationPathBuilder.BuildDrawPolyline(player, path.Points, path.LiveGoal);
+            var poly = NavigationPathBuilder.BuildDrawPolyline(projectionOrigin, path.Points, path.LiveGoal);
             if (poly.Count < 2) continue;
             var col = PathColor(path.ColorSlot);
             NumVec2? prev = null;
             for (var i = 0; i < poly.Count; i++)
             {
                 var (x, y) = poly[i];
-                var p = Project(new NumVec2(x, y), player, center, scale);
+                var p = Project(new NumVec2(x, y), projectionOrigin, center, scale);
                 if (smoothPaths)
                     p = SmoothScreenPoint($"path:map:{path.TargetId}:{i}", p, ctx.OverlaySmoothingMs, true);
                 if (prev is { } a) dl.AddLine(a, p, col, 2.2f);
@@ -1227,11 +1258,17 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         bgCol.W = 0.55f;
         uint monoBg = ImGui.GetColorU32(bgCol);
 
-        foreach (var label in labels)
+        for (var i = 0; i < labels.Length; i++)
         {
+            var label = labels[i];
             var text = label.ValueText;
             var ts = MeasureOverlayText(text, fontPx, ambient);
-            var at = new NumVec2(label.ScreenPos.X - ts.X * 0.5f, label.ScreenPos.Y + 6f);
+            var screenPos = SmoothScreenPoint(
+                $"runecraft:map:{i}",
+                label.ScreenPos,
+                ctx.OverlaySmoothingMs,
+                ctx.SmoothOverlayMotion);
+            var at = new NumVec2(screenPos.X - ts.X * 0.5f, screenPos.Y + 6f);
             var pad = new NumVec2(3f, 1f);
             dl.AddRectFilled(at - pad, at + ts + pad, monoBg, 2f);
             dl.AddText(font, fontPx, at + new NumVec2(1f, 1f), shadow, text);
@@ -1246,6 +1283,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         if (rows.Length == 0) return;
 
         ImGui.SetNextWindowSizeConstraints(new NumVec2(260, 0), new NumVec2(640, 900));
+        ImGui.SetNextWindowCollapsed(false, ImGuiCond.Appearing);
         if (!ImGui.Begin("Monolith Rewards", ImGuiWindowFlags.AlwaysAutoResize)) { ImGui.End(); return; }
 
         foreach (var row in rows)
@@ -1325,7 +1363,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         ImGui.SetNextWindowPos(new NumVec2(ctx.WindowWidth - 18f, 170f), ImGuiCond.FirstUseEver, new NumVec2(1f, 0f));
         ImGui.SetNextWindowSizeConstraints(new NumVec2(280f, 0f), new NumVec2(460f, 560f));
         var flags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoNavInputs;
-        if (!ImGui.Begin("Expedition Route###ExpeditionPlanner", flags)) { ImGui.End(); return; }
+        if (!ImGui.Begin("Expedition Planner###RunecraftExpeditionPlanner", flags)) { ImGui.End(); return; }
 
         var remaining = Math.Max(0, view.Total - view.Placed);
         TextColoredUnformatted(new Vector4(0.45f, 0.90f, 0.62f, 1f),
@@ -1343,11 +1381,19 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         else
             ImGui.TextWrapped(view.Status);
         if (view.Planning) ImGui.BeginDisabled();
-        if (ImGui.Button("Run", new NumVec2(90f, 0f)))
+        var stale = view.Status.Contains("Run*", StringComparison.Ordinal);
+        if (stale)
+        {
+            ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(0.20f, 0.55f, 0.20f, 1f));
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.26f, 0.70f, 0.26f, 1f));
+            ImGui.PushStyleColor(ImGuiCol.ButtonActive, new Vector4(0.16f, 0.45f, 0.16f, 1f));
+        }
+        if (ImGui.Button(stale ? "Run*" : "Run", new NumVec2(90f, 0f)))
             _enqueue(_runExpeditionPlanner);
+        if (stale) ImGui.PopStyleColor(3);
         if (view.Planning) ImGui.EndDisabled();
         ImGui.SameLine();
-        ImGui.TextDisabled("recalculate from current explosives");
+        ImGui.TextDisabled("build the complete route from the detonator");
         ImGui.TextUnformatted($"Targets: {view.TargetCount} · covered: {view.CapturedCount} · score: {view.CapturedWeight:F0}");
         if (view.ComputeMilliseconds > 0)
             ImGui.TextDisabled($"Route compute: {view.ComputeMilliseconds:F1} ms (background)");
@@ -1375,22 +1421,126 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         }
 
         ImGui.Separator();
-        ImGui.TextDisabled("Updates automatically after each explosive · Run forces refresh");
+        ImGui.TextDisabled("Run once: the route stays fixed; placed explosives advance NEXT");
         ImGui.End();
     }
 
-    private static int NextExpeditionRouteIndex(ExpeditionPlannerView view)
+    private void DrawRunecraftMonolithDebugWindow(RenderContext ctx)
     {
-        var next = Math.Max(0, view.Placed - view.PlanBasePlaced);
-        return next < view.Route.Length ? next : -1;
+        var rows = ctx.RunecraftMonolithRows ?? [];
+        ImGui.SetNextWindowSize(new NumVec2(680f, 460f), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowCollapsed(false, ImGuiCond.Appearing);
+        if (!ImGui.Begin("Monolith Debug###RunecraftMonolithDebug"))
+        {
+            ImGui.End();
+            return;
+        }
+
+        if (rows.Length == 0)
+        {
+            ImGui.TextDisabled("No monoliths detected in this area.");
+            ImGui.End();
+            return;
+        }
+
+        var labels = rows.Select(r => r.DebugLabel).ToArray();
+        _runecraftMonolithDebugSelection = Math.Clamp(_runecraftMonolithDebugSelection, 0, labels.Length - 1);
+        ImGui.SetNextItemWidth(420f);
+        ImGui.Combo("Monolith", ref _runecraftMonolithDebugSelection, labels, labels.Length);
+
+        var row = rows[_runecraftMonolithDebugSelection];
+        ImGui.Separator();
+        if (row.IsUnique)
+            ImGui.Text($"Unique monolith (no anchor) — offers all recipes with size <= N ({row.HoleCount}).");
+        else if (row.AnchorIndex < 0)
+            TextColoredUnformatted(new Vector4(1f, 0.45f, 0.45f, 1f), "Anchor not resolved — no recipes.");
+        else
+            ImGui.Text($"Anchor: {row.AnchorName} (idx {row.AnchorIndex})    p={row.AnchorPosition}  (hole {row.AnchorPosition + 1})");
+
+        if (row.SocketsState >= 0 && row.SocketsState != row.HoleCount)
+            TextColoredUnformatted(new Vector4(1f, 0.45f, 0.45f, 1f),
+                $"N = {row.HoleCount}  (station +0x38)    sockets state = {row.SocketsState}   <- differ");
+        else
+            ImGui.Text($"N = {row.HoleCount}    sockets state = {row.SocketsState}");
+
+        ImGui.Text($"Area level: {row.AreaLevel}");
+        ImGui.TextDisabled($"device 0x{row.MonolithKey:X}   station 0x{row.StationAddress:X}   +0x40={row.Field40}  +0x44={row.Field44}");
+        if (!string.IsNullOrEmpty(row.StatesDump))
+            ImGui.TextDisabled($"SM states: {row.StatesDump}");
+
+        if (ImGui.Button("Copy report"))
+            ImGui.SetClipboardText(BuildRunecraftMonolithDebugReport(row));
+        ImGui.SameLine();
+        ImGui.TextDisabled($"{row.Candidates.Length} recipe(s) offered");
+
+        ImGui.Separator();
+        if (ImGui.BeginTable("mdbg", 8,
+                ImGuiTableFlags.RowBg | ImGuiTableFlags.Borders | ImGuiTableFlags.ScrollY |
+                ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.Resizable))
+        {
+            ImGui.TableSetupColumn("row", ImGuiTableColumnFlags.WidthFixed, 44f);
+            ImGui.TableSetupColumn("sz", ImGuiTableColumnFlags.WidthFixed, 26f);
+            ImGui.TableSetupColumn("gate", ImGuiTableColumnFlags.WidthFixed, 40f);
+            ImGui.TableSetupColumn("cat", ImGuiTableColumnFlags.WidthFixed, 28f);
+            ImGui.TableSetupColumn("reward", ImGuiTableColumnFlags.WidthStretch);
+            ImGui.TableSetupColumn("FK / Id", ImGuiTableColumnFlags.WidthStretch);
+            ImGui.TableSetupColumn("lvl", ImGuiTableColumnFlags.WidthFixed, 56f);
+            ImGui.TableSetupColumn("holes (anchor in [])", ImGuiTableColumnFlags.WidthStretch);
+            ImGui.TableSetupScrollFreeze(0, 1);
+            ImGui.TableHeadersRow();
+
+            foreach (var candidate in row.Candidates)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableSetColumnIndex(0); ImGui.Text(candidate.Row.ToString());
+                ImGui.TableSetColumnIndex(1); ImGui.Text(candidate.Size.ToString());
+                ImGui.TableSetColumnIndex(2); ImGui.Text(candidate.Full ? "N" : "RW");
+                ImGui.TableSetColumnIndex(3); ImGui.Text(candidate.Category.ToString());
+                ImGui.TableSetColumnIndex(4); ImGui.Text(candidate.Reward);
+                ImGui.TableSetColumnIndex(5); ImGui.TextDisabled($"{candidate.RewardIdx} / {candidate.RewardId}");
+                ImGui.TableSetColumnIndex(6); ImGui.Text($"{candidate.MinLevel}-{candidate.MaxLevel}");
+                ImGui.TableSetColumnIndex(7); ImGui.Text(candidate.RunesTooltip);
+            }
+
+            if (row.Candidates.Length == 0)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableSetColumnIndex(4);
+                ImGui.TextDisabled("(no recipes)");
+            }
+
+            ImGui.EndTable();
+        }
+
+        ImGui.End();
     }
+
+    private static string BuildRunecraftMonolithDebugReport(RunecraftMonolithPanelRow row)
+    {
+        var lines = new List<string>
+        {
+            row.DebugLabel,
+            $"device=0x{row.MonolithKey:X} station=0x{row.StationAddress:X}",
+            $"anchor={row.AnchorName} idx={row.AnchorIndex} pos={row.AnchorPosition} N={row.HoleCount} sockets={row.SocketsState}",
+            $"areaLevel={row.AreaLevel} field40={row.Field40} field44={row.Field44}",
+            $"states={row.StatesDump}",
+        };
+        lines.AddRange(row.Candidates.Select(c =>
+            $"row={c.Row} size={c.Size} gate={(c.Full ? "N" : "RW")} cat={c.Category} reward={c.Reward} " +
+            $"fk={c.RewardIdx} id={c.RewardId} level={c.MinLevel}-{c.MaxLevel} runes={c.RunesTooltip}"));
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static int NextExpeditionRouteIndex(ExpeditionPlannerView view)
+        => RadarApp.ExpeditionNextRouteIndex(view.Placed, view.Route.Length);
 
     private static void DrawExpeditionRouteMap(
         ImDrawListPtr dl, RenderContext ctx, MapFrame frame, NumVec2 center, float scale)
     {
         var view = ctx.ExpeditionPlanner;
         if (!view.Active || view.Route.Length == 0) return;
-        var player = MapProjectionMotion.PlayerReference(ctx);
+        var player = MapProjectionMotion.PlayerReference(
+            frame, ctx.SmoothOverlayMotion, ctx.PlayerGrid, ctx.RawPlayerGrid);
 
         NumVec2 ProjectPlacement(ExpeditionPlacementView p)
             => Project(p.Grid, player, center, scale, p.TerrainHeight - frame.PlayerTerrainHeight);
@@ -1435,7 +1585,8 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         const int segments = 40;
         NumVec2? previous = null;
         NumVec2 first = default;
-        var player = MapProjectionMotion.PlayerReference(ctx);
+        var player = MapProjectionMotion.PlayerReference(
+            frame, ctx.SmoothOverlayMotion, ctx.PlayerGrid, ctx.RawPlayerGrid);
         for (var i = 0; i <= segments; i++)
         {
             var angle = i * MathF.Tau / segments;
@@ -4888,6 +5039,11 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     {
         var rc = s.Runecraft;
 
+        ImGui.TextWrapped("GameHelper RunecraftHelper port: while the in-game Runeshape Combinations " +
+                          "panel is open, the poe.ninja Exalted price is drawn on the right edge of " +
+                          "each visible reward row. The reward name remains the game's localized text.");
+        ImGui.Spacing();
+
         var panelOpen = ImGuiTheme.BeginAccordionSection("RunecraftPanel", "Combinations panel",
             defaultOpen: true);
         if (panelOpen)
@@ -5004,6 +5160,10 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             bool win = rc.ShowMonolithWindow;
             if (ImGui.Checkbox("Show monolith rewards window", ref win)) rc.ShowMonolithWindow = win;
             ImGuiTheme.Tooltip(SettingHints.Runecraft.ShowMonolithWindow);
+
+            bool debugWindow = rc.ShowMonolithDebugWindow;
+            if (ImGui.Checkbox("Show monolith debug window", ref debugWindow))
+                rc.ShowMonolithDebugWindow = debugWindow;
             bool autoWin = rc.AutoShowMonolithWithGamepad;
             if (ImGui.Checkbox("Auto-open with controller", ref autoWin)) rc.AutoShowMonolithWithGamepad = autoWin;
             ImGuiTheme.Tooltip(SettingHints.Runecraft.AutoShowMonolithWithGamepad);
@@ -5029,19 +5189,19 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         ImGuiTheme.EndAccordionSection(monoOpen);
 
         var expeditionOpen = ImGuiTheme.BeginAccordionSection(
-            "RunecraftExpedition", "Expedition route planner", defaultOpen: true);
+            "RunecraftExpedition", "Expedition", defaultOpen: true);
         if (expeditionOpen)
         {
             var enabled = rc.ShowExpeditionPlanner;
-            if (ImGui.Checkbox("Auto-show during Expedition", ref enabled)) rc.ShowExpeditionPlanner = enabled;
+            ImGui.TextDisabled("Explosive-chain route planner");
+            if (ImGui.Checkbox("Show route planner", ref enabled)) rc.ShowExpeditionPlanner = enabled;
+            ImGui.TextDisabled("The Expedition Planner window appears while a live detonator is detected.");
 
             var showMap = rc.ShowExpeditionRouteOnMap;
             if (ImGui.Checkbox("Numbered route on map + minimap", ref showMap)) rc.ShowExpeditionRouteOnMap = showMap;
 
             var showWorld = rc.ShowExpeditionNextPlacementWorld;
             if (ImGui.Checkbox("Next placement in world", ref showWorld)) rc.ShowExpeditionNextPlacementWorld = showWorld;
-
-            ImGui.TextDisabled("Controller-safe: follows the GameHelper runestone spine and replans automatically.");
 
             var manual = Math.Clamp(rc.ExpeditionManualCharges, 1, 64);
             ImGui.SetNextItemWidth(UiW(8f));
@@ -5051,6 +5211,11 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             ImGui.SetNextItemWidth(UiW(8f));
             if (ImGui.SliderFloat("Min monolith value", ref minMonolith, 0f, 100f, "%.1f ex"))
                 rc.ExpeditionMonolithMinExalted = Math.Max(0f, minMonolith);
+
+            var minMarkers = Math.Clamp(rc.ExpeditionMinMarkersPerSpareCharge, 1, 3);
+            ImGui.SetNextItemWidth(UiW(8f));
+            if (ImGui.SliderInt("Min markers / spare charge", ref minMarkers, 1, 3))
+                rc.ExpeditionMinMarkersPerSpareCharge = minMarkers;
 
             if (ImGui.TreeNode("Target weights"))
             {
@@ -5080,7 +5245,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
             if (ImGui.TreeNode("Build-breaking remnant mods"))
             {
-                ImGui.TextWrapped("Select immunities your build cannot run. Their penalty steers blast circles away from those remnants.");
+                ImGui.TextWrapped("Select immunities your build cannot run. They reduce the remnant's net route-anchor weight.");
                 var hazards = new (string Id, string Label)[]
                 {
                     ("ExpeditionRelicDownsideImmunePhysicalDamage", "Immune to Physical"),

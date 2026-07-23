@@ -214,6 +214,7 @@ public sealed class RadarSettingsMigrationTests
             AtlasGhStyleMigrated = false,
             AtlasCleanMvpMigrated = true, // isolate GH-style step from the later clean-MVP override
             Atlas2QolMigrated = true,
+            AtlasRoutePresentationGhParityMigrated = true,
             AtlasHideCompletedMaps = false,
             AtlasHideNotAccessibleMaps = false,
             AtlasHideAvailableMaps = false,
@@ -332,6 +333,66 @@ public sealed class RadarSettingsMigrationTests
         Assert.Contains(builtIn.Entries, e => e.Name == "The Jade Isles" && e.Match == "id:MapUberBoss_JadeCitadel");
         Assert.Contains(builtIn.Entries, e => e.Name == "Sprawling Jungle" && e.Match == "id:ExpeditionSubArea_MedvedBoss");
         Assert.Contains(s.AtlasRouteGroups, g => !g.Locked && g.Name == "Great Beast");
+        Assert.False(s.Migrate());
+    }
+
+    [Fact]
+    public void Migrate_RestoresAtlas2RouteDefaultsWithoutTouchingCustomOrUnchartedSettings()
+    {
+        var s = new RadarSettings
+        {
+            Atlas2QolMigrated = true,
+            AtlasRouteTargetsGhParityMigrated = true,
+            AtlasRoutePresentationGhParityMigrated = false,
+            AtlasShowRouteChevrons = true,
+            AtlasShowUnchartedLeylines = true,
+            AtlasShowShipsInFog = true,
+            AtlasRouteGroups =
+            [
+                new AtlasRouteGroupSettings
+                {
+                    Name = "Search",
+                    BuiltInKey = "search",
+                    DrawPaths = false,
+                    Entries =
+                    [
+                        new AtlasRouteEntrySettings { Name = "Current search query", DrawPath = false },
+                    ],
+                },
+                new AtlasRouteGroupSettings
+                {
+                    Name = "Expedition",
+                    BuiltInKey = "expedition",
+                    DrawPaths = true,
+                    Entries =
+                    [
+                        new AtlasRouteEntrySettings { Name = "Barren Atoll", DrawPath = true },
+                        new AtlasRouteEntrySettings { Name = "Moor of Fallen Skies", DrawPath = true },
+                    ],
+                },
+                new AtlasRouteGroupSettings
+                {
+                    Name = "My custom route",
+                    DrawPaths = true,
+                },
+            ],
+        };
+
+        var changed = s.Migrate();
+
+        Assert.True(changed);
+        Assert.True(s.AtlasRoutePresentationGhParityMigrated);
+        Assert.False(s.AtlasShowRouteChevrons);
+        Assert.True(s.AtlasRouteGroups.Single(g => g.BuiltInKey == "search").DrawPaths);
+        Assert.Equal(6f, s.AtlasRouteGroups.Single(g => g.BuiltInKey == "search").LineThickness);
+        var expedition = s.AtlasRouteGroups.Single(g => g.BuiltInKey == "expedition");
+        Assert.False(expedition.DrawPaths);
+        Assert.Equal(6f, expedition.LineThickness);
+        Assert.False(expedition.Entries.Single(e => e.Name == "Barren Atoll").DrawPath);
+        Assert.True(expedition.Entries.Single(e => e.Name == "Moor of Fallen Skies").DrawPath);
+        Assert.True(s.AtlasRouteGroups.Single(g => g.Name == "My custom route").DrawPaths);
+        Assert.True(s.AtlasShowUnchartedLeylines);
+        Assert.True(s.AtlasShowShipsInFog);
         Assert.False(s.Migrate());
     }
 

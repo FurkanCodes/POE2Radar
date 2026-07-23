@@ -272,8 +272,8 @@ public sealed class RadarSettings
     public string AtlasRitualRewardFilter { get; set; } = "";
     public float AtlasRitualPlannerFontScale { get; set; } = 1f;
     public Dictionary<string, int> AtlasRitualRewardWeights { get; set; } = new(StringComparer.OrdinalIgnoreCase);
-    public bool AtlasShowRouteChevrons { get; set; } = true;
-    public float AtlasRouteLineThickness { get; set; } = 1f;
+    public bool AtlasShowRouteChevrons { get; set; } = false;
+    public float AtlasRouteLineThickness { get; set; } = 6f;
     public float AtlasRouteChevronSpacing { get; set; } = 8f;
     public float AtlasSearchRange { get; set; } = 1f;
     public float AtlasLabelOffsetX { get; set; } = 0f;
@@ -364,6 +364,9 @@ public sealed class RadarSettings
 
     /// <summary>One-time: reconcile Atlas built-in route targets with the GameHelper target list.</summary>
     public bool AtlasRouteTargetsGhParityMigrated { get; set; }
+
+    /// <summary>One-time: restore Atlas2 route visibility defaults and solid-line presentation.</summary>
+    public bool AtlasRoutePresentationGhParityMigrated { get; set; }
 
     /// <summary>
     /// One-time: prefer Alchemy on Magic Waystones (PoE2 0.3.1+). Prior default Regal'd blues and
@@ -633,6 +636,15 @@ public sealed class RadarSettings
             changed = true;
         }
 
+        if (!AtlasRoutePresentationGhParityMigrated)
+        {
+            AtlasShowRouteChevrons = false;
+            AtlasRouteLineThickness = 6f;
+            ReconcileAtlas2RoutePresentation();
+            AtlasRoutePresentationGhParityMigrated = true;
+            changed = true;
+        }
+
         if (!WaystoneAlchemyPreferAlchemyMigrated)
         {
             WaystoneAlchemy.UseRegalOnMagic = false;
@@ -740,7 +752,7 @@ public sealed class RadarSettings
             BuiltInKey = c.BuiltInKey,
             Locked = true,
             DrawPaths = c.DrawPath,
-            LineThickness = 1.5f,
+            LineThickness = 6f,
             Color = c.Color,
             BackgroundColor = c.BackgroundColor,
             ContentRule = c.ContentRule ?? "",
@@ -754,6 +766,28 @@ public sealed class RadarSettings
                 DrawPath = t.Enabled,
             }).ToList(),
         }).ToList();
+
+    private void ReconcileAtlas2RoutePresentation()
+    {
+        foreach (var seed in Atlas2Defaults.Categories)
+        {
+            var group = AtlasRouteGroups.FirstOrDefault(g =>
+                string.Equals(g.BuiltInKey, seed.BuiltInKey, StringComparison.OrdinalIgnoreCase));
+            if (group is null) continue;
+
+            group.DrawPaths = seed.DrawPath;
+            group.LineThickness = 6f;
+            group.MaxHops = seed.MaxHops;
+
+            foreach (var target in seed.Targets)
+            {
+                var entry = group.Entries.FirstOrDefault(e =>
+                    string.Equals(e.Name, target.Name, StringComparison.OrdinalIgnoreCase));
+                if (entry is not null)
+                    entry.DrawPath = target.Enabled;
+            }
+        }
+    }
 
     private void ReconcileBuiltInAtlasRouteTargets()
     {
@@ -870,15 +904,16 @@ public sealed class AmanamuSettings
 public sealed class RunecraftSettings
 {
     public bool ShowOverlay { get; set; } = true;
-    public int PriceSource { get; set; } = 1;
+    public int PriceSource { get; set; } = 0;
     public string League { get; set; } = "Runes of Aldur";
-    public int RefreshIntervalMin { get; set; } = 5;
+    public int RefreshIntervalMin { get; set; } = 60;
     public int ColorMode { get; set; } = 1; // 0 off, 1 relative, 2 absolute
     public float OverlayXOffset { get; set; } = 0f;
-    public bool ShowMapLabels { get; set; } = true;
-    public float MapLabelMinExalted { get; set; } = 1f;
+    public bool ShowMapLabels { get; set; } = false;
+    public float MapLabelMinExalted { get; set; } = 0f;
     public bool HideMapValueWhenPanelOpen { get; set; } = true;
-    public bool ShowMonolithWindow { get; set; } = true;
+    public bool ShowMonolithWindow { get; set; } = false;
+    public bool ShowMonolithDebugWindow { get; set; } = false;
     /// <summary>When off, still open the monolith window while a gamepad is connected.</summary>
     public bool AutoShowMonolithWithGamepad { get; set; } = false;
     public float MonolithRewardsMinExalted { get; set; } = 0f;
@@ -897,6 +932,7 @@ public sealed class RunecraftSettings
     public bool ShowExpeditionNextPlacementWorld { get; set; } = true;
     public int ExpeditionManualCharges { get; set; } = 5;
     public float ExpeditionMonolithMinExalted { get; set; } = 0f;
+    public int ExpeditionMinMarkersPerSpareCharge { get; set; } = 2;
     public float ExpeditionTinyMarkerWeight { get; set; } = 0f;
     public float ExpeditionWhiteMarkerWeight { get; set; } = 10f;
     public float ExpeditionMagicMarkerWeight { get; set; } = 30f;
@@ -1224,7 +1260,7 @@ public sealed class AtlasRouteGroupSettings
     public string BackgroundColor { get; set; } = "#000000D9";
     public string ContentRule { get; set; } = "";
     public int MaxHops { get; set; } = 100;
-    public bool DrawPaths { get; set; } = true;
+    public bool DrawPaths { get; set; }
     public bool Locked { get; set; }
     public float LineThickness { get; set; } = 1.5f;
     public List<AtlasRouteEntrySettings> Entries { get; set; } = new();
@@ -1235,7 +1271,7 @@ public sealed class AtlasRouteEntrySettings
     public string Name { get; set; } = "";
     public string Match { get; set; } = "";
     public string Color { get; set; } = "#58A6FF";
-    public bool DrawPath { get; set; } = true;
+    public bool DrawPath { get; set; }
     public int MaxHops { get; set; } = 25;
 }
 

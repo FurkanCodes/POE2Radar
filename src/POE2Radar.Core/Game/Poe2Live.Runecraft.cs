@@ -100,6 +100,8 @@ public sealed partial class Poe2Live
         bool Collected,
         string SelectedRecipeId,
         int SocketsState,
+        int Field40,
+        int Field44,
         string StatesDump);
 
     public void InvalidateRunecraftUiCache()
@@ -314,6 +316,8 @@ public sealed partial class Poe2Live
 
         var panelOpen = IsExeModulePtr(Ptr(stationAddr + Poe2.RuneStation.PanelOpenListener));
         var selectedId = ReadSelectedRecipeId(stationAddr);
+        _reader.TryReadStruct<int>(stationAddr + 0x40, out var field40);
+        _reader.TryReadStruct<int>(stationAddr + 0x44, out var field44);
 
         station = new RunecraftMonolithStation(
             deviceEntity,
@@ -327,6 +331,8 @@ public sealed partial class Poe2Live
             false,
             selectedId,
             sockets,
+            field40,
+            field44,
             dump);
         return true;
     }

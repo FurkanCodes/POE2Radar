@@ -75,6 +75,7 @@ public static class MapEntityPicker
     {
         var center = frame.Center;
         var scale = MathF.Max(0.01f, frame.Scale);
+        var projectionOrigin = playerGrid;
         float clipL, clipT, clipR, clipB;
         if (frame.IsMinimap && frame.Width > 1f && frame.Height > 1f)
         {
@@ -98,7 +99,7 @@ public static class MapEntityPicker
             if (importantOnly && EntityImportanceHelper.IsTrash(
                     EntityImportanceHelper.Classify(e, styles))) continue;
 
-            var p = Project(e.Grid, playerGrid, center, scale, e.TerrainHeight - frame.PlayerTerrainHeight);
+            var p = Project(e.Grid, projectionOrigin, center, scale, e.TerrainHeight - frame.PlayerTerrainHeight);
             if (p.X < clipL - 40f || p.Y < clipT - 40f || p.X > clipR + 40f || p.Y > clipB + 40f) continue;
 
             var radius = (rule?.Size ?? DefaultEntityRadius(e)) * globalIconScale;
