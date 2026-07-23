@@ -38,7 +38,7 @@ public sealed partial class ImGuiRadarOverlay
             foreach (var line in routeLines)
             {
                 var thickness = MathF.Max(1f, uiScale * line.Thickness);
-                DrawAtlasNodePath(dl, line.Points, ColorU32(line.Color, 0.95f), thickness, uiScale,
+                DrawAtlasNodePath(dl, line.Points, ColorU32(line.Color, ctx.AtlasRouteOpacity), thickness, uiScale,
                     ctx.AtlasRouteChevronSpacing, ctx.AtlasShowRouteChevrons, line.PhaseIndex);
                 routePhase++;
             }
@@ -47,7 +47,7 @@ public sealed partial class ImGuiRadarOverlay
         if (ctx.AtlasRoute is { Count: >= 2 } manualRoute)
         {
             var thickness = MathF.Max(1f, uiScale * ctx.AtlasRouteLineThickness);
-            var col = ColorU32(59, 219, 255, 0.95f);
+            var col = ColorU32(ctx.AtlasManualRouteColor, ctx.AtlasRouteOpacity);
             DrawAtlasNodePath(dl, manualRoute, col, thickness, uiScale, ctx.AtlasRouteChevronSpacing,
                 ctx.AtlasShowRouteChevrons, routePhase);
         }

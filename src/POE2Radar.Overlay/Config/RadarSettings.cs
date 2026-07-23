@@ -275,6 +275,9 @@ public sealed class RadarSettings
     public bool AtlasShowRouteChevrons { get; set; } = false;
     public float AtlasRouteLineThickness { get; set; } = 6f;
     public float AtlasRouteChevronSpacing { get; set; } = 8f;
+    public string AtlasManualRouteColor { get; set; } = "#3BDBFF";
+    public string AtlasSearchRouteColor { get; set; } = "#FFFFFF";
+    public float AtlasRouteOpacity { get; set; } = 0.95f;
     public float AtlasSearchRange { get; set; } = 1f;
     public float AtlasLabelOffsetX { get; set; } = 0f;
     public float AtlasLabelOffsetY { get; set; } = 0f;

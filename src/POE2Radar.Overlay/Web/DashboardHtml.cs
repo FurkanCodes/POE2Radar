@@ -83,6 +83,10 @@ internal static class DashboardHtml
         .Replace("{{H.AtlasLabelScale}}", H(SettingHints.Atlas.LabelScale))
         .Replace("{{H.AtlasRouteThickness}}", H(SettingHints.Atlas.RouteThickness))
         .Replace("{{H.AtlasChevronSpacing}}", H(SettingHints.Atlas.ChevronSpacing))
+        .Replace("{{H.AtlasManualRouteColor}}", H(SettingHints.Atlas.ManualRouteColor))
+        .Replace("{{H.AtlasSearchRouteColor}}", H(SettingHints.Atlas.SearchRouteColor))
+        .Replace("{{H.AtlasRouteOpacity}}", H(SettingHints.Atlas.RouteOpacity))
+        .Replace("{{H.AtlasRouteGroupColor}}", H(SettingHints.Atlas.RouteGroupColor))
         .Replace("{{H.AtlasLanguage}}", H(SettingHints.Atlas.Language))
         .Replace("{{H.AtlasShowNodeSprites}}", H(SettingHints.Atlas.ShowNodeSprites))
         .Replace("{{H.AtlasDrawLinesSearchQuery}}", H(SettingHints.Atlas.DrawLinesSearchQuery))
@@ -975,6 +979,21 @@ internal static class DashboardHtml
               <input class="numin" type="number" step="0.05" min="0.5" max="3" data-set="atlasLabelScale"></div>
             <div class="row"><div class="rl" title="{{H.AtlasLanguage}}">Atlas language<small>map name translations</small></div>
               <input class="numin" type="text" data-set="atlasLanguage" style="width:150px"></div>
+            <div class="row"><div class="rl" title="{{H.AtlasManualRouteColor}}">Manual route color<small>F10/manual destination path</small></div>
+              <input type="color" class="i-color" data-set="atlasManualRouteColor"></div>
+            <div class="row"><div class="rl" title="{{H.AtlasSearchRouteColor}}">Search route color<small>paths to search matches</small></div>
+              <input type="color" class="i-color" data-set="atlasSearchRouteColor"></div>
+            <div class="row"><div class="rl" title="{{H.AtlasRouteOpacity}}">Route opacity</div>
+              <input class="numin" type="number" step="0.05" min="0.1" max="1" data-set="atlasRouteOpacity"></div>
+            <div class="row"><div class="rl" title="{{H.AtlasRouteThickness}}">Manual/search thickness</div>
+              <input class="numin" type="number" step="0.5" min="1" max="8" data-set="atlasRouteLineThickness"></div>
+            <div class="row"><div class="rl" title="{{H.AtlasRouteChevrons}}">Route chevrons</div>
+              <label class="sw"><input type="checkbox" data-set="atlasShowRouteChevrons"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="row"><div class="rl" title="{{H.AtlasChevronSpacing}}">Chevron spacing</div>
+              <input class="numin" type="number" step="1" min="8" max="80" data-set="atlasRouteChevronSpacing"></div>
+            <h3 style="margin-top:18px">Target path colors</h3>
+            <p class="hint-oneline">A category color updates every target inside it. Individual targets can then be overridden.</p>
+            <div id="atlasRouteColors"></div>
             <div class="row"><div class="rl" title="{{H.AtlasShowIslandRumours}}">All Island Rumours + Tiers<small>complete ship manifest on hover; opt-in</small></div>
               <label class="sw"><input type="checkbox" data-set="atlasShowIslandRumours"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.AtlasShowIslandRumourBadges}}">Island-count badges</div>
@@ -1277,6 +1296,55 @@ function updateHotkeyDisplays(s){
   s=s||_settingsCache;
   $$('[data-hk]').forEach(el=>{ el.textContent=vkName(s[el.dataset.hk]); });
 }
+function renderAtlasRouteColors(){
+  const host=$('#atlasRouteColors');
+  if(!host) return;
+  const groups=Array.isArray(_settingsCache.atlasRouteGroups)?_settingsCache.atlasRouteGroups:[];
+  host.innerHTML='';
+  groups.filter(g=>(g.builtInKey||'').toLowerCase()!=='search').forEach((group,gi)=>{
+    const section=document.createElement('div');
+    section.style.cssText='border-top:1px solid var(--line);padding-top:7px;margin-top:7px';
+
+    const groupRow=document.createElement('div');
+    groupRow.className='row';
+    const groupLabel=document.createElement('div');
+    groupLabel.className='rl';
+    groupLabel.textContent=group.name||`Category ${gi+1}`;
+    const groupColor=document.createElement('input');
+    groupColor.type='color';
+    groupColor.className='i-color';
+    groupColor.value=/^#[0-9a-f]{6}$/i.test(group.color||'')?group.color:'#58a6ff';
+    groupColor.title='Apply this color to every target in the category.';
+    groupColor.onchange=async()=>{
+      group.color=groupColor.value.toUpperCase();
+      (group.entries||[]).forEach(entry=>entry.color=group.color);
+      renderAtlasRouteColors();
+      await saveSetting('atlasRouteGroups',groups);
+    };
+    groupRow.append(groupLabel,groupColor);
+    section.appendChild(groupRow);
+
+    (group.entries||[]).forEach((entry,ei)=>{
+      const row=document.createElement('div');
+      row.className='row';
+      row.style.paddingLeft='16px';
+      const label=document.createElement('div');
+      label.className='rl';
+      label.textContent=entry.name||entry.match||`Target ${ei+1}`;
+      const color=document.createElement('input');
+      color.type='color';
+      color.className='i-color';
+      color.value=/^#[0-9a-f]{6}$/i.test(entry.color||'')?entry.color:groupColor.value;
+      color.onchange=async()=>{
+        entry.color=color.value.toUpperCase();
+        await saveSetting('atlasRouteGroups',groups);
+      };
+      row.append(label,color);
+      section.appendChild(row);
+    });
+    host.appendChild(section);
+  });
+}
 function wireHotkeys(){
   $$('[data-hk-bind]').forEach(btn=>{
     btn.onclick=()=>{
@@ -1348,7 +1416,7 @@ async function loadSettings(){
     hpBars = s.hpBars || null;
     terrain = s.terrain || null;
     styles = s.styles || null;
-    renderHpBars(); renderTerrain(); renderIcons(); renderMechanics();
+    renderHpBars(); renderTerrain(); renderIcons(); renderMechanics(); renderAtlasRouteColors();
   }catch(e){}
 }
 async function saveSetting(key,val){
@@ -1382,7 +1450,7 @@ function wireSettings(){
     if(el.type==='checkbox') el.onchange=()=>saveSetting(k,el.checked);
     else if(el.classList.contains('keyin')) el.onchange=()=>{ const vk=charToVk(el.value); if(vk) saveSetting(k,vk); el.value=vkToChar(vk); };
     else if(el.tagName==='SELECT') el.onchange=()=>saveSetting(k,el.value);
-    else if(el.type==='text') el.onchange=()=>saveSetting(k,el.value);
+    else if(el.type==='text'||el.type==='color') el.onchange=()=>saveSetting(k,el.value);
     else el.onchange=()=>{ const v=parseFloat(el.value); if(!isNaN(v)) saveSetting(k,v); };
   });
   $$('[data-set-inv]').forEach(el=>{

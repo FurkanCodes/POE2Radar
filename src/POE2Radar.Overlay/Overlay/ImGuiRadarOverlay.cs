@@ -5374,6 +5374,43 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             "Atlas2 MapGroups — toggle Draw path per category.", defaultOpen: true);
         if (pathOpen)
         {
+            var manualColor = ParseHexColor(s.AtlasManualRouteColor);
+            if (ImGui.ColorEdit3("Manual route color", ref manualColor, ImGuiColorEditFlags.NoInputs))
+                s.AtlasManualRouteColor = FormatHexColor3(manualColor);
+            ImGuiTheme.Tooltip(SettingHints.Atlas.ManualRouteColor);
+
+            var searchColor = ParseHexColor(s.AtlasSearchRouteColor);
+            if (ImGui.ColorEdit3("Search route color", ref searchColor, ImGuiColorEditFlags.NoInputs))
+                s.AtlasSearchRouteColor = FormatHexColor3(searchColor);
+            ImGuiTheme.Tooltip(SettingHints.Atlas.SearchRouteColor);
+
+            float opacity = s.AtlasRouteOpacity;
+            ImGui.SetNextItemWidth(180f);
+            if (ImGui.SliderFloat("Route opacity", ref opacity, 0.1f, 1f, "%.2f"))
+                s.AtlasRouteOpacity = Math.Clamp(opacity, 0.1f, 1f);
+            ImGuiTheme.Tooltip(SettingHints.Atlas.RouteOpacity);
+
+            float globalThickness = s.AtlasRouteLineThickness;
+            ImGui.SetNextItemWidth(180f);
+            if (ImGui.SliderFloat("Manual/search thickness", ref globalThickness, 1f, 8f, "%.1f"))
+                s.AtlasRouteLineThickness = Math.Clamp(globalThickness, 1f, 8f);
+            ImGuiTheme.Tooltip(SettingHints.Atlas.RouteThickness);
+
+            bool chevrons = s.AtlasShowRouteChevrons;
+            if (ImGui.Checkbox("Route chevrons", ref chevrons))
+                s.AtlasShowRouteChevrons = chevrons;
+            ImGuiTheme.Tooltip(SettingHints.Atlas.RouteChevrons);
+
+            if (chevrons)
+            {
+                float spacing = s.AtlasRouteChevronSpacing;
+                ImGui.SetNextItemWidth(180f);
+                if (ImGui.SliderFloat("Chevron spacing", ref spacing, 8f, 80f, "%.0f"))
+                    s.AtlasRouteChevronSpacing = Math.Clamp(spacing, 8f, 80f);
+                ImGuiTheme.Tooltip(SettingHints.Atlas.ChevronSpacing);
+            }
+
+            ImGui.SeparatorText("Target categories");
             for (var gi = 0; gi < s.AtlasRouteGroups.Count; gi++)
             {
                 var g = s.AtlasRouteGroups[gi];
@@ -5385,6 +5422,16 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                 var open = ImGui.TreeNode($"{g.Name}##tree{gi}");
                 if (open)
                 {
+                    var groupColor = ParseHexColor(g.Color);
+                    if (ImGui.ColorEdit3("Category color", ref groupColor, ImGuiColorEditFlags.NoInputs))
+                    {
+                        var colorHex = FormatHexColor3(groupColor);
+                        g.Color = colorHex;
+                        foreach (var entry in g.Entries)
+                            entry.Color = colorHex;
+                    }
+                    ImGuiTheme.Tooltip(SettingHints.Atlas.RouteGroupColor);
+
                     float th = g.LineThickness;
                     ImGui.SetNextItemWidth(140f);
                     if (ImGui.SliderFloat("Thickness", ref th, 1f, 8f, "%.1f"))
@@ -5400,9 +5447,16 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                         var e = g.Entries[ei];
                         ImGui.PushID(ei);
                         bool ed = e.DrawPath;
-                        if (ImGui.Checkbox(e.Name.Length > 0 ? e.Name : e.Match, ref ed))
+                        if (ImGui.Checkbox("##draw", ref ed))
                             e.DrawPath = ed;
                         ImGuiTheme.Tooltip(SettingHints.Atlas.RouteEntryDraw);
+                        ImGui.SameLine();
+                        var entryColor = ParseHexColor(e.Color);
+                        if (ImGui.ColorEdit3("##color", ref entryColor, ImGuiColorEditFlags.NoInputs))
+                            e.Color = FormatHexColor3(entryColor);
+                        ImGuiTheme.Tooltip(SettingHints.Atlas.RouteEntryColor);
+                        ImGui.SameLine();
+                        ImGui.TextUnformatted(e.Name.Length > 0 ? e.Name : e.Match);
                         ImGui.PopID();
                     }
                     ImGui.TreePop();

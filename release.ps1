@@ -65,9 +65,30 @@ $releaseRoot = Join-Path $root "release"
 $bundleName = "POE2Radar-v$Version-win-x64"
 $outDir = Join-Path $releaseRoot $bundleName
 $zipPath = Join-Path $releaseRoot "$bundleName.zip"
+$runtimeBackup = Join-Path $releaseRoot ".$bundleName-runtime-backup"
 
 Write-Host "POE2Radar release build v$Version"
 Write-Host "  output: $outDir"
+
+if (Test-Path (Join-Path $runtimeBackup "config")) {
+    New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+    Copy-Item (Join-Path $runtimeBackup "config") (Join-Path $outDir "config") -Recurse -Force
+}
+if (Test-Path (Join-Path $runtimeBackup "imgui.ini")) {
+    New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+    Copy-Item (Join-Path $runtimeBackup "imgui.ini") (Join-Path $outDir "imgui.ini") -Force
+}
+if (Test-Path $runtimeBackup) {
+    Remove-Item $runtimeBackup -Recurse -Force
+}
+if (Test-Path (Join-Path $outDir "config")) {
+    New-Item -ItemType Directory -Path $runtimeBackup -Force | Out-Null
+    Copy-Item (Join-Path $outDir "config") (Join-Path $runtimeBackup "config") -Recurse -Force
+}
+if (Test-Path (Join-Path $outDir "imgui.ini")) {
+    New-Item -ItemType Directory -Path $runtimeBackup -Force | Out-Null
+    Copy-Item (Join-Path $outDir "imgui.ini") (Join-Path $runtimeBackup "imgui.ini") -Force
+}
 
 if (Test-Path $outDir) {
     Remove-Item $outDir -Recurse -Force
@@ -167,6 +188,16 @@ if (-not $SkipZip) {
     if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
     Compress-Archive -Path (Join-Path $outDir "*") -DestinationPath $zipPath -Force
     Write-Host "Zip: $zipPath"
+}
+
+if (Test-Path (Join-Path $runtimeBackup "config")) {
+    Copy-Item (Join-Path $runtimeBackup "config") (Join-Path $outDir "config") -Recurse -Force
+}
+if (Test-Path (Join-Path $runtimeBackup "imgui.ini")) {
+    Copy-Item (Join-Path $runtimeBackup "imgui.ini") (Join-Path $outDir "imgui.ini") -Force
+}
+if (Test-Path $runtimeBackup) {
+    Remove-Item $runtimeBackup -Recurse -Force
 }
 
 Write-Host "Release ready: $outDir"

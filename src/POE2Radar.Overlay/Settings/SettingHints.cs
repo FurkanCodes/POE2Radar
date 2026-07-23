@@ -165,6 +165,10 @@ internal static class SettingHints
         public const string LabelScale = "Scale of atlas node name labels.";
         public const string RouteThickness = "Thickness of the atlas route line.";
         public const string ChevronSpacing = "Distance between chevrons along the route.";
+        public const string ManualRouteColor = "Color of the manual destination route selected on the atlas.";
+        public const string SearchRouteColor = "Color of routes drawn to maps matching the atlas search query.";
+        public const string RouteOpacity = "Opacity shared by atlas route lines.";
+        public const string RouteGroupColor = "Apply this color to every route target in the category.";
         public const string SearchQuery = "Type a map name (loose words ok — e.g. Moor skies). Matches highlight and get a path; others dim. Comma = OR.";
         public const string HideCompleted = "Hide maps you have already completed.";
         public const string HideNotAccessible = "Hide maps you cannot reach yet (optional; off by default).";

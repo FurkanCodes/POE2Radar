@@ -587,6 +587,8 @@ public sealed record RenderContext(
     bool AtlasShowRouteChevrons = false,
     float AtlasRouteLineThickness = 6f,
     float AtlasRouteChevronSpacing = 28f,
+    string AtlasManualRouteColor = "#3BDBFF",
+    float AtlasRouteOpacity = 0.95f,
     bool AtlasShowBiomeBorders = true,
     bool AtlasShowContentBadges = true,
     bool AtlasShowContentCount = true,

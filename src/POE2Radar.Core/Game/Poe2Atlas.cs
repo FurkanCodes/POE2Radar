@@ -534,12 +534,25 @@ public sealed class Poe2Atlas
         var projectionElements = new Dictionary<nint, UiElementProjection.Element>(256);
         var projectionParents = new Dictionary<nint, UiElementProjection.Point>(64);
         var matched = 0;
+        var knownNodesSeen = 0;
+        var sawUnknownValidNode = false;
         for (long i = 0; i < count; i++)
         {
             var el = Ptr(first + (nint)(i * 8));
             if (el == 0 || Ptr(el) != _nodeVtable) continue;
             matched++;
-            if (!_elementIndex.TryGetValue(el, out var idx) || idx >= _nodeSnapshot.Count) continue;
+            if (!_elementIndex.TryGetValue(el, out var idx))
+            {
+                if (TryReadAtlasNodeIdentity(el, out _, out _, out _, out _, out _))
+                    sawUnknownValidNode = true;
+                continue;
+            }
+            if (idx >= _nodeSnapshot.Count)
+            {
+                sawUnknownValidNode = true;
+                continue;
+            }
+            knownNodesSeen++;
             _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos, out var x);
             _reader.TryReadStruct<float>(el + Poe2.UiElement.RelativePos + 4, out var y);
             _reader.TryReadStruct<float>(el + 0x130, out var scale);
@@ -554,8 +567,13 @@ public sealed class Poe2Atlas
                 ScreenX = screen.Item1, ScreenY = screen.Item2, ScreenW = screen.Item3, ScreenH = screen.Item4 };
         }
         if (matched < 8) { Invalidate(); return false; }
+        if (NeedsFullNodeRefresh(_nodeSnapshot.Count, knownNodesSeen, sawUnknownValidNode))
+            return false;
         return true;
     }
+
+    internal static bool NeedsFullNodeRefresh(int snapshotCount, int knownNodesSeen, bool sawUnknownValidNode)
+        => sawUnknownValidNode || knownNodesSeen != snapshotCount;
 
     private AtlasNodeData ReadNodeData(nint node)
     {

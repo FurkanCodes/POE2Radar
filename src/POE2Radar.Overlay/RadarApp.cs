@@ -955,6 +955,8 @@ public sealed partial class RadarApp : IDisposable
             AtlasShowRouteChevrons: _settings.AtlasShowRouteChevrons,
             AtlasRouteLineThickness: _settings.AtlasRouteLineThickness,
             AtlasRouteChevronSpacing: _settings.AtlasRouteChevronSpacing,
+            AtlasManualRouteColor: _settings.AtlasManualRouteColor,
+            AtlasRouteOpacity: _settings.AtlasRouteOpacity,
             AtlasShowBiomeBorders: _settings.AtlasShowBiomeBorders,
             AtlasShowContentBadges: _settings.AtlasShowContentBadges,
             AtlasShowContentCount: _settings.AtlasShowContentCount,
@@ -2964,7 +2966,12 @@ public sealed partial class RadarApp : IDisposable
                 var label = !string.IsNullOrEmpty(n.MapName) ? n.MapName
                     : !string.IsNullOrEmpty(n.MapCode) ? AtlasCatalog.Shared.MapName(n.MapCode)
                     : "Search match";
-                targets.Add(new AtlasRouteTarget(n, label, "#FFFFFF", 0, _settings.AtlasRouteLineThickness));
+                targets.Add(new AtlasRouteTarget(
+                    n,
+                    label,
+                    _settings.AtlasSearchRouteColor,
+                    0,
+                    _settings.AtlasRouteLineThickness));
                 if (targets.Count >= 80) break;
             }
         }

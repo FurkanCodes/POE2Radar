@@ -669,6 +669,9 @@ public sealed class ApiServer : IDisposable
         atlasShowRouteChevrons = _settings.AtlasShowRouteChevrons,
         atlasRouteLineThickness = _settings.AtlasRouteLineThickness,
         atlasRouteChevronSpacing = _settings.AtlasRouteChevronSpacing,
+        atlasManualRouteColor = _settings.AtlasManualRouteColor,
+        atlasSearchRouteColor = _settings.AtlasSearchRouteColor,
+        atlasRouteOpacity = _settings.AtlasRouteOpacity,
         atlasSearchRange = _settings.AtlasSearchRange,
         atlasLabelOffsetX = _settings.AtlasLabelOffsetX,
         atlasLabelOffsetY = _settings.AtlasLabelOffsetY,
@@ -830,6 +833,19 @@ public sealed class ApiServer : IDisposable
                     _settings.AtlasRouteLineThickness = Math.Clamp(art, 1f, 8f); applied.Add(p.Name); break;
                 case "atlasRouteChevronSpacing" when TryFloat(p.Value, out var arcs):
                     _settings.AtlasRouteChevronSpacing = Math.Clamp(arcs, 8f, 80f); applied.Add(p.Name); break;
+                case "atlasManualRouteColor" when p.Value.ValueKind == JsonValueKind.String:
+                    _settings.AtlasManualRouteColor = ValidHexOr(p.Value.GetString(), "#3BDBFF"); applied.Add(p.Name); break;
+                case "atlasSearchRouteColor" when p.Value.ValueKind == JsonValueKind.String:
+                    _settings.AtlasSearchRouteColor = ValidHexOr(p.Value.GetString(), "#FFFFFF"); applied.Add(p.Name); break;
+                case "atlasRouteOpacity" when TryFloat(p.Value, out var aro):
+                    _settings.AtlasRouteOpacity = Math.Clamp(aro, 0.1f, 1f); applied.Add(p.Name); break;
+                case "atlasRouteGroups" when p.Value.ValueKind == JsonValueKind.Array:
+                    if (TryParseAtlasRouteGroups(p.Value, out var routeGroups))
+                    {
+                        _settings.AtlasRouteGroups = routeGroups;
+                        applied.Add(p.Name);
+                    }
+                    break;
                 case "atlasSearchRange" when TryFloat(p.Value, out var asr):
                     _settings.AtlasSearchRange = Math.Clamp(asr, 1f, 10f); applied.Add(p.Name); break;
                 case "atlasLabelOffsetX" when TryFloat(p.Value, out var alox):
@@ -1007,6 +1023,53 @@ public sealed class ApiServer : IDisposable
     /// <summary>Return <paramref name="c"/> upper-cased if it's a valid #RRGGBB, else <paramref name="fallback"/>.</summary>
     private static string ValidHexOr(string? c, string fallback)
         => c != null && HexColor.IsMatch(c) ? c.ToUpperInvariant() : fallback;
+
+    internal static bool TryParseAtlasRouteGroups(
+        JsonElement element,
+        out List<AtlasRouteGroupSettings> groups)
+    {
+        groups = new List<AtlasRouteGroupSettings>();
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<List<AtlasRouteGroupSettings>>(
+                element.GetRawText(),
+                Json);
+            if (parsed is null) return false;
+
+            foreach (var group in parsed.Take(64))
+            {
+                group.Name = Limit(group.Name, 80);
+                group.BuiltInKey = Limit(group.BuiltInKey, 80);
+                group.ContentRule = Limit(group.ContentRule, 128);
+                group.Color = ValidHexOr(group.Color, "#58A6FF");
+                group.LineThickness = Math.Clamp(group.LineThickness, 1f, 8f);
+                group.MaxHops = Math.Clamp(group.MaxHops, 0, 500);
+                group.Entries ??= new List<AtlasRouteEntrySettings>();
+                group.Entries = group.Entries.Take(256).ToList();
+                foreach (var entry in group.Entries)
+                {
+                    entry.Name = Limit(entry.Name, 128);
+                    entry.Match = Limit(entry.Match, 256);
+                    entry.Color = ValidHexOr(entry.Color, group.Color);
+                    entry.MaxHops = Math.Clamp(entry.MaxHops, 0, 500);
+                }
+                groups.Add(group);
+            }
+
+            return true;
+        }
+        catch (JsonException)
+        {
+            groups = new List<AtlasRouteGroupSettings>();
+            return false;
+        }
+
+        static string Limit(string? value, int max)
+        {
+            var trimmed = (value ?? "").Trim();
+            return trimmed.Length <= max ? trimmed : trimmed[..max];
+        }
+    }
 
     /// <summary>Deserialize + clamp a full <see cref="HpBarSettings"/> from posted JSON.</summary>
     private static bool TryParseHpBars(JsonElement el, out HpBarSettings hp)
