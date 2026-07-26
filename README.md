@@ -89,10 +89,14 @@ POE2Radar.Overlay.exe
 Overlay/icons.png
 Overlay/Textures/full_bar.png, hollow_bar.png
 icons/*.svg
+config/          (shipped defaults: settings, display rules, watched/hidden entities)
 README.md, LICENSE, VERSION.txt
 ```
 
-`config/`, `cache/`, and `logs/` are created at runtime on first use. `publish.ps1` is a thin wrapper around `release.ps1` for backward compatibility.
+`cache/` and `logs/` are created at runtime on first use. Shipped `config/` comes from
+`src/POE2Radar.Overlay/Config/Defaults/` — edit those files (or re-copy from a tuned local build)
+when you want new installs to start with different defaults. `publish.ps1` is a thin wrapper around
+`release.ps1` for backward compatibility.
 
 Reading another process generally requires running the overlay **as Administrator**.
 

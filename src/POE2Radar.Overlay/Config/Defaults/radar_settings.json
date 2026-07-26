@@ -1,0 +1,2194 @@
+{
+  "hideJunk": true,
+  "showPath": true,
+  "pathTogglesMigrated": true,
+  "showPathWorld": false,
+  "showPathMap": true,
+  "showPathMinimap": false,
+  "showGroundWaypoints": false,
+  "useCuratedLandmarks": true,
+  "drawAllLandmarkPaths": false,
+  "anyPathLayerEnabled": true,
+  "landmarkClusterGap": 2,
+  "entityDrawRadiusGrid": 0,
+  "autoPathNavigable": false,
+  "autoPathToggleHotkey": 113,
+  "navRuleModelMigrated": true,
+  "importantOnly": true,
+  "endgameNavMigrated": true,
+  "globalRulesExpandedMigrated": true,
+  "perTypeRulesMigrated": true,
+  "semanticNamesMigrated": true,
+  "iconDefaultsMigrated": true,
+  "endgameMechanicsMigrated": true,
+  "endgameMechanicsV2Migrated": true,
+  "endgameMechanicsV3Migrated": true,
+  "endgameMechanicsV7Migrated": true,
+  "endgameMechanicsV8Migrated": true,
+  "endgameMechanicsV9Migrated": true,
+  "atlasDisplayMigrated": true,
+  "atlasGhStyleMigrated": true,
+  "atlasCleanMvpMigrated": true,
+  "atlas2QolMigrated": true,
+  "performanceDefaultsMigrated": true,
+  "serverIconsMigrated": true,
+  "serverIconMechanicsMigrated": true,
+  "serverIconChestMigrated": true,
+  "serverIconPortalMigrated": true,
+  "renderingHotkeyMigrated": true,
+  "ritual": {
+    "priceSource": 1,
+    "league": "Runes of Aldur",
+    "refreshIntervalMin": 5,
+    "displayCurrency": 1,
+    "showOverlay": true,
+    "showPricesWindow": false,
+    "playValueAlert": true,
+    "alertMinDivine": 1,
+    "alertSound": 2,
+    "debugMode": false,
+    "diagnosePricing": false,
+    "forceBfsFallback": false,
+    "priceFontScale": 1.18,
+    "priceOffsetX": 5,
+    "priceOffsetY": -5,
+    "priceTextColor": "#FFEB8C",
+    "minDisplayExalted": 0
+  },
+  "amanamu": {
+    "enabled": true,
+    "onlyRareOrUnique": false,
+    "showWorldOverlay": true,
+    "showMapMarkers": true,
+    "drawLabels": true,
+    "drawOffscreenArrows": true,
+    "drawCircle": true,
+    "maxDistanceGrid": 1000,
+    "circleRadius": 36,
+    "labelYOffset": 70,
+    "arrowEdgeMargin": 60,
+    "insideCloudColor": "#B450FF",
+    "outsideCloudColor": "#50FF78"
+  },
+  "runecraft": {
+    "showOverlay": true,
+    "priceSource": 0,
+    "league": "Runes of Aldur",
+    "refreshIntervalMin": 5,
+    "colorMode": 0,
+    "overlayXOffset": 0,
+    "showMapLabels": true,
+    "mapLabelMinExalted": 0,
+    "hideMapValueWhenPanelOpen": true,
+    "showMonolithWindow": true,
+    "showMonolithDebugWindow": false,
+    "autoShowMonolithWithGamepad": false,
+    "monolithRewardsMinExalted": 0,
+    "monolithHighlightThreshold": 0,
+    "mapValueScaleMultiplier": 0.67,
+    "mapValueXOffset": 0,
+    "mapValueYOffset": 0,
+    "highlightBestRecipe": true,
+    "highlightLockedRecipe": true,
+    "diagnosePricing": false,
+    "showExpeditionPlanner": true,
+    "showExpeditionRouteOnMap": true,
+    "showExpeditionNextPlacementWorld": true,
+    "expeditionManualCharges": 5,
+    "expeditionMonolithMinExalted": 0,
+    "expeditionMinMarkersPerSpareCharge": 2,
+    "expeditionTinyMarkerWeight": 5,
+    "expeditionWhiteMarkerWeight": 15,
+    "expeditionMagicMarkerWeight": 35,
+    "expeditionGoldMarkerWeight": 65,
+    "expeditionLogbookMarkerWeight": 100,
+    "expeditionRewardWeights": {},
+    "expeditionPreferredRelicWeight": 40,
+    "expeditionDangerousRelicPenalty": 100,
+    "expeditionPreferredRelicMods": [
+      "ExpeditionRelicUpsideItemQuantityChest",
+      "ExpeditionRelicUpsideItemQuantityMonster",
+      "ExpeditionRelicUpsideIncreasedArtifactsChest",
+      "ExpeditionRelicUpsideIncreasedArtifactsMonster",
+      "ExpeditionRelicUpsideExpeditionLogbookQuantityMonster",
+      "ExpeditionRelicUpsidePackSize",
+      "ExpeditionRelicUpsideRareMonsterChance",
+      "ExpeditionRelicUpsideElitesDuplicated"
+    ],
+    "expeditionDangerousRelicMods": []
+  },
+  "sekhema": {
+    "enabled": true,
+    "currentProfile": "Default",
+    "profiles": {
+      "Default": {
+        "roomTypeWeights": {
+          "Gauntlet": -1000,
+          "Hourglass": -200,
+          "Chalice": 0,
+          "Ritual": 0,
+          "Escape": 100,
+          "Boss": 0
+        },
+        "afflictionWeights": {
+          "Orbala\u0027s Leathers": 0,
+          "Glass Shard": -4000,
+          "Ghastly Scythe": -4000,
+          "Veiled Sight": -4000,
+          "Myriad Aspersions": -4000,
+          "Deceptive Mirror": -4000,
+          "Purple Smoke": -4000,
+          "Golden Smoke": -400,
+          "Red Smoke": -4000,
+          "Black Smoke": -4000,
+          "Rapid Quicksand": -1000,
+          "Deadly Snare": -1000,
+          "Forgotten Traditions": -1000,
+          "Season of Famine": -1000,
+          "Orb of Negation": -1000,
+          "Winter Drought": -1000,
+          "Branded Balbalakh": -1000,
+          "Chiselled Stone": -1000,
+          "Weakened Flesh": -100,
+          "Untouchable": -1000,
+          "Costly Aid": -900,
+          "Blunt Sword": -1000,
+          "Spiked Shell": -1000,
+          "Suspected Sympathiser": -200,
+          "Haemorrhage": -100,
+          "Corrosive Concoction": 0,
+          "Iron Manacles": 0,
+          "Shattered Shield": 0,
+          "Unquenched Thirst": -200,
+          "Unassuming Brick": -1000,
+          "Tradition\u0027s Demand": -800,
+          "Fiendish Wings": -400,
+          "Hungry Fangs": -600,
+          "Worn Sandals": -400,
+          "Trade Tariff": -300,
+          "Death Toll": -400,
+          "Spiked Exit": -300,
+          "Exhausted Wells": 0,
+          "Gate Toll": -100,
+          "Leaking Waterskin": -100,
+          "Low Rivers": -100,
+          "Sharpened Arrowhead": 0,
+          "Rusted Mallet": 0,
+          "Chains of Binding": 0,
+          "Dishonoured Tattoo": 0,
+          "Tattered Blindfold": 0,
+          "Dark Pit": 0,
+          "Honed Claws": 0
+        },
+        "rewardWeights": {
+          "Gold Key": 0,
+          "Silver Key": 0,
+          "Bronze Key": 0,
+          "Golden Cache": 0,
+          "Silver Cache": 0,
+          "Bronze Cache": 0,
+          "Large Fountain": 100,
+          "Fountain": 50,
+          "Pledge to Kochai": 20,
+          "Honour Halani": 8,
+          "Honour Ahkeli": -1,
+          "Honour Orbala": 50,
+          "Honour Galai": 300,
+          "Honour Tabana": 0,
+          "Merchant": 20,
+          "Honour": 50,
+          "Boon": 200,
+          "Curse": 0,
+          "Random": 0
+        }
+      },
+      "No-Hit": {
+        "roomTypeWeights": {
+          "Gauntlet": -200,
+          "Hourglass": -1000,
+          "Chalice": 0,
+          "Ritual": 0,
+          "Escape": 100,
+          "Boss": 0
+        },
+        "afflictionWeights": {
+          "Orbala\u0027s Leathers": 0,
+          "Glass Shard": -50000,
+          "Ghastly Scythe": 0,
+          "Veiled Sight": -4000,
+          "Myriad Aspersions": -50000,
+          "Deceptive Mirror": -400000,
+          "Purple Smoke": -4000,
+          "Golden Smoke": -400,
+          "Red Smoke": -4000,
+          "Black Smoke": -4000,
+          "Rapid Quicksand": -1000,
+          "Deadly Snare": 0,
+          "Forgotten Traditions": -1000,
+          "Season of Famine": -1000,
+          "Orb of Negation": -1000,
+          "Winter Drought": -1000,
+          "Branded Balbalakh": 0,
+          "Chiselled Stone": 0,
+          "Weakened Flesh": 0,
+          "Untouchable": -1000,
+          "Costly Aid": 0,
+          "Blunt Sword": -1000,
+          "Spiked Shell": -1000,
+          "Suspected Sympathiser": 0,
+          "Haemorrhage": 0,
+          "Corrosive Concoction": 0,
+          "Iron Manacles": 0,
+          "Shattered Shield": 0,
+          "Unquenched Thirst": -200,
+          "Unassuming Brick": -1000,
+          "Tradition\u0027s Demand": -800,
+          "Fiendish Wings": -400,
+          "Hungry Fangs": 0,
+          "Worn Sandals": -400,
+          "Trade Tariff": -300,
+          "Death Toll": -500000,
+          "Spiked Exit": -600000,
+          "Exhausted Wells": 0,
+          "Gate Toll": -100,
+          "Leaking Waterskin": 0,
+          "Low Rivers": -100,
+          "Sharpened Arrowhead": 0,
+          "Rusted Mallet": 0,
+          "Chains of Binding": 0,
+          "Dishonoured Tattoo": 0,
+          "Tattered Blindfold": 0,
+          "Dark Pit": 0,
+          "Honed Claws": 0
+        },
+        "rewardWeights": {
+          "Gold Key": 0,
+          "Silver Key": 0,
+          "Bronze Key": 0,
+          "Golden Cache": 0,
+          "Silver Cache": 0,
+          "Bronze Cache": 0,
+          "Large Fountain": 100,
+          "Fountain": 50,
+          "Pledge to Kochai": 20,
+          "Honour Halani": 8,
+          "Honour Ahkeli": -1,
+          "Honour Orbala": 50,
+          "Honour Galai": 300,
+          "Honour Tabana": 0,
+          "Merchant": 20,
+          "Honour": 50,
+          "Boon": 200,
+          "Curse": 0,
+          "Random": 0
+        }
+      }
+    },
+    "drawBestPath": true,
+    "debug": false,
+    "bestPathColor": "#00FF00",
+    "debugTextColor": "#FFFFFF",
+    "debugBackgroundColor": "#000000",
+    "frameThickness": 4,
+    "suppressMerchantLowWater": true,
+    "merchantWaterThreshold": 250,
+    "suppressHonourRestoreHighPct": true,
+    "honourRestoreThresholdPct": 80,
+    "drawHazardRoute": true,
+    "hazardWalkableRoute": true,
+    "hazardRouteColor": "#FFD933",
+    "hazardMarkerColor": "#FF4D4D",
+    "hazardRouteThickness": 1.5,
+    "hazardMarkerRadius": 9,
+    "hazardIdGroupGap": 10,
+    "hazardRoomMargin": 30,
+    "hazardDebugCrystalIds": "",
+    "hazardDebugDrawWalkable": false,
+    "hazardDebugWalkableRadius": 150,
+    "drawChestPriority": true,
+    "chestMarkerColor": "#4DFF73",
+    "chestMarkerRadius": 6,
+    "chestPriorityOrder": [
+      "GrandSpectrum",
+      "RadiusJewels",
+      "LargeRelic",
+      "Jewels",
+      "Currency",
+      "MediumRelic",
+      "SmallRelic",
+      "Maps",
+      "Generic"
+    ],
+    "chestDisabledContent": [
+      "Currency",
+      "MediumRelic",
+      "SmallRelic",
+      "Maps",
+      "Generic"
+    ],
+    "showPortals": true,
+    "showLevers": true,
+    "portalColor": "#FF4D4D",
+    "leverColor": "#4DB3FF",
+    "roomObjectMarkerRadius": 8
+  },
+  "stashValue": {
+    "showOverlay": true,
+    "showInventoryOverlay": true,
+    "showDebugInfo": false,
+    "minValueEx": 0,
+    "hidePriceOnHover": true,
+    "priceSource": 0,
+    "league": "Runes of Aldur",
+    "refreshIntervalMin": 5,
+    "displayCurrency": 1,
+    "priceFontScale": 1,
+    "priceOffsetX": 5,
+    "priceOffsetY": -5,
+    "priceTextColor": "#FFEB8C"
+  },
+  "stashUtility": {
+    "enableWaystones": true,
+    "enableTablets": true,
+    "showWaystoneTiersOnHover": true,
+    "showTabletTiersOnHover": true,
+    "includeStash": true,
+    "includeInventory": true,
+    "hideNormalWaystones": true,
+    "minTier": 15,
+    "filterMaxRevives": false,
+    "maxRevives": 0,
+    "filterMinItemRarity": false,
+    "minItemRarity": 12,
+    "filterMinPackSize": false,
+    "minPackSize": 1,
+    "filterMinMonsterRarity": false,
+    "minMonsterRarity": 0,
+    "filterMinMonsterEffectiveness": false,
+    "minMonsterEffectiveness": 41,
+    "filterMinDropChance": true,
+    "minDropChance": 125,
+    "filterMinExplicitMods": false,
+    "minExplicitMods": 0,
+    "filterMaxExplicitMods": false,
+    "maxExplicitMods": 10,
+    "greatByItemRarity": true,
+    "greatItemRarity": 35,
+    "greatByPackSize": true,
+    "greatPackSize": 20,
+    "greatByDropChance": true,
+    "greatDropChance": 120,
+    "greatByExplicitMods": true,
+    "greatExplicitMods": 5,
+    "requireAllGoodWaystoneMods": false,
+    "requireAllGreatWaystoneMods": true,
+    "badOnlyWhenNumericalFiltersPass": false,
+    "redTakesPriority": true,
+    "goodWaystoneMods": [],
+    "greatWaystoneMods": [],
+    "badWaystoneMods": [],
+    "requireAllGoodTabletMods": false,
+    "requireAllGreatTabletMods": true,
+    "badTabletOnlyWhenOtherRulesPass": false,
+    "hideBadTablets": true,
+    "goodTabletMods": [
+      "TowerAbyssExtraTickets",
+      "TowerAbyssIncreasedRewards",
+      "TowerDroppedItemRarityIncrease",
+      "TowerMonsterRarityIncrease",
+      "TowerMapBossWaystoneChance"
+    ],
+    "badTabletMods": [],
+    "godTabletMods": [
+      "TowerRitualAdditionalReroll",
+      "TowerRitualChanceForNoCost",
+      "TowerRitualOmenChance",
+      "TowerRitualRerollCostIncrease",
+      "TowerRitualTributeIncrease",
+      "TowerAbyssEffectivenessPerChasm",
+      "TowerAbyssIncreasedRewards",
+      "TowerMapBossWaystoneChance",
+      "TowerMonsterRarityIncrease",
+      "TowerDroppedItemRarityIncrease"
+    ],
+    "tabletMinimumRolls": {
+      "TowerDroppedItemRarityIncrease": 8,
+      "TowerDroppedGoldIncrease": 28,
+      "TowerMapBossQuantity": 13,
+      "TowerRitualAdditionalReroll": 1,
+      "TowerPackSizeIncrease": 5,
+      "TowerMapBossWaystoneChance": 18
+    },
+    "borderThickness": 3,
+    "borderMargin": 4,
+    "goodBorderStyle": 0,
+    "badBorderStyle": 0,
+    "showRarityCorner": true,
+    "rarityCornerSize": 10,
+    "showGreatArrow": true,
+    "greatArrowSize": 20,
+    "greatArrowCorner": 0,
+    "waystoneGoodColor": "#00D9FF",
+    "waystoneBadColor": "#FF4000",
+    "waystoneGreatColor": "#0AD407",
+    "tabletGoodColor": "#D933FF",
+    "tabletBadColor": "#BF0026",
+    "tabletGreatColor": "#FFC800"
+  },
+  "waystoneAlchemy": {
+    "enabled": true,
+    "mode": 1,
+    "targetType": 1,
+    "recipe": 0,
+    "runHotkey": 121,
+    "emergencyStopHotkey": 119,
+    "minimumTier": 1,
+    "useRegalOnMagic": false,
+    "applyExaltedToRare": true,
+    "desiredExplicitMods": 6,
+    "desiredTabletExplicitMods": 4,
+    "actionDelayMs": 245,
+    "autoModeAcknowledged": true,
+    "tabletAlchemyUnlocked": true
+  },
+  "pickupHelper": {
+    "enabled": true,
+    "humanSpeed": true,
+    "mode": 2,
+    "activationHotkey": 6,
+    "emergencyStopHotkey": 119,
+    "maxPickupDistance": 100,
+    "minPickupDelayMs": 0,
+    "maxPickupDelayMs": 246,
+    "clickCooldownMs": 269,
+    "confirmationTimeoutMs": 1320,
+    "missRetryDelayMs": 300,
+    "maxMissesBeforeCooldown": 3,
+    "missedItemCooldownMs": 2000,
+    "autoModeAcknowledged": true,
+    "showTargetHighlight": true,
+    "pauseWhileShowHiddenHeld": true,
+    "showHiddenItemsHotkey": 18
+  },
+  "lootTracker": {
+    "enabled": true,
+    "keepVisibleAfterRun": true,
+    "priceSource": 0,
+    "league": "Runes of Aldur",
+    "refreshIntervalMin": 5,
+    "historySize": 50,
+    "maxSessions": 30,
+    "barBottomOffset": 5,
+    "barOnRight": true,
+    "barOpacity": 0.55,
+    "showKills": true,
+    "compactHeight": 115,
+    "compactWidth": 730,
+    "uiScale": 1.2,
+    "showPickupToasts": true,
+    "notifyMinEx": 0,
+    "notifyDurationSec": 2.5,
+    "showPricesInDivineOnly": false,
+    "displayCurrency": 1,
+    "detailsHotkey": 34
+  },
+  "globalIconScale": 0.98,
+  "showMonsters": true,
+  "showTerrain": false,
+  "showPlayerBlip": true,
+  "lowImpactMode": true,
+  "fpsCap": 56,
+  "liveRefreshHz": 17,
+  "worldRefreshHz": 7,
+  "inactiveRefreshHz": 2,
+  "hpBarRefreshHz": 4,
+  "maxLiveHpBars": 41,
+  "metricsRefreshHz": 1,
+  "gpuMetricsRefreshSeconds": 5,
+  "smoothOverlayMotion": true,
+  "overlaySmoothingMs": 45,
+  "chipSmoothingMs": 70,
+  "pixelSnapLabels": true,
+  "overlayVSync": false,
+  "navMenuCorner": "BottomRight",
+  "navTaskbarX": 90,
+  "navTaskbarY": 58,
+  "showPerfStats": false,
+  "showFpsOverlay": true,
+  "autoNavPatterns": [],
+  "hpBarNormal": false,
+  "hpBarMagic": false,
+  "hpBarRare": false,
+  "hpBarUnique": false,
+  "largeMapScaleMultiplier": 1,
+  "scaleMul": 1,
+  "offX": 0,
+  "offY": 0,
+  "atlasHighlightTags": [],
+  "atlasArrowTags": [],
+  "atlasHighlightColors": {
+    "The Jade Isles": "#58A6FF"
+  },
+  "atlasRulesInitialized": true,
+  "atlasDrawAll": false,
+  "atlasShowOnScreenNodes": true,
+  "atlasShowNames": true,
+  "atlasRevealFog": true,
+  "atlasOffScreenArrows": true,
+  "atlasIconScale": 0.5,
+  "atlasLabelScale": 1,
+  "atlasShowRoute": true,
+  "atlasUseCurrentStart": true,
+  "atlasLanguage": "english",
+  "atlasSearchQuery": "",
+  "atlasHideCompletedMaps": true,
+  "atlasHideNotAccessibleMaps": false,
+  "atlasHideAvailableMaps": false,
+  "atlasShowBiomeBorders": true,
+  "atlasShowContentBadges": true,
+  "atlasShowContentCount": false,
+  "atlasShowContentTokens": false,
+  "atlasShowShipsInFog": true,
+  "atlasShipIconSize": 36,
+  "atlasShowUnchartedLeylines": true,
+  "atlasUnchartedLeylineColor": "#33D9E6",
+  "atlasUnchartedLeylineThickness": 10,
+  "atlasShowIslandRumours": true,
+  "atlasShowIslandRumourBadges": true,
+  "atlasIslandRumourPriorityFilter": "Fallen stars|Unknown ruins|All that glitters|Almost paradise|Reflective waters|Stardrinker|Origin of the fall|Crazed Chieftain",
+  "atlasIslandRumourPriorityColor": "#FFD166",
+  "atlasShowRitualPrediction": true,
+  "atlasShowRitualPlanner": true,
+  "atlasRitualRewardFilter": "",
+  "atlasRitualPlannerFontScale": 1,
+  "atlasRitualRewardWeights": {},
+  "atlasShowRouteChevrons": false,
+  "atlasRouteLineThickness": 6,
+  "atlasRouteChevronSpacing": 8,
+  "atlasManualRouteColor": "#3BDBFF",
+  "atlasSearchRouteColor": "#FFFFFF",
+  "atlasRouteOpacity": 0.95,
+  "atlasSearchRange": 1,
+  "atlasLabelOffsetX": 0,
+  "atlasLabelOffsetY": 0,
+  "atlasAnchorNudgeY": 28,
+  "atlasBaseWidth": 1920,
+  "atlasBaseHeight": 1080,
+  "atlasScaleMultiplier": 1,
+  "atlasBiomeBorderThickness": 2,
+  "atlasShowNodeSprites": true,
+  "atlasDrawLinesSearchQuery": true,
+  "atlasDrawLinesToUniqueMaps": true,
+  "atlasPathToLineageMaps": true,
+  "atlasPathToArbiterMaps": true,
+  "atlasShowContentIcons": true,
+  "atlasContentIconSize": 32,
+  "atlasUseUniversalFont": true,
+  "atlasDefaultBackgroundColor": "#000000",
+  "atlasDefaultFontColor": "#FFFFFF",
+  "atlasContentGroups": [],
+  "atlasMapGroups": [
+    {
+      "name": "Expedition unique",
+      "color": "#8b2f2f",
+      "fontColor": "#ffffff",
+      "enabled": true,
+      "maps": [
+        "Moor of Fallen Skies"
+      ]
+    },
+    {
+      "name": "Expedition bosses",
+      "color": "#a15d2a",
+      "fontColor": "#ffffff",
+      "enabled": true,
+      "maps": [
+        "Sprawling Jungle",
+        "Secluded Temple",
+        "Obscure Island",
+        "Mournful Cliffside"
+      ]
+    },
+    {
+      "name": "Unique maps low tier",
+      "color": "#5943a8",
+      "fontColor": "#ffffff",
+      "enabled": true,
+      "maps": [
+        "Fractured Lake",
+        "Ezomyte Megaliths",
+        "Moment of Zen",
+        "Silent Cave",
+        "Vaults of Kamasa",
+        "Viridian Wildwood"
+      ]
+    },
+    {
+      "name": "Unique maps top tier",
+      "color": "#d98a2b",
+      "fontColor": "#ffffff",
+      "enabled": true,
+      "maps": [
+        "Castaway",
+        "Untainted Paradise"
+      ]
+    },
+    {
+      "name": "Citadels",
+      "color": "#e0b341",
+      "fontColor": "#1b1400",
+      "enabled": true,
+      "maps": [
+        "Copper Citadel",
+        "Iron Citadel",
+        "Stone Citadel",
+        "Jade Citadel"
+      ]
+    },
+    {
+      "name": "Halls",
+      "color": "#d946ef",
+      "fontColor": "#ffffff",
+      "enabled": true,
+      "maps": [
+        "Matriarch Halls",
+        "Patriarch Halls"
+      ]
+    },
+    {
+      "name": "Anomaly maps",
+      "color": "#2fb6a8",
+      "fontColor": "#031615",
+      "enabled": true,
+      "maps": [
+        "Jade Isles",
+        "Sealed Vault",
+        "Sacred Reservoir",
+        "Derelict Mansion"
+      ]
+    }
+  ],
+  "atlasRouteGroups": [
+    {
+      "name": "Search",
+      "builtInKey": "search",
+      "color": "#FFFFFF",
+      "backgroundColor": "#000000D9",
+      "contentRule": "",
+      "maxHops": 100,
+      "drawPaths": false,
+      "locked": true,
+      "lineThickness": 6,
+      "entries": [
+        {
+          "name": "Current search query",
+          "match": "name:Current search query",
+          "color": "#FFFFFF",
+          "drawPath": true,
+          "maxHops": 100
+        }
+      ]
+    },
+    {
+      "name": "Lineage Maps",
+      "builtInKey": "lineage",
+      "color": "#FF0000",
+      "backgroundColor": "#00B521",
+      "contentRule": "",
+      "maxHops": 100,
+      "drawPaths": true,
+      "locked": true,
+      "lineThickness": 4,
+      "entries": [
+        {
+          "name": "Derelict Mansion",
+          "match": "name:Derelict Mansion",
+          "color": "#FF0000",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Sacred Reservoir",
+          "match": "name:Sacred Reservoir",
+          "color": "#FF0000",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Sealed Vault",
+          "match": "name:Sealed Vault",
+          "color": "#FF0000",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "The Jade Isles",
+          "match": "name:The Jade Isles",
+          "color": "#FF0000",
+          "drawPath": true,
+          "maxHops": 100
+        }
+      ]
+    },
+    {
+      "name": "Corrupted Nexus",
+      "builtInKey": "corrupted_nexus",
+      "color": "#730000",
+      "backgroundColor": "#000000D9",
+      "contentRule": "corrupted_nexus",
+      "maxHops": 100,
+      "drawPaths": false,
+      "locked": true,
+      "lineThickness": 6,
+      "entries": [
+        {
+          "name": "Corrupted Nexus content",
+          "match": "content:corrupted_nexus",
+          "color": "#730000",
+          "drawPath": true,
+          "maxHops": 100
+        }
+      ]
+    },
+    {
+      "name": "Grand Mirror",
+      "builtInKey": "grand_mirror",
+      "color": "#00AAFF",
+      "backgroundColor": "#000000D9",
+      "contentRule": "grand_mirror",
+      "maxHops": 100,
+      "drawPaths": false,
+      "locked": true,
+      "lineThickness": 6,
+      "entries": [
+        {
+          "name": "Grand Mirror content",
+          "match": "content:grand_mirror",
+          "color": "#00AAFF",
+          "drawPath": true,
+          "maxHops": 100
+        }
+      ]
+    },
+    {
+      "name": "Atlas Progression",
+      "builtInKey": "atlas_progression",
+      "color": "#8C4512",
+      "backgroundColor": "#000000D9",
+      "contentRule": "",
+      "maxHops": 100,
+      "drawPaths": false,
+      "locked": true,
+      "lineThickness": 6,
+      "entries": [
+        {
+          "name": "Precursor Tower",
+          "match": "name:Precursor Tower",
+          "color": "#8C4512",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Ancient Gateway",
+          "match": "name:Ancient Gateway",
+          "color": "#8C4512",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "The Burning Monolith",
+          "match": "name:The Burning Monolith",
+          "color": "#8C4512",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Western Gateway",
+          "match": "name:Western Gateway",
+          "color": "#8C4512",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Eastern Gateway",
+          "match": "name:Eastern Gateway",
+          "color": "#8C4512",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Western Enigma Chamber",
+          "match": "name:Western Enigma Chamber",
+          "color": "#8C4512",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Eastern Enigma Chamber",
+          "match": "name:Eastern Enigma Chamber",
+          "color": "#8C4512",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "The Origin Tower",
+          "match": "name:The Origin Tower",
+          "color": "#8C4512",
+          "drawPath": true,
+          "maxHops": 100
+        }
+      ]
+    },
+    {
+      "name": "Quests",
+      "builtInKey": "quests",
+      "color": "#00FFFF",
+      "backgroundColor": "#000000D9",
+      "contentRule": "",
+      "maxHops": 100,
+      "drawPaths": false,
+      "locked": true,
+      "lineThickness": 6,
+      "entries": [
+        {
+          "name": "The Withered Willow",
+          "match": "name:The Withered Willow",
+          "color": "#00FFFF",
+          "drawPath": true,
+          "maxHops": 100
+        }
+      ]
+    },
+    {
+      "name": "Ritual",
+      "builtInKey": "ritual",
+      "color": "#4000F4",
+      "backgroundColor": "#FFFFFFD9",
+      "contentRule": "",
+      "maxHops": 100,
+      "drawPaths": false,
+      "locked": true,
+      "lineThickness": 6,
+      "entries": [
+        {
+          "name": "Caer Tarth",
+          "match": "name:Caer Tarth",
+          "color": "#4000F4",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Crux of Nothingness",
+          "match": "name:Crux of Nothingness",
+          "color": "#4000F4",
+          "drawPath": true,
+          "maxHops": 100
+        }
+      ]
+    },
+    {
+      "name": "Breach",
+      "builtInKey": "breach",
+      "color": "#FF33BD",
+      "backgroundColor": "#000000D9",
+      "contentRule": "",
+      "maxHops": 100,
+      "drawPaths": false,
+      "locked": true,
+      "lineThickness": 6,
+      "entries": [
+        {
+          "name": "Hive Colony",
+          "match": "name:Hive Colony",
+          "color": "#FF33BD",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Hive Fortress",
+          "match": "name:Hive Fortress",
+          "color": "#FF33BD",
+          "drawPath": true,
+          "maxHops": 100
+        }
+      ]
+    },
+    {
+      "name": "Expedition",
+      "builtInKey": "expedition",
+      "color": "#5BC1ED",
+      "backgroundColor": "#000000D9",
+      "contentRule": "",
+      "maxHops": 100,
+      "drawPaths": false,
+      "locked": true,
+      "lineThickness": 6,
+      "entries": [
+        {
+          "name": "Barren Atoll",
+          "match": "name:Barren Atoll",
+          "color": "#5BC1ED",
+          "drawPath": false,
+          "maxHops": 100
+        },
+        {
+          "name": "Bleached Shoals",
+          "match": "name:Bleached Shoals",
+          "color": "#5BC1ED",
+          "drawPath": false,
+          "maxHops": 100
+        },
+        {
+          "name": "Craggy Peninsula",
+          "match": "name:Craggy Peninsula",
+          "color": "#5BC1ED",
+          "drawPath": false,
+          "maxHops": 100
+        },
+        {
+          "name": "Exhumed Ruins",
+          "match": "name:Exhumed Ruins",
+          "color": "#5BC1ED",
+          "drawPath": false,
+          "maxHops": 100
+        },
+        {
+          "name": "Frigid Bluffs",
+          "match": "name:Frigid Bluffs",
+          "color": "#5BC1ED",
+          "drawPath": false,
+          "maxHops": 100
+        },
+        {
+          "name": "Grazed Prairie",
+          "match": "name:Grazed Prairie",
+          "color": "#5BC1ED",
+          "drawPath": false,
+          "maxHops": 100
+        },
+        {
+          "name": "Lush Isle",
+          "match": "name:Lush Isle",
+          "color": "#5BC1ED",
+          "drawPath": false,
+          "maxHops": 100
+        },
+        {
+          "name": "Moor of Fallen Skies",
+          "match": "name:Moor of Fallen Skies",
+          "color": "#5BC1ED",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Mournful Cliffside",
+          "match": "name:Mournful Cliffside",
+          "color": "#5BC1ED",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Obscure Island",
+          "match": "name:Obscure Island",
+          "color": "#5BC1ED",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Scorched Cay",
+          "match": "name:Scorched Cay",
+          "color": "#5BC1ED",
+          "drawPath": false,
+          "maxHops": 100
+        },
+        {
+          "name": "Secluded Temple",
+          "match": "name:Secluded Temple",
+          "color": "#5BC1ED",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Sloughed Gully",
+          "match": "name:Sloughed Gully",
+          "color": "#5BC1ED",
+          "drawPath": false,
+          "maxHops": 100
+        },
+        {
+          "name": "Sprawling Jungle",
+          "match": "name:Sprawling Jungle",
+          "color": "#5BC1ED",
+          "drawPath": false,
+          "maxHops": 100
+        },
+        {
+          "name": "Stagnant Basin",
+          "match": "name:Stagnant Basin",
+          "color": "#5BC1ED",
+          "drawPath": false,
+          "maxHops": 100
+        },
+        {
+          "name": "The Chained Beast",
+          "match": "name:The Chained Beast",
+          "color": "#5BC1ED",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "The Fallen Star",
+          "match": "name:The Fallen Star",
+          "color": "#5BC1ED",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Tomb of the Fallen Knight",
+          "match": "name:Tomb of the Fallen Knight",
+          "color": "#5BC1ED",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Ruins of Kingsmarch",
+          "match": "name:Ruins of Kingsmarch",
+          "color": "#5BC1ED",
+          "drawPath": true,
+          "maxHops": 100
+        }
+      ]
+    },
+    {
+      "name": "Abyss",
+      "builtInKey": "abyss",
+      "color": "#26FF00",
+      "backgroundColor": "#000000D9",
+      "contentRule": "",
+      "maxHops": 100,
+      "drawPaths": false,
+      "locked": true,
+      "lineThickness": 6,
+      "entries": [
+        {
+          "name": "The Well of Souls",
+          "match": "name:The Well of Souls",
+          "color": "#26FF00",
+          "drawPath": true,
+          "maxHops": 100
+        }
+      ]
+    },
+    {
+      "name": "Temple",
+      "builtInKey": "temple",
+      "color": "#DEA700",
+      "backgroundColor": "#000000D9",
+      "contentRule": "",
+      "maxHops": 100,
+      "drawPaths": false,
+      "locked": true,
+      "lineThickness": 6,
+      "entries": [
+        {
+          "name": "Vaal Ruins",
+          "match": "name:Vaal Ruins",
+          "color": "#DEA700",
+          "drawPath": true,
+          "maxHops": 100
+        }
+      ]
+    },
+    {
+      "name": "Citadels",
+      "builtInKey": "arbiter",
+      "color": "#FF0000",
+      "backgroundColor": "#FFFFFFD9",
+      "contentRule": "",
+      "maxHops": 100,
+      "drawPaths": false,
+      "locked": true,
+      "lineThickness": 6,
+      "entries": [
+        {
+          "name": "The Copper Citadel",
+          "match": "name:The Copper Citadel",
+          "color": "#FF0000",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "The Iron Citadel",
+          "match": "name:The Iron Citadel",
+          "color": "#FF0000",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "The Stone Citadel",
+          "match": "name:The Stone Citadel",
+          "color": "#FF0000",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "The Matriarch Halls",
+          "match": "name:The Matriarch Halls",
+          "color": "#FF0000",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "The Patriarch Halls",
+          "match": "name:The Patriarch Halls",
+          "color": "#FF0000",
+          "drawPath": true,
+          "maxHops": 100
+        }
+      ]
+    },
+    {
+      "name": "Towers",
+      "builtInKey": "towers",
+      "color": "#000000D9",
+      "backgroundColor": "#DB00E0",
+      "contentRule": "",
+      "maxHops": 100,
+      "drawPaths": false,
+      "locked": true,
+      "lineThickness": 6,
+      "entries": [
+        {
+          "name": "Bluff",
+          "match": "name:Bluff",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Lost Towers",
+          "match": "name:Lost Towers",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Mesa",
+          "match": "name:Mesa",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Sinking Spire",
+          "match": "name:Sinking Spire",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Alpine Ridge",
+          "match": "name:Alpine Ridge",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        }
+      ]
+    },
+    {
+      "name": "Good",
+      "builtInKey": "good",
+      "color": "#FFFF00",
+      "backgroundColor": "#000000D9",
+      "contentRule": "",
+      "maxHops": 100,
+      "drawPaths": false,
+      "locked": true,
+      "lineThickness": 6,
+      "entries": [
+        {
+          "name": "Burial Bog",
+          "match": "name:Burial Bog",
+          "color": "#FFFF00",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Creek",
+          "match": "name:Creek",
+          "color": "#FFFF00",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Rustbowl",
+          "match": "name:Rustbowl",
+          "color": "#FFFF00",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Sandspit",
+          "match": "name:Sandspit",
+          "color": "#FFFF00",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Savannah",
+          "match": "name:Savannah",
+          "color": "#FFFF00",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Steaming Springs",
+          "match": "name:Steaming Springs",
+          "color": "#FFFF00",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Steppe",
+          "match": "name:Steppe",
+          "color": "#FFFF00",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Wetlands",
+          "match": "name:Wetlands",
+          "color": "#FFFF00",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Willow",
+          "match": "name:Willow",
+          "color": "#FFFF00",
+          "drawPath": true,
+          "maxHops": 100
+        }
+      ]
+    },
+    {
+      "name": "Unique Maps",
+      "builtInKey": "unique",
+      "color": "#000000D9",
+      "backgroundColor": "#FF8F00",
+      "contentRule": "",
+      "maxHops": 100,
+      "drawPaths": true,
+      "locked": true,
+      "lineThickness": 6,
+      "entries": [
+        {
+          "name": "Ancient Gateway",
+          "match": "name:Ancient Gateway",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Castaway",
+          "match": "name:Castaway",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Eastern Gateway",
+          "match": "name:Eastern Gateway",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Freight",
+          "match": "name:Freight",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Jado\u0027s Campsite",
+          "match": "name:Jado\u0027s Campsite",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Merchant\u0027s Campsite",
+          "match": "name:Merchant\u0027s Campsite",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Moment of Zen",
+          "match": "name:Moment of Zen",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Moor of Fallen Skies",
+          "match": "name:Moor of Fallen Skies",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Precursor Tower",
+          "match": "name:Precursor Tower",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Site of the Chosen",
+          "match": "name:Site of the Chosen",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "The Ezomyte Megaliths",
+          "match": "name:The Ezomyte Megaliths",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "The Fractured Lake",
+          "match": "name:The Fractured Lake",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "The Silent Cave",
+          "match": "name:The Silent Cave",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "The Viridian Wildwood",
+          "match": "name:The Viridian Wildwood",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "The Voyage",
+          "match": "name:The Voyage",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Untainted Paradise",
+          "match": "name:Untainted Paradise",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Vaults of Kamasa",
+          "match": "name:Vaults of Kamasa",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        },
+        {
+          "name": "Western Gateway",
+          "match": "name:Western Gateway",
+          "color": "#000000D9",
+          "drawPath": true,
+          "maxHops": 100
+        }
+      ]
+    },
+    {
+      "name": "Special",
+      "builtInKey": "special",
+      "color": "#FFFFFF",
+      "backgroundColor": "#000000D9",
+      "contentRule": "",
+      "maxHops": 100,
+      "drawPaths": false,
+      "locked": true,
+      "lineThickness": 6,
+      "entries": [
+        {
+          "name": "Ice Cave",
+          "match": "name:Ice Cave",
+          "color": "#FFFFFF",
+          "drawPath": true,
+          "maxHops": 100
+        }
+      ]
+    }
+  ],
+  "lifeFlaskMode": "Health",
+  "lifeThresholdPct": 82,
+  "esThresholdPct": 53,
+  "manaThresholdPct": 95,
+  "lifeCooldownMs": 2500,
+  "manaCooldownMs": 2000,
+  "lifeKey": 49,
+  "manaKey": 50,
+  "hideEntityHotkey": 116,
+  "trackEntityHotkey": 115,
+  "toggleRenderingHotkey": 114,
+  "addNearestPathHotkey": 117,
+  "clearPathsHotkey": 118,
+  "autoFlaskToggleHotkey": 119,
+  "quitHotkey": 120,
+  "atlasPickHotkey": 121,
+  "toggleSettingsHotkey": 122,
+  "openDashboardHotkey": 123,
+  "lastSettingsTab": "Atlas",
+  "gamepadHotkeysEnabled": false,
+  "gamepadUserIndex": 1,
+  "uiFontPath": "C:\\Windows\\Fonts\\msyh.ttc",
+  "uiFontSize": 18,
+  "uiFontGlyphRange": 1,
+  "uiFontDefaultsMigrated": true,
+  "largeMapScaleWiredMigrated": true,
+  "chestIconOnlyMigrated": true,
+  "strongboxDefaultsRestoredMigrated": true,
+  "rareChestDisplayMigrated": true,
+  "runecraftMonolithWindowMigrated": true,
+  "runecraftAutoMonolithCpuMigrated": true,
+  "ritualPricesWindowMigrated": true,
+  "atlasRouteTargetsGhParityMigrated": true,
+  "atlasRoutePresentationGhParityMigrated": true,
+  "waystoneAlchemyPreferAlchemyMigrated": true,
+  "apiPort": 7777,
+  "gameExePath": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Path of Exile 2\\PathOfExileSteam.exe",
+  "styles": {
+    "monsterNormal": {
+      "enabled": true,
+      "shape": "Circle",
+      "color": "#FF3333",
+      "opacity": 0.95,
+      "size": 9,
+      "sprite": {
+        "sheet": "icons.png",
+        "col": 0,
+        "row": 14,
+        "cellSize": 64,
+        "scale": 1.25
+      }
+    },
+    "monsterMagic": {
+      "enabled": true,
+      "shape": "Diamond",
+      "color": "#73A6FF",
+      "opacity": 0.97,
+      "size": 9,
+      "sprite": {
+        "sheet": "icons.png",
+        "col": 4,
+        "row": 57,
+        "cellSize": 64,
+        "scale": 1.25
+      }
+    },
+    "monsterRare": {
+      "enabled": true,
+      "shape": "Triangle",
+      "color": "#FFD926",
+      "opacity": 1,
+      "size": 10,
+      "sprite": {
+        "sheet": "icons.png",
+        "col": 4,
+        "row": 57,
+        "cellSize": 64,
+        "scale": 1.25
+      }
+    },
+    "monsterUnique": {
+      "enabled": true,
+      "shape": "Star",
+      "color": "#FF7300",
+      "opacity": 1,
+      "size": 12,
+      "sprite": {
+        "sheet": "icons.png",
+        "col": 6,
+        "row": 57,
+        "cellSize": 64,
+        "scale": 1.25
+      }
+    },
+    "player": {
+      "enabled": true,
+      "shape": "Circle",
+      "color": "#4DF2FF",
+      "opacity": 1,
+      "size": 9,
+      "sprite": {
+        "sheet": "icons.png",
+        "col": 2,
+        "row": 0,
+        "cellSize": 64,
+        "scale": 1.25
+      }
+    },
+    "npc": {
+      "enabled": true,
+      "shape": "Plus",
+      "color": "#FFD933",
+      "opacity": 0.95,
+      "size": 9,
+      "sprite": {
+        "sheet": "icons.png",
+        "col": 3,
+        "row": 0,
+        "cellSize": 64,
+        "scale": 1.25
+      }
+    },
+    "chestRare": {
+      "enabled": true,
+      "shape": "Square",
+      "color": "#FFD926",
+      "opacity": 0.95,
+      "size": 10,
+      "sprite": {
+        "sheet": "icons.png",
+        "col": 4,
+        "row": 48,
+        "cellSize": 64,
+        "scale": 1.25
+      }
+    },
+    "chestUnique": {
+      "enabled": true,
+      "shape": "Square",
+      "color": "#FF7300",
+      "opacity": 0.95,
+      "size": 10,
+      "sprite": {
+        "sheet": "icons.png",
+        "col": 8,
+        "row": 38,
+        "cellSize": 64,
+        "scale": 1.25
+      }
+    },
+    "transition": {
+      "enabled": true,
+      "shape": "Diamond",
+      "color": "#66FF99",
+      "opacity": 0.95,
+      "size": 10,
+      "sprite": {
+        "sheet": "icons.png",
+        "col": 1,
+        "row": 37,
+        "cellSize": 64,
+        "scale": 1.25
+      }
+    },
+    "poi": {
+      "enabled": true,
+      "shape": "Circle",
+      "color": "#8CBFFF",
+      "opacity": 0.7,
+      "size": 10,
+      "sprite": {
+        "sheet": "icons.png",
+        "col": 12,
+        "row": 44,
+        "cellSize": 64,
+        "scale": 1.25
+      }
+    },
+    "landmark": {
+      "enabled": true,
+      "shape": "Diamond",
+      "color": "#F259F2",
+      "opacity": 1,
+      "size": 10,
+      "sprite": {
+        "sheet": "icons.png",
+        "col": 1,
+        "row": 37,
+        "cellSize": 64,
+        "scale": 1.25
+      }
+    },
+    "serverIcon": {
+      "enabled": true,
+      "shape": "Star",
+      "color": "#FFD700",
+      "opacity": 0.95,
+      "size": 10,
+      "sprite": {
+        "sheet": "icons.png",
+        "col": 6,
+        "row": 57,
+        "cellSize": 64,
+        "scale": 1.25
+      }
+    },
+    "mechanics": [
+      {
+        "enabled": true,
+        "name": "Expedition",
+        "match": [
+          "Expedition2/Expedition2Encounter"
+        ],
+        "categories": [
+          "Other"
+        ],
+        "shape": "Plus",
+        "color": "#26E6D9",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 5,
+          "row": 38,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Ritual",
+        "match": [
+          "LeagueRitual",
+          "RitualAltar",
+          "Leagues/Ritual",
+          "/Ritual/"
+        ],
+        "categories": [
+          "Object",
+          "Other"
+        ],
+        "shape": "Star",
+        "color": "#FF3355",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 10,
+          "row": 44,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Breach",
+        "match": [
+          "Leagues/Breach",
+          "LeagueBreach",
+          "BreachHand",
+          "/Breach/"
+        ],
+        "categories": [],
+        "shape": "Diamond",
+        "color": "#A64DFF",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 11,
+          "row": 44,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Abyss",
+        "match": [
+          "Leagues/Abyss",
+          "/Abyss/",
+          "AbyssJumpInteractable",
+          "AbyssPit",
+          "AbyssHole",
+          "AbyssTrove",
+          "AbyssalTrove",
+          "AbyssGate",
+          "AbyssFissure",
+          "AbyssStart"
+        ],
+        "categories": [
+          "Object",
+          "Other"
+        ],
+        "shape": "Diamond",
+        "color": "#33CCCC",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 0,
+          "row": 0,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Delirium",
+        "match": [
+          "Delirium",
+          "Simulacrum",
+          "LeagueDelirium",
+          "Leagues/Delirium"
+        ],
+        "categories": [],
+        "shape": "Triangle",
+        "color": "#9B59B6",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 6,
+          "row": 0,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Ultimatum",
+        "match": [
+          "LeagueUltimatum",
+          "/Ultimatum/",
+          "UltimatumAltar"
+        ],
+        "categories": [
+          "Object",
+          "Other"
+        ],
+        "shape": "Hexagon",
+        "color": "#FF5533",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 10,
+          "row": 44,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Corruption",
+        "match": [
+          "precursorcorruption",
+          "VaalCorruption",
+          "CorruptionAltar",
+          "TrailOfCorruption"
+        ],
+        "categories": [
+          "Object",
+          "Other"
+        ],
+        "shape": "Triangle",
+        "color": "#66CC33",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 6,
+          "row": 0,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Unique",
+        "match": [
+          "uniquevaalstrongbox",
+          "uniqueezomytegrave",
+          "uniqueetchedbeetle",
+          "ventorstrongbox",
+          "beaststrongbox",
+          "uniqueventorsmysterybox"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Star",
+        "color": "#FFD700",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 8,
+          "row": 38,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Landmark",
+        "match": [
+          "landmarkstrongbox"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Triangle",
+        "color": "#FF7043",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 1,
+          "row": 37,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Cartographer",
+        "match": [
+          "cartographer"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Exclamation",
+        "color": "#5C9EFF",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 12,
+          "row": 44,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Arcane",
+        "match": [
+          "arcanist"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Diamond",
+        "color": "#A64DFF",
+        "opacity": 1,
+        "size": 11,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 4,
+          "row": 48,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Armourer",
+        "match": [
+          "armory"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Shield",
+        "color": "#8899AA",
+        "opacity": 1,
+        "size": 11,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 8,
+          "row": 38,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Jeweller",
+        "match": [
+          "gemcutter",
+          "gemstrongbox"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Gem",
+        "color": "#FF66CC",
+        "opacity": 1,
+        "size": 11,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 4,
+          "row": 48,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Divination",
+        "match": [
+          "strongboxdivination",
+          "strongboxdivinationshaper"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Exclamation",
+        "color": "#CC9966",
+        "opacity": 1,
+        "size": 11,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 12,
+          "row": 44,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Expedition",
+        "match": [
+          "strongboxexpedition"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Square",
+        "color": "#1FA89A",
+        "opacity": 1,
+        "size": 11,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 5,
+          "row": 38,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Researcher",
+        "match": [
+          "strongboxes/strongbox"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Gem",
+        "color": "#7DFF7D",
+        "opacity": 1,
+        "size": 11,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 4,
+          "row": 48,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox \u00B7 Abyss",
+        "match": [
+          "abyssstrongbox"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Diamond",
+        "color": "#33CCCC",
+        "opacity": 1,
+        "size": 11,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 8,
+          "row": 38,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Strongbox",
+        "match": [
+          "StrongBoxes"
+        ],
+        "categories": [
+          "Chest"
+        ],
+        "shape": "Square",
+        "color": "#FFB300",
+        "opacity": 1,
+        "size": 10,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 8,
+          "row": 38,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Essence",
+        "match": [
+          "fireessencemod",
+          "coldessencemod",
+          "lifeessencemod",
+          "chaosessencemod",
+          "physicalessencemod",
+          "manaessencemod",
+          "speedessencemod",
+          "casteressencemod",
+          "attackessencemod",
+          "attributeessencemod",
+          "greaterchaosessencemod",
+          "greatercoldessencemod",
+          "greaterlifeessencemod",
+          "greaterphysicalessencemod",
+          "essencehorror",
+          "essencehysteria",
+          "essenceinsanity",
+          "essencestartcalm",
+          "/essencemoddaemons/essencemod"
+        ],
+        "categories": [],
+        "shape": "Triangle",
+        "color": "#33E0FF",
+        "opacity": 1,
+        "size": 12,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 7,
+          "row": 45,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Shrine",
+        "match": [
+          "Shrine"
+        ],
+        "categories": [],
+        "shape": "Star",
+        "color": "#7DFF7D",
+        "opacity": 1,
+        "size": 10,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 7,
+          "row": 0,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Summoning Circle",
+        "match": [
+          "SummoningCircle"
+        ],
+        "categories": [],
+        "shape": "Diamond",
+        "color": "#E0B341",
+        "opacity": 1,
+        "size": 10,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 1,
+          "row": 37,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Wisp",
+        "match": [
+          "AzmeriSpirit",
+          "AzmeriWisp"
+        ],
+        "categories": [],
+        "shape": "Star",
+        "color": "#A06CFF",
+        "opacity": 1,
+        "size": 10,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 12,
+          "row": 44,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      },
+      {
+        "enabled": true,
+        "name": "Rogue Exile",
+        "match": [
+          "RogueExile"
+        ],
+        "categories": [
+          "Monster"
+        ],
+        "shape": "Diamond",
+        "color": "#FF8866",
+        "opacity": 1,
+        "size": 10,
+        "sprite": {
+          "sheet": "icons.png",
+          "col": 4,
+          "row": 57,
+          "cellSize": 64,
+          "scale": 1.25
+        }
+      }
+    ]
+  },
+  "hpBars": {
+    "useTextures": false,
+    "height": 5,
+    "offsetX": 0,
+    "offsetY": -30,
+    "widthNormal": 30,
+    "widthMagic": 38,
+    "widthRare": 50,
+    "widthUnique": 64,
+    "borderNormal": 0,
+    "borderMagic": 1,
+    "borderRare": 2,
+    "borderUnique": 2,
+    "borderColorNormal": "#FF3333",
+    "borderColorMagic": "#73A6FF",
+    "borderColorRare": "#FFD926",
+    "borderColorUnique": "#FF7300",
+    "energyShieldColor": "#73E6FF"
+  },
+  "terrain": {
+    "interiorColor": "#FF0000",
+    "interiorOpacity": 0,
+    "edgeColor": "#FF0000",
+    "edgeOpacity": 0.5882353,
+    "imGuiEdgeDetail": 8,
+    "imGuiEdgeThickness": 4
+  }
+}

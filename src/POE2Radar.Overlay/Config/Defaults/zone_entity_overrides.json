@@ -1,0 +1,44 @@
+{
+  "MapBloomingField": {
+    "TransmutationBench": {
+      "hide": false,
+      "navigable": false
+    },
+    "ReforgingBench": {
+      "hide": false,
+      "navigable": false
+    },
+    "QuestChests": {
+      "hide": false,
+      "navigable": false
+    },
+    "MiscellaneousObjects/AreaTransition": {
+      "hide": false,
+      "navigable": false
+    }
+  },
+  "P3_6": {
+    "StackedBoulder": {
+      "hide": false,
+      "navigable": false
+    },
+    "PetrosphereCluster01A": {
+      "hide": false,
+      "navigable": false
+    },
+    "PetrosphereCluster02A": {
+      "hide": true,
+      "navigable": true
+    },
+    "AlvaIncursionWild": {
+      "hide": true,
+      "navigable": false
+    }
+  },
+  "MapRiverhold": {
+    "LargeStrongboxHigh": {
+      "hide": true,
+      "navigable": true
+    }
+  }
+}

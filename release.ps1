@@ -70,20 +70,13 @@ $runtimeBackup = Join-Path $releaseRoot ".$bundleName-runtime-backup"
 Write-Host "POE2Radar release build v$Version"
 Write-Host "  output: $outDir"
 
-if (Test-Path (Join-Path $runtimeBackup "config")) {
-    New-Item -ItemType Directory -Path $outDir -Force | Out-Null
-    Copy-Item (Join-Path $runtimeBackup "config") (Join-Path $outDir "config") -Recurse -Force
-}
+# Preserve only local imgui layout across rebuilds. Shipped config always comes from Config/Defaults.
 if (Test-Path (Join-Path $runtimeBackup "imgui.ini")) {
     New-Item -ItemType Directory -Path $outDir -Force | Out-Null
     Copy-Item (Join-Path $runtimeBackup "imgui.ini") (Join-Path $outDir "imgui.ini") -Force
 }
 if (Test-Path $runtimeBackup) {
     Remove-Item $runtimeBackup -Recurse -Force
-}
-if (Test-Path (Join-Path $outDir "config")) {
-    New-Item -ItemType Directory -Path $runtimeBackup -Force | Out-Null
-    Copy-Item (Join-Path $outDir "config") (Join-Path $runtimeBackup "config") -Recurse -Force
 }
 if (Test-Path (Join-Path $outDir "imgui.ini")) {
     New-Item -ItemType Directory -Path $runtimeBackup -Force | Out-Null
@@ -120,6 +113,32 @@ function Stage-OverlayAssets {
     Copy-Item (Join-Path $overlaySrc "Textures\*.png") $texturesOut -Force
 }
 
+function Stage-DefaultConfig {
+    param([string]$TargetDir)
+    $defaultsDir = Join-Path $root "src/POE2Radar.Overlay/Config/Defaults"
+    if (-not (Test-Path $defaultsDir)) {
+        throw "Missing shipped defaults folder: $defaultsDir"
+    }
+
+    $configOut = Join-Path $TargetDir "config"
+    New-Item -ItemType Directory -Path $configOut -Force | Out-Null
+
+    $requiredDefaults = @(
+        "radar_settings.json",
+        "display_rules.json",
+        "watched_entities.json",
+        "hidden_entities.json",
+        "zone_entity_overrides.json"
+    )
+    foreach ($name in $requiredDefaults) {
+        $from = Join-Path $defaultsDir $name
+        if (-not (Test-Path $from)) {
+            throw "Missing shipped default config: $from"
+        }
+        Copy-Item $from (Join-Path $configOut $name) -Force
+    }
+}
+
 function Test-ReleaseLayout {
     param([string]$TargetDir)
     $required = @(
@@ -128,6 +147,9 @@ function Test-ReleaseLayout {
         (Join-Path $TargetDir "Overlay\Textures\full_bar.png"),
         (Join-Path $TargetDir "Overlay\Textures\hollow_bar.png"),
         (Join-Path $TargetDir "icons\Circle.svg"),
+        (Join-Path $TargetDir "config\radar_settings.json"),
+        (Join-Path $TargetDir "config\display_rules.json"),
+        (Join-Path $TargetDir "config\watched_entities.json"),
         (Join-Path $TargetDir "README.md"),
         (Join-Path $TargetDir "LICENSE"),
         (Join-Path $TargetDir "VERSION.txt")
@@ -165,6 +187,9 @@ if (-not (Wait-ForReleaseAsset $circleIcon)) {
     throw "Icon export finished but did not create: $circleIcon"
 }
 
+Write-Host "Bundling shipped default config..."
+Stage-DefaultConfig $outDir
+
 Copy-Item (Join-Path $root "README.md"), (Join-Path $root "LICENSE") $outDir -Force
 @"
 POE2Radar $Version
@@ -173,9 +198,9 @@ Windows x64 self-contained build
 Layout:
   POE2Radar.Overlay.exe   - run as Administrator with PoE2 already open
   Overlay/icons.png       - entity sprite atlas
-  Overlay/Textures/     - HP/ES bar textures
+  Overlay/Textures/       - HP/ES bar textures
   icons/                  - editable SVG shape library
-  config/                 - created on first run (settings, rules, watched entities)
+  config/                 - shipped defaults (settings, display rules, watched/hidden entities)
   cache/                  - created at runtime (terrain bitmap cache)
   logs/                   - crash log
 
@@ -190,9 +215,7 @@ if (-not $SkipZip) {
     Write-Host "Zip: $zipPath"
 }
 
-if (Test-Path (Join-Path $runtimeBackup "config")) {
-    Copy-Item (Join-Path $runtimeBackup "config") (Join-Path $outDir "config") -Recurse -Force
-}
+# Keep local imgui layout across rebuilds; never overlay personal config onto shipped defaults.
 if (Test-Path (Join-Path $runtimeBackup "imgui.ini")) {
     Copy-Item (Join-Path $runtimeBackup "imgui.ini") (Join-Path $outDir "imgui.ini") -Force
 }
