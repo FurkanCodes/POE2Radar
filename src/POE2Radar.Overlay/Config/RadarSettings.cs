@@ -173,6 +173,12 @@ public sealed class RadarSettings
     public bool PixelSnapLabels { get; set; } = true;
     public bool OverlayVSync { get; set; } = true;
 
+    /// <summary>
+    /// When true, the overlay HWND is excluded from screenshots, OBS, and Windows share-screen
+    /// (<c>WDA_EXCLUDEFROMCAPTURE</c>). Turn off only when you need to capture the overlay itself.
+    /// </summary>
+    public bool HideFromScreenCapture { get; set; } = true;
+
     // ── Navigation-menu widget: which screen corner it is pinned to.
     //    One of "TopLeft", "TopRight", "BottomLeft", "BottomRight". ──
     public string NavMenuCorner { get; set; } = "TopLeft";

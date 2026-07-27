@@ -168,7 +168,7 @@ public sealed partial class RadarApp
             selectedIds, _renderPathSnapshot, mapEntities, mapLandmarks, serverIconArray, mapServerIcons);
 
         _state = new RadarState(inGame, areaHash, areaLevel, false, 0, player, entityArray, landmarkArray,
-            _hpPct, _manaPct, _esPct, _autoFlask, _flaskNote, _areaCode, _charName, charLevel, _perfSnapshot,
+            _hpPct, _manaPct, _esPct, _autoFlask, _flaskNote, _areaCode, charLevel, _perfSnapshot,
             MapDiag: _mapDiag);
 
         _worldTickMs = (float)System.Diagnostics.Stopwatch.GetElapsedTime(worldStart).TotalMilliseconds;

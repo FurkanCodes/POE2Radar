@@ -107,12 +107,13 @@ internal static class SettingHints
         public const string ChipSmoothingMs = "Smoothing time for label chip rectangles (milliseconds).";
         public const string PixelSnapLabels = "Round final text and chip positions to whole pixels.";
         public const string OverlayVSync = "Present overlay frames on the display refresh cadence.";
-        public const string FpsResourceOverlay = "Tick + render FPS and app CPU/GPU/RAM under the POE2Radar nav button.";
+        public const string HideFromScreenCapture = "Keep the overlay out of screenshots, OBS, and Windows share-screen. Turn off only when you need to record the overlay.";
+        public const string FpsResourceOverlay = "Tick + render FPS and app CPU/GPU/RAM under the nav button.";
         public const string ExtendedPerfStats = "Extra timing and memory-read lines under the nav menu.";
         public const string MetricsRefreshHz = "How often CPU/RAM metrics sample when the metrics HUD is on.";
         public const string GpuMetricsSeconds = "How often GPU/VRAM metrics sample when the metrics HUD is on.";
         public const string UiFontSize = "Text size in the settings panel and nav menu.";
-        public const string NavMenuCorner = "Where the in-game POE2Radar nav dropdown is pinned.";
+        public const string NavMenuCorner = "Where the in-game nav dropdown is pinned.";
     }
 
     internal static class HpBars

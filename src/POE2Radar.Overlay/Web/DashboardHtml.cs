@@ -36,6 +36,7 @@ internal static class DashboardHtml
         .Replace("{{H.ChipSmoothingMs}}", H(SettingHints.Performance.ChipSmoothingMs))
         .Replace("{{H.PixelSnapLabels}}", H(SettingHints.Performance.PixelSnapLabels))
         .Replace("{{H.OverlayVSync}}", H(SettingHints.Performance.OverlayVSync))
+        .Replace("{{H.HideFromScreenCapture}}", H(SettingHints.Performance.HideFromScreenCapture))
         .Replace("{{H.FpsResourceOverlay}}", H(SettingHints.Performance.FpsResourceOverlay))
         .Replace("{{H.ExtendedPerfStats}}", H(SettingHints.Performance.ExtendedPerfStats))
         .Replace("{{H.MetricsRefreshHz}}", H(SettingHints.Performance.MetricsRefreshHz))
@@ -583,7 +584,7 @@ internal static class DashboardHtml
       <h1><span>POE2</span>Radar</h1>
     </div>
     <div class="hgap"></div>
-    <div class="char-chip" id="charChip" hidden><b id="charName">—</b> · lvl <span id="charLvl">—</span></div>
+    <div class="char-chip" id="charChip" hidden>lvl <span id="charLvl">—</span></div>
     <div class="area-chip" id="areaChip">— <b>·</b></div>
     <div class="header-quick" id="headerQuick">
       <button type="button" class="hq" id="hqMap" title="Large map open">Map —</button>
@@ -821,6 +822,8 @@ internal static class DashboardHtml
               <label class="sw"><input type="checkbox" data-set="useCuratedLandmarks"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.LandmarkClusterGap}}">Landmark cluster gap<small>max tile distance to merge nearby tile markers (0 = no clustering)</small></div>
               <input class="numin" type="number" step="1" min="0" max="64" data-set="landmarkClusterGap"></div>
+            <div class="row"><div class="rl" title="{{H.HideFromScreenCapture}}">Hide from screen capture<small>exclude overlay from screenshots, OBS, and share-screen</small></div>
+              <label class="sw"><input type="checkbox" data-set="hideFromScreenCapture"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.LowImpactMode}}">Low impact mode<small>favor lower memory-read cadence when idle or unfocused</small></div>
               <label class="sw"><input type="checkbox" data-set="lowImpactMode"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.FpsCap}}">Overlay FPS cap<small>15&ndash;360; lower = less GPU load</small></div>
@@ -845,7 +848,7 @@ internal static class DashboardHtml
               <label class="sw"><input type="checkbox" data-set="pixelSnapLabels"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.OverlayVSync}}">Overlay VSync<small>present overlay frames on the display cadence</small></div>
               <label class="sw"><input type="checkbox" data-set="overlayVSync"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="row"><div class="rl" title="{{H.FpsResourceOverlay}}">FPS / resource overlay<small>tick/render FPS + App CPU/GPU/RAM under POE2Radar nav</small></div>
+            <div class="row"><div class="rl" title="{{H.FpsResourceOverlay}}">FPS / resource overlay<small>tick/render FPS + App CPU/GPU/RAM under the nav</small></div>
               <label class="sw"><input type="checkbox" data-set="showFpsOverlay"><span class="track"></span><span class="knob"></span></label></div>
             <div class="row"><div class="rl" title="{{H.ExtendedPerfStats}}">Extended perf stats<small>extra timing/read lines under the nav menu</small></div>
               <label class="sw"><input type="checkbox" data-set="showPerfStats"><span class="track"></span><span class="knob"></span></label></div>
@@ -2534,7 +2537,7 @@ function renderState(){
   $('#cMon').textContent=(s.counts&&s.counts.Monster)||0;
   $('#cLm').textContent=s.landmarkCount||0;
   $('#areaChip').innerHTML = (areaName||s.areaCode||'—') + ' <b>·</b> ' + (s.inGame?'in game':'town/menu');
-  const cc=$('#charChip'); if(cc&&s.charName){ cc.hidden=false; $('#charName').textContent=s.charName; $('#charLvl').textContent=s.charLevel||'—'; }
+  const cc=$('#charChip'); if(cc&&s.charLevel){ cc.hidden=false; $('#charLvl').textContent=s.charLevel||'—'; }
   updateHeaderQuick(); refreshHeaderJunk();
 
   const zn=$('#zoneNotes');

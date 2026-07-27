@@ -103,6 +103,90 @@ if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed with exit code $LASTEXIT
 
 Remove-Item (Join-Path $outDir "*.pdb") -Force -ErrorAction SilentlyContinue
 
+$releaseExeName = "AppHost.exe"
+
+function Find-BinaryPatternCount {
+    param(
+        [byte[]]$Bytes,
+        [byte[]]$Needle
+    )
+    if ($Needle.Length -eq 0) { return 0 }
+    $count = 0
+    for ($i = 0; $i -le $Bytes.Length - $Needle.Length; $i++) {
+        $match = $true
+        for ($j = 0; $j -lt $Needle.Length; $j++) {
+            if ($Bytes[$i + $j] -ne $Needle[$j]) { $match = $false; break }
+        }
+        if ($match) {
+            $count++
+            $i += $Needle.Length - 1
+        }
+    }
+    return $count
+}
+
+function Replace-BinaryPattern {
+    param(
+        [byte[]]$Bytes,
+        [byte[]]$Needle,
+        [byte[]]$Replacement
+    )
+    if ($Needle.Length -ne $Replacement.Length) {
+        throw "Scrub replacement length mismatch ($($Needle.Length) vs $($Replacement.Length))"
+    }
+    if ($Needle.Length -eq 0) { return 0 }
+    $count = 0
+    for ($i = 0; $i -le $Bytes.Length - $Needle.Length; $i++) {
+        $match = $true
+        for ($j = 0; $j -lt $Needle.Length; $j++) {
+            if ($Bytes[$i + $j] -ne $Needle[$j]) { $match = $false; break }
+        }
+        if (-not $match) { continue }
+        for ($j = 0; $j -lt $Replacement.Length; $j++) {
+            $Bytes[$i + $j] = $Replacement[$j]
+        }
+        $count++
+        $i += $Needle.Length - 1
+    }
+    return $count
+}
+
+function Scrub-ReleaseBinary {
+    param([string]$ExePath)
+    if (-not (Test-Path $ExePath)) { throw "Scrub target missing: $ExePath" }
+
+    $bytes = [System.IO.File]::ReadAllBytes($ExePath)
+    $utf8 = [System.Text.Encoding]::UTF8
+    $utf16 = [System.Text.Encoding]::Unicode
+
+    # Same-length fillers only (PE integrity).
+    $pairs = @(
+        @{ Needle = "POE2Radar"; Replacement = "HostApp00" },
+        @{ Needle = "poe2radar"; Replacement = "hostapp00" }
+    )
+
+    $total = 0
+    foreach ($pair in $pairs) {
+        $n = $pair.Needle
+        $r = $pair.Replacement
+        if ($n.Length -ne $r.Length) {
+            throw "Scrub pair length mismatch for '$n' / '$r'"
+        }
+        $total += Replace-BinaryPattern -Bytes $bytes -Needle ($utf8.GetBytes($n)) -Replacement ($utf8.GetBytes($r))
+        $total += Replace-BinaryPattern -Bytes $bytes -Needle ($utf16.GetBytes($n)) -Replacement ($utf16.GetBytes($r))
+    }
+
+    [System.IO.File]::WriteAllBytes($ExePath, $bytes)
+    Write-Host "  string scrub: $total replacements in $(Split-Path $ExePath -Leaf)"
+
+    $verify = [System.IO.File]::ReadAllBytes($ExePath)
+    $remaining = (Find-BinaryPatternCount -Bytes $verify -Needle ($utf8.GetBytes("POE2Radar")))
+    $remaining += (Find-BinaryPatternCount -Bytes $verify -Needle ($utf16.GetBytes("POE2Radar")))
+    if ($remaining -gt 0) {
+        throw "String scrub verification failed: POE2Radar still present ($remaining hits)"
+    }
+}
+
 function Stage-OverlayAssets {
     param([string]$TargetDir)
     $overlayOut = Join-Path $TargetDir "Overlay"
@@ -142,7 +226,7 @@ function Stage-DefaultConfig {
 function Test-ReleaseLayout {
     param([string]$TargetDir)
     $required = @(
-        (Join-Path $TargetDir "POE2Radar.Overlay.exe"),
+        (Join-Path $TargetDir $releaseExeName),
         (Join-Path $TargetDir "Overlay\icons.png"),
         (Join-Path $TargetDir "Overlay\Textures\full_bar.png"),
         (Join-Path $TargetDir "Overlay\Textures\hollow_bar.png"),
@@ -179,13 +263,16 @@ Write-Host "Staging overlay textures and sprite atlas..."
 Stage-OverlayAssets $outDir
 
 Write-Host "Materializing built-in SVG icon library..."
-$exe = Join-Path $outDir "POE2Radar.Overlay.exe"
+$exe = Join-Path $outDir $releaseExeName
 & $exe --export-release-assets $outDir
 if ($LASTEXITCODE -ne 0) { throw "Icon export failed with exit code $LASTEXITCODE" }
 $circleIcon = Join-Path $outDir "icons\Circle.svg"
 if (-not (Wait-ForReleaseAsset $circleIcon)) {
     throw "Icon export finished but did not create: $circleIcon"
 }
+
+Write-Host "Scrubbing release binary strings..."
+Scrub-ReleaseBinary $exe
 
 Write-Host "Bundling shipped default config..."
 Stage-DefaultConfig $outDir
@@ -196,7 +283,7 @@ POE2Radar $Version
 Windows x64 self-contained build
 
 Layout:
-  POE2Radar.Overlay.exe   - run as Administrator with PoE2 already open
+  $releaseExeName           - run as Administrator with PoE2 already open
   Overlay/icons.png       - entity sprite atlas
   Overlay/Textures/       - HP/ES bar textures
   icons/                  - editable SVG shape library

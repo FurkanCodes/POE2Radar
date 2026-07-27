@@ -69,7 +69,7 @@ public sealed class BackgroundReplanner : IDisposable
         _worker = new Thread(WorkerLoop)
         {
             IsBackground = true,
-            Name = "POE2Radar.BackgroundReplanner",
+            Name = "BackgroundReplanner",
         };
         _worker.Start();
     }

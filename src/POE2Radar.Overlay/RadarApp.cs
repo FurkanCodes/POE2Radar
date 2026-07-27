@@ -10,6 +10,7 @@ using POE2Radar.Overlay.Diagnostics;
 using POE2Radar.Overlay.Input;
 using POE2Radar.Overlay.Native;
 using POE2Radar.Overlay.Navigation;
+using POE2Radar.Overlay.Stealth;
 using POE2Radar.Overlay.Web;
 using PathCell = POE2Radar.Core.Pathfinding.PathCell;
 using GameHelperRadarProjection = POE2Radar.Core.Pathfinding.GameHelperRadarProjection;
@@ -147,8 +148,7 @@ public sealed partial class RadarApp : IDisposable
     private string? _cursorInspectMeta;
     private float _hpPct = 100f, _manaPct = 100f, _esPct = 100f;
     private string _flaskNote = "";
-    private string _areaCode = "", _charName = "";
-    private nint _charNameFor;   // local-player ptr the cached _charName was read for (re-read only on change)
+    private string _areaCode = "";
     private int _charLevel;
     private float[]? _cameraMatrix;
 
@@ -253,7 +253,7 @@ public sealed partial class RadarApp : IDisposable
             _imguiThread = new Thread(RunImGuiOverlayThread)
             {
                 IsBackground = true,
-                Name = "POE2Radar ImGuiDx",
+                Name = "ImGuiDx",
             };
             _imguiThread.SetApartmentState(ApartmentState.STA);
             _imguiThread.Start();
@@ -555,7 +555,7 @@ public sealed partial class RadarApp : IDisposable
         _landmarkStoreGen = _landmarkStore.Generation;
         Console.WriteLine($"Hidden entities: {_hidden.Count} pattern(s); display rules: {_displayRules.Count}");
         _imguiOverlay?.AttachEntityStores(_displayRules, _zoneOverrides, _ruleEngine, _hidden);
-        _worldThread = new Thread(WorldReaderLoop) { IsBackground = true, Name = "POE2Radar.WorldReader" };
+        _worldThread = new Thread(WorldReaderLoop) { IsBackground = true, Name = "WorldReader" };
         _worldThread.Start();
         _api = new ApiServer(() => _state, _settings, GetNavSelection, ToggleNavTarget, ClearNavSelection,
                              _hidden, _displayRules, _zoneOverrides, _ruleEngine, _landmarkStore, CurrentTilePaths,
@@ -632,7 +632,9 @@ public sealed partial class RadarApp : IDisposable
             StopWaystoneAlchemyFromUi,
             RequestExpeditionPlanFromUi,
             _settings,
-            generation == 1 ? "POE2Radar Radar" : $"POE2Radar Radar {generation}");
+            generation == 1
+                ? StealthIdentity.WindowTitle
+                : $"{StealthIdentity.WindowTitle}{generation}");
     }
 
     private void RestartImGuiOverlay()
@@ -789,7 +791,7 @@ public sealed partial class RadarApp : IDisposable
         var miniMap = live.Maps.MiniMap;
         var pathDiag = BuildPathDiag(live);
         _state = new RadarState(live.InGame, snap.AreaHash, snap.AreaLevel, largeMap.IsVisible, largeMap.Zoom, live.PlayerGrid, snap.Entities, snap.Landmarks,
-            _hpPct, _manaPct, _esPct, _autoFlask, _flaskNote, _areaCode, _charName, snap.CharLevel, _perfSnapshot,
+            _hpPct, _manaPct, _esPct, _autoFlask, _flaskNote, _areaCode, snap.CharLevel, _perfSnapshot,
             MapDiag: _mapDiag,
             MiniMapVisible: miniMap.IsVisible, MiniMapRect: miniMap.HasScreenRect,
             MiniMapW: miniMap.Width, MiniMapH: miniMap.Height,
@@ -1098,11 +1100,6 @@ public sealed partial class RadarApp : IDisposable
         }
 
         MaybeMigratePerTypeRules();
-        if (localPlayer != _charNameFor)
-        {
-            _charNameFor = localPlayer;
-            _charName = _live.PlayerName(localPlayer);
-        }
 
         var needsCamera =
             _settings.ShowPathWorld ||

@@ -52,6 +52,10 @@ internal static partial class OverlayNative
     public const uint CS_HREDRAW = 0x0002;
     public const uint CS_VREDRAW = 0x0001;
 
+    // SetWindowDisplayAffinity — hide overlay from screenshots / OBS / share-screen
+    public const uint WDA_NONE = 0x00000000;
+    public const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
+
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     public struct WNDCLASSEXW
     {
@@ -155,6 +159,17 @@ internal static partial class OverlayNative
 
     [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
     public static partial nint SetWindowLongPtrW(nint hwnd, int nIndex, nint dwNewLong);
+
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowDisplayAffinity")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool SetWindowDisplayAffinity(nint hwnd, uint dwAffinity);
+
+    /// <summary>Exclude (or include) a window from screen capture APIs.</summary>
+    public static void ApplyCaptureExclusion(nint hwnd, bool hideFromCapture)
+    {
+        if (hwnd == 0) return;
+        SetWindowDisplayAffinity(hwnd, hideFromCapture ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE);
+    }
 
     [LibraryImport("kernel32.dll", EntryPoint = "GetModuleHandleW")]
     public static partial nint GetModuleHandleW([MarshalAs(UnmanagedType.LPWStr)] string? lpModuleName);

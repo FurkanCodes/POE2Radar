@@ -7,7 +7,7 @@ internal static class CrashLog
     private static readonly object Gate = new();
     private static bool _installed;
 
-    public static string FilePath => Path.Combine(AppContext.BaseDirectory, "logs", "poe2radar-crash.log");
+    public static string FilePath => Path.Combine(AppContext.BaseDirectory, "logs", "app-crash.log");
 
     public static void InstallGlobalHandlers()
     {

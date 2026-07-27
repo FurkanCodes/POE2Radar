@@ -92,6 +92,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private readonly SettingsAutoSaveDebouncer _settingsAutoSave = new();
     private int _appliedUiFontSize = -1;
     private string _appliedUiFontPath = "";
+    private bool? _appliedHideFromCapture;
     private UiFontGlyphRange _appliedUiGlyphRange = (UiFontGlyphRange)(-1);
 
     private static float UiW(float factor = 12f) => ImGuiTheme.ControlWidth(factor);
@@ -137,7 +138,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         Action stopWaystoneAlchemy,
         Action runExpeditionPlanner,
         RadarSettings settings,
-        string windowTitle = "POE2Radar Radar")
+        string windowTitle)
         : base(windowTitle, true, 3840, 2160)
     {
         _enqueue = enqueue;
@@ -199,6 +200,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     {
         lock (_settingsLock) _settings = settings;
         VSync = settings.OverlayVSync;
+        ApplyCaptureAffinity(settings);
     }
 
     protected override Task PostInitialized()
@@ -209,7 +211,17 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         _appliedUiFontPath = _settings.UiFontPath;
         _appliedUiGlyphRange = _settings.UiFontGlyphRange;
         ApplyDrawEnabled();
+        ApplyCaptureAffinity(_settings);
         return base.PostInitialized();
+    }
+
+    private void ApplyCaptureAffinity(RadarSettings settings)
+    {
+        if (window is null) return;
+        var hide = settings.HideFromScreenCapture;
+        if (_appliedHideFromCapture == hide) return;
+        OverlayNative.ApplyCaptureExclusion(window.Handle, hide);
+        _appliedHideFromCapture = hide;
     }
 
     private void MaybeReapplyOverlayFont(RadarSettings s)
@@ -311,6 +323,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         {
             if (_closeRequested) { Close(); return; }
             ApplyDrawEnabled();
+            ApplyCaptureAffinity(_settings);
             if (Volatile.Read(ref _drawEnabled) == 0) return;
 
             lock (_boundsLock) { Position = _position; Size = _size; }
@@ -2555,7 +2568,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         ImGui.SameLine(0f, 4f);
 
         ImGui.PushStyleColor(ImGuiCol.Text, ImGui.ColorConvertFloat4ToU32(ImGuiTheme.Accent));
-        if (ImGui.Button(_navMenuExpanded ? "POE2Radar  ▲" : "POE2Radar  ▼"))
+        if (ImGui.Button(_navMenuExpanded ? "Overlay  ▲" : "Overlay  ▼"))
             _navMenuExpanded = !_navMenuExpanded;
         ImGui.PopStyleColor();
         ImGui.SameLine(0f, 8f);
@@ -2785,7 +2798,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         const ImGuiWindowFlags sflags =
             ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.MenuBar;
 
-        if (!ImGui.Begin("POE2Radar Settings", ref _settingsOpen, sflags)) { ImGui.End(); return; }
+        if (!ImGui.Begin("Settings", ref _settingsOpen, sflags)) { ImGui.End(); return; }
 
         RadarSettings s;
         lock (_settingsLock) s = _settings;
@@ -3739,7 +3752,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private void DrawPerformanceSettings(RadarSettings s)
     {
         bool refreshOpen = ImGuiTheme.BeginAccordionSection("RefreshCadence", "Refresh cadence",
-            "How often POE2Radar reads memory and redraws.");
+            "How often memory is read and the overlay redraws.");
         if (refreshOpen)
         {
             bool lowImpact = s.LowImpactMode; ImGui.Checkbox("Low impact mode", ref lowImpact); s.LowImpactMode = lowImpact;
@@ -3812,6 +3825,20 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             ImGuiTheme.Tooltip(SettingHints.Performance.GpuMetricsSeconds);
         }
         ImGuiTheme.EndAccordionSection(metricsOpen);
+
+        bool privacyOpen = ImGuiTheme.BeginAccordionSection("Privacy", "Privacy",
+            "Capture exclusion and related privacy controls.");
+        if (privacyOpen)
+        {
+            bool hideCapture = s.HideFromScreenCapture;
+            if (ImGui.Checkbox("Hide from screen capture", ref hideCapture))
+            {
+                s.HideFromScreenCapture = hideCapture;
+                ApplyCaptureAffinity(s);
+            }
+            ImGuiTheme.Tooltip(SettingHints.Performance.HideFromScreenCapture);
+        }
+        ImGuiTheme.EndAccordionSection(privacyOpen);
 
         bool uiOpen = ImGuiTheme.BeginAccordionSection("SettingsUi", "Settings UI",
             "In-game panel font (GameHelper defaults).");

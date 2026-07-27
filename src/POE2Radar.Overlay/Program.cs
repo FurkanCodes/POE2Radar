@@ -1,5 +1,6 @@
 using POE2Radar.Overlay;
 using POE2Radar.Overlay.Diagnostics;
+using POE2Radar.Overlay.Stealth;
 
 CrashLog.InstallGlobalHandlers();
 
@@ -11,7 +12,10 @@ if (args is ["--export-release-assets", var releaseDir, ..])
     return 0;
 }
 
-CrashLog.Write("Startup", $"POE2Radar process started. BaseDirectory={AppContext.BaseDirectory}");
+if (StealthLaunch.TryRelaunchAndExit(args, out var stealthExit))
+    return stealthExit;
+
+CrashLog.Write("Startup", $"Process started. BaseDirectory={AppContext.BaseDirectory}");
 
 var attach = StartupMenu.Run();
 if (attach is null)

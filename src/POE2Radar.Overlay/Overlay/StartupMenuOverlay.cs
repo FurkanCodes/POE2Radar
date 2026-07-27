@@ -4,6 +4,7 @@ using ImGuiNET;
 using POE2Radar.Overlay.Config;
 using POE2Radar.Overlay.Native;
 using POE2Radar.Overlay.Settings;
+using POE2Radar.Overlay.Stealth;
 
 namespace POE2Radar.Overlay;
 
@@ -15,6 +16,7 @@ internal sealed class StartupMenuOverlay : ClickableTransparentOverlay.Overlay
     private System.Drawing.Point _position;
     private System.Drawing.Size _size;
     private bool _boundsReady;
+    private bool? _appliedHideFromCapture;
 
     private AttachResult? _attach;
     private AttachResult? _started;
@@ -31,7 +33,7 @@ internal sealed class StartupMenuOverlay : ClickableTransparentOverlay.Overlay
     public AttachResult? Result => _started;
 
     public StartupMenuOverlay(RadarSettings settings)
-        : base("POE2Radar Startup", true, 3840, 2160)
+        : base(StealthIdentity.WindowTitle, true, 3840, 2160)
     {
         _settings = settings;
         VSync = true;
@@ -42,6 +44,7 @@ internal sealed class StartupMenuOverlay : ClickableTransparentOverlay.Overlay
     {
         ImGuiTheme.Apply();
         OverlayFonts.Apply(this, _settings);
+        ApplyCaptureAffinity();
 
         lock (_boundsLock)
         {
@@ -57,6 +60,15 @@ internal sealed class StartupMenuOverlay : ClickableTransparentOverlay.Overlay
         return base.PostInitialized();
     }
 
+    private void ApplyCaptureAffinity()
+    {
+        if (window is null) return;
+        var hide = _settings.HideFromScreenCapture;
+        if (_appliedHideFromCapture == hide) return;
+        OverlayNative.ApplyCaptureExclusion(window.Handle, hide);
+        _appliedHideFromCapture = hide;
+    }
+
     protected override void Render()
     {
         if (_closeRequested) { Close(); return; }
@@ -70,6 +82,7 @@ internal sealed class StartupMenuOverlay : ClickableTransparentOverlay.Overlay
             }
         }
 
+        ApplyCaptureAffinity();
         MaybeAutoProbe();
 
         var io = ImGui.GetIO();
@@ -83,7 +96,7 @@ internal sealed class StartupMenuOverlay : ClickableTransparentOverlay.Overlay
             ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoSavedSettings
             | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.AlwaysAutoResize;
 
-        if (!ImGui.Begin("POE2Radar", ref open, flags))
+        if (!ImGui.Begin("Launcher", ref open, flags))
         {
             ImGui.End();
             return;
@@ -93,7 +106,7 @@ internal sealed class StartupMenuOverlay : ClickableTransparentOverlay.Overlay
             RequestQuit();
 
         ImGui.PushStyleColor(ImGuiCol.Text, ImGuiTheme.Accent);
-        ImGui.TextUnformatted("POE2Radar — map/radar overlay");
+        ImGui.TextUnformatted("Map / radar overlay");
         ImGui.PopStyleColor();
         ImGui.TextDisabled(new string('=', 29));
         ImGui.Spacing();

@@ -30,7 +30,7 @@ internal static class StartupMenu
         })
         {
             IsBackground = false,
-            Name = "POE2Radar StartupMenu",
+            Name = "StartupMenu",
         };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();

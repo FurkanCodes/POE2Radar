@@ -15,6 +15,15 @@
     <Version>0.15.21</Version>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <AssemblyName>AppHost</AssemblyName>
+    <Product>Application</Product>
+    <AssemblyTitle>Application</AssemblyTitle>
+    <FileDescription>Application</FileDescription>
+    <Company></Company>
+    <NeutralLanguage>en-US</NeutralLanguage>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\POE2Radar.Core\POE2Radar.Core.csproj" />
   </ItemGroup>

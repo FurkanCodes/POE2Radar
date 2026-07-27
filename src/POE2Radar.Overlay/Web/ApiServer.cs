@@ -119,7 +119,7 @@ public sealed class ApiServer : IDisposable
     {
         _listener.Start();
         _running = true;
-        var t = new Thread(Loop) { IsBackground = true, Name = "POE2Radar.Api" };
+        var t = new Thread(Loop) { IsBackground = true, Name = "Api" };
         t.Start();
     }
 
@@ -157,12 +157,11 @@ public sealed class ApiServer : IDisposable
                     .ToDictionary(g => g.Key.ToString(), g => g.Count());
                 Write(ctx, 200, JsonSerializer.Serialize(new
                 {
-                    // Character name + level intentionally omitted (privacy: this endpoint is local
-                    // but unauthenticated, and screenshots/streams shouldn't leak the character).
+                    // Character name intentionally omitted (privacy).
                     s.InGame, areaCode = s.AreaCode, areaHash = s.AreaHash, areaLevel = s.AreaLevel,
                     areaName = ZoneGuide.Shared.FriendlyName(s.AreaCode),
                     areaAct = ZoneGuide.Shared.Area(s.AreaCode)?.Act ?? 0,
-                    charName = s.CharName, charLevel = s.CharLevel,
+                    charLevel = s.CharLevel,
                     mapVisible = s.MapVisible, zoom = s.Zoom,
                     miniMapVisible = s.MiniMapVisible, miniMapRect = s.MiniMapRect,
                     miniMapW = s.MiniMapW, miniMapH = s.MiniMapH,
@@ -640,6 +639,7 @@ public sealed class ApiServer : IDisposable
         overlayVSync = _settings.OverlayVSync,
         showPerfStats = _settings.ShowPerfStats,
         showFpsOverlay = _settings.ShowFpsOverlay,
+        hideFromScreenCapture = _settings.HideFromScreenCapture,
         atlasShowOnScreenNodes = _settings.AtlasShowOnScreenNodes,
         atlasShowNames = _settings.AtlasShowNames,
         atlasRevealFog = _settings.AtlasRevealFog,
@@ -797,6 +797,7 @@ public sealed class ApiServer : IDisposable
                 case "overlayVSync" when TryBool(p.Value, out var b): _settings.OverlayVSync = b; applied.Add(p.Name); break;
                 case "showPerfStats" when TryBool(p.Value, out var b): _settings.ShowPerfStats = b; applied.Add(p.Name); break;
                 case "showFpsOverlay" when TryBool(p.Value, out var b): _settings.ShowFpsOverlay = b; applied.Add(p.Name); break;
+                case "hideFromScreenCapture" when TryBool(p.Value, out var b): _settings.HideFromScreenCapture = b; applied.Add(p.Name); break;
                 case "atlasShowOnScreenNodes" when TryBool(p.Value, out var b): _settings.AtlasShowOnScreenNodes = b; applied.Add(p.Name); break;
                 case "atlasShowNames" when TryBool(p.Value, out var b): _settings.AtlasShowNames = b; applied.Add(p.Name); break;
                 case "atlasRevealFog" when TryBool(p.Value, out var b): _settings.AtlasRevealFog = b; applied.Add(p.Name); break;
@@ -1650,7 +1651,6 @@ public sealed record RadarState(
     bool AutoFlask,
     string FlaskNote,
     string AreaCode,
-    string CharName,
     int CharLevel,
     PerfSnapshot Perf,
     string MapDiag = "",
@@ -1670,6 +1670,6 @@ public sealed record RadarState(
 {
     public static readonly RadarState Empty =
         new(false, 0, 0, false, 0, System.Numerics.Vector2.Zero,
-            Array.Empty<Poe2Live.EntityDot>(), Array.Empty<Poe2Live.Landmark>(), 100, 100, 100, false, "", "", "", 0,
+            Array.Empty<Poe2Live.EntityDot>(), Array.Empty<Poe2Live.Landmark>(), 100, 100, 100, false, "", "", 0,
             PerfSnapshot.Empty);
 }
