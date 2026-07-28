@@ -32,7 +32,8 @@ quality-of-life feature.
   modes driven by labels that the active in-game loot filter actually shows. Supports keyboard or
   XInput activation, blocks on game panels/focus loss/controller disconnect, and confirms each pickup
   before continuing. Automatic mode reacquires moving labels after harmless misses and applies bounded
-  per-item backoff instead of stopping or click-spamming loot left behind.
+  per-item backoff instead of stopping or click-spamming loot left behind. Optional allow, deny, and
+  ordered-priority fragments further narrow visible loot; equippable gear remains blocked by default.
 - **Waystone Alchemy** — controller-aware crafting guidance for Alchemy, Identification, Regal,
   Exalted, Corruption, and Distilled Paranoia workflows. Optional AUTO mode applies supported currency
   actions with foreground/UI gates and validates game state after every action; MANUAL mode only guides.

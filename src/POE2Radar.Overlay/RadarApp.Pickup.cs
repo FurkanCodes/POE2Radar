@@ -10,10 +10,12 @@ namespace POE2Radar.Overlay;
 public sealed partial class RadarApp
 {
     private readonly PickupEngine _pickupEngine;
+    private readonly PickupPolicy _pickupPolicy = new();
     private PickupView _pickupView = PickupView.Disabled;
     private PickupTarget[] _pickupNearbyTargets = [];
     private long _pickupNextLabelScanStamp;
     private uint _pickupTargetArea;
+    private readonly record struct EligiblePickupItem(Poe2Live.EntityDot Item, int Priority);
 
     private void RefreshPickup(
         LiveFrameState live,
@@ -30,11 +32,21 @@ public sealed partial class RadarApp
             GamepadInput.IsConnected(_settings.GamepadUserIndex);
         var activationDown = settings.ActivationHotkey > 0 && HotkeyPoll.IsDown(settings.ActivationHotkey);
         var emergencyDown = settings.EmergencyStopHotkey > 0 && HotkeyPoll.IsDown(settings.EmergencyStopHotkey);
-        var ground = snapshot.Entities
+        var allGround = snapshot.Entities
             .Where(IsGroundItem)
-            .Where(x => PickupItemPolicy.ShouldPickup(x.ItemMetadata))
             .ToArray();
-        var groundAddresses = ground.Select(x => x.Address).ToHashSet();
+        var policySettings = settings.Policy ??= new PickupPolicySettings();
+        var ground = allGround
+            .Select(x => (
+                Item: x,
+                Decision: _pickupPolicy.Evaluate(
+                    new PickupPolicyCandidate(x.ItemMetadata, x.ItemName),
+                    policySettings)))
+            .Where(x => x.Decision.Eligible)
+            .Select(x => new EligiblePickupItem(x.Item, x.Decision.Priority))
+            .ToArray();
+        var eligibleAddresses = ground.Select(x => x.Item.Address).ToHashSet();
+        var groundAddresses = BuildPickupConfirmationSet(allGround);
 
         IReadOnlyList<PickupTarget> targets;
         if (!settings.Enabled || !live.InGame)
@@ -64,7 +76,7 @@ public sealed partial class RadarApp
                 windowHeight,
                 Math.Clamp(settings.MaxPickupDistance, 5, 100));
             targets = _pickupNearbyTargets
-                .Where(x => groundAddresses.Contains(x.Address))
+                .Where(x => eligibleAddresses.Contains(x.Address))
                 .ToArray();
         }
 
@@ -103,12 +115,13 @@ public sealed partial class RadarApp
 
     private IReadOnlyList<PickupTarget> BuildHoveredPickupTarget(
         LiveFrameState live,
-        IReadOnlyList<Poe2Live.EntityDot> ground,
+        IReadOnlyList<EligiblePickupItem> ground,
         int maxDistance)
     {
         var hovered = _live.MouseOverEntity(live.InGameState);
         if (hovered == 0) return [];
-        var item = ground.FirstOrDefault(x => x.Address == hovered);
+        var candidate = ground.FirstOrDefault(x => x.Item.Address == hovered);
+        var item = candidate.Item;
         if (item.Address == 0) return [];
         var distance = NumVec2.Distance(item.Grid, live.PlayerGrid);
         if (maxDistance > 0 && distance > maxDistance) return [];
@@ -124,14 +137,15 @@ public sealed partial class RadarApp
                 cursor.X - 2f,
                 cursor.Y - 2f,
                 4f,
-                4f),
+                4f,
+                Priority: candidate.Priority),
         ];
     }
 
     private void RefreshNearbyPickupTargets(
         LiveFrameState live,
         WorldSnapshot snapshot,
-        IReadOnlyList<Poe2Live.EntityDot> ground,
+        IReadOnlyList<EligiblePickupItem> ground,
         int windowWidth,
         int windowHeight,
         int maxDistance)
@@ -185,47 +199,55 @@ public sealed partial class RadarApp
             labels.Add(new VisiblePickupLabel(element, firstLine.Trim(), x, y, w, h, lines));
         }
 
-        var usedLabels = new HashSet<int>();
-        var targets = new List<PickupTarget>();
-        foreach (var item in ground
-                     .Select(x => (Item: x, Distance: NumVec2.Distance(x.Grid, live.PlayerGrid)))
+        var projectedItems = ground
+            .Select(x => (
+                Candidate: x,
+                Distance: NumVec2.Distance(x.Item.Grid, live.PlayerGrid)))
                      .Where(x => x.Distance <= maxDistance)
-                     .OrderBy(x => x.Distance))
+            .OrderByDescending(x => x.Candidate.Priority)
+            .ThenBy(x => x.Distance)
+            .Select(x => new ProjectedPickupItem(
+                x.Candidate,
+                x.Distance,
+                NormalizePickupLabel(x.Candidate.Item.ItemName),
+                ProjectPickupWorld(x.Candidate.Item.World, matrix, windowWidth, windowHeight)))
+            .Where(x => x.Name.Length > 0)
+            .ToArray();
+        var matchItems = projectedItems
+            .Select((x, i) => new PickupMatchItem(i, x.Name, x.Screen.X, x.Screen.Y))
+            .ToArray();
+        var matchLabels = labels
+            .Select((x, i) => new PickupMatchLabel(
+                i,
+                x.X + x.Width * 0.5f,
+                x.Y + x.Height * 0.5f,
+                x.Lines))
+            .ToArray();
+        var maxLabelDistance = MathF.Sqrt(
+            (float)windowWidth * windowWidth +
+            (float)windowHeight * windowHeight) * 0.65f;
+        var matches = PickupLabelMatcher.Match(matchItems, matchLabels, maxLabelDistance);
+        var targets = new List<PickupTarget>(matches.Count);
+        foreach (var match in matches)
         {
-            var itemName = NormalizePickupLabel(item.Item.ItemName);
-            if (itemName.Length == 0) continue;
-            var worldScreen = ProjectPickupWorld(item.Item.World, matrix, windowWidth, windowHeight);
-            var bestIndex = -1;
-            var bestScreenDistance = float.MaxValue;
-            for (var i = 0; i < labels.Count; i++)
-            {
-                if (usedLabels.Contains(i) || !labels[i].Lines.Contains(itemName)) continue;
-                var center = new NumVec2(
-                    labels[i].X + labels[i].Width * 0.5f,
-                    labels[i].Y + labels[i].Height * 0.5f);
-                var screenDistance = NumVec2.DistanceSquared(center, worldScreen);
-                if (screenDistance >= bestScreenDistance) continue;
-                bestScreenDistance = screenDistance;
-                bestIndex = i;
-            }
-            if (bestIndex < 0) continue;
-
-            usedLabels.Add(bestIndex);
-            var label = labels[bestIndex];
+            var item = projectedItems[match.ItemIndex];
+            var label = labels[match.LabelIndex];
             targets.Add(new PickupTarget(
-                item.Item.Id,
-                item.Item.Address,
-                label.FirstLine.Length > 0 ? label.FirstLine : ItemDisplayName(item.Item),
+                item.Candidate.Item.Id,
+                item.Candidate.Item.Address,
+                label.FirstLine.Length > 0 ? label.FirstLine : ItemDisplayName(item.Candidate.Item),
                 item.Distance,
                 label.X,
                 label.Y,
                 label.Width,
                 label.Height,
-                label.Element));
+                label.Element,
+                item.Candidate.Priority));
         }
 
         _pickupNearbyTargets = targets
-            .OrderBy(x => x.Distance)
+            .OrderByDescending(x => x.Priority)
+            .ThenBy(x => x.Distance)
             .ThenBy(x => x.Label, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
@@ -286,6 +308,13 @@ public sealed partial class RadarApp
         => item.Address != 0 &&
            item.Metadata.Contains("WorldItem", StringComparison.Ordinal);
 
+    internal static HashSet<nint> BuildPickupConfirmationSet(
+        IEnumerable<Poe2Live.EntityDot> entities)
+        => entities
+            .Where(IsGroundItem)
+            .Select(x => x.Address)
+            .ToHashSet();
+
     private static string ItemDisplayName(Poe2Live.EntityDot item)
         => !string.IsNullOrWhiteSpace(item.ItemName)
             ? item.ItemName
@@ -324,4 +353,10 @@ public sealed partial class RadarApp
         float Width,
         float Height,
         HashSet<string> Lines);
+
+    private readonly record struct ProjectedPickupItem(
+        EligiblePickupItem Candidate,
+        float Distance,
+        string Name,
+        NumVec2 Screen);
 }

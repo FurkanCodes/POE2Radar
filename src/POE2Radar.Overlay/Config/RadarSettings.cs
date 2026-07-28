@@ -1230,6 +1230,19 @@ public sealed class PickupHelperSettings
     public bool ShowTargetHighlight { get; set; } = true;
     public bool PauseWhileShowHiddenHeld { get; set; } = true;
     public int ShowHiddenItemsHotkey { get; set; } = 0x12; // Alt by default
+    public PickupPolicySettings Policy { get; set; } = new();
+}
+
+public sealed class PickupPolicySettings
+{
+    /// <summary>Off by default: weapons, armour, jewellery, flasks, and charms remain excluded.</summary>
+    public bool AllowEquipment { get; set; }
+    /// <summary>Optional comma/newline-separated name or metadata fragments. Empty allows all non-gear.</summary>
+    public string AllowPatterns { get; set; } = "";
+    /// <summary>Comma/newline-separated name or metadata fragments. Deny always wins.</summary>
+    public string DenyPatterns { get; set; } = "";
+    /// <summary>Ordered comma/newline-separated fragments; earlier matches are selected first.</summary>
+    public string PriorityPatterns { get; set; } = "";
 }
 
 public sealed class LootTrackerSettings

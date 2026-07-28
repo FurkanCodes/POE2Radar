@@ -4435,7 +4435,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         {
             var enabled = s.Enabled;
             if (ImGui.Checkbox("Enable Pickup Helper", ref enabled)) s.Enabled = enabled;
-            ImGui.TextWrapped("The game filter remains the source of truth. Nearby mode only targets visible labels and skips equippable gear.");
+            ImGui.TextWrapped(
+                "The game filter remains the source of truth. Nearby mode only targets visible labels, " +
+                "skips equippable gear by default, and can apply additional selection rules.");
 
             var modes = new[]
             {
@@ -4524,6 +4526,60 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                 s.PauseWhileShowHiddenHeld = pauseHidden;
         }
         ImGuiTheme.EndAccordionSection(general);
+
+        var selection = ImGuiTheme.BeginAccordionSection(
+            "PickupHelperSelection",
+            "Selection Rules",
+            defaultOpen: false);
+        if (selection)
+        {
+            var policy = s.Policy ??= new PickupPolicySettings();
+            ImGui.TextWrapped(
+                "Rules only narrow or prioritize labels already shown by the active game filter. " +
+                "Fragments are case-insensitive and match either the item name or metadata path.");
+
+            var allowEquipment = policy.AllowEquipment;
+            if (ImGui.Checkbox("Allow equippable gear", ref allowEquipment))
+                policy.AllowEquipment = allowEquipment;
+            if (!policy.AllowEquipment)
+                ImGui.TextDisabled("Weapons, armour, jewellery, flasks, and charms remain blocked.");
+            else
+            {
+                ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1f, 0.65f, 0.2f, 1f));
+                ImGui.TextWrapped("Equipment pickup is enabled; your visible filter and rules decide what is eligible.");
+                ImGui.PopStyleColor();
+            }
+
+            var allow = policy.AllowPatterns ?? "";
+            ImGui.SetNextItemWidth(UiW(28f));
+            if (ImGui.InputTextWithHint(
+                    "##pickupAllowPatterns",
+                    "Optional allow-list fragments, comma separated",
+                    ref allow,
+                    2048))
+                policy.AllowPatterns = allow;
+            ImGui.TextDisabled("Empty: allow every visible non-gear item.");
+
+            var deny = policy.DenyPatterns ?? "";
+            ImGui.SetNextItemWidth(UiW(28f));
+            if (ImGui.InputTextWithHint(
+                    "##pickupDenyPatterns",
+                    "Deny-list fragments; deny always wins",
+                    ref deny,
+                    2048))
+                policy.DenyPatterns = deny;
+
+            var priority = policy.PriorityPatterns ?? "";
+            ImGui.SetNextItemWidth(UiW(28f));
+            if (ImGui.InputTextWithHint(
+                    "##pickupPriorityPatterns",
+                    "Priority fragments, highest first",
+                    ref priority,
+                    2048))
+                policy.PriorityPatterns = priority;
+            ImGui.TextDisabled("Example: Divine Orb, Perfect, Waystone, Currency");
+        }
+        ImGuiTheme.EndAccordionSection(selection);
 
         var controls = ImGuiTheme.BeginAccordionSection("PickupHelperControls", "Controls and Safety", defaultOpen: true);
         if (controls)

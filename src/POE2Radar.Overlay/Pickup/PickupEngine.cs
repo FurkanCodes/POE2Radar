@@ -20,7 +20,8 @@ internal readonly record struct PickupTarget(
     float Y,
     float Width,
     float Height,
-    nint LabelElement = 0);
+    nint LabelElement = 0,
+    int Priority = 0);
 
 internal enum PickupClickResult : byte
 {

@@ -468,7 +468,13 @@
     "autoModeAcknowledged": true,
     "showTargetHighlight": true,
     "pauseWhileShowHiddenHeld": true,
-    "showHiddenItemsHotkey": 18
+    "showHiddenItemsHotkey": 18,
+    "policy": {
+      "allowEquipment": false,
+      "allowPatterns": "",
+      "denyPatterns": "",
+      "priorityPatterns": ""
+    }
   },
   "lootTracker": {
     "enabled": true,
