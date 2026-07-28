@@ -20,7 +20,7 @@ public static class UiBranchCandidates
         nint lastSuccessRoot = 0)
     {
         var count = 0;
-        if (lastSuccessRoot != 0)
+        if (IsCurrentRoot(lastSuccessRoot, gameUi, controllerGameUi, uiRoot, fixedRoot))
             Add(dest, ref count, lastSuccessRoot);
 
         if (hint == Poe2UiAnchors.BranchKind.Controller)
@@ -38,6 +38,18 @@ public static class UiBranchCandidates
         Add(dest, ref count, fixedRoot);
         return count;
     }
+
+    public static bool IsCurrentRoot(
+        nint root,
+        nint gameUi,
+        nint controllerGameUi,
+        nint uiRoot,
+        nint fixedRoot)
+        => root != 0
+           && (root == gameUi
+               || root == controllerGameUi
+               || root == uiRoot
+               || root == fixedRoot);
 
     public static Poe2UiAnchors.BranchKind BranchForRoot(nint root, nint gameUi, nint controllerGameUi)
     {

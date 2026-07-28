@@ -20,17 +20,15 @@ public sealed class GameHelperRadarProjectionTests
     }
 
     [Fact]
-    public void MiniMapCenter_MatchesPinnedGameHelperRadar()
+    public void MiniMapCenter_ResolvedFrameIgnoresFullscreenPanAndDefaultShift()
     {
         var center = GameHelperRadarProjection.MiniMapCenter(
-            position: new Vector2(3070f, 9f),
-            size: new Vector2(362f, 362f),
-            shift: new Vector2(14f, 173f),
-            defaultShift: new Vector2(0f, -20f),
-            userXOffset: 2f);
+            position: new Vector2(3069.9f, 9f),
+            size: new Vector2(361.8f, 361.8f),
+            userXOffset: 0f);
 
-        Assert.Equal(3262f, center.X, 3);
-        Assert.Equal(343f, center.Y, 3);
+        Assert.Equal(3245.8f, center.X, 3);
+        Assert.Equal(189.9f, center.Y, 3);
     }
 
     [Fact]

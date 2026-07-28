@@ -1,18 +1,18 @@
 namespace POE2Radar.Core.Game;
 
 /// <summary>
-/// Combines direct GameUi map reads with the UI-tree viewport fallback. The direct shared-content /
-/// corner-frame layout is authoritative for visibility and screen geometry; the viewport retains
-/// the validated pan/zoom projection values.
+/// Combines the semantic MapParent pair with the UI-tree viewport fallback. MapParent identifies the
+/// actual TAB toggler and corner frame, so its hierarchical visibility and fullscreen projection are
+/// authoritative. Tree discovery remains useful for the corner minimap's shared-content pan/zoom.
 /// </summary>
 public static class MapViewsMerger
 {
-    /// <summary>Merge direct UI state into the validated viewport projection when available.</summary>
+    /// <summary>Merge the direct semantic pair with projection details discovered from the UI tree.</summary>
     public static Poe2Live.MapViews Merge(Poe2Live.MapViews viewport, Poe2Live.MapViews direct)
         => new(MergeLargeMap(viewport.LargeMap, direct.LargeMap), MergeMiniMap(viewport.MiniMap, direct.MiniMap));
 
     public static Poe2Live.MapUi MergeLargeMap(Poe2Live.MapUi viewport, Poe2Live.MapUi direct)
-        => MergeDirectUiState(viewport, direct);
+        => direct.Element != 0 ? direct : viewport;
 
     public static Poe2Live.MapUi MergeMiniMap(Poe2Live.MapUi viewport, Poe2Live.MapUi direct)
         => MergeDirectUiState(viewport, direct);

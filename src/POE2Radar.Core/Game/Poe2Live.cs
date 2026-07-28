@@ -893,6 +893,8 @@ public sealed partial class Poe2Live
     private nint _classifiedMiniEl;
     private nint _preferredUiAnchor;
     private nint _preferredUiAnchorIgs;
+    private nint _directMapContentEl;
+    private nint _directMapFrameEl;
     private Poe2UiAnchors.BranchKind _mapProbeHint;
     private Poe2UiAnchors.BranchKind _lootProbeHint;
     private const int PreferredMapScoreThreshold = 4;
@@ -915,11 +917,29 @@ public sealed partial class Poe2Live
 
     public MapViews ReadMaps(nint inGameState, nint areaInstance, int windowWidth, int windowHeight)
     {
+        InvalidateDetachedMapAnchor(inGameState);
         // Viewport path: Tab-open uses corner toggler Shift/Zoom (v1.3.0 / ReadMapState parity).
         var viewport = ReadMapsViewport(inGameState, areaInstance, windowWidth, windowHeight);
         // Direct path: scores GameUi branches for accurate minimap screen rects + element pointers.
         if (TryReadDirectMaps(inGameState, windowWidth, windowHeight, out var direct))
+        {
+            var directElementsChanged =
+                _directMapContentEl != 0
+                && (_directMapContentEl != direct.LargeMap.Element
+                    || _directMapFrameEl != direct.MiniMap.Element);
+            _directMapContentEl = direct.LargeMap.Element;
+            _directMapFrameEl = direct.MiniMap.Element;
+            if (directElementsChanged)
+            {
+                InvalidateMapElementDiscovery();
+                viewport = ReadMapsViewport(
+                    inGameState,
+                    areaInstance,
+                    windowWidth,
+                    windowHeight);
+            }
             return MapViewsMerger.Merge(viewport, direct);
+        }
         return viewport;
     }
 
@@ -968,6 +988,42 @@ public sealed partial class Poe2Live
             _preferredUiAnchor = 0;
             _preferredUiAnchorIgs = 0;
         }
+    }
+
+    private void InvalidateDetachedMapAnchor(nint inGameState)
+    {
+        SyncPreferredUiAnchor(inGameState);
+        if (_preferredUiAnchor == 0)
+            return;
+
+        DiscoverGameUiAnchors(inGameState, out var gameUi, out var controllerGameUi);
+        var uiRoot = GetUiRoot(inGameState);
+        var fixedRoot = Ptr(inGameState + Poe2.InGameState.UiRoot);
+        if (_preferredUiAnchor == inGameState
+            || UiBranchCandidates.IsCurrentRoot(
+                _preferredUiAnchor,
+                gameUi,
+                controllerGameUi,
+                uiRoot,
+                fixedRoot))
+        {
+            return;
+        }
+
+        _preferredUiAnchor = 0;
+        _preferredUiAnchorIgs = 0;
+        _mapProbeHint = Poe2UiAnchors.BranchKind.None;
+        InvalidateMapElementDiscovery();
+    }
+
+    private void InvalidateMapElementDiscovery()
+    {
+        _mapCacheKey = -1;
+        _mapEls.Clear();
+        _everHidden.Clear();
+        _everVisible.Clear();
+        _classifiedLargeEl = 0;
+        _classifiedMiniEl = 0;
     }
 
     private void RememberPreferredUiAnchor(nint inGameState, nint anchor, int score)

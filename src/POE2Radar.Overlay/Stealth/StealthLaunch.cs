@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using POE2Radar.Overlay.Diagnostics;
 
@@ -12,6 +13,7 @@ internal static partial class StealthLaunch
 {
     public const string RelaunchMarker = "--stealth-hl";
     public const string SkipMarker = "--no-stealth";
+    public const string CleanupMarker = "--stealth-cleanup";
 
     private static string? _hardlinkPathToDelete;
 
@@ -37,6 +39,30 @@ internal static partial class StealthLaunch
 #else
         return TrySpawnHardlinkChild(args, out exitCode);
 #endif
+    }
+
+    /// <summary>
+    /// Run the detached cleanup mode before normal startup. The helper executes through dotnet.exe,
+    /// so it does not map AppHost.exe and can remove the hardlink after the randomized child exits.
+    /// </summary>
+    public static bool TryRunCleanup(string[] args, out int exitCode)
+    {
+        exitCode = 0;
+        if (!HasFlag(args, CleanupMarker))
+            return false;
+
+        if (!TryParseCleanupArgs(
+                args,
+                AppContext.BaseDirectory,
+                out var processId,
+                out var hardlinkPath))
+        {
+            exitCode = 2;
+            return true;
+        }
+
+        exitCode = CleanupAfterProcessExit(processId, hardlinkPath);
+        return true;
     }
 
     /// <summary>Parse helpers exposed for unit tests.</summary>
@@ -129,7 +155,8 @@ internal static partial class StealthLaunch
             var name = Path.GetFileName(path);
             if (!StealthIdentity.IsHardlinkFileName(name)) return;
             _hardlinkPathToDelete = path;
-            AppDomain.CurrentDomain.ProcessExit += (_, _) => TryDeleteHardlink();
+            if (!TryStartCleanupWatcher(Environment.ProcessId, path))
+                AppDomain.CurrentDomain.ProcessExit += (_, _) => TryDeleteHardlink();
         }
         catch
         {
@@ -151,6 +178,138 @@ internal static partial class StealthLaunch
             // File may still be locked briefly; prune on next start will catch it.
         }
     }
+
+    internal static bool TryParseCleanupArgs(
+        string[] args,
+        string allowedDirectory,
+        out int processId,
+        out string hardlinkPath)
+    {
+        processId = 0;
+        hardlinkPath = "";
+        var markerIndex = Array.FindIndex(
+            args,
+            x => string.Equals(x, CleanupMarker, StringComparison.OrdinalIgnoreCase));
+        if (markerIndex < 0 || markerIndex + 2 >= args.Length)
+            return false;
+        if (!int.TryParse(args[markerIndex + 1], out processId) || processId <= 0)
+            return false;
+
+        try
+        {
+            var target = Path.GetFullPath(args[markerIndex + 2]);
+            var targetDirectory = Path.GetDirectoryName(target);
+            if (string.IsNullOrWhiteSpace(targetDirectory)
+                || !StealthIdentity.IsHardlinkFileName(Path.GetFileName(target))
+                || !PathsEqual(targetDirectory, allowedDirectory))
+            {
+                processId = 0;
+                return false;
+            }
+
+            hardlinkPath = target;
+            return true;
+        }
+        catch
+        {
+            processId = 0;
+            hardlinkPath = "";
+            return false;
+        }
+    }
+
+    private static bool TryStartCleanupWatcher(int processId, string hardlinkPath)
+    {
+        try
+        {
+            var entryAssembly = Assembly.GetEntryAssembly()?.Location;
+            if (string.IsNullOrWhiteSpace(entryAssembly) || !File.Exists(entryAssembly))
+                return false;
+
+            var start = new ProcessStartInfo
+            {
+                FileName = ResolveDotnetHost(),
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                WorkingDirectory = AppContext.BaseDirectory,
+            };
+            start.ArgumentList.Add(entryAssembly);
+            start.ArgumentList.Add(CleanupMarker);
+            start.ArgumentList.Add(processId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            start.ArgumentList.Add(hardlinkPath);
+            using var watcher = Process.Start(start);
+            return watcher is not null;
+        }
+        catch (Exception ex)
+        {
+            CrashLog.Write("Stealth", $"Deferred hardlink cleanup could not start: {ex.Message}");
+            return false;
+        }
+    }
+
+    internal static int CleanupAfterProcessExit(
+        int processId,
+        string hardlinkPath,
+        int retryCount = 200,
+        int retryDelayMilliseconds = 50)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            process.WaitForExit();
+        }
+        catch (ArgumentException)
+        {
+            // The process already exited before the watcher attached.
+        }
+        catch (InvalidOperationException)
+        {
+            // Treat an already-unavailable process as exited.
+        }
+
+        var directory = Path.GetDirectoryName(hardlinkPath);
+        if (string.IsNullOrWhiteSpace(directory))
+            return 1;
+
+        for (var attempt = 0; attempt < Math.Max(1, retryCount); attempt++)
+        {
+            PruneStaleHardlinks(directory, keepPath: null);
+            if (CountStaleHardlinks(directory) == 0)
+                return 0;
+            if (attempt + 1 < retryCount)
+                Thread.Sleep(Math.Max(1, retryDelayMilliseconds));
+        }
+        return 1;
+    }
+
+    private static string ResolveDotnetHost()
+    {
+        var runtimeDirectory = new DirectoryInfo(RuntimeEnvironment.GetRuntimeDirectory());
+        var dotnetRoot = runtimeDirectory.Parent?.Parent?.Parent;
+        var candidate = dotnetRoot is null ? "" : Path.Combine(dotnetRoot.FullName, "dotnet.exe");
+        return File.Exists(candidate) ? candidate : "dotnet";
+    }
+
+    private static int CountStaleHardlinks(string directory)
+    {
+        try
+        {
+            if (!Directory.Exists(directory)) return 0;
+            return Directory.EnumerateFiles(directory, "*.exe")
+                .Count(file => StealthIdentity.IsHardlinkFileName(Path.GetFileName(file)));
+        }
+        catch
+        {
+            return 1;
+        }
+    }
+
+    private static bool PathsEqual(string left, string right)
+        => string.Equals(
+            Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Best-effort: delete orphaned hardlink names that are not our current process.</summary>
     internal static void PruneStaleHardlinks(string directory, string? keepPath)

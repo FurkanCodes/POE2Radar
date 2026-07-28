@@ -6,7 +6,7 @@ namespace POE2Radar.Overlay.Tests;
 public sealed class MapProjectionMotionTests
 {
     [Fact]
-    public void LargeMapReference_SmoothingEnabled_UsesInterpolatedLivePlayerGrid()
+    public void LargeMapReference_SmoothingEnabled_UsesRawPlayerGridToPreserveIconAlignment()
     {
         var frame = Frame(isMinimap: false);
         var smoothed = new NumVec2(104.12f, 198.94f);
@@ -18,7 +18,7 @@ public sealed class MapProjectionMotionTests
             smoothed,
             raw);
 
-        Assert.Equal(smoothed, reference);
+        Assert.Equal(raw, reference);
     }
 
     [Fact]

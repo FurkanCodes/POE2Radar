@@ -68,6 +68,24 @@ public sealed class UiBranchCandidatesTests
     }
 
     [Fact]
+    public void Fill_DetachedLastSuccessRoot_IsIgnored()
+    {
+        Span<nint> roots = stackalloc nint[6];
+        var count = UiBranchCandidates.Fill(
+            roots,
+            GameUi,
+            ControllerUi,
+            UiRoot,
+            FixedRoot,
+            Poe2UiAnchors.BranchKind.KeyboardMouse,
+            lastSuccessRoot: (nint)0x9999);
+
+        Assert.Equal(4, count);
+        Assert.Equal(GameUi, roots[0]);
+        Assert.DoesNotContain((nint)0x9999, roots[..count].ToArray());
+    }
+
+    [Fact]
     public void BranchForRoot_ClassifiesKnownAnchors()
     {
         Assert.Equal(Poe2UiAnchors.BranchKind.KeyboardMouse,

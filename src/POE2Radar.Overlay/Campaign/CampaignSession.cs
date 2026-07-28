@@ -137,7 +137,26 @@ public sealed class CampaignSession
         var remaining = _catalog.Objectives
             .Where(x => IncludedByMode(x, mode) && !profile.Completed.Contains(x.Id))
             .ToArray();
-        if (remaining.Length == 0 || !string.Equals(remaining[0].Chapter, "interludes", StringComparison.OrdinalIgnoreCase))
+        if (remaining.Length == 0)
+            return remaining;
+
+        // Keep an arrival objective at the front long enough for its stable-area rule to observe
+        // and complete it. Once complete, the current area's section is selected below.
+        var first = remaining[0];
+        if (first.Completion.Kind == CampaignCompletionKind.StableAreaEntry
+            && string.Equals(
+                first.Completion.ExpectedAreaCode,
+                areaCode,
+                StringComparison.OrdinalIgnoreCase))
+            return remaining;
+
+        var areaObjective = remaining.FirstOrDefault(x =>
+            x.Target.AllowedAreaCodes.Contains(areaCode, StringComparer.OrdinalIgnoreCase));
+        var areaSection = areaObjective is null ? null : _catalog.SectionContaining(areaObjective.Id);
+        if (areaSection is not null)
+            return PrioritizeSection(remaining, areaSection);
+
+        if (!string.Equals(first.Chapter, "interludes", StringComparison.OrdinalIgnoreCase))
             return remaining;
 
         var activeBranch = remaining
@@ -156,6 +175,27 @@ public sealed class CampaignSession
             .OrderBy(x => string.Equals(x.Branch, activeBranch, StringComparison.Ordinal) ? 0 : 1)
             .ThenBy(x => x.Order)
             .ToArray();
+    }
+
+    private CampaignObjective[] PrioritizeSection(
+        CampaignObjective[] remaining,
+        CampaignZoneSection section)
+    {
+        var prioritized = new CampaignObjective[remaining.Length];
+        var index = 0;
+        foreach (var objective in remaining)
+            if (string.Equals(
+                    _catalog.SectionContaining(objective.Id)?.Id,
+                    section.Id,
+                    StringComparison.Ordinal))
+                prioritized[index++] = objective;
+        foreach (var objective in remaining)
+            if (!string.Equals(
+                    _catalog.SectionContaining(objective.Id)?.Id,
+                    section.Id,
+                    StringComparison.Ordinal))
+                prioritized[index++] = objective;
+        return prioritized;
     }
 
     private static bool IncludedByMode(CampaignObjective objective, CampaignGuideMode mode)

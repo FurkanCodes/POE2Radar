@@ -4,6 +4,9 @@ using POE2Radar.Overlay.Stealth;
 
 CrashLog.InstallGlobalHandlers();
 
+if (StealthLaunch.TryRunCleanup(args, out var cleanupExit))
+    return cleanupExit;
+
 if (args is ["--export-release-assets", var releaseDir, ..])
 {
     var target = Path.GetFullPath(releaseDir);

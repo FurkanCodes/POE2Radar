@@ -991,14 +991,11 @@ public sealed partial class RadarApp : IDisposable
                 miniMapFrame,
                 _atlasOpen,
                 live.CameraMatrix));
-        var renderMapFrame = _settings.SmoothOverlayMotion
-            ? mapFrame with { PlayerTerrainHeight = visual.PlayerTerrainHeight }
-            : mapFrame;
-        _lastMapFrame = renderMapFrame;
+        // Map-space projection must use one live snapshot. Smoothing the player origin or terrain
+        // height while the game map frame remains live displaces every configured marker.
+        _lastMapFrame = mapFrame;
         _lastMiniMapFrame = miniMapFrame;
-        _lastPlayerGrid = _settings.SmoothOverlayMotion
-            ? visual.PlayerGrid
-            : live.PlayerGrid;
+        _lastPlayerGrid = live.PlayerGrid;
         if (live.InGame)
         {
             UpdateCursorInspect(live);
@@ -1021,7 +1018,7 @@ public sealed partial class RadarApp : IDisposable
             RawPlayerWorld: live.PlayerWorld,
             Map: largeMap,
             MiniMap: miniMap,
-            MapFrame: renderMapFrame,
+            MapFrame: mapFrame,
             MiniMapFrame: miniMapFrame,
             Entities: snap.Entities,
             Landmarks: snap.Landmarks,
@@ -1443,8 +1440,6 @@ public sealed partial class RadarApp : IDisposable
         var center = GameHelperRadarProjection.MiniMapCenter(
             new NumVec2(x, y),
             new NumVec2(width, height),
-            new NumVec2(map.ShiftX, map.ShiftY),
-            new NumVec2(map.DefaultShiftX, map.DefaultShiftY),
             userXOffset: 0f);
         // GameHelper minimap scale uses the same height-derived diagonal with its 0.748 baseline.
         var scale = GameHelperRadarProjection.MiniMapScale(

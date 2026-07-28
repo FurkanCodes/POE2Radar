@@ -182,6 +182,137 @@ public sealed class CampaignSessionTests
     }
 
     [Fact]
+    public void ZoneChange_SelectsTheCurrentZonesFirstIncompleteObjective()
+    {
+        const string json = """
+        {
+          "schemaVersion": 1,
+          "guideVersion": "test",
+          "sourceRepository": "test",
+          "sourceCommit": "abc",
+          "sourceLicense": "MIT",
+          "sourceRowCount": 2,
+          "sourceChapters": [{ "id": "act1", "rowCount": 2, "implemented": true }],
+          "objectives": [
+            {
+              "id": "act1.zone-a", "chapter": "act1", "order": 1,
+              "areaName": "Zone A", "text": "Finish Zone A",
+              "source": [{ "chapter": "act1", "row": 1 }],
+              "target": {
+                "kind": "Npc", "allowedAreaCodes": ["G1_1"], "validated": false
+              }
+            },
+            {
+              "id": "act1.zone-b", "chapter": "act1", "order": 2,
+              "areaName": "Zone B", "text": "Finish Zone B",
+              "source": [{ "chapter": "act1", "row": 2 }],
+              "target": {
+                "kind": "Npc", "allowedAreaCodes": ["G1_2"], "validated": false
+              }
+            }
+          ]
+        }
+        """;
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+        var catalog = CampaignCatalog.Load(stream);
+        var directory = Directory.CreateTempSubdirectory("poe2radar-campaign-zone-change-");
+        try
+        {
+            var session = new CampaignSession(
+                catalog,
+                new CampaignProgressStore(Path.Combine(directory.FullName, "progress.json")));
+            var settings = new CampaignSettings { Enabled = true, AutoActivate = true };
+
+            var zoneA = session.Update(Frame("G1_1"), settings);
+            var zoneB = session.Update(Frame("G1_2"), settings);
+
+            Assert.Equal("act1.zone-a", zoneA.Current?.Id);
+            Assert.Equal("act1.zone-b", zoneB.Current?.Id);
+            Assert.All(zoneB.ZoneObjectives, objective =>
+                Assert.Equal("Zone B", objective.Objective.AreaName));
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+
+        static CampaignFrame Frame(string areaCode) => new(
+            areaCode, 3, NumVec2.Zero, "League", "Character", [],
+            Array.Empty<Poe2Live.Landmark>(),
+            Array.Empty<Poe2Live.ServerMinimapIcon>());
+    }
+
+    [Fact]
+    public void ZoneChange_CompletesPendingArrivalBeforeSelectingTheNewZone()
+    {
+        const string json = """
+        {
+          "schemaVersion": 1,
+          "guideVersion": "test",
+          "sourceRepository": "test",
+          "sourceCommit": "abc",
+          "sourceLicense": "MIT",
+          "sourceRowCount": 2,
+          "sourceChapters": [{ "id": "act1", "rowCount": 2, "implemented": true }],
+          "objectives": [
+            {
+              "id": "act1.enter-zone-b", "chapter": "act1", "order": 1,
+              "areaName": "Zone A", "text": "Enter Zone B",
+              "source": [{ "chapter": "act1", "row": 1 }],
+              "target": {
+                "kind": "AreaTransition", "allowedAreaCodes": ["G1_1"],
+                "destinationAreaCode": "G1_2", "validated": true
+              },
+              "completion": {
+                "kind": "StableAreaEntry", "expectedAreaCode": "G1_2", "stableTicks": 2
+              }
+            },
+            {
+              "id": "act1.zone-b", "chapter": "act1", "order": 2,
+              "areaName": "Zone B", "text": "Finish Zone B",
+              "source": [{ "chapter": "act1", "row": 2 }],
+              "target": {
+                "kind": "Npc", "allowedAreaCodes": ["G1_2"], "validated": false
+              }
+            }
+          ]
+        }
+        """;
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+        var catalog = CampaignCatalog.Load(stream);
+        var directory = Directory.CreateTempSubdirectory("poe2radar-campaign-arrival-");
+        try
+        {
+            var session = new CampaignSession(
+                catalog,
+                new CampaignProgressStore(Path.Combine(directory.FullName, "progress.json")));
+            var settings = new CampaignSettings
+            {
+                Enabled = true,
+                AutoActivate = true,
+                SafeAutoCheck = true,
+            };
+            var frame = new CampaignFrame(
+                "G1_2", 3, NumVec2.Zero, "League", "Character", [],
+                Array.Empty<Poe2Live.Landmark>(),
+                Array.Empty<Poe2Live.ServerMinimapIcon>());
+
+            var firstTick = session.Update(frame, settings);
+            var secondTick = session.Update(frame, settings);
+
+            Assert.Equal("act1.enter-zone-b", firstTick.Current?.Id);
+            Assert.Equal("act1.zone-b", secondTick.Current?.Id);
+            Assert.Contains(
+                "act1.enter-zone-b",
+                secondTick.CompletedObjectiveIds);
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+    }
+
+    [Fact]
     public void ImportProgress_FiltersUnknownObjectiveIds()
     {
         using var fixture = Fixture.Create(

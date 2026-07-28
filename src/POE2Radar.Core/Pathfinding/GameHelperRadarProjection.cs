@@ -32,15 +32,16 @@ public static class GameHelperRadarProjection
            + new Vector2(LargeMapXBias, LargeMapYBias)
            + userOffset;
 
-    /// <summary>GameHelper: MiniMap.Position + Size/2 + DefaultShift + Shift + calibrated X offset.</summary>
+    /// <summary>
+    /// Resolved PoE2 minimap-frame center plus calibrated X offset. Fullscreen pan/default shift
+    /// must not be applied because the screen rect already contains the corner-map layout.
+    /// </summary>
     public static Vector2 MiniMapCenter(
         Vector2 position,
         Vector2 size,
-        Vector2 shift,
-        Vector2 defaultShift,
         float userXOffset)
     {
-        var center = position + (size / 2f) + defaultShift + shift;
+        var center = position + (size / 2f);
         center.X += MiniMapXBias + userXOffset;
         return center;
     }

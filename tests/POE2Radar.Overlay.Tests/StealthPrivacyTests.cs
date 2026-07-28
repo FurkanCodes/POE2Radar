@@ -47,6 +47,68 @@ public class StealthLaunchTests
         var child = StealthLaunch.BuildChildArgs(["--no-stealth", "x", StealthLaunch.RelaunchMarker]);
         Assert.Equal(["x", StealthLaunch.RelaunchMarker], child);
     }
+
+    [Fact]
+    public void CleanupArgs_AcceptOnlyRandomizedExeInsideApplicationDirectory()
+    {
+        var directory = Directory.CreateTempSubdirectory("poe2radar-stealth-args-");
+        try
+        {
+            var valid = Path.Combine(directory.FullName, "abcdef012345.exe");
+            Assert.True(StealthLaunch.TryParseCleanupArgs(
+                [StealthLaunch.CleanupMarker, "42", valid],
+                directory.FullName,
+                out var processId,
+                out var hardlinkPath));
+            Assert.Equal(42, processId);
+            Assert.Equal(valid, hardlinkPath);
+
+            Assert.False(StealthLaunch.TryParseCleanupArgs(
+                [StealthLaunch.CleanupMarker, "42", Path.Combine(directory.Parent!.FullName, "abcdef012345.exe")],
+                directory.FullName,
+                out _,
+                out _));
+            Assert.False(StealthLaunch.TryParseCleanupArgs(
+                [StealthLaunch.CleanupMarker, "42", Path.Combine(directory.FullName, "AppHost.exe")],
+                directory.FullName,
+                out _,
+                out _));
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+    }
+
+    [Fact]
+    public void CleanupAfterProcessExit_RemovesOnlyRandomizedExecutables()
+    {
+        var directory = Directory.CreateTempSubdirectory("poe2radar-stealth-cleanup-");
+        try
+        {
+            var first = Path.Combine(directory.FullName, "abcdef012345.exe");
+            var second = Path.Combine(directory.FullName, "123456abcdef.exe");
+            var appHost = Path.Combine(directory.FullName, "AppHost.exe");
+            File.WriteAllText(first, "randomized");
+            File.WriteAllText(second, "orphaned");
+            File.WriteAllText(appHost, "keep");
+
+            var exitCode = StealthLaunch.CleanupAfterProcessExit(
+                int.MaxValue,
+                first,
+                retryCount: 2,
+                retryDelayMilliseconds: 1);
+
+            Assert.Equal(0, exitCode);
+            Assert.False(File.Exists(first));
+            Assert.False(File.Exists(second));
+            Assert.True(File.Exists(appHost));
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+    }
 }
 
 public class RadarStatePrivacyTests

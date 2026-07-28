@@ -9,7 +9,7 @@ internal static class MapProjectionMotion
         bool smoothingEnabled,
         NumVec2 smoothedPlayerGrid,
         NumVec2 rawPlayerGrid)
-        => !frame.IsMinimap && smoothingEnabled
-            ? smoothedPlayerGrid
-            : rawPlayerGrid;
+        // The game map frame follows the live player coordinate. Mixing that live frame with a
+        // delayed player origin shifts every icon, path, and terrain point while the player moves.
+        => rawPlayerGrid;
 }
