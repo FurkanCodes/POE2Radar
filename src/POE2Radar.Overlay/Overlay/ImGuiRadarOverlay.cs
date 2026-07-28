@@ -45,6 +45,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private readonly Action _startWaystoneAlchemy;
     private readonly Action _stopWaystoneAlchemy;
     private readonly Action _runExpeditionPlanner;
+    private Action? _openExternalSettings;
     private readonly TextureRegistry _textures = new();
     private readonly TerrainTextureCache _terrainTextures = new();
     private readonly OverlayRenderMetrics _renderMetrics = new();
@@ -255,6 +256,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     public void ToggleSettings() => _settingsOpen = !_settingsOpen;
 
     public bool IsSettingsOpen => _settingsOpen;
+
+    /// <summary>Route the taskbar gear to an external settings shell when one is available.</summary>
+    public void SetExternalSettingsAction(Action action) => _openExternalSettings = action;
 
     /// <summary>
     /// True only while this overlay window itself owns foreground focus. This is intentionally
@@ -2613,7 +2617,16 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             _enqueue(() => _toggleRendering());
         ImGui.SameLine(0f, 3f);
         if (ImGui.Button("⚙##TaskbarSettings"))
-            _settingsOpen = !_settingsOpen;
+        {
+            var useClassicSettings = !string.Equals(
+                _settings.InterfaceStyle,
+                "Modern",
+                StringComparison.OrdinalIgnoreCase);
+            if (useClassicSettings && _openExternalSettings is { } openExternalSettings)
+                _enqueue(openExternalSettings);
+            else
+                _settingsOpen = !_settingsOpen;
+        }
         if (ImGui.IsItemHovered(ImGuiHoveredFlags.DelayShort))
             ImGui.SetTooltip("Open settings");
 
@@ -2847,6 +2860,24 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             new NumVec2(railWidth, 0f),
             ImGuiChildFlags.None,
             ImGuiWindowFlags.None);
+
+        DrawSettingsNavGroup("INTERFACE STYLE");
+        var modern = string.Equals(s.InterfaceStyle, "Modern", StringComparison.OrdinalIgnoreCase);
+        if (ImGui.RadioButton("Modern", modern) && !modern)
+        {
+            s.InterfaceStyle = "Modern";
+            SaveSettings();
+        }
+        ImGui.SameLine();
+        if (ImGui.RadioButton("Old", !modern) && modern)
+        {
+            s.InterfaceStyle = "Old";
+            SaveSettings();
+            _settingsOpen = false;
+            if (_openExternalSettings is { } openExternalSettings)
+                _enqueue(openExternalSettings);
+        }
+        ImGui.Spacing();
 
         DrawSettingsNavGroup("OVERLAY");
         DrawSettingsNavItem("Radar");

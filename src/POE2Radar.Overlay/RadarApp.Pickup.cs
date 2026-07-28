@@ -87,7 +87,7 @@ public sealed partial class RadarApp
         var uiClear = live.InGame &&
                       !_atlasOpen &&
                       _hpPct > 0f &&
-                      _imguiOverlay?.IsSettingsOpen != true &&
+                      !SettingsUiOpen &&
                       _live.IsWorldInteractionUiClear(live.InGameState);
         var frame = new PickupFrame(
             settings,

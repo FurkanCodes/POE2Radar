@@ -337,6 +337,9 @@ public sealed class RadarSettings
     public int ToggleSettingsHotkey { get; set; } = 0x7A;
     public int OpenDashboardHotkey { get; set; } = 0x7B;
 
+    /// <summary>Settings/taskbar appearance: "Modern" keeps ImGui; "Old" uses classic WinForms chrome.</summary>
+    public string InterfaceStyle { get; set; } = "Old";
+
     /// <summary>Last settings sidebar page (e.g. "Radar", "Crafting Assistant"). Restored when reopening settings.</summary>
     public string LastSettingsTab { get; set; } = "Radar";
 

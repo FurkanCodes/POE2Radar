@@ -11,6 +11,7 @@ using POE2Radar.Overlay.Input;
 using POE2Radar.Overlay.Native;
 using POE2Radar.Overlay.Navigation;
 using POE2Radar.Overlay.Stealth;
+using POE2Radar.Overlay.UI;
 using POE2Radar.Overlay.Web;
 using PathCell = POE2Radar.Core.Pathfinding.PathCell;
 using GameHelperRadarProjection = POE2Radar.Core.Pathfinding.GameHelperRadarProjection;
@@ -33,6 +34,7 @@ public sealed partial class RadarApp : IDisposable
     private ImGuiRadarOverlay? _imguiOverlay;
     private Thread? _imguiThread;
     private int _imguiOverlayGeneration;
+    private SettingsUiHost? _settingsUi;
     private readonly ApiServer _api;
     private readonly RadarSettings _settings;
     private readonly HiddenEntities _hidden;
@@ -555,6 +557,29 @@ public sealed partial class RadarApp : IDisposable
         _landmarkStoreGen = _landmarkStore.Generation;
         Console.WriteLine($"Hidden entities: {_hidden.Count} pattern(s); display rules: {_displayRules.Count}");
         _imguiOverlay?.AttachEntityStores(_displayRules, _zoneOverrides, _ruleEngine, _hidden);
+        try
+        {
+            _settingsUi = new SettingsUiHost(
+                _settings,
+                () => _commandQueue.Enqueue(SwitchToModernSettings),
+                _displayRules,
+                _hidden,
+                new ClassicSettingsActions(
+                    () => _commandQueue.Enqueue(ToggleOverlayRendering),
+                    () => _commandQueue.Enqueue(() => AddNearestPathTarget()),
+                    () => _commandQueue.Enqueue(ClearPathTargets),
+                    () => _commandQueue.Enqueue(StartNewLootTrackerSession),
+                    () => _commandQueue.Enqueue(StartWaystoneAlchemyFromUi),
+                    () => _commandQueue.Enqueue(StopWaystoneAlchemyFromUi),
+                    () => _commandQueue.Enqueue(RequestExpeditionPlanFromUi)));
+            _settingsUi.Start();
+        }
+        catch (Exception ex)
+        {
+            CrashLog.Write("WinForms settings UI startup failed; legacy editor remains available", ex);
+            _settingsUi?.Dispose();
+            _settingsUi = null;
+        }
         _worldThread = new Thread(WorldReaderLoop) { IsBackground = true, Name = "WorldReader" };
         _worldThread.Start();
         _api = new ApiServer(() => _state, _settings, GetNavSelection, ToggleNavTarget, ClearNavSelection,
@@ -610,7 +635,7 @@ public sealed partial class RadarApp : IDisposable
     private ImGuiRadarOverlay CreateImGuiOverlay()
     {
         var generation = Interlocked.Increment(ref _imguiOverlayGeneration);
-        return new ImGuiRadarOverlay(
+        var overlay = new ImGuiRadarOverlay(
             cmd => _commandQueue.Enqueue(cmd),
             id => TogglePathTarget(id),
             corner =>
@@ -635,6 +660,49 @@ public sealed partial class RadarApp : IDisposable
             generation == 1
                 ? StealthIdentity.WindowTitle
                 : $"{StealthIdentity.WindowTitle}{generation}");
+        overlay.SetExternalSettingsAction(OpenClassicSettings);
+        return overlay;
+    }
+
+    private bool SettingsUiOpen => _settingsUi?.IsOpen == true || _imguiOverlay?.IsSettingsOpen == true;
+
+    private void ToggleSettingsUi()
+    {
+        if (IsModernInterface)
+        {
+            _settingsUi?.Hide();
+            _imguiOverlay?.ToggleSettings();
+        }
+        else
+        {
+            if (_imguiOverlay?.IsSettingsOpen == true)
+                _imguiOverlay.ToggleSettings();
+            if (_settingsUi is { } settingsUi)
+                settingsUi.Toggle();
+            else
+                _imguiOverlay?.ToggleSettings();
+        }
+    }
+
+    private bool IsModernInterface =>
+        string.Equals(_settings.InterfaceStyle, "Modern", StringComparison.OrdinalIgnoreCase);
+
+    private void SwitchToModernSettings()
+    {
+        _settings.InterfaceStyle = "Modern";
+        _settings.Save();
+        _settingsUi?.Hide();
+        if (_imguiOverlay?.IsSettingsOpen != true)
+            _imguiOverlay?.ToggleSettings();
+    }
+
+    private void OpenClassicSettings()
+    {
+        _settings.InterfaceStyle = "Old";
+        _settings.Save();
+        if (_imguiOverlay?.IsSettingsOpen == true)
+            _imguiOverlay.ToggleSettings();
+        _settingsUi?.Show();
     }
 
     private void RestartImGuiOverlay()
@@ -1014,6 +1082,7 @@ public sealed partial class RadarApp : IDisposable
         // Alt-Tab should suppress the whole overlay window.
         _imguiOverlay?.SetDrawEnabled(ShouldShowOverlayWindow(live.InGame, realActive, overlayFocused));
         _imguiOverlay?.UpdateContext(ctx);
+        _settingsUi?.UpdateStatus(ctx, _renderingEnabled);
 
         var overlayMetrics = _imguiOverlay?.GetRenderMetrics().Snapshot() ?? default;
         _perf.RecordRender(
@@ -1429,7 +1498,7 @@ public sealed partial class RadarApp : IDisposable
             OpenDashboard();
 
         if (HotkeyPressed(_settings.ToggleSettingsHotkey, ref _nextSettingsAt, requireGameFocus: true))
-            _imguiOverlay?.ToggleSettings();
+            ToggleSettingsUi();
 
         if (HotkeyPressed(_settings.ToggleRenderingHotkey, ref _nextRenderToggleAt))
             ToggleOverlayRendering();
@@ -1482,7 +1551,7 @@ public sealed partial class RadarApp : IDisposable
         HotkeyPoll.BeginTick(_settings);
         if (!IsGameFocused() || _areaInstanceForApi == 0) return;
 
-        var settingsOpen = _imguiOverlay?.IsSettingsOpen == true;
+        var settingsOpen = SettingsUiOpen;
         if (_settingsWereOpen && !settingsOpen)
         {
             _hideKeyWasDown = false;
@@ -1541,7 +1610,7 @@ public sealed partial class RadarApp : IDisposable
         _cursorInspectTitle = null;
         _cursorInspectMeta = null;
         if (_areaInstanceForApi == 0 || _atlasOpen) return;
-        if (_imguiOverlay?.IsSettingsOpen == true) return;
+        if (SettingsUiOpen) return;
         if (!TryGetCursorClient(out var cursor)) return;
         if (!TryPickEntityAt(cursor, live.PlayerGrid, out var entity, out _)) return;
 
@@ -3454,6 +3523,7 @@ public sealed partial class RadarApp : IDisposable
         _replanner.Dispose();
         _api.Dispose();
         _processMetrics.Dispose();
+        _settingsUi?.Dispose();
         var overlay = _imguiOverlay;
         overlay?.RequestClose();
         try { _imguiThread?.Join(1000); } catch { }

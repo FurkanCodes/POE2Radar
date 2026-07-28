@@ -71,7 +71,7 @@ public static class IconAtlas
             return;
         }
 
-        using var image = Image.Load(iconsPath);
+        using var image = SixLabors.ImageSharp.Image.Load(iconsPath);
         _atlasWidth = image.Width;
         _atlasHeight = image.Height;
 

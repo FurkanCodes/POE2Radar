@@ -167,7 +167,7 @@ public sealed partial class RadarApp
         _wasRitualWindowOpen = true;
         PoeNinjaPriceFetcher.RefreshIfNeeded();
 
-        var intervalMs = RitualRecomputeIntervalMs(_imguiOverlay?.IsSettingsOpen == true);
+        var intervalMs = RitualRecomputeIntervalMs(SettingsUiOpen);
         if (now < _nextRitualRecomputeUtc && (_ritualLabels.Length > 0 || _ritualPanelRows.Length > 0))
         {
             _ritualStatus = new RitualRuntimeStatus(

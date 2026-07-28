@@ -249,7 +249,7 @@ public sealed partial class RadarApp
             return;
         }
 
-        var intervalMs = _imguiOverlay?.IsSettingsOpen == true ? 200 : 120;
+        var intervalMs = SettingsUiOpen ? 200 : 120;
         if (now < _nextRunecraftRecomputeUtc && _runecraftLabels.Length > 0 && panel.Rows.Length > 0)
         {
             _runecraftStatus = _runecraftStatus with

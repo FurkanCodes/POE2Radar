@@ -1,9 +1,10 @@
 using POE2Radar.Overlay.Config;
 using POE2Radar.Overlay.Diagnostics;
+using POE2Radar.Overlay.UI;
 
 namespace POE2Radar.Overlay;
 
-/// <summary>GameHelper-style launcher: ImGui menu before the in-game overlay starts.</summary>
+/// <summary>Classic WinForms launcher shown before the in-game overlay starts.</summary>
 internal static class StartupMenu
 {
     /// <summary>Blocks until the user starts the radar or quits. Returns null on quit.</summary>
@@ -17,9 +18,12 @@ internal static class StartupMenu
             try
             {
                 var settings = RadarSettings.Load();
-                using var menu = new StartupMenuOverlay(settings);
-                menu.Run().GetAwaiter().GetResult();
-                if (menu.Started && menu.Result is { } result)
+                Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                using var menu = new StartupForm(settings);
+                Application.Run(menu);
+                if (menu.Result is { } result)
                     started = result;
             }
             catch (Exception ex)

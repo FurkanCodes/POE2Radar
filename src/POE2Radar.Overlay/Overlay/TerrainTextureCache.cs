@@ -103,7 +103,10 @@ public sealed class TerrainTextureCache
         var (textureWidth, textureHeight) = GetTextureDimensions(sourceWidth, sourceHeight);
         var cells = terrain.Walkable;
 
-        using var image = new Image<Rgba32>(textureWidth, textureHeight, Color.Transparent);
+        using var image = new Image<Rgba32>(
+            textureWidth,
+            textureHeight,
+            SixLabors.ImageSharp.Color.Transparent);
         for (var y = 1; y < sourceHeight - 1; y++)
         {
             var row = y * sourceWidth;
