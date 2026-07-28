@@ -1,0 +1,2343 @@
+﻿{
+    "objectives":  [
+                       {
+                           "id":  "act2.vastiri-outskirts.talk-to-the-hooded-one",
+                           "chapter":  "act2",
+                           "order":  2001,
+                           "areaName":  "Vastiri Outskirts",
+                           "text":  "Talk to The Hooded One",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  1
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_1"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to The Hooded One"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.vastiri-outskirts.kill-rathbreaker",
+                           "chapter":  "act2",
+                           "order":  2002,
+                           "areaName":  "Vastiri Outskirts",
+                           "text":  "Kill Rathbreaker",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  2
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Rathbreaker",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_1"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/Monsters/HyenaMonster/RathbreakerQuest",
+                                                                "Metadata/Monsters/HyenaMonster/Rathbreaker"
+                                                            ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Rathbreaker"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act2.vastiri-outskirts.tp-back-to-start-of-zone",
+                           "chapter":  "act2",
+                           "order":  2003,
+                           "areaName":  "Vastiri Outskirts",
+                           "text":  "TP back to start of zone",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  3
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "TP back to start of zone"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.vastiri-outskirts.talk-to-zarka-uncut-skill-gem-lv5",
+                           "chapter":  "act2",
+                           "order":  2004,
+                           "areaName":  "Vastiri Outskirts",
+                           "text":  "Talk to Zarka Uncut Skill Gem Lv5",
+                           "rewards":  [
+                                           "Uncut Skill Gem Lv5"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  4
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_1"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Zarka Uncut Skill Gem Lv5"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.vastiri-outskirts.enter-the-ardura-caravan",
+                           "chapter":  "act2",
+                           "order":  2005,
+                           "areaName":  "Vastiri Outskirts",
+                           "text":  "Enter The Ardura Caravan",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  5
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "The Ardura Caravan",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_1"
+                                                               ],
+                                          "destinationAreaCode":  "G2_town",
+                                          "validated":  false,
+                                          "guidance":  "Enter The Ardura Caravan"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G2_town",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.talk-to-hooded-one-sekhema-asala-2",
+                           "chapter":  "act2",
+                           "order":  2006,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Talk to Hooded One + Sekhema Asala (Ã—2)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  6
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Hooded One + Sekhema Asala (Ã—2)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "0.5 League Runes of Aldur: Farrow was introduced back in Act 1 — there is no Runic Alloy quest here at the Caravan. Instead, every zone holds an Ezomyte Remnant (inscribe runes → fight waves → claim a reward), and certain zones hold a Runestone that summons Farrow and unlocks new recipes. The Act 2 Runic Vault chain is reached via Deshar (see below).\nRuneforging ladder One tier unlocks per act: Act 1 Armour Runeforging → Act 2 Runic Inscriptions → Act 3 Unique Runeforging → Act 4 Ancient Runes."
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.use-desert-map",
+                           "chapter":  "act2",
+                           "order":  2007,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Use Desert Map",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  7
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Use Desert Map"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.travel-to-halani-gates",
+                           "chapter":  "act2",
+                           "order":  2008,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "travel to Halani Gates",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  7
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "travel to Halani Gates"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.enter-halani-gates",
+                           "chapter":  "act2",
+                           "order":  2009,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Enter Halani Gates",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  8
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Enter Halani Gates"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.talk-to-sekhema-asala",
+                           "chapter":  "act2",
+                           "order":  2010,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "talk to Sekhema Asala",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  8
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "talk to Sekhema Asala"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.back-to-caravan",
+                           "chapter":  "act2",
+                           "order":  2011,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Back to Caravan",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  9
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Back to Caravan"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.talk-to-sekhema-asala-part-2",
+                           "chapter":  "act2",
+                           "order":  2012,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "talk to Sekhema Asala",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  9
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "talk to Sekhema Asala"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.travel-to-mawdun-quarry",
+                           "chapter":  "act2",
+                           "order":  2013,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Travel to Mawdun Quarry",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  10
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Mawdun Quarry",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "destinationAreaCode":  "G2_10_1",
+                                          "validated":  false,
+                                          "guidance":  "Travel to Mawdun Quarry"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G2_10_1",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act2.mawdun-quarry.opt-faridun-war-cache-near-checkpoint-artificer-s-orb",
+                           "chapter":  "act2",
+                           "order":  2014,
+                           "areaName":  "Mawdun Quarry",
+                           "text":  "(Opt) Faridun War Cache near checkpoint Artificer\u0027s Orb",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Artificer\u0027s Orb"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  11
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Faridun War Cache near checkpoint Artificer\u0027s Orb"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.mawdun-quarry.enter-mawdun-mine-follow-checkpoints",
+                           "chapter":  "act2",
+                           "order":  2015,
+                           "areaName":  "Mawdun Quarry",
+                           "text":  "Enter Mawdun Mine (follow checkpoints)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  12
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Mawdun Mine",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_10_1"
+                                                               ],
+                                          "destinationAreaCode":  "G2_10_2",
+                                          "validated":  false,
+                                          "guidance":  "Enter Mawdun Mine (follow checkpoints)"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G2_10_2",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act2.mawdun-mine.kill-rudja-uncut-skill-gem-lv6",
+                           "chapter":  "act2",
+                           "order":  2016,
+                           "areaName":  "Mawdun Mine",
+                           "text":  "Kill Rudja Uncut Skill Gem Lv6",
+                           "rewards":  [
+                                           "Uncut Skill Gem Lv6"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  13
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Rudja Uncut Skill Gem Lv6",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_10_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Rudja Uncut Skill Gem Lv6"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act2.mawdun-mine.talk-to-risu-in-cage",
+                           "chapter":  "act2",
+                           "order":  2017,
+                           "areaName":  "Mawdun Mine",
+                           "text":  "Talk to Risu in cage",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  14
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_10_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Risu in cage"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.mawdun-mine.tp-back-to-town",
+                           "chapter":  "act2",
+                           "order":  2018,
+                           "areaName":  "Mawdun Mine",
+                           "text":  "TP back to town",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  15
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "TP back to town"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.talk-to-risu-sekhema-asala",
+                           "chapter":  "act2",
+                           "order":  2019,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Talk to Risu + Sekhema Asala",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  16
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Risu + Sekhema Asala"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.travel-to-traitor-s-passage",
+                           "chapter":  "act2",
+                           "order":  2020,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Travel to Traitor\u0027s Passage",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  17
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Traitor\u0027s Passage",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "destinationAreaCode":  "G2_2",
+                                          "validated":  false,
+                                          "guidance":  "Travel to Traitor\u0027s Passage"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G2_2",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act2.traitor-s-passage.interact-with-ancient-seal-door-runic-seals",
+                           "chapter":  "act2",
+                           "order":  2021,
+                           "areaName":  "Traitor\u0027s Passage",
+                           "text":  "Interact with Ancient Seal door + Runic Seals",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  18
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Interact with Ancient Seal door + Runic Seals"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.traitor-s-passage.opt-kill-balbala-the-traitor-djinn-barya-uncut-skill-gem-lv6",
+                           "chapter":  "act2",
+                           "order":  2022,
+                           "areaName":  "Traitor\u0027s Passage",
+                           "text":  "(Opt) Kill Balbala, the Traitor Djinn Barya Uncut Skill Gem Lv6",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Djinn Barya",
+                                           "Uncut Skill Gem Lv6"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  19
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Balbala, the Traitor Djinn Barya Uncut Skill Gem Lv6",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "(Opt) Kill Balbala, the Traitor Djinn Barya Uncut Skill Gem Lv6"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          },
+                           "note":  "Most builds skip — get backup Barya from Deshar vultures (less mobile fight, better XP at Lvl 28)"
+                       },
+                       {
+                           "id":  "act2.traitor-s-passage.opt-bell-chest-in-dead-end-random-loot",
+                           "chapter":  "act2",
+                           "order":  2023,
+                           "areaName":  "Traitor\u0027s Passage",
+                           "text":  "(Opt) Bell Chest in dead end Random loot",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Random loot"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  20
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "(Opt) Bell Chest in dead end Random loot"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.traitor-s-passage.enter-the-halani-gates-stairs-up",
+                           "chapter":  "act2",
+                           "order":  2024,
+                           "areaName":  "Traitor\u0027s Passage",
+                           "text":  "Enter The Halani Gates (stairs up)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  21
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "The Halani Gates",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_2"
+                                                               ],
+                                          "destinationAreaCode":  "G2_3",
+                                          "validated":  false,
+                                          "guidance":  "Enter The Halani Gates (stairs up)"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G2_3",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-halani-gates.summon-asala-to-open-gates",
+                           "chapter":  "act2",
+                           "order":  2025,
+                           "areaName":  "The Halani Gates",
+                           "text":  "Summon Asala to open gates",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  22
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_3"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Summon Asala to open gates"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "If Asala lags behind on terra-cotta soldiers, reset checkpoint — she\u0027ll snap to you\nPush forward to the command tents for loot before opening the gates"
+                       },
+                       {
+                           "id":  "act2.the-halani-gates.kill-jamanra-first-encounter",
+                           "chapter":  "act2",
+                           "order":  2026,
+                           "areaName":  "The Halani Gates",
+                           "text":  "Kill Jamanra (first encounter)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  23
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Jamanra (first encounter)",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_3"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Jamanra (first encounter)"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-halani-gates.stairs-down-search-checkpoint",
+                           "chapter":  "act2",
+                           "order":  2027,
+                           "areaName":  "The Halani Gates",
+                           "text":  "Stairs down, search checkpoint",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  24
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Stairs down, search checkpoint"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-halani-gates.tp-back-to-town",
+                           "chapter":  "act2",
+                           "order":  2028,
+                           "areaName":  "The Halani Gates",
+                           "text":  "TP back to town",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  25
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "TP back to town"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.talk-to-shambrin-zarka-sekhema-asala",
+                           "chapter":  "act2",
+                           "order":  2029,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Talk to Shambrin , Zarka , Sekhema Asala",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  26
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Shambrin , Zarka , Sekhema Asala"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.travel-to-trial-of-sekhemas",
+                           "chapter":  "act2",
+                           "order":  2030,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Travel to Trial of Sekhemas",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  27
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Travel to Trial of Sekhemas"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.take-wp-run-later-at-lvl-28",
+                           "chapter":  "act2",
+                           "order":  2031,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "take WP Run later at Lvl 28",
+                           "rewards":  [
+                                           "Run later at Lvl 28"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  27
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "WaypointIcon",
+                                          "label":  "Waypoint",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "serverIconNames":  [
+                                                                  "Waypoint"
+                                                              ],
+                                          "validated":  true,
+                                          "guidance":  "take WP Run later at Lvl 28"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.tp-back",
+                           "chapter":  "act2",
+                           "order":  2032,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "TP back",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  28
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "TP back"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.travel-to-mastodon-badlands",
+                           "chapter":  "act2",
+                           "order":  2033,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "travel to Mastodon Badlands",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  28
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Mastodon Badlands",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "destinationAreaCode":  "G2_5_1",
+                                          "validated":  false,
+                                          "guidance":  "travel to Mastodon Badlands"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G2_5_1",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act2.mastodon-badlands.opt-shrine-of-bones-effigy-near-checkpoint-support-gem-lv2",
+                           "chapter":  "act2",
+                           "order":  2034,
+                           "areaName":  "Mastodon Badlands",
+                           "text":  "(Opt) Shrine of Bones (Effigy) near checkpoint Support Gem Lv2",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Support Gem Lv2"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  29
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Shrine of Bones (Effigy) near checkpoint Support Gem Lv2"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.mastodon-badlands.enter-the-bone-pits",
+                           "chapter":  "act2",
+                           "order":  2035,
+                           "areaName":  "Mastodon Badlands",
+                           "text":  "Enter The Bone Pits",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  30
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "The Bone Pits",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_5_1"
+                                                               ],
+                                          "destinationAreaCode":  "G2_5_2",
+                                          "validated":  false,
+                                          "guidance":  "Enter The Bone Pits"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G2_5_2",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-bone-pits.kill-hyenas-until-sun-clan-relic-drops",
+                           "chapter":  "act2",
+                           "order":  2036,
+                           "areaName":  "The Bone Pits",
+                           "text":  "Kill hyenas until Sun Clan Relic drops",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  31
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "hyenas until Sun Clan Relic drops",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_5_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill hyenas until Sun Clan Relic drops"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          },
+                           "note":  "Tall hyenas (Goliaths) have higher drop chance. Save for Valley of the Titans altar"
+                       },
+                       {
+                           "id":  "act2.the-bone-pits.kill-iktab-and-ekbab",
+                           "chapter":  "act2",
+                           "order":  2037,
+                           "areaName":  "The Bone Pits",
+                           "text":  "Kill Iktab \u0026 Ekbab",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  32
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Iktab \u0026 Ekbab",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_5_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Iktab \u0026 Ekbab"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-bone-pits.loot-mastodon-tusks",
+                           "chapter":  "act2",
+                           "order":  2038,
+                           "areaName":  "The Bone Pits",
+                           "text":  "loot Mastodon Tusks",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  32
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_5_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "loot Mastodon Tusks"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "Preserved Witness (Abyss objective): a target you survive/escort through a gauntlet for high-tier loot. Tends to spawn in the Lightless Passage / Well of Souls alongside mini-bosses like the Desiccated Lich — optional, build-dependent"
+                       },
+                       {
+                           "id":  "act2.the-bone-pits.tp-back-to-town",
+                           "chapter":  "act2",
+                           "order":  2039,
+                           "areaName":  "The Bone Pits",
+                           "text":  "TP back to town",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  33
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "TP back to town"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.talk-to-zarka",
+                           "chapter":  "act2",
+                           "order":  2040,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Talk to Zarka",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  34
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Zarka"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.travel-to-keth",
+                           "chapter":  "act2",
+                           "order":  2041,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Travel to Keth",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  35
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Keth",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "destinationAreaCode":  "G2_4_1",
+                                          "validated":  false,
+                                          "guidance":  "Travel to Keth"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G2_4_1",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act2.keth.kill-snakes-until-kabala-clan-relic-drops",
+                           "chapter":  "act2",
+                           "order":  2042,
+                           "areaName":  "Keth",
+                           "text":  "Kill snakes until Kabala Clan Relic drops",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  36
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "snakes until Kabala Clan Relic drops",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_4_1"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill snakes until Kabala Clan Relic drops"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act2.keth.opt-abandoned-prayer-down-the-stairs-magic-amulet",
+                           "chapter":  "act2",
+                           "order":  2043,
+                           "areaName":  "Keth",
+                           "text":  "(Opt) Abandoned Prayer (down the stairs) Magic Amulet",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Magic Amulet"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  37
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Abandoned Prayer (down the stairs) Magic Amulet"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.keth.kill-kabala-constrictor-queen-the-venom-pit-2-skill-points",
+                           "chapter":  "act2",
+                           "order":  2044,
+                           "areaName":  "Keth",
+                           "text":  "Kill Kabala, Constrictor Queen (the Venom Pit ) +2 Skill Points",
+                           "rewards":  [
+                                           "+2 Skill Points"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  38
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Kabala, Constrictor Queen (the Venom Pit ) +2 Skill Points",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_4_1"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Kabala, Constrictor Queen (the Venom Pit ) +2 Skill Points"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          },
+                           "note":  "Drops Lvl 7 skill gem because Mastodon was done first — useful for all classes"
+                       },
+                       {
+                           "id":  "act2.keth.enter-the-lost-city",
+                           "chapter":  "act2",
+                           "order":  2045,
+                           "areaName":  "Keth",
+                           "text":  "Enter The Lost City",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  39
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "The Lost City",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_4_1"
+                                                               ],
+                                          "destinationAreaCode":  "G2_4_2",
+                                          "validated":  false,
+                                          "guidance":  "Enter The Lost City"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G2_4_2",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-lost-city.opt-kill-ninth-treasure-of-keth-the-galleria-jewel",
+                           "chapter":  "act2",
+                           "order":  2046,
+                           "areaName":  "The Lost City",
+                           "text":  "(Opt) Kill Ninth Treasure of Keth (the Galleria ) Jewel",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Jewel"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  40
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Ninth Treasure of Keth (the Galleria ) Jewel",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_4_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "(Opt) Kill Ninth Treasure of Keth (the Galleria ) Jewel"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-lost-city.opt-golden-tomb-spirit-gem-lv7",
+                           "chapter":  "act2",
+                           "order":  2047,
+                           "areaName":  "The Lost City",
+                           "text":  "(Opt) Golden Tomb Spirit Gem Lv7",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Spirit Gem Lv7"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  41
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Golden Tomb Spirit Gem Lv7"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-lost-city.enter-buried-shrines",
+                           "chapter":  "act2",
+                           "order":  2048,
+                           "areaName":  "The Lost City",
+                           "text":  "Enter Buried Shrines",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  42
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Buried Shrines",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_4_2"
+                                                               ],
+                                          "destinationAreaCode":  "G2_4_3",
+                                          "validated":  false,
+                                          "guidance":  "Enter Buried Shrines"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G2_4_3",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act2.buried-shrines.opt-guarded-sarcophagus-support-gem-lesser-jeweller-s-orb",
+                           "chapter":  "act2",
+                           "order":  2049,
+                           "areaName":  "Buried Shrines",
+                           "text":  "(Opt) Guarded sarcophagus Support Gem (Lesser Jeweller\u0027s Orb)",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Support Gem (Lesser Jeweller\u0027s Orb)"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  43
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Guarded sarcophagus Support Gem (Lesser Jeweller\u0027s Orb)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.buried-shrines.opt-choose-offering-fire-water-lightning-resist-ring",
+                           "chapter":  "act2",
+                           "order":  2050,
+                           "areaName":  "Buried Shrines",
+                           "text":  "(Opt) Choose Offering (fire/water/lightning) Resist Ring",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Resist Ring"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  44
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Choose Offering (fire/water/lightning) Resist Ring"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.buried-shrines.enter-the-heart-of-keth",
+                           "chapter":  "act2",
+                           "order":  2051,
+                           "areaName":  "Buried Shrines",
+                           "text":  "Enter The Heart of Keth",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  45
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Keth",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_4_3"
+                                                               ],
+                                          "destinationAreaCode":  "G2_4_1",
+                                          "validated":  false,
+                                          "guidance":  "Enter The Heart of Keth"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G2_4_1",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-heart-of-keth.kill-azarian",
+                           "chapter":  "act2",
+                           "order":  2052,
+                           "areaName":  "The Heart of Keth",
+                           "text":  "Kill Azarian",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  46
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Azarian",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_4_3"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Azarian"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-heart-of-keth.talk-water-goddess-halani",
+                           "chapter":  "act2",
+                           "order":  2053,
+                           "areaName":  "The Heart of Keth",
+                           "text":  "Talk Water Goddess (Halani)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  47
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_4_3"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk Water Goddess (Halani)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-heart-of-keth.everburning-cinders",
+                           "chapter":  "act2",
+                           "order":  2054,
+                           "areaName":  "The Heart of Keth",
+                           "text":  "Everburning Cinders",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  47
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Everburning Cinders"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-heart-of-keth.ignite-goddess-essence-of-water",
+                           "chapter":  "act2",
+                           "order":  2055,
+                           "areaName":  "The Heart of Keth",
+                           "text":  "ignite Goddess Essence of Water",
+                           "rewards":  [
+                                           "Essence of Water"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  47
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "ignite Goddess Essence of Water"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-heart-of-keth.tp-back-to-town",
+                           "chapter":  "act2",
+                           "order":  2056,
+                           "areaName":  "The Heart of Keth",
+                           "text":  "TP back to town",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  48
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "TP back to town"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.talk-to-zarka-part-2",
+                           "chapter":  "act2",
+                           "order":  2057,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Talk to Zarka",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  49
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Zarka"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.travel-to-valley-of-the-titans",
+                           "chapter":  "act2",
+                           "order":  2058,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Travel to Valley of the Titans",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  50
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Valley of the Titans",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "destinationAreaCode":  "G2_6",
+                                          "validated":  false,
+                                          "guidance":  "Travel to Valley of the Titans"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G2_6",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act2.valley-of-the-titans.find-3-ancient-seals-perimeter",
+                           "chapter":  "act2",
+                           "order":  2059,
+                           "areaName":  "Valley of the Titans",
+                           "text":  "Find 3 Ancient Seals (perimeter)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  51
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_6"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Find 3 Ancient Seals (perimeter)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.valley-of-the-titans.find-medallion-relic-altar-place-both-relics-1-charm-slot-choose-buff",
+                           "chapter":  "act2",
+                           "order":  2060,
+                           "areaName":  "Valley of the Titans",
+                           "text":  "Find Medallion (Relic Altar), place both relics +1 Charm Slot + choose buff",
+                           "rewards":  [
+                                           "+1 Charm Slot + choose buff"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  52
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_6"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Find Medallion (Relic Altar), place both relics +1 Charm Slot + choose buff"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "The Relic Altar sits on a side path off one of the routes to the Ancient Seals\nGrants +1 Charm Slot plus your choice of 30% increased Charm Charges gained OR 30% increased Charm Effect Duration (changeable later)"
+                       },
+                       {
+                           "id":  "act2.valley-of-the-titans.enter-the-titan-grotto",
+                           "chapter":  "act2",
+                           "order":  2061,
+                           "areaName":  "Valley of the Titans",
+                           "text":  "Enter The Titan Grotto",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  53
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "The Titan Grotto",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_6"
+                                                               ],
+                                          "destinationAreaCode":  "G2_7",
+                                          "validated":  false,
+                                          "guidance":  "Enter The Titan Grotto"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G2_7",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-titan-grotto.kill-zalmarath-the-colossus",
+                           "chapter":  "act2",
+                           "order":  2062,
+                           "areaName":  "The Titan Grotto",
+                           "text":  "Kill Zalmarath, the Colossus",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  54
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Zalmarath, the Colossus",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_7"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Zalmarath, the Colossus"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-titan-grotto.loot-flame-ruby",
+                           "chapter":  "act2",
+                           "order":  2063,
+                           "areaName":  "The Titan Grotto",
+                           "text":  "loot Flame Ruby",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  54
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_7"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "loot Flame Ruby"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-titan-grotto.tp-back-to-town",
+                           "chapter":  "act2",
+                           "order":  2064,
+                           "areaName":  "The Titan Grotto",
+                           "text":  "TP back to town",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  55
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "TP back to town"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.talk-to-zarka-sekhema-asala",
+                           "chapter":  "act2",
+                           "order":  2065,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Talk to Zarka + Sekhema Asala",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  56
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Zarka + Sekhema Asala"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.travel-to-traitor-s-passage-don-t-enter",
+                           "chapter":  "act2",
+                           "order":  2066,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Travel to Traitor\u0027s Passage (don\u0027t enter)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  57
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Traitor\u0027s Passage",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "destinationAreaCode":  "G2_2",
+                                          "validated":  false,
+                                          "guidance":  "Travel to Traitor\u0027s Passage (don\u0027t enter)"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G2_2",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.sound-horn-at-top-of-caravan",
+                           "chapter":  "act2",
+                           "order":  2067,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Sound Horn at top of caravan",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  58
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Sound Horn at top of caravan"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.talk-to-sekhema-asala-part-3",
+                           "chapter":  "act2",
+                           "order":  2068,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Talk to Sekhema Asala",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  59
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Sekhema Asala"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.travel-to-deshar",
+                           "chapter":  "act2",
+                           "order":  2069,
+                           "areaName":  "The Ardura Caravan",
+                           "text":  "Travel to Deshar",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  60
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Deshar",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "destinationAreaCode":  "G2_8",
+                                          "validated":  false,
+                                          "guidance":  "Travel to Deshar"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G2_8",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act2.deshar.find-loot-fallen-dekhara-near-tower-2-skill-points",
+                           "chapter":  "act2",
+                           "order":  2070,
+                           "areaName":  "Deshar",
+                           "text":  "Find/loot Fallen Dekhara near tower +2 Skill Points",
+                           "rewards":  [
+                                           "+2 Skill Points"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  61
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_8"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Find/loot Fallen Dekhara near tower +2 Skill Points"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "Letter from Lihl Lima → deliver to Shambrin in town"
+                       },
+                       {
+                           "id":  "act2.deshar.kill-2-vultures-on-side-area-backup-djinn-barya-lvl-28",
+                           "chapter":  "act2",
+                           "order":  2071,
+                           "areaName":  "Deshar",
+                           "text":  "Kill 2 Vultures on side area Backup Djinn Barya (Lvl 28)",
+                           "rewards":  [
+                                           "Backup Djinn Barya (Lvl 28)"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  62
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "2 Vultures on side area Backup Djinn Barya (Lvl 28)",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_8"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill 2 Vultures on side area Backup Djinn Barya (Lvl 28)"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          },
+                           "note":  "This is the easy ascend path — much simpler than Balbala for all classes"
+                       },
+                       {
+                           "id":  "act2.deshar.opt-the-unremembered-skeleton-near-checkpoint-artificer-s-orb",
+                           "chapter":  "act2",
+                           "order":  2072,
+                           "areaName":  "Deshar",
+                           "text":  "(Opt) The Unremembered (skeleton) near checkpoint Artificer\u0027s Orb",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Artificer\u0027s Orb"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  63
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) The Unremembered (skeleton) near checkpoint Artificer\u0027s Orb"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.deshar.enter-path-of-mourning",
+                           "chapter":  "act2",
+                           "order":  2073,
+                           "areaName":  "Deshar",
+                           "text":  "Enter Path of Mourning",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  64
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Path of Mourning",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_8"
+                                                               ],
+                                          "destinationAreaCode":  "G2_9_1",
+                                          "validated":  false,
+                                          "guidance":  "Enter Path of Mourning"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G2_9_1",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act2.path-of-mourning.opt-shifting-vases-hushed-urn-encounter-4-rares-support-gem-lv2",
+                           "chapter":  "act2",
+                           "order":  2074,
+                           "areaName":  "Path of Mourning",
+                           "text":  "(Opt) Shifting Vases / Hushed Urn encounter 4 rares + Support Gem Lv2",
+                           "optional":  true,
+                           "rewards":  [
+                                           "4 rares + Support Gem Lv2"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  65
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Shifting Vases / Hushed Urn encounter 4 rares + Support Gem Lv2"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.path-of-mourning.enter-the-spires-of-deshar",
+                           "chapter":  "act2",
+                           "order":  2075,
+                           "areaName":  "Path of Mourning",
+                           "text":  "Enter The Spires of Deshar",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  66
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Deshar",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_9_1"
+                                                               ],
+                                          "destinationAreaCode":  "G2_8",
+                                          "validated":  false,
+                                          "guidance":  "Enter The Spires of Deshar"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G2_8",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-spires-of-deshar.interact-with-sisters-of-garukhan-shrine-10-lightning-res",
+                           "chapter":  "act2",
+                           "order":  2076,
+                           "areaName":  "The Spires of Deshar",
+                           "text":  "Interact with Sisters of Garukhan shrine +10% Lightning Res",
+                           "rewards":  [
+                                           "+10% Lightning Res"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  67
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_9_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Interact with Sisters of Garukhan shrine +10% Lightning Res"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-spires-of-deshar.kill-tor-gul",
+                           "chapter":  "act2",
+                           "order":  2077,
+                           "areaName":  "The Spires of Deshar",
+                           "text":  "Kill Tor Gul",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  68
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Tor Gul",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_9_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Tor Gul"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          },
+                           "note":  "One of the hardest fights in Act II — cap lightning res, watch defiler attacks"
+                       },
+                       {
+                           "id":  "act2.the-spires-of-deshar.tp-back-to-town",
+                           "chapter":  "act2",
+                           "order":  2078,
+                           "areaName":  "The Spires of Deshar",
+                           "text":  "TP back to town",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  69
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "TP back to town"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-spires-of-deshar.speak-with-sekhema-asala-2",
+                           "chapter":  "act2",
+                           "order":  2079,
+                           "areaName":  "The Spires of Deshar",
+                           "text":  "speak with Sekhema Asala (Ã—2)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  69
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_9_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "speak with Sekhema Asala (Ã—2)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.trial-of-the-sekhemas.on-entry-manually-pick-the-lvl-28-djinn-barya-deshar-vultures-not-the-de",
+                           "chapter":  "act2",
+                           "order":  2080,
+                           "areaName":  "Trial of the Sekhemas",
+                           "text":  "On entry, manually pick the Lvl 28 Djinn Barya (Deshar vultures) â€” not the default Lvl 22 Balbala one",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  70
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "On entry, manually pick the Lvl 28 Djinn Barya (Deshar vultures) â€” not the default Lvl 22 Balbala one"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.trial-of-the-sekhemas.set-relic-affinity-to-keep-your-inventory-clean",
+                           "chapter":  "act2",
+                           "order":  2081,
+                           "areaName":  "Trial of the Sekhemas",
+                           "text":  "Set relic affinity to keep your inventory clean",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  71
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Set relic affinity to keep your inventory clean"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.trial-of-the-sekhemas.room-priority-ritual-chalice-hourglass-gauntlet",
+                           "chapter":  "act2",
+                           "order":  2082,
+                           "areaName":  "Trial of the Sekhemas",
+                           "text":  "Room priority: Ritual \u003e Chalice \u003e Hourglass \u003e Gauntlet",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  72
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Room priority: Ritual \u003e Chalice \u003e Hourglass \u003e Gauntlet"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "Hourglass: kill rares to chunk the timer · Chalice: points to rare locations"
+                       },
+                       {
+                           "id":  "act2.trial-of-the-sekhemas.complete-the-trial",
+                           "chapter":  "act2",
+                           "order":  2083,
+                           "areaName":  "Trial of the Sekhemas",
+                           "text":  "Complete the trial",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  73
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Complete the trial"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.trial-of-the-sekhemas.1st-ascendancy",
+                           "chapter":  "act2",
+                           "order":  2084,
+                           "areaName":  "Trial of the Sekhemas",
+                           "text":  "1st Ascendancy",
+                           "rewards":  [
+                                           "1st Ascendancy"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  73
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "1st Ascendancy"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "Smith of Kitava (Warrior): stash a white chest piece first — ascending locks you out of magic/rare chests"
+                       },
+                       {
+                           "id":  "act2.the-dreadnought.travel-to-the-dreadnought",
+                           "chapter":  "act2",
+                           "order":  2085,
+                           "areaName":  "The Dreadnought",
+                           "text":  "Travel to The Dreadnought",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  74
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Travel to The Dreadnought"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-dreadnought.kill-jamanra-the-abomination-act-boss",
+                           "chapter":  "act2",
+                           "order":  2086,
+                           "areaName":  "The Dreadnought",
+                           "text":  "Kill Jamanra, the Abomination (Act Boss)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  75
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Jamanra, the Abomination (Act Boss)",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_12"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Jamanra, the Abomination (Act Boss)"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          },
+                           "note":  "0.5 Pathing The second dreadnought area was removed — Jamanra is now fought directly in The Dreadnought .\nAlready starts armor-broken. ~55k phys damage = stuns him before lightning fence phase"
+                       },
+                       {
+                           "id":  "act2.the-dreadnought.tp-back-to-town",
+                           "chapter":  "act2",
+                           "order":  2087,
+                           "areaName":  "The Dreadnought",
+                           "text":  "TP back to town",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  76
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "TP back to town"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.exit-caravan-top-left",
+                           "chapter":  "act2",
+                           "order":  2088,
+                           "areaName":  "The Ardura Caravan (End of Act)",
+                           "text":  "Exit caravan (top left)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  77
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Exit caravan (top left)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.talk-hooded-one",
+                           "chapter":  "act2",
+                           "order":  2089,
+                           "areaName":  "The Ardura Caravan (End of Act)",
+                           "text":  "talk Hooded One",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  77
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "talk Hooded One"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.wait-animation",
+                           "chapter":  "act2",
+                           "order":  2090,
+                           "areaName":  "The Ardura Caravan (End of Act)",
+                           "text":  "wait animation",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  77
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "wait animation"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.back",
+                           "chapter":  "act2",
+                           "order":  2091,
+                           "areaName":  "The Ardura Caravan (End of Act)",
+                           "text":  "Back",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  78
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Back"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.talk-sekhema-asala",
+                           "chapter":  "act2",
+                           "order":  2092,
+                           "areaName":  "The Ardura Caravan (End of Act)",
+                           "text":  "talk Sekhema Asala",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  78
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "talk Sekhema Asala"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act2.the-ardura-caravan.travel-to-the-sandswept-marsh",
+                           "chapter":  "act2",
+                           "order":  2093,
+                           "areaName":  "The Ardura Caravan (End of Act)",
+                           "text":  "\"Travel to the Sandswept Marsh\"",
+                           "source":  [
+                                          {
+                                              "chapter":  "act2",
+                                              "row":  78
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Sandswept Marsh",
+                                          "allowedAreaCodes":  [
+                                                                   "G2_town"
+                                                               ],
+                                          "destinationAreaCode":  "G3_1",
+                                          "validated":  false,
+                                          "guidance":  "\"Travel to the Sandswept Marsh\""
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_1",
+                                              "stableTicks":  2
+                                          },
+                           "note":  "Act II Complete — proceed to Act III"
+                       }
+                   ]
+}

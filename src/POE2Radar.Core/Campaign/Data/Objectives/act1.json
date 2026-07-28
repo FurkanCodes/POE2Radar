@@ -1,0 +1,1843 @@
+﻿{
+    "objectives":  [
+                       {
+                           "id":  "act1.riverbank.speak-wounded-man",
+                           "chapter":  "act1",
+                           "order":  1001,
+                           "areaName":  "Riverbank",
+                           "text":  "Talk to the Wounded Man.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  1
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Wounded Man",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_1"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/npc/wounded"
+                                                            ],
+                                          "validated":  true
+                                      }
+                       },
+                       {
+                           "id":  "act1.riverbank.equip-starter-weapon",
+                           "chapter":  "act1",
+                           "order":  1002,
+                           "areaName":  "Riverbank",
+                           "text":  "Equip your starter weapon.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  1
+                                          }
+                                      ]
+                       },
+                       {
+                           "id":  "act1.riverbank.loot-large-chests",
+                           "chapter":  "act1",
+                           "order":  1003,
+                           "areaName":  "Riverbank",
+                           "text":  "Loot the Large Chests; equip useful items and skills.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  2
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Large Chest",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_1"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/chests/*large*"
+                                                            ],
+                                          "validated":  false,
+                                          "guidance":  "Follow the Riverbank route and open the tutorial chests."
+                                      }
+                       },
+                       {
+                           "id":  "act1.riverbank.defeat-bloated-miller",
+                           "chapter":  "act1",
+                           "order":  1004,
+                           "areaName":  "Riverbank",
+                           "text":  "Kill The Bloated Miller.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  3
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "The Bloated Miller",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_1"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/monsters/swollenmiller/swollenmiller"
+                                                            ],
+                                          "validated":  true
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act1.riverbank.enter-clearfell-encampment",
+                           "chapter":  "act1",
+                           "order":  1005,
+                           "areaName":  "Riverbank",
+                           "text":  "Enter Clearfell Encampment behind the boss.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  4
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Clearfell Encampment",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_1"
+                                                               ],
+                                          "destinationAreaCode":  "G1_town",
+                                          "validated":  false,
+                                          "guidance":  "The entrance opens beyond The Bloated Miller."
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_town",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.clearfell-town.speak-renly-for-gem",
+                           "chapter":  "act1",
+                           "order":  1006,
+                           "areaName":  "Clearfell Encampment",
+                           "text":  "Talk to Renly and take the level 1 Skill Gem.",
+                           "rewards":  [
+                                           "Skill Gem Lv1"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  5
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Renly",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_town"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/npc/four_act1/renly*"
+                                                            ],
+                                          "validated":  true
+                                      }
+                       },
+                       {
+                           "id":  "act1.clearfell-town.enter-clearfell",
+                           "chapter":  "act1",
+                           "order":  1007,
+                           "areaName":  "Clearfell Encampment",
+                           "text":  "Enter Clearfell.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  6
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Clearfell",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_town"
+                                                               ],
+                                          "destinationAreaCode":  "G1_2",
+                                          "validated":  false
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_2",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.clearfell.speak-farrow",
+                           "chapter":  "act1",
+                           "order":  1008,
+                           "areaName":  "Clearfell",
+                           "text":  "Talk to Farrow to start The Runeseeker.",
+                           "rewards":  [
+                                           "Runesmithing tutorial"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  7
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Farrow",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_2"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/monsters/npc/farrowact1dungeon"
+                                                            ],
+                                          "validated":  true
+                                      },
+                           "note":  "0.5 New Farrow is the new league NPC. Meeting him here only starts the Runeseeker quest — the Verisium Anvil unlocks at the end of the Act 1 chain (collect 3 Runestones → Lost Catacombs → return to Clearfell). Runeforging then lets you spend Verisium to add Runic Ward , a regenerating layer that absorbs damage at 1 life (free on sub-55 bases; trades some defence for Ward above that). Full detail in the Crafting Codex.\nRuneforging ladder One tier unlocks per act: Act 1 Armour Runeforging → Act 2 Runic Inscriptions → Act 3 Unique Runeforging → Act 4 Ancient Runes."
+                       },
+                       {
+                           "id":  "act1.clearfell.defeat-beira",
+                           "chapter":  "act1",
+                           "order":  1009,
+                           "areaName":  "Clearfell",
+                           "text":  "Kill Beira of the Rotten Pack in the north.",
+                           "rewards":  [
+                                           "+10% Cold Resistance"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  8
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Beira of the Rotten Pack",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Search the northern edge of Clearfell."
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act1.clearfell.enter-mud-burrow",
+                           "chapter":  "act1",
+                           "order":  1010,
+                           "areaName":  "Clearfell",
+                           "text":  "Enter the optional Mud Burrow.",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  9
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Mud Burrow",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_2"
+                                                               ],
+                                          "destinationAreaCode":  "G1_3",
+                                          "validated":  false
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_3",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.mud-burrow.defeat-devourer",
+                           "chapter":  "act1",
+                           "order":  1011,
+                           "areaName":  "Mud Burrow",
+                           "text":  "Kill The Devourer.",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Skill Gem Lv2"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  9
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "The Devourer",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_3"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/monsters/mudburrower/devourerduo/devourerbossduohead"
+                                                            ],
+                                          "validated":  true
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          },
+                           "note":  "A waypoint sits right next to Mud Burrow ; the bridge onward leads to The Grelwood\nAfter the kill, talk to Renly in town for a Support Gem Lv1"
+                       },
+                       {
+                           "id":  "act1.clearfell.open-abandoned-stash",
+                           "chapter":  "act1",
+                           "order":  1012,
+                           "areaName":  "Clearfell",
+                           "text":  "Open the Abandoned Stash inside the Mysterious Campsite.",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Skill Gem Lv1"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  10
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Abandoned Stash",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Look for the Mysterious Campsite landmark."
+                                      }
+                       },
+                       {
+                           "id":  "act1.clearfell.enter-grelwood",
+                           "chapter":  "act1",
+                           "order":  1013,
+                           "areaName":  "Clearfell",
+                           "text":  "Enter The Grelwood.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  11
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "The Grelwood",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_2"
+                                                               ],
+                                          "destinationAreaCode":  "G1_4",
+                                          "validated":  false
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_4",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.grelwood.summon-and-speak-una",
+                           "chapter":  "act1",
+                           "order":  1014,
+                           "areaName":  "The Grelwood",
+                           "text":  "Find, summon, and talk to Una.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  12
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Una",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_4"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/monsters/npc/unatreesummon*"
+                                                            ],
+                                          "validated":  true
+                                      }
+                       },
+                       {
+                           "id":  "act1.grelwood.activate-waypoint",
+                           "chapter":  "act1",
+                           "order":  1015,
+                           "areaName":  "The Grelwood",
+                           "text":  "Activate The Grelwood waypoint.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  13
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "WaypointIcon",
+                                          "label":  "Waypoint",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_4"
+                                                               ],
+                                          "serverIconNames":  [
+                                                                  "Waypoint"
+                                                              ],
+                                          "validated":  true
+                                      }
+                       },
+                       {
+                           "id":  "act1.grelwood.scout-grim-tangle",
+                           "chapter":  "act1",
+                           "order":  1016,
+                           "areaName":  "The Grelwood",
+                           "text":  "Enter Grim Tangle, activate its waypoint, then return.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  14
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Grim Tangle",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_4"
+                                                               ],
+                                          "destinationAreaCode":  "G1_6",
+                                          "validated":  false
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_6",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.grelwood.scout-red-vale",
+                           "chapter":  "act1",
+                           "order":  1017,
+                           "areaName":  "The Grelwood",
+                           "text":  "Enter The Red Vale, activate its waypoint, then return.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  15
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "The Red Vale",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_4"
+                                                               ],
+                                          "destinationAreaCode":  "G1_5",
+                                          "validated":  false
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_5",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.grelwood.defeat-gerung",
+                           "chapter":  "act1",
+                           "order":  1018,
+                           "areaName":  "The Grelwood",
+                           "text":  "Kill Gerung, the Brambleghast.",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Skill Gem Lv2"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  16
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Gerung, the Brambleghast",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_4"
+                                                               ],
+                                          "validated":  false
+                                      }
+                       },
+                       {
+                           "id":  "act1.grelwood.open-cauldron-hut",
+                           "chapter":  "act1",
+                           "order":  1019,
+                           "areaName":  "The Grelwood",
+                           "text":  "Find the hut with the cauldron and collect its rewards.",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Medium Life Flask",
+                                           "Medium Mana Flask",
+                                           "Support Gem Lv1"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  17
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Witch Cauldron",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_4"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/chests/witchcauldron"
+                                                            ],
+                                          "validated":  true
+                                      },
+                           "completion":  {
+                                              "kind":  "ObjectChanged"
+                                          },
+                           "note":  "Areagne is the hardest early fight — frost bomb chills her, makes it manageable"
+                       },
+                       {
+                           "id":  "act1.grelwood.enter-red-vale",
+                           "chapter":  "act1",
+                           "order":  1020,
+                           "areaName":  "The Grelwood",
+                           "text":  "Enter The Red Vale.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  18
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "The Red Vale",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_4"
+                                                               ],
+                                          "destinationAreaCode":  "G1_5",
+                                          "validated":  false
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_5",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.red-vale.activate-rust-obelisks",
+                           "chapter":  "act1",
+                           "order":  1021,
+                           "areaName":  "The Red Vale",
+                           "text":  "Activate all three Obelisks of Rust and loot each Runed Girdle.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  19
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Obelisk of Rust",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_5"
+                                                               ],
+                                          "validated":  false
+                                      }
+                       },
+                       {
+                           "id":  "act1.red-vale.defeat-rust-king",
+                           "chapter":  "act1",
+                           "order":  1022,
+                           "areaName":  "The Red Vale",
+                           "text":  "Kill The Rust King after the final obelisk.",
+                           "rewards":  [
+                                           "Skill Gem Lv3"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  20
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "The Rust King",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_5"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/monsters/rustking/therustking"
+                                                            ],
+                                          "validated":  true
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          },
+                           "note":  "Kite mobs under his feet for AoE damage uptime"
+                       },
+                       {
+                           "id":  "act1.red-vale.return-to-town",
+                           "chapter":  "act1",
+                           "order":  1023,
+                           "areaName":  "The Red Vale",
+                           "text":  "Return to Clearfell Encampment.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  21
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Town Portal",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_5"
+                                                               ],
+                                          "guidance":  "Use a Town Portal."
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_town",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.clearfell-town.collect-runed-spikes",
+                           "chapter":  "act1",
+                           "order":  1024,
+                           "areaName":  "Clearfell Encampment",
+                           "text":  "Talk to Renly and collect the Runed Spikes.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  22
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Renly",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_town"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/npc/four_act1/renly*"
+                                                            ],
+                                          "validated":  true
+                                      }
+                       },
+                       {
+                           "id":  "act1.clearfell-town.travel-grelwood",
+                           "chapter":  "act1",
+                           "order":  1025,
+                           "areaName":  "Clearfell Encampment",
+                           "text":  "Travel to The Grelwood.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  23
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Waypoint",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_town"
+                                                               ],
+                                          "guidance":  "Use the waypoint."
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_4",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.grelwood.activate-runic-seals",
+                           "chapter":  "act1",
+                           "order":  1026,
+                           "areaName":  "The Grelwood",
+                           "text":  "Activate all three Runic Seals.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  24
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Runic Seal",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_4"
+                                                               ],
+                                          "validated":  false
+                                      }
+                       },
+                       {
+                           "id":  "act1.grelwood.speak-una-after-seals",
+                           "chapter":  "act1",
+                           "order":  1027,
+                           "areaName":  "The Grelwood",
+                           "text":  "Talk to Una.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  25
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Una",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_4"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/monsters/npc/una*"
+                                                            ],
+                                          "validated":  true
+                                      }
+                       },
+                       {
+                           "id":  "act1.grelwood.return-town-after-seals",
+                           "chapter":  "act1",
+                           "order":  1028,
+                           "areaName":  "The Grelwood",
+                           "text":  "Return to Clearfell Encampment.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  26
+                                          }
+                                      ],
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_town",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.clearfell-town.speak-una-after-seals",
+                           "chapter":  "act1",
+                           "order":  1029,
+                           "areaName":  "Clearfell Encampment",
+                           "text":  "Talk to Una.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  27
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Una",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_town"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/npc/four_act1/una*"
+                                                            ],
+                                          "validated":  true
+                                      }
+                       },
+                       {
+                           "id":  "act1.clearfell-town.travel-grim-tangle",
+                           "chapter":  "act1",
+                           "order":  1030,
+                           "areaName":  "Clearfell Encampment",
+                           "text":  "Travel to Grim Tangle.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  28
+                                          }
+                                      ],
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_6",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.grim-tangle.defeat-ervig",
+                           "chapter":  "act1",
+                           "order":  1031,
+                           "areaName":  "Grim Tangle",
+                           "text":  "Kill Ervig, the Rotted Druid.",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Support Gem"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  29
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Ervig, the Rotted Druid",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_6"
+                                                               ],
+                                          "validated":  false
+                                      }
+                       },
+                       {
+                           "id":  "act1.grim-tangle.enter-cemetery",
+                           "chapter":  "act1",
+                           "order":  1032,
+                           "areaName":  "Grim Tangle",
+                           "text":  "Enter Cemetery of the Eternals.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  30
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Cemetery of the Eternals",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_6"
+                                                               ],
+                                          "destinationAreaCode":  "G1_7",
+                                          "validated":  false
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_7",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.cemetery.speak-lachlann",
+                           "chapter":  "act1",
+                           "order":  1033,
+                           "areaName":  "Cemetery of the Eternals",
+                           "text":  "Talk to Lachlann the Lost.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  31
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Lachlann the Lost",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_7"
+                                                               ],
+                                          "validated":  false
+                                      }
+                       },
+                       {
+                           "id":  "act1.cemetery.open-ancient-ruins",
+                           "chapter":  "act1",
+                           "order":  1034,
+                           "areaName":  "Cemetery of the Eternals",
+                           "text":  "Open the Ancient Ruins sarcophagus near the checkpoint.",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Iron or Lazuli Ring"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  32
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Ancient Ruins",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_7"
+                                                               ],
+                                          "validated":  false
+                                      }
+                       },
+                       {
+                           "id":  "act1.cemetery.enter-praetor-mausoleum",
+                           "chapter":  "act1",
+                           "order":  1035,
+                           "areaName":  "Cemetery of the Eternals",
+                           "text":  "Enter the Mausoleum of the Praetor.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  33
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Mausoleum of the Praetor",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_7"
+                                                               ],
+                                          "destinationAreaCode":  "G1_8",
+                                          "validated":  false
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_8",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.praetor-mausoleum.defeat-draven",
+                           "chapter":  "act1",
+                           "order":  1036,
+                           "areaName":  "Mausoleum of the Praetor",
+                           "text":  "Kill Draven and take his Key Piece.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  33
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Draven",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_8"
+                                                               ],
+                                          "validated":  false
+                                      }
+                       },
+                       {
+                           "id":  "act1.praetor-mausoleum.open-forgotten-riches",
+                           "chapter":  "act1",
+                           "order":  1037,
+                           "areaName":  "Mausoleum of the Praetor",
+                           "text":  "Find and open the Forgotten Riches hidden cache.",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Support Gem Lv1",
+                                           "Gold"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  34
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Forgotten Riches",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_8"
+                                                               ],
+                                          "validated":  false
+                                      },
+                           "note":  "Find the hidden switch to open the cache"
+                       },
+                       {
+                           "id":  "act1.cemetery.enter-consort-tomb",
+                           "chapter":  "act1",
+                           "order":  1038,
+                           "areaName":  "Cemetery of the Eternals",
+                           "text":  "Enter the Tomb of the Consort.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  35
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Tomb of the Consort",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_7"
+                                                               ],
+                                          "destinationAreaCode":  "G1_9",
+                                          "validated":  false
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_9",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.consort-tomb.defeat-asinia",
+                           "chapter":  "act1",
+                           "order":  1039,
+                           "areaName":  "Tomb of the Consort",
+                           "text":  "Kill Asinia and take her Key Piece.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  35
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Asinia",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_9"
+                                                               ],
+                                          "validated":  false
+                                      }
+                       },
+                       {
+                           "id":  "act1.consort-tomb.open-haunted-treasure",
+                           "chapter":  "act1",
+                           "order":  1040,
+                           "areaName":  "Tomb of the Consort",
+                           "text":  "Find and open the Haunted Treasure secret.",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Support Gem Lv1"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  35
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Haunted Treasure",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_9"
+                                                               ],
+                                          "validated":  false
+                                      }
+                       },
+                       {
+                           "id":  "act1.cemetery.open-memorial-gate",
+                           "chapter":  "act1",
+                           "order":  1041,
+                           "areaName":  "Cemetery of the Eternals",
+                           "text":  "Open the Memorial Gate next to Lachlann.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  36
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Memorial Gate",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_7"
+                                                               ],
+                                          "validated":  false
+                                      }
+                       },
+                       {
+                           "id":  "act1.cemetery.defeat-lachlann",
+                           "chapter":  "act1",
+                           "order":  1042,
+                           "areaName":  "Cemetery of the Eternals",
+                           "text":  "Kill Lachlann and loot the ring.",
+                           "rewards":  [
+                                           "Skill Gem Lv3"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  37
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Lachlann",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_7"
+                                                               ],
+                                          "validated":  false
+                                      }
+                       },
+                       {
+                           "id":  "act1.cemetery.enter-hunting-grounds",
+                           "chapter":  "act1",
+                           "order":  1043,
+                           "areaName":  "Cemetery of the Eternals",
+                           "text":  "Enter Hunting Grounds and activate its waypoint.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  38
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Hunting Grounds",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_7"
+                                                               ],
+                                          "destinationAreaCode":  "G1_11",
+                                          "validated":  false
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_11",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.hunting-grounds.return-town",
+                           "chapter":  "act1",
+                           "order":  1044,
+                           "areaName":  "Hunting Grounds",
+                           "text":  "Return to Clearfell Encampment.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  39
+                                          }
+                                      ],
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_town",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.clearfell-town.speak-finn",
+                           "chapter":  "act1",
+                           "order":  1045,
+                           "areaName":  "Clearfell Encampment",
+                           "text":  "Talk to Finn.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  40
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Finn",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_town"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/npc/four_act1/finn"
+                                                            ],
+                                          "validated":  true
+                                      }
+                       },
+                       {
+                           "id":  "act1.clearfell-town.speak-una-after-cemetery",
+                           "chapter":  "act1",
+                           "order":  1046,
+                           "areaName":  "Clearfell Encampment",
+                           "text":  "Talk to Una.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  40
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Una",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_town"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/npc/four_act1/una*"
+                                                            ],
+                                          "validated":  true
+                                      }
+                       },
+                       {
+                           "id":  "act1.clearfell-town.speak-hooded-one-after-cemetery",
+                           "chapter":  "act1",
+                           "order":  1047,
+                           "areaName":  "Clearfell Encampment",
+                           "text":  "Talk to The Hooded One.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  40
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "The Hooded One",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_town"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/npc/four_act1/hoodedmentor*"
+                                                            ],
+                                          "validated":  true
+                                      },
+                           "note":  "Revival The Hooded One revives upon return — Identify is now available"
+                       },
+                       {
+                           "id":  "act1.hunting-grounds.collect-farrow-runestone",
+                           "chapter":  "act1",
+                           "order":  1048,
+                           "areaName":  "Hunting Grounds",
+                           "text":  "Complete Farrow\u0027s encounter for Runestone 2 of 3.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  41
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Farrow",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_11"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/monsters/npc/farrowact1dungeon"
+                                                            ],
+                                          "validated":  true
+                                      }
+                       },
+                       {
+                           "id":  "act1.hunting-grounds.speak-delwyn",
+                           "chapter":  "act1",
+                           "order":  1049,
+                           "areaName":  "Hunting Grounds",
+                           "text":  "Talk to Delwyn.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  42
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Delwyn",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_11"
+                                                               ],
+                                          "validated":  false
+                                      },
+                           "note":  "Delwyn is a bit further into the zone than Farrow"
+                       },
+                       {
+                           "id":  "act1.hunting-grounds.defeat-crowbell",
+                           "chapter":  "act1",
+                           "order":  1050,
+                           "areaName":  "Hunting Grounds",
+                           "text":  "Kill The Crowbell.",
+                           "rewards":  [
+                                           "+2 Weapon Set Skill Points"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  43
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "The Crowbell",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_11"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/monsters/crowbell/crowbell"
+                                                            ],
+                                          "validated":  true
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          },
+                           "note":  "Watch slam attacks — can one-shot. Boss flees at low HP, kite carefully"
+                       },
+                       {
+                           "id":  "act1.hunting-grounds.scout-freythorn",
+                           "chapter":  "act1",
+                           "order":  1051,
+                           "areaName":  "Hunting Grounds",
+                           "text":  "Enter Freythorn, activate its waypoint, then return.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  44
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Freythorn",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_11"
+                                                               ],
+                                          "destinationAreaCode":  "G1_12",
+                                          "validated":  false
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_12",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.hunting-grounds.scout-ogham-farmlands",
+                           "chapter":  "act1",
+                           "order":  1052,
+                           "areaName":  "Hunting Grounds",
+                           "text":  "Enter Ogham Farmlands, activate its waypoint, then return.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  45
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Ogham Farmlands",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_11"
+                                                               ],
+                                          "destinationAreaCode":  "G1_13_1",
+                                          "validated":  false
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_13_1",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.hunting-grounds.complete-small-ritual",
+                           "chapter":  "act1",
+                           "order":  1053,
+                           "areaName":  "Hunting Grounds",
+                           "text":  "Complete the optional small ritual away from the zone entrance.",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Support Gem Lv1"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  46
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Small Ritual",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_11"
+                                                               ],
+                                          "validated":  false
+                                      }
+                       },
+                       {
+                           "id":  "act1.hunting-grounds.travel-freythorn",
+                           "chapter":  "act1",
+                           "order":  1054,
+                           "areaName":  "Hunting Grounds",
+                           "text":  "Travel to Freythorn.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  47
+                                          }
+                                      ],
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_12",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.freythorn.activate-small-altars",
+                           "chapter":  "act1",
+                           "order":  1055,
+                           "areaName":  "Freythorn",
+                           "text":  "Activate all three small Ritual Altars.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  48
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Ritual Altar",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_12"
+                                                               ],
+                                          "validated":  false
+                                      },
+                           "note":  "Big altar\u0027s smoke tendrils point to the small altars — follow them"
+                       },
+                       {
+                           "id":  "act1.freythorn.defeat-king-in-mists",
+                           "chapter":  "act1",
+                           "order":  1056,
+                           "areaName":  "Freythorn",
+                           "text":  "Activate the big altar and kill The King in the Mists.",
+                           "rewards":  [
+                                           "+30 Spirit",
+                                           "Spirit Gem Lv4"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  49
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "The King in the Mists",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_12"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/monsters/perennialkingstage2/perennialking"
+                                                            ],
+                                          "validated":  true
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          },
+                           "note":  "Aoife spawns in this fight (Druid class only?) and drops a spirit gem\nPhase 2: dodge totem summons + curses (stand still vs keep moving differ)"
+                       },
+                       {
+                           "id":  "act1.freythorn.cleanse-ominous-altars",
+                           "chapter":  "act1",
+                           "order":  1057,
+                           "areaName":  "Freythorn",
+                           "text":  "Cleanse the optional Ominous Altars.",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  50
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Ominous Altar",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_12"
+                                                               ],
+                                          "validated":  false
+                                      }
+                       },
+                       {
+                           "id":  "act1.clearfell-town.claim-ominous-charm",
+                           "chapter":  "act1",
+                           "order":  1058,
+                           "areaName":  "Clearfell Encampment",
+                           "text":  "Claim a Ruby, Sapphire, or Topaz Charm from Finn.",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Ruby/Sapphire/Topaz Charm"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  50
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Finn",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_town"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/npc/four_act1/finn"
+                                                            ],
+                                          "validated":  true
+                                      }
+                       },
+                       {
+                           "id":  "act1.freythorn.travel-ogham-farmlands",
+                           "chapter":  "act1",
+                           "order":  1059,
+                           "areaName":  "Freythorn",
+                           "text":  "Travel to Ogham Farmlands.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  51
+                                          }
+                                      ],
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_13_1",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.ogham-farmlands.open-lute-box",
+                           "chapter":  "act1",
+                           "order":  1060,
+                           "areaName":  "Ogham Farmlands",
+                           "text":  "Open Una\u0027s Lute Box in the house near the checkpoint.",
+                           "rewards":  [
+                                           "Una\u0027s Lute",
+                                           "+2 Weapon Set Skill Points"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  52
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Una\u0027s Lute Box",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_13_1"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/chests/questchests/una/lutebox"
+                                                            ],
+                                          "validated":  true
+                                      },
+                           "completion":  {
+                                              "kind":  "ObjectChanged"
+                                          },
+                           "note":  "Deliver to Una in town for the reward\n0.5 Quest Runeseeker — Runestone 3 of 3 (this zone, in a crop field). With all three found: return to Grelwood and summon Farrow at the Tree of Souls → run the Lost Catacombs → grab the Liquid Verisium at the end → return to Clearfell to unlock the Verisium Anvil ."
+                       },
+                       {
+                           "id":  "act1.ogham-farmlands.defeat-crop-circle-dogs",
+                           "chapter":  "act1",
+                           "order":  1061,
+                           "areaName":  "Ogham Farmlands",
+                           "text":  "Kill the rare dogs in the crop circle.",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Skill Gem Lv4"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  53
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Crop Circle Rare Dogs",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_13_1"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/monsters/rabidferaldogmonster/rabiddogfarmlandsrare"
+                                                            ],
+                                          "validated":  true
+                                      }
+                       },
+                       {
+                           "id":  "act1.ogham-farmlands.enter-ogham-village",
+                           "chapter":  "act1",
+                           "order":  1062,
+                           "areaName":  "Ogham Farmlands",
+                           "text":  "Enter Ogham Village.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  54
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Ogham Village",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_13_1"
+                                                               ],
+                                          "destinationAreaCode":  "G1_13_2",
+                                          "validated":  false
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_13_2",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.ogham-village.collect-smithing-tools",
+                           "chapter":  "act1",
+                           "order":  1063,
+                           "areaName":  "Ogham Village",
+                           "text":  "Collect the Smithing Tools in the house (first character only).",
+                           "rewards":  [
+                                           "Salvage Bench"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  55
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Smithing Tools",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_13_2"
+                                                               ],
+                                          "validated":  false
+                                      },
+                           "note":  "Follow the cobble road to the smithing house"
+                       },
+                       {
+                           "id":  "act1.ogham-village.open-blacksmith-chest",
+                           "chapter":  "act1",
+                           "order":  1064,
+                           "areaName":  "Ogham Village",
+                           "text":  "Open the Blacksmith\u0027s Chest in the same house.",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Blank Rune",
+                                           "Artificer\u0027s Orb"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  56
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Blacksmith\u0027s Chest",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_13_2"
+                                                               ],
+                                          "validated":  false
+                                      }
+                       },
+                       {
+                           "id":  "act1.ogham-village.defeat-executioner",
+                           "chapter":  "act1",
+                           "order":  1065,
+                           "areaName":  "Ogham Village",
+                           "text":  "Kill The Executioner.",
+                           "rewards":  [
+                                           "Support Gem Lv1"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  57
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "The Executioner",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_13_2"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/monsters/guillotineexecutioner/guillotineexecutioner"
+                                                            ],
+                                          "validated":  true
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          },
+                           "note":  "Fight is mostly in the north of the village"
+                       },
+                       {
+                           "id":  "act1.ogham-village.free-leitis",
+                           "chapter":  "act1",
+                           "order":  1066,
+                           "areaName":  "Ogham Village",
+                           "text":  "Go upstairs, pull the lever, and talk to Leitis.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  58
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Leitis",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_13_2"
+                                                               ],
+                                          "validated":  false
+                                      }
+                       },
+                       {
+                           "id":  "act1.ogham-village.enter-manor-ramparts",
+                           "chapter":  "act1",
+                           "order":  1067,
+                           "areaName":  "Ogham Village",
+                           "text":  "Enter The Manor Ramparts.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  59
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "The Manor Ramparts",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_13_2"
+                                                               ],
+                                          "destinationAreaCode":  "G1_14",
+                                          "validated":  false
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_14",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.manor-ramparts.open-gallows-secret",
+                           "chapter":  "act1",
+                           "order":  1068,
+                           "areaName":  "The Manor Ramparts",
+                           "text":  "Pull the rope on the hanging man near the checkpoint.",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Support Gem Lv1"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  60
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Gallows Secret",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_14"
+                                                               ],
+                                          "validated":  false
+                                      },
+                           "note":  "Confirm Lvl 10 flask + Lvl 11 chest piece before entering Manor — much safer"
+                       },
+                       {
+                           "id":  "act1.manor-ramparts.enter-ogham-manor",
+                           "chapter":  "act1",
+                           "order":  1069,
+                           "areaName":  "The Manor Ramparts",
+                           "text":  "Enter Ogham Manor.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  61
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Ogham Manor",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_14"
+                                                               ],
+                                          "destinationAreaCode":  "G1_15",
+                                          "validated":  false
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_15",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.ogham-manor.defeat-candlemass",
+                           "chapter":  "act1",
+                           "order":  1070,
+                           "areaName":  "Ogham Manor",
+                           "text":  "Kill Candlemass on the first floor.",
+                           "rewards":  [
+                                           "+20 Maximum Life"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  62
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Candlemass",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_15"
+                                                               ],
+                                          "validated":  false
+                                      },
+                           "note":  "Usually after the first walkway (when you first see the Count), sometimes earlier — drops Essence + double-res belt"
+                       },
+                       {
+                           "id":  "act1.ogham-manor.defeat-geonor",
+                           "chapter":  "act1",
+                           "order":  1071,
+                           "areaName":  "Ogham Manor",
+                           "text":  "Go downstairs and kill Geonor.",
+                           "note":  "Act I boss.\nManor descent: take each floor heading the opposite direction from the floor above — retrace how you crossed the walkway\nPhase 2: dodge roll under his sword. Frost bomb at start of Phase 2 chills him",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  63
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Count Geonor",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_15"
+                                                               ],
+                                          "validated":  false
+                                      }
+                       },
+                       {
+                           "id":  "act1.ogham-manor.return-town",
+                           "chapter":  "act1",
+                           "order":  1072,
+                           "areaName":  "Ogham Manor",
+                           "text":  "Return to Clearfell Encampment.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  64
+                                          }
+                                      ],
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G1_town",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act1.clearfell-town.collect-end-rewards",
+                           "chapter":  "act1",
+                           "order":  1073,
+                           "areaName":  "Clearfell Encampment",
+                           "text":  "Talk to all NPCs and collect the end-of-act rewards.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  65
+                                          }
+                                      ]
+                       },
+                       {
+                           "id":  "act1.clearfell-town.follow-beast-trail",
+                           "chapter":  "act1",
+                           "order":  1074,
+                           "areaName":  "Clearfell Encampment",
+                           "text":  "Talk to The Hooded One and choose â€œFollow the Beast\u0027s Trailâ€.",
+                           "source":  [
+                                          {
+                                              "chapter":  "act1",
+                                              "row":  66
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "The Hooded One",
+                                          "allowedAreaCodes":  [
+                                                                   "G1_town"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/npc/four_act1/hoodedmentor*"
+                                                            ],
+                                          "validated":  true
+                                      },
+                           "note":  "Act I Complete — proceed to Act II"
+                       }
+                   ]
+}

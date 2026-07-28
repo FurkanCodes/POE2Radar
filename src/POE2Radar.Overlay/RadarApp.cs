@@ -4,7 +4,9 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using NumVec2 = System.Numerics.Vector2;
 using POE2Radar.Core;
+using POE2Radar.Core.Campaign;
 using POE2Radar.Core.Game;
+using POE2Radar.Overlay.Campaign;
 using POE2Radar.Overlay.Config;
 using POE2Radar.Overlay.Diagnostics;
 using POE2Radar.Overlay.Input;
@@ -37,6 +39,10 @@ public sealed partial class RadarApp : IDisposable
     private SettingsUiHost? _settingsUi;
     private readonly ApiServer _api;
     private readonly RadarSettings _settings;
+    private readonly CampaignSession _campaignSession;
+    private readonly object _campaignGate = new();
+    private volatile CampaignView _campaignView = CampaignView.Empty;
+    private volatile CampaignPathView _campaignPath = CampaignPathView.Empty;
     private readonly HiddenEntities _hidden;
     private readonly WatchedEntities _watched;
     private readonly LandmarkPatterns _landmarkPatterns;
@@ -172,6 +178,8 @@ public sealed partial class RadarApp : IDisposable
     private readonly ConcurrentQueue<Action> _commandQueue = new();
     private readonly BackgroundReplanner _replanner = new();
     private readonly Dictionary<string, RouteTracker> _trackers = new(); // one per selected id; OWNED by the tick thread
+    private RouteTracker _campaignRouteTracker = new();
+    private string _campaignRouteTargetId = "";
     private List<NavTarget> _navTargets = new();                         // unified targets, rebuilt each world tick
     private PathCell[] _worldDoorOverrides = Array.Empty<PathCell>();
     private readonly record struct TargetSnapshot(
@@ -241,6 +249,9 @@ public sealed partial class RadarApp : IDisposable
         _reader = reader;
         _processMetrics = ProcessMetricsSampler.ForOverlay();
         _settings = RadarSettings.Load();
+        _campaignSession = new CampaignSession(
+            CampaignCatalog.Shared,
+            new CampaignProgressStore(Path.Combine(ConfigDir, "campaign_progress.json")));
         _pickupEngine = new Pickup.PickupEngine(ClickPickupTarget);
         Console.WriteLine($"Settings: {RadarSettings.FilePath}");
         Console.WriteLine($"Entity names: {EntityNameResolver.Shared.Count} mappings; zones: {ZoneGuide.Shared.Count}; zone bosses: {ZoneBossCatalog.Shared.Count}");
@@ -571,7 +582,13 @@ public sealed partial class RadarApp : IDisposable
                     () => _commandQueue.Enqueue(StartNewLootTrackerSession),
                     () => _commandQueue.Enqueue(StartWaystoneAlchemyFromUi),
                     () => _commandQueue.Enqueue(StopWaystoneAlchemyFromUi),
-                    () => _commandQueue.Enqueue(RequestExpeditionPlanFromUi)));
+                    () => _commandQueue.Enqueue(RequestExpeditionPlanFromUi),
+                    () => _commandQueue.Enqueue(CompleteCampaignObjective),
+                    () => _commandQueue.Enqueue(BackCampaignObjective),
+                    () => _commandQueue.Enqueue(() => SetCampaignDismissed(false)),
+                    () => _commandQueue.Enqueue(ResetCampaignCharacter),
+                    ExportCampaignProgressForClassicUi,
+                    ImportCampaignProgressForClassicUi));
             _settingsUi.Start();
         }
         catch (Exception ex)
@@ -656,12 +673,89 @@ public sealed partial class RadarApp : IDisposable
             StartWaystoneAlchemyFromUi,
             StopWaystoneAlchemyFromUi,
             RequestExpeditionPlanFromUi,
+            CompleteCampaignObjective,
+            BackCampaignObjective,
+            SetCampaignDismissed,
+            ResetCampaignCharacter,
+            SetCampaignObjectivesComplete,
+            ExportCampaignProgress,
+            ImportCampaignProgress,
+            (x, y) =>
+            {
+                _settings.Campaign.WidgetX = x;
+                _settings.Campaign.WidgetY = y;
+                _settings.Save();
+            },
             _settings,
             generation == 1
                 ? StealthIdentity.WindowTitle
                 : $"{StealthIdentity.WindowTitle}{generation}");
         overlay.SetExternalSettingsAction(OpenClassicSettings);
         return overlay;
+    }
+
+    private void CompleteCampaignObjective()
+    {
+        lock (_campaignGate) _campaignSession.CompleteCurrent();
+    }
+
+    private void BackCampaignObjective()
+    {
+        lock (_campaignGate) _campaignSession.Back();
+    }
+
+    private void SetCampaignDismissed(bool dismissed)
+    {
+        lock (_campaignGate) _campaignSession.SetDismissed(dismissed);
+    }
+
+    private void ResetCampaignCharacter()
+    {
+        lock (_campaignGate) _campaignSession.ResetCurrentCharacter();
+    }
+
+    private void SetCampaignObjectivesComplete(string[] objectiveIds, bool complete)
+    {
+        lock (_campaignGate) _campaignSession.SetObjectivesComplete(objectiveIds, complete);
+    }
+
+    private string ExportCampaignProgress()
+    {
+        lock (_campaignGate) return _campaignSession.ExportCurrentCharacter();
+    }
+
+    private bool ImportCampaignProgress(string progressCode)
+    {
+        lock (_campaignGate) return _campaignSession.ImportCurrentCharacter(progressCode);
+    }
+
+    private void ExportCampaignProgressForClassicUi()
+    {
+        var code = ExportCampaignProgress();
+        if (code.Length == 0)
+        {
+            System.Windows.Forms.MessageBox.Show(
+                "Enter the game with a character before exporting campaign progress.",
+                "Campaign Guide");
+            return;
+        }
+        System.Windows.Forms.Clipboard.SetText(code);
+        System.Windows.Forms.MessageBox.Show(
+            "Campaign progress code copied to the clipboard.",
+            "Campaign Guide");
+    }
+
+    private void ImportCampaignProgressForClassicUi()
+    {
+        var code = System.Windows.Forms.Clipboard.ContainsText()
+            ? System.Windows.Forms.Clipboard.GetText()
+            : "";
+        var imported = ImportCampaignProgress(code);
+        System.Windows.Forms.MessageBox.Show(
+            imported
+                ? "Campaign progress imported."
+                : "The clipboard does not contain a valid POE2Radar campaign progress code.",
+            "Campaign Guide");
     }
 
     private bool SettingsUiOpen => _settingsUi?.IsOpen == true || _imguiOverlay?.IsSettingsOpen == true;
@@ -838,6 +932,7 @@ public sealed partial class RadarApp : IDisposable
         if (live.InGame)
         {
             BuildRenderPaths(live.PlayerGrid, snap);
+            BuildCampaignRenderPath(live.PlayerGrid);
             if (!_atlasOpen && _hpBarCadence.IsDue(PerformanceCadence.ClampHz(_settings.HpBarRefreshHz, 1, 30)))
             {
                 var hpBarsStart = Stopwatch.GetTimestamp();
@@ -851,6 +946,7 @@ public sealed partial class RadarApp : IDisposable
         {
             _renderPaths.Clear();
             _renderPathSnapshot = Array.Empty<SelectedPath>();
+            _campaignPath = CampaignPathView.Empty;
             if (_atlasOpen) CloseAtlasSession();
             if (_hpFrame.Length > 0) _hpFrame = Array.Empty<HpBarTarget>();
         }
@@ -961,6 +1057,8 @@ public sealed partial class RadarApp : IDisposable
             HpBarRare: _settings.HpBarRare,
             HpBarUnique: _settings.HpBarUnique,
             SelectedPaths: _renderPathSnapshot,
+            Campaign: _campaignView,
+            CampaignPath: _campaignPath,
             SelectedIds: snap.SelectedIds,
             Legend: snap.Legend,
             NavMenuExpanded: false,

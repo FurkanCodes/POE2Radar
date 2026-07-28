@@ -19,6 +19,12 @@ AppDomain.CurrentDomain.UnhandledException += static (_, e) =>
 Console.WriteLine("POE2Radar.Research");
 Console.WriteLine("==================");
 
+if (HasFlag(args, "--campaign-validate"))
+    return CampaignResearchTools.Validate();
+
+if (TryGetStrArg(args, "--campaign-import") is { } campaignHtml)
+    return CampaignResearchTools.Import(campaignHtml, TryGetStrArg(args, "--save"));
+
 ProcessHandle attached;
 try
 {
@@ -183,6 +189,13 @@ if (HasFlag(args, "--serverdata"))
 
 if (HasFlag(args, "--server-icons"))
     return RunServerIcons(process, reader);
+
+if (HasFlag(args, "--campaign-survey"))
+    return CampaignResearchTools.Survey(
+        process,
+        reader,
+        TryGetStrArg(args, "--objective"),
+        TryGetStrArg(args, "--save"));
 
 if (HasFlag(args, "--pagesnap"))
     return RunPageSnap(reader, TryGetStrArg(args, "--tag") ?? "atlas",
@@ -380,6 +393,9 @@ Console.WriteLine("  --devtree [--port N]       browser-based live memory/UI/ent
 Console.WriteLine("  --sekhema-probe [--watch] [--assert-visible]  validate Trial floor graph/UI/resources/entities");
 Console.WriteLine("  --serverdata               dump ServerData (AreaInstance+ServerDataPtr): strings + StdVector quest-list candidates");
 Console.WriteLine("  --server-icons             scan ServerData / PlayerInfo for server-side minimap icon arrays");
+Console.WriteLine("  --campaign-validate        validate embedded campaign coverage, ordering, area codes, and target specs");
+Console.WriteLine("  --campaign-import <html> [--save <json>]  import source checklist rows with provenance");
+Console.WriteLine("  --campaign-survey [--objective <id>] [--save <json>]  compare exact target rules with the live area");
 Console.WriteLine("  --aob                      scan for IngameState via AOB patterns");
 Console.WriteLine("  --mechanic-survey          group awake entities by endgame mechanic catalog matchers");
 return 0;

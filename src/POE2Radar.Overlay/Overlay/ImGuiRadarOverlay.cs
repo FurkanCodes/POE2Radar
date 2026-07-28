@@ -5,9 +5,11 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using ImGuiNET;
+using POE2Radar.Core.Campaign;
 using POE2Radar.Core.Game;
 using POE2Radar.Core.Pathfinding;
 using POE2Radar.Overlay.Config;
+using POE2Radar.Overlay.Campaign;
 using POE2Radar.Overlay.Diagnostics;
 using POE2Radar.Overlay.Input;
 using POE2Radar.Overlay.Native;
@@ -45,6 +47,14 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private readonly Action _startWaystoneAlchemy;
     private readonly Action _stopWaystoneAlchemy;
     private readonly Action _runExpeditionPlanner;
+    private readonly Action _completeCampaignObjective;
+    private readonly Action _backCampaignObjective;
+    private readonly Action<bool> _setCampaignDismissed;
+    private readonly Action _resetCampaignCharacter;
+    private readonly Action<string[], bool> _setCampaignObjectivesComplete;
+    private readonly Func<string> _exportCampaignProgress;
+    private readonly Func<string, bool> _importCampaignProgress;
+    private readonly Action<float, float> _setCampaignPosition;
     private Action? _openExternalSettings;
     private readonly TextureRegistry _textures = new();
     private readonly TerrainTextureCache _terrainTextures = new();
@@ -56,6 +66,14 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
     private string _navMenuCorner = "TopLeft";
     private bool _navTaskbarPositionInitialized;
     private bool _navTaskbarWasDragging;
+    private bool _campaignPositionInitialized;
+    private bool _campaignWasDragging;
+    private bool _campaignGuideOpen;
+    private string _campaignGuideChapter = "";
+    private string _campaignGuideZone = "";
+    private string _campaignImportCode = "";
+    private string _campaignTransferStatus = "";
+    private bool _campaignResetChapterOnly;
     private DisplayRules? _displayRules;
     private ZoneEntityOverrides? _zoneOverrides;
     private DisplayRuleEngine? _ruleEngine;
@@ -112,6 +130,15 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
     private static readonly string[] ShapeNames = ["Circle", "Diamond", "Triangle", "Square", "Star", "Hexagon", "Pentagon", "Cross", "Plus", "Ring", "Heart", "Shield", "Gem"];
 
+    private static readonly (string Id, string Label)[] CampaignChapters =
+    [
+        ("act1", "ACT I"),
+        ("act2", "ACT II"),
+        ("act3", "ACT III"),
+        ("act4", "ACT IV"),
+        ("interludes", "INTERLUDES"),
+    ];
+
     private static readonly string[] RuleGroupOptions = ["Any", "Monster", "Chest", "Npc", "Object", "Other", "Transition", "Player", "Tile"];
 
     private static readonly (string Field, string Label, string[] Options)[] RuleConditionFields =
@@ -138,6 +165,14 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         Action startWaystoneAlchemy,
         Action stopWaystoneAlchemy,
         Action runExpeditionPlanner,
+        Action completeCampaignObjective,
+        Action backCampaignObjective,
+        Action<bool> setCampaignDismissed,
+        Action resetCampaignCharacter,
+        Action<string[], bool> setCampaignObjectivesComplete,
+        Func<string> exportCampaignProgress,
+        Func<string, bool> importCampaignProgress,
+        Action<float, float> setCampaignPosition,
         RadarSettings settings,
         string windowTitle)
         : base(windowTitle, true, 3840, 2160)
@@ -153,6 +188,14 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         _startWaystoneAlchemy = startWaystoneAlchemy;
         _stopWaystoneAlchemy = stopWaystoneAlchemy;
         _runExpeditionPlanner = runExpeditionPlanner;
+        _completeCampaignObjective = completeCampaignObjective;
+        _backCampaignObjective = backCampaignObjective;
+        _setCampaignDismissed = setCampaignDismissed;
+        _resetCampaignCharacter = resetCampaignCharacter;
+        _setCampaignObjectivesComplete = setCampaignObjectivesComplete;
+        _exportCampaignProgress = exportCampaignProgress;
+        _importCampaignProgress = importCampaignProgress;
+        _setCampaignPosition = setCampaignPosition;
         _settings = settings;
         _settingsLock = new object();
         _navMenuCorner = settings.NavMenuCorner;
@@ -366,7 +409,10 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                             DrawMap(dl, ctx, ctx.MiniMapFrame);
                         mapMs = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                     }
-                    if (!largeMapOpen && ctx.ShowPathWorld && ctx.ShowGroundWaypoints)
+                    if (!largeMapOpen
+                        && ((ctx.ShowPathWorld && ctx.ShowGroundWaypoints)
+                            || ctx.CampaignPath.FullPoints.Length > 0
+                            || ctx.Campaign.Target.HasPosition))
                     {
                         var t = Stopwatch.GetTimestamp();
                         DrawPathsWorld(dl, ctx);
@@ -404,6 +450,11 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             {
                 var navT = Stopwatch.GetTimestamp();
                 DrawNavMenu(ctx!);
+                if (ctx is { Active: true })
+                {
+                    DrawCampaignWidget(ctx);
+                    DrawCampaignGuideBrowser(ctx);
+                }
                 navMenuMs = Stopwatch.GetElapsedTime(navT).TotalMilliseconds;
             }
 
@@ -543,7 +594,9 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                     DrawTerrainEdges(dl, ctx, terrain, frame, center, scale);
             }
 
-            if (frame.IsMinimap ? ctx.ShowPathMinimap : ctx.ShowPathMap)
+            if ((frame.IsMinimap ? ctx.ShowPathMinimap : ctx.ShowPathMap)
+                || ctx.CampaignPath.Points.Length > 0
+                || ctx.Campaign.Target.HasPosition)
                 DrawPathsMap(dl, ctx, frame, center, scale);
 
             if (_settings.Runecraft.ShowExpeditionRouteOnMap)
@@ -802,6 +855,53 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
                 prev = p;
             }
         }
+        DrawCampaignPathMap(dl, ctx, frame, center, scale, projectionOrigin, smoothPaths);
+    }
+
+    private void DrawCampaignPathMap(
+        ImDrawListPtr dl,
+        RenderContext ctx,
+        MapFrame frame,
+        NumVec2 center,
+        float scale,
+        NumVec2 projectionOrigin,
+        bool smoothPaths)
+    {
+        if (!ctx.Campaign.Visible || ctx.Campaign.Current is null) return;
+        var gold = ColorU32(216, 180, 90, 0.96f);
+        var goal = ctx.CampaignPath.ResolvedGoal;
+        if (goal is null && ctx.Campaign.Target.Grid is { } target)
+            goal = ((int)MathF.Round(target.X), (int)MathF.Round(target.Y));
+        var poly = NavigationPathBuilder.BuildDrawPolyline(
+            projectionOrigin,
+            ctx.CampaignPath.Points,
+            goal);
+        NumVec2? previous = null;
+        for (var index = 0; index < poly.Count; index++)
+        {
+            var cell = poly[index];
+            var point = Project(new NumVec2(cell.x, cell.y), projectionOrigin, center, scale);
+            if (smoothPaths)
+                point = SmoothScreenPoint(
+                    $"campaign:path:map:{ctx.Campaign.Current.Id}:{index}",
+                    point,
+                    ctx.OverlaySmoothingMs,
+                    true);
+            if (previous is { } prior) dl.AddLine(prior, point, gold, 3.1f);
+            previous = point;
+        }
+
+        if (ctx.Campaign.Target.Grid is not { } grid) return;
+        var marker = Project(grid, projectionOrigin, center, scale);
+        var radius = Math.Clamp(10f * _settings.Campaign.WidgetScale, 8f, 16f);
+        dl.AddCircle(marker, radius + 4f, ColorU32(28, 24, 17, 0.90f), 24, 5f);
+        dl.AddCircle(marker, radius + 2f, gold, 24, 2.5f);
+        dl.AddQuadFilled(
+            marker + new NumVec2(0f, -radius),
+            marker + new NumVec2(radius * 0.72f, 0f),
+            marker + new NumVec2(0f, radius),
+            marker + new NumVec2(-radius * 0.72f, 0f),
+            gold);
     }
 
     // ── World-space paths (map closed) ──
@@ -844,6 +944,96 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             dl.AddCircle(gp, 10f, col, 24, 2f);
             dl.AddCircleFilled(gp, 5f, col, 16);
         }
+        DrawCampaignPathWorld(dl, ctx, m, W, H, wz);
+    }
+
+    private void DrawCampaignPathWorld(
+        ImDrawListPtr dl,
+        RenderContext ctx,
+        float[] matrix,
+        float width,
+        float height,
+        float worldZ)
+    {
+        if (!ctx.Campaign.Visible || ctx.Campaign.Current is null) return;
+        var gold = ColorU32(216, 180, 90, 0.96f);
+        var goal = ctx.CampaignPath.ResolvedGoal;
+        if (goal is null && ctx.Campaign.Target.Grid is { } target)
+            goal = ((int)MathF.Round(target.X), (int)MathF.Round(target.Y));
+
+        var gridLine = NavigationPathBuilder.DecimateForWorldDisplay(
+            NavigationPathBuilder.AppendResolvedGoal(ctx.CampaignPath.FullPoints, goal));
+        NumVec2? previous = null;
+        for (var index = 0; index < gridLine.Count; index++)
+        {
+            var cell = gridLine[index];
+            if (!TryProjectGridToScreen(cell.x, cell.y, worldZ, matrix, width, height, out var sx, out var sy))
+            {
+                previous = null;
+                continue;
+            }
+            if (sx < -50f || sx > width + 50f || sy < -50f || sy > height + 50f)
+            {
+                previous = null;
+                continue;
+            }
+            var point = SmoothScreenPoint(
+                $"campaign:path:world:{ctx.Campaign.Current.Id}:{index}",
+                new NumVec2(sx, sy),
+                ctx.OverlaySmoothingMs,
+                ctx.SmoothOverlayMotion);
+            if (previous is { } prior) dl.AddLine(prior, point, gold, 3f);
+            dl.AddCircleFilled(point, index == gridLine.Count - 1 ? 5f : 2.5f, gold, 12);
+            previous = point;
+        }
+
+        if (ctx.Campaign.Target.Grid is not { } targetGrid) return;
+        if (!TryProjectGridToScreen(
+                (int)MathF.Round(targetGrid.X),
+                (int)MathF.Round(targetGrid.Y),
+                worldZ,
+                matrix,
+                width,
+                height,
+                out var targetX,
+                out var targetY))
+            return;
+        DrawCampaignQuestMarker(dl, new NumVec2(targetX, targetY), width, height, gold);
+    }
+
+    private static void DrawCampaignQuestMarker(
+        ImDrawListPtr dl,
+        NumVec2 target,
+        float width,
+        float height,
+        uint gold)
+    {
+        const float margin = 28f;
+        if (target.X >= margin && target.X <= width - margin
+            && target.Y >= margin && target.Y <= height - margin)
+        {
+            dl.AddCircle(target, 15f, ColorU32(22, 18, 12, 0.90f), 24, 6f);
+            dl.AddCircle(target, 13f, gold, 24, 2.5f);
+            dl.AddQuadFilled(
+                target + new NumVec2(0f, -9f),
+                target + new NumVec2(7f, 0f),
+                target + new NumVec2(0f, 9f),
+                target + new NumVec2(-7f, 0f),
+                gold);
+            return;
+        }
+
+        var center = new NumVec2(width * 0.5f, height * 0.5f);
+        var direction = target - center;
+        if (direction.LengthSquared() < 0.001f) return;
+        direction = NumVec2.Normalize(direction);
+        var horizontal = Math.Max(1f, width * 0.5f - margin) / Math.Max(0.001f, MathF.Abs(direction.X));
+        var vertical = Math.Max(1f, height * 0.5f - margin) / Math.Max(0.001f, MathF.Abs(direction.Y));
+        var tip = center + direction * MathF.Min(horizontal, vertical);
+        var perpendicular = new NumVec2(-direction.Y, direction.X);
+        var basePoint = tip - direction * 18f;
+        dl.AddTriangleFilled(tip, basePoint + perpendicular * 9f, basePoint - perpendicular * 9f, gold);
+        dl.AddCircle(tip - direction * 23f, 5f, gold, 16, 2f);
     }
 
     private static bool TryProjectGridToScreen(int gx, int gy, float wz, float[] m, float w, float h,
@@ -2886,6 +3076,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
         DrawSettingsNavItem("Flask");
 
         DrawSettingsNavGroup("PLUGINS");
+        DrawSettingsNavItem("Campaign Helper");
         DrawSettingsNavItem("Stash Value");
         DrawSettingsNavItem("Stash Utility");
         DrawSettingsNavItem("Crafting Assistant");
@@ -2922,6 +3113,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             case "Performance": DrawPerformanceTab(s); break;
             case "HP Bars": DrawHpBarsTab(s); break;
             case "Flask": DrawFlaskTab(s); break;
+            case "Campaign Helper": DrawCampaignSettingsTab(s, ctx); break;
             case "Stash Value": DrawStashValueTab(s, ctx); break;
             case "Stash Utility": DrawStashUtilityTab(s, ctx); break;
             case "Crafting Assistant": DrawWaystoneAlchemyTab(s, ctx); break;
@@ -2938,6 +3130,90 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
         ImGuiTheme.CollapseSectionsOnNextDraw = false;
         ImGui.EndChild();
+    }
+
+    private void DrawCampaignSettingsTab(RadarSettings settings, RenderContext? ctx)
+    {
+        var campaign = settings.Campaign;
+        ImGui.TextWrapped(
+            "A read-only full-clear guide with per-character progress. Automatic checks are limited "
+            + "to stable area entry, an observed boss death, or an observed object state change.");
+        ImGui.Spacing();
+
+        var enabled = campaign.Enabled;
+        if (ImGui.Checkbox("Enable Campaign Helper", ref enabled)) campaign.Enabled = enabled;
+        var automatic = campaign.AutoActivate;
+        if (ImGui.Checkbox("Automatically show in campaign areas", ref automatic))
+            campaign.AutoActivate = automatic;
+        var route = campaign.AutoRoute;
+        if (ImGui.Checkbox("Route to exact curated target", ref route)) campaign.AutoRoute = route;
+        var autoCheck = campaign.SafeAutoCheck;
+        if (ImGui.Checkbox("Safe automatic checkmarks", ref autoCheck)) campaign.SafeAutoCheck = autoCheck;
+        var guideMode = (int)campaign.GuideMode;
+        ImGui.SetNextItemWidth(UiW());
+        if (ImGui.Combo("Objectives", ref guideMode, "Required only\0Full clear\0"))
+            campaign.GuideMode = (CampaignGuideMode)Math.Clamp(guideMode, 0, 1);
+        var showCompleted = campaign.ShowCompletedObjectives;
+        if (ImGui.Checkbox("Show completed objectives in widget", ref showCompleted))
+            campaign.ShowCompletedObjectives = showCompleted;
+
+        ImGui.SeparatorText("Widget");
+        var scale = campaign.WidgetScale;
+        ImGui.SetNextItemWidth(UiW());
+        if (ImGui.SliderFloat("Scale", ref scale, 0.75f, 1.50f, "%.2f"))
+            campaign.WidgetScale = Math.Clamp(scale, 0.75f, 1.50f);
+        var opacity = campaign.WidgetOpacity;
+        ImGui.SetNextItemWidth(UiW());
+        if (ImGui.SliderFloat("Opacity", ref opacity, 0.35f, 1.00f, "%.2f"))
+            campaign.WidgetOpacity = Math.Clamp(opacity, 0.35f, 1f);
+        var diagnostics = campaign.ShowDiagnosticTargetStatus;
+        if (ImGui.Checkbox("Show diagnostic target status", ref diagnostics))
+            campaign.ShowDiagnosticTargetStatus = diagnostics;
+        var collapsed = campaign.WidgetCollapsed;
+        if (ImGui.Checkbox("Start compact widget collapsed", ref collapsed))
+            campaign.WidgetCollapsed = collapsed;
+        if (ImGui.Button("Open full campaign guide"))
+            _campaignGuideOpen = true;
+        ImGui.SameLine();
+        if (ImGui.Button("Show compact widget"))
+            _enqueue(() => _setCampaignDismissed(false));
+        if (ImGui.Button("Reset widget position"))
+        {
+            campaign.WidgetX = -1f;
+            campaign.WidgetY = -1f;
+            _campaignPositionInitialized = false;
+        }
+
+        ImGui.SeparatorText("Current character");
+        if (ctx?.Campaign is { Available: true } view)
+        {
+            ImGui.TextDisabled(
+                view.Current is null
+                    ? "Campaign complete"
+                    : $"{view.ChapterLabel} · {view.Current.AreaName} · {view.ChapterCompleted}/{view.ChapterTotal}");
+            if (view.Current is not null)
+            {
+                ImGui.TextWrapped(view.Current.Text);
+                ImGui.TextDisabled($"Target: {view.TargetStatus}");
+                if (view.Target.Diagnostic.Length > 0)
+                    ImGui.TextDisabled(view.Target.Diagnostic);
+            }
+        }
+        else
+        {
+            ImGui.TextDisabled("Character identity is available after entering the game.");
+        }
+
+        if (ImGui.Button("Check current objective"))
+            _enqueue(_completeCampaignObjective);
+        ImGui.SameLine();
+        if (ImGui.Button("Back / uncheck"))
+            _enqueue(_backCampaignObjective);
+        if (ImGui.Button("Reset current character progress"))
+            _enqueue(_resetCampaignCharacter);
+
+        ImGui.Spacing();
+        ImGui.TextDisabled("Guide source: domistae/poe2-leveling @ 90739c2 · MIT");
     }
 
     private static void DrawSettingsNavGroup(string label)

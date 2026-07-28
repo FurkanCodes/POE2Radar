@@ -22,6 +22,16 @@ quality-of-life feature.
   smoothed A* route to it: on the in-game map when it's open, or as waypoints on the world ground
   when it's closed. Multi-select (each route its own color). Auto-nav patterns (e.g. the expedition
   encounter) re-acquire their target automatically in each new zone.
+- **Campaign Helper (Acts I–IV + Interludes)** — all 333 source checklist rows are normalized into
+  atomic objectives. The compact draggable widget mirrors the source guide's readable zone checklist,
+  with OPTIONAL and reward tags, while its full guide browser covers every act, repeated town visit,
+  interlude, note, reward summary, and objective. Switch between Required Only and Full Clear, mark a
+  zone's required steps, check/undo individual steps, reset an act or the entire character, and
+  import the source website's export codes or use POE2Radar's identity-free export. Progress remains
+  private per character. Conservative automatic checkmarks and a dedicated gold A* route do not
+  consume the eight normal navigation slots. Interludes default to 5.3 → 5.1 → 5.2, adapt to the
+  branch entered, and resume the remainder. Exact live-validated targets receive markers; unvalidated
+  spatial steps deliberately remain text guidance until captured by the campaign survey tool.
 - **Sekhema Helper** — scores the Trial's layered room graph with tunable Default/No-Hit profiles,
   live defence/resource-aware weights, and highlights the best route on the floor map. It also marks
   active portals/levers, prioritizes final-room chests against the live key budget, and draws an
@@ -121,6 +131,10 @@ Three projects:
 - `src/POE2Radar.Research` — dev-time offset discovery/validation tools (AOB scan, HP value-scan,
   entity/tile/UI probes, an area-change watcher). Never linked into the overlay binary.
 
+Campaign development uses `--campaign-validate`, `--campaign-import <guide.html>`, and
+`--campaign-survey [--objective <stable-id>] [--save <capture.json>]`. The survey reads the same raw
+entity/icon/landmark snapshots as the overlay and never uses fuzzy runtime names.
+
 ## Offsets & patches
 
 PoE2 memory offsets drift with game patches. Validated offsets live in `Game/Poe2Offsets.cs`
@@ -155,6 +169,12 @@ The Amanamu identifiers and user-facing behavior are informed by
 [1k4ru5g3](https://github.com/1k4ru5g3/AmanamuVoidAlertPlugin). POE2Radar uses an independent,
 performance-gated implementation on its own external read layer.
 
+Campaign checklist order, instructions, reward notes, and source-row provenance are adapted from
+[domistae/poe2-leveling](https://github.com/domistae/poe2-leveling), pinned to commit `90739c2`,
+under the MIT License (Copyright (c) 2026 domistae). POE2Radar supplies its own area-code mapping,
+exact entity/icon/landmark target rules, completion safety rules, routing, and private per-character
+progress engine. The upstream copyright and license notice is bundled under `Campaign/`.
+
 ## License
 
 Original POE2Radar code is MIT — see [LICENSE](LICENSE). The integrated Sekhema Helper and Runecraft
@@ -164,3 +184,6 @@ GPL-3.0. Pinned source notices and license information are included under `Sekhe
 
 The Radar map-projection port is likewise GPL-3.0-derived; its pinned source notice is included under
 `Radar/` in the overlay output.
+
+The campaign guide content is MIT-licensed by domistae; its pinned notice is included under
+`Campaign/` in the overlay output.

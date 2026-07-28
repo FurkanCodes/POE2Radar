@@ -1,0 +1,1538 @@
+﻿{
+    "objectives":  [
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.travel-to-mount-kriar-via-hooded-one",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5001,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "Travel to Mount Kriar via Hooded One",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  23
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Travel to Mount Kriar via Hooded One"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.enter-ashen-forest-through-the-glade-no-waypoint-in-ashen-forest",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5002,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "enter Ashen Forest through The Glade ( no waypoint in Ashen Forest)",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  23
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "WaypointIcon",
+                                          "label":  "Waypoint",
+                                          "allowedAreaCodes":  [
+                                                                   "P3_Town"
+                                                               ],
+                                          "serverIconNames":  [
+                                                                  "Waypoint"
+                                                              ],
+                                          "validated":  true,
+                                          "guidance":  "enter Ashen Forest through The Glade ( no waypoint in Ashen Forest)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.find-the-ancient-monument-in-ashen-forest-a-vaal-beacon-is-also-here-ski",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5003,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "Find the Ancient Monument in Ashen Forest (a Vaal Beacon is also here â€” skippable: Vaal Chest or quadrilla encounter) Skill Gem (level scales with interlude order)",
+                           "rewards":  [
+                                           "Skill Gem (level scales with interlude order)"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  24
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "P3_Town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Find the Ancient Monument in Ashen Forest (a Vaal Beacon is also here â€” skippable: Vaal Chest or quadrilla encounter) Skill Gem (level scales with interlude order)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.travel-to-kriar-village-roving-wisps-2-to-follow-show-the-way-abyss-vaal",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5004,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "Travel to Kriar Village ( roving wisps â€” 2 to follow â€” show the way; Abyss + Vaal Beacon present)",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  25
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Kriar Village",
+                                          "allowedAreaCodes":  [
+                                                                   "P3_Town"
+                                                               ],
+                                          "destinationAreaCode":  "P3_2",
+                                          "validated":  false,
+                                          "guidance":  "Travel to Kriar Village ( roving wisps â€” 2 to follow â€” show the way; Abyss + Vaal Beacon present)"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "P3_2",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.slay-lythara-the-wayward-spear-40-spirit-spirit-gem-order-dependent-gemc",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5005,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "slay Lythara, the Wayward Spear +40 Spirit Spirit Gem (order-dependent) + Gemcrust Skull",
+                           "rewards":  [
+                                           "+40 Spirit",
+                                           "Spirit Gem (order-dependent) + Gemcrust Skull"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  25
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Lythara, the Wayward Spear +40 Spirit Spirit Gem (order-dependent) + Gemcrust Skull",
+                                          "allowedAreaCodes":  [
+                                                                   "P3_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "slay Lythara, the Wayward Spear +40 Spirit Spirit Gem (order-dependent) + Gemcrust Skull"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.travel-to-glacial-tarn-guaranteed-expedition-vaal-beacon",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5006,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "Travel to Glacial Tarn (guaranteed Expedition + Vaal Beacon )",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  26
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Glacial Tarn",
+                                          "allowedAreaCodes":  [
+                                                                   "P3_2"
+                                                               ],
+                                          "destinationAreaCode":  "P3_3",
+                                          "validated":  false,
+                                          "guidance":  "Travel to Glacial Tarn (guaranteed Expedition + Vaal Beacon )"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "P3_3",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.enter-howling-caves-vaal-beacon",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5007,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "enter Howling Caves (Vaal Beacon)",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  26
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Howling Caves",
+                                          "allowedAreaCodes":  [
+                                                                   "P3_3"
+                                                               ],
+                                          "destinationAreaCode":  "P3_4",
+                                          "validated":  false,
+                                          "guidance":  "enter Howling Caves (Vaal Beacon)"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "P3_4",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.slay-the-abominable-yeti",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5008,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "slay The Abominable Yeti",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  26
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "The Abominable Yeti",
+                                          "allowedAreaCodes":  [
+                                                                   "P3_4"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "slay The Abominable Yeti"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.loot-icy-tusks",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5009,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "loot Icy Tusks",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  26
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "P3_4"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "loot Icy Tusks"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.return-icy-tusks-to-hilda",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5010,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "Return Icy Tusks to Hilda",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  27
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Return Icy Tusks to Hilda"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.book-of-specialization-2-skill-points",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5011,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "Book of Specialization +2 Skill Points",
+                           "rewards":  [
+                                           "+2 Skill Points"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  27
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Book of Specialization +2 Skill Points"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.back-to-glacial-tarn",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5012,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "Back to Glacial Tarn",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  28
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Glacial Tarn",
+                                          "allowedAreaCodes":  [
+                                                                   "P3_4"
+                                                               ],
+                                          "destinationAreaCode":  "P3_3",
+                                          "validated":  false,
+                                          "guidance":  "Back to Glacial Tarn"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "P3_3",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.slay-rakkar-the-frozen-talon-nw-to-reveal-the-passage-to-kriar-peaks",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5013,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "slay Rakkar, the Frozen Talon (NW) to reveal the passage to Kriar Peaks",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  28
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Kriar Peaks",
+                                          "allowedAreaCodes":  [
+                                                                   "P3_3"
+                                                               ],
+                                          "destinationAreaCode":  "P3_5",
+                                          "validated":  false,
+                                          "guidance":  "slay Rakkar, the Frozen Talon (NW) to reveal the passage to Kriar Peaks"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "P3_5",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.kriar-peaks-vaal-beacon",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5014,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "Kriar Peaks (Vaal Beacon)",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  29
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Kriar Peaks (Vaal Beacon)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.find-elder-maddox-10-11-o-clock-watch-for-blue-spirit-owls-free-unique-i",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5015,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "find Elder Maddox (10â€“11 o\u0027clock; watch for blue spirit owls) Free Unique Item",
+                           "rewards":  [
+                                           "Free Unique Item"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  29
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "P3_5"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "find Elder Maddox (10â€“11 o\u0027clock; watch for blue spirit owls) Free Unique Item"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.travel-to-etched-ravine-far-end-vaal-beacon",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5016,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "Travel to Etched Ravine (far end; Vaal Beacon)",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  30
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Etched Ravine",
+                                          "allowedAreaCodes":  [
+                                                                   "P3_5"
+                                                               ],
+                                          "destinationAreaCode":  "P3_6",
+                                          "validated":  false,
+                                          "guidance":  "Travel to Etched Ravine (far end; Vaal Beacon)"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "P3_6",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.slay-stormgore-the-guardian-lightning-reanimating-robots",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5017,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "slay Stormgore, the Guardian (lightning + reanimating robots)",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  30
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Stormgore, the Guardian (lightning + reanimating robots)",
+                                          "allowedAreaCodes":  [
+                                                                   "P3_6"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "slay Stormgore, the Guardian (lightning + reanimating robots)"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.unlocks-the-cuachic-vault",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5018,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "unlocks The Cuachic Vault",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  30
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "unlocks The Cuachic Vault"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.enter-the-cuachic-vault-maze-halls-opt-ancient-treasures-open-sealed-vau",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5019,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "Enter The Cuachic Vault â€” maze halls. (Opt) Ancient Treasures: open Sealed Vaults at Stone Altars using Small Soul Cores found in the area Currency / loot",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Currency / loot"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  31
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "The Cuachic Vault",
+                                          "allowedAreaCodes":  [
+                                                                   "P3_6"
+                                                               ],
+                                          "destinationAreaCode":  "P3_7",
+                                          "validated":  false,
+                                          "guidance":  "Enter The Cuachic Vault â€” maze halls. (Opt) Ancient Treasures: open Sealed Vaults at Stone Altars using Small Soul Cores found in the area Currency / loot"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "P3_7",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.reach-the-final-boss-zolin-and-zelina-blood-priest-duo",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5020,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "Reach the final boss Zolin \u0026 Zelina (\"Blood Priest\" duo)",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  32
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Reach the final boss Zolin \u0026 Zelina (\"Blood Priest\" duo)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-3-mount-kriar-the-glad.defeat-to-advance-the-fate-of-the-vaal-storyline",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.3",
+                           "order":  5021,
+                           "areaName":  "Interlude 5.3 â€” Mount Kriar, The Glade",
+                           "text":  "defeat to advance the Fate of the Vaal storyline",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  32
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "to advance the Fate of the Vaal storyline",
+                                          "allowedAreaCodes":  [
+                                                                   "P3_7"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "defeat to advance the Fate of the Vaal storyline"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          },
+                           "note":  "0.5 Core — Fate of the Vaal The six Vaal Beacons are spread across the Mount Kriar zones (one per area); finishing their encounters powers the Temple. Stormgore at the Etched Ravine opens The Cuachic Vault , where Doryani sealed several Vaal as a contingency — clear it and defeat Zolin \u0026 Zelina to advance Fate of the Vaal. Full storyline in the endgame guide →"
+                       },
+                       {
+                           "id":  "interludes.interlude-5-1-ogham-the-refuge.arrive-at-the-refuge-ogham-via-the-hooded-one-talk-to-the-hooded-one",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.1",
+                           "order":  5022,
+                           "areaName":  "Interlude 5.1 â€” Ogham, The Refuge",
+                           "text":  "Arrive at The Refuge (Ogham) via The Hooded One â€” talk to The Hooded One",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  1
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "P1_Town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Arrive at The Refuge (Ogham) via The Hooded One â€” talk to The Hooded One"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-1-ogham-the-refuge.enter-scorched-farmlands-wp-the-blackwood-entrance-n-is-sealed-by-darkne",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.1",
+                           "order":  5023,
+                           "areaName":  "Interlude 5.1 â€” Ogham, The Refuge",
+                           "text":  "Enter Scorched Farmlands (WP). The Blackwood entrance (N) is sealed by Darkness â€” clear it via Stones of Serle first. (Opt) boss duo Isolde \u0026 Heldra (E)",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  2
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "The Blackwood",
+                                          "allowedAreaCodes":  [
+                                                                   "P1_Town"
+                                                               ],
+                                          "destinationAreaCode":  "P1_3",
+                                          "validated":  false,
+                                          "guidance":  "Enter Scorched Farmlands (WP). The Blackwood entrance (N) is sealed by Darkness â€” clear it via Stones of Serle first. (Opt) boss duo Isolde \u0026 Heldra (E)"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "P1_3",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-1-ogham-the-refuge.stones-of-serle-s-activate-the-6-runed-megaliths-to-lift-the-darkness-cu",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.1",
+                           "order":  5024,
+                           "areaName":  "Interlude 5.1 â€” Ogham, The Refuge",
+                           "text":  "Stones of Serle (S) â€” activate the 6 Runed Megaliths to lift the Darkness curse",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  3
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "P1_3"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Stones of Serle (S) â€” activate the 6 Runed Megaliths to lift the Darkness curse"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-1-ogham-the-refuge.opt-soul-of-the-ferryman-docks-inside-holten-greater-runes-2000g-cheap",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.1",
+                           "order":  5025,
+                           "areaName":  "Interlude 5.1 â€” Ogham, The Refuge",
+                           "text":  "(Opt) Soul of the Ferryman (docks, inside Holten) Greater Runes ~2000g (cheap)",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Greater Runes ~2000g (cheap)"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  4
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Soul of the Ferryman (docks, inside Holten) Greater Runes ~2000g (cheap)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-1-ogham-the-refuge.through-blackwood",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.1",
+                           "order":  5026,
+                           "areaName":  "Interlude 5.1 â€” Ogham, The Refuge",
+                           "text":  "Through Blackwood",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  5
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Through Blackwood"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-1-ogham-the-refuge.reach-holten-altars-of-omen-here-drop-omens-dark-omens",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.1",
+                           "order":  5027,
+                           "areaName":  "Interlude 5.1 â€” Ogham, The Refuge",
+                           "text":  "reach Holten . Altars of Omen here drop Omens / Dark Omens",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  5
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "reach Holten . Altars of Omen here drop Omens / Dark Omens"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-1-ogham-the-refuge.in-holten-boss-duo-godwin-and-sigbert-drops-a-blacksmith-s-whetstone-cur",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.1",
+                           "order":  5028,
+                           "areaName":  "Interlude 5.1 â€” Ogham, The Refuge",
+                           "text":  "In Holten : boss duo Godwin \u0026 Sigbert (drops a Blacksmith\u0027s Whetstone â€” currency). Two routes branch here â€” clear both: Wolvenhold (Oswin) and Holten Estate (story)",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  6
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "In Holten : boss duo Godwin \u0026 Sigbert (drops a Blacksmith\u0027s Whetstone â€” currency). Two routes branch here â€” clear both: Wolvenhold (Oswin) and Holten Estate (story)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-1-ogham-the-refuge.wolvenhold",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.1",
+                           "order":  5029,
+                           "areaName":  "Interlude 5.1 â€” Ogham, The Refuge",
+                           "text":  "Wolvenhold",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  7
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Wolvenhold"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-1-ogham-the-refuge.slay-oswin-the-dread-warden",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.1",
+                           "order":  5030,
+                           "areaName":  "Interlude 5.1 â€” Ogham, The Refuge",
+                           "text":  "slay Oswin, the Dread Warden",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  7
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Oswin, the Dread Warden",
+                                          "allowedAreaCodes":  [
+                                                                   "P1_3"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "slay Oswin, the Dread Warden"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-1-ogham-the-refuge.warden-s-ledger-use-for-2-skill-points-also-drops-a-unique-vaal-orb-2-sk",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.1",
+                           "order":  5031,
+                           "areaName":  "Interlude 5.1 â€” Ogham, The Refuge",
+                           "text":  "Warden\u0027s Ledger (use for +2 Skill Points ); also drops a unique + Vaal Orb +2 Skill Points",
+                           "rewards":  [
+                                           "+2 Skill Points"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  7
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "P1_3"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Warden\u0027s Ledger (use for +2 Skill Points ); also drops a unique + Vaal Orb +2 Skill Points"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-1-ogham-the-refuge.holten-estate",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.1",
+                           "order":  5032,
+                           "areaName":  "Interlude 5.1 â€” Ogham, The Refuge",
+                           "text":  "Holten Estate",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  8
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Holten Estate"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-1-ogham-the-refuge.up-two-staircases-maze",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.1",
+                           "order":  5033,
+                           "areaName":  "Interlude 5.1 â€” Ogham, The Refuge",
+                           "text":  "up two staircases (maze",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  8
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "up two staircases (maze"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-1-ogham-the-refuge.upper-floor",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.1",
+                           "order":  5034,
+                           "areaName":  "Interlude 5.1 â€” Ogham, The Refuge",
+                           "text":  "upper floor)",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  8
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "upper floor)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-1-ogham-the-refuge.slay-thane-wulfric-and-lady-elswyth-manor-courtyard-5-1-story-bosses",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.1",
+                           "order":  5035,
+                           "areaName":  "Interlude 5.1 â€” Ogham, The Refuge",
+                           "text":  "slay Thane Wulfric \u0026 Lady Elswyth (manor courtyard) â€” 5.1 story bosses",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  8
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Thane Wulfric \u0026 Lady Elswyth (manor courtyard) â€” 5.1 story bosses",
+                                          "allowedAreaCodes":  [
+                                                                   "P1_3"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "slay Thane Wulfric \u0026 Lady Elswyth (manor courtyard) â€” 5.1 story bosses"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-1-ogham-the-refuge.complete-interlude-5-1-return-to-town",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.1",
+                           "order":  5036,
+                           "areaName":  "Interlude 5.1 â€” Ogham, The Refuge",
+                           "text":  "Complete interlude 5.1, return to town",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  9
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Complete interlude 5.1, return to town"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.travel-to-khari-crossing-via-hooded-one",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5037,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "Travel to Khari Crossing via Hooded One",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  10
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Khari Crossing",
+                                          "allowedAreaCodes":  [
+                                                                   "P2_Town"
+                                                               ],
+                                          "destinationAreaCode":  "P2_1",
+                                          "validated":  false,
+                                          "guidance":  "Travel to Khari Crossing via Hooded One"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "P2_1",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.slay-akthi-and-anundr-worm-scorpion-se",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5038,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "Slay Akthi \u0026 Anundr (Worm + Scorpion, SE)",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  11
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Akthi \u0026 Anundr (Worm + Scorpion, SE)",
+                                          "allowedAreaCodes":  [
+                                                                   "P2_1"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Slay Akthi \u0026 Anundr (Worm + Scorpion, SE)"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.talk-to-risu-nav-beetle-chests-rune-drop-up-the-stairs-e-wayfinder-s-sea",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5039,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "talk to Risu . Nav: beetle chests / rune drop up the stairs (E); Wayfinder\u0027s Seals point W to Pools of Kathal +2 Skill Points",
+                           "rewards":  [
+                                           "+2 Skill Points"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  11
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "P2_1"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "talk to Risu . Nav: beetle chests / rune drop up the stairs (E); Wayfinder\u0027s Seals point W to Pools of Kathal +2 Skill Points"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.opt-torbek-khari-crossing-discount-rare-caster-weapons",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5040,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "(Opt) Torbek (Khari Crossing) Discount rare caster weapons",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Discount rare caster weapons"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  12
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Torbek (Khari Crossing) Discount rare caster weapons"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.travel-to-pools-of-kathal-wp-guaranteed-expedition-spawn-entrance-to-sel",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5041,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "Travel to Pools of Kathal (WP) â€” guaranteed Expedition spawn; entrance to Sel Khari Sanctuary here (needed to progress)",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  13
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Pools of Kathal",
+                                          "allowedAreaCodes":  [
+                                                                   "P2_1"
+                                                               ],
+                                          "destinationAreaCode":  "P2_2",
+                                          "validated":  false,
+                                          "guidance":  "Travel to Pools of Kathal (WP) â€” guaranteed Expedition spawn; entrance to Sel Khari Sanctuary here (needed to progress)"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "P2_2",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.sel-khari-sanctuary-wp-opt-two-wishes-place-yoon-s-barya-and-rangeen-s-b",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5042,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "Sel Khari Sanctuary (WP): (Opt) Two Wishes â€” place Yoon\u0027s Barya \u0026 Rangeen\u0027s Barya on their pedestals for 2 rare jewelry picks (each: ring/amulet/jewel; 2nd wish excludes the 1st category) 2Ã— Rare Ring/Amulet/Jewel",
+                           "optional":  true,
+                           "rewards":  [
+                                           "2Ã— Rare Ring/Amulet/Jewel"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  14
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "WaypointIcon",
+                                          "label":  "Waypoint",
+                                          "allowedAreaCodes":  [
+                                                                   "P2_2"
+                                                               ],
+                                          "serverIconNames":  [
+                                                                  "Waypoint"
+                                                              ],
+                                          "validated":  true,
+                                          "guidance":  "Sel Khari Sanctuary (WP): (Opt) Two Wishes â€” place Yoon\u0027s Barya \u0026 Rangeen\u0027s Barya on their pedestals for 2 rare jewelry picks (each: ring/amulet/jewel; 2nd wish excludes the 1st category) 2Ã— Rare Ring/Amulet/Jewel"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.end-of-sel-khari-sanctuary",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5043,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "End of Sel Khari Sanctuary",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  15
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "End of Sel Khari Sanctuary"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.slay-elzarah-the-cobra-lord",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5044,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "slay Elzarah, the Cobra Lord",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  15
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Elzarah, the Cobra Lord",
+                                          "allowedAreaCodes":  [
+                                                                   "P2_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "slay Elzarah, the Cobra Lord"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.asala-and-jado-appear-then-back-to-khari-bazaar-further-into-khari-cross",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5045,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "Asala \u0026 Jado appear; then back to Khari Bazaar / further into Khari Crossing",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  15
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Asala \u0026 Jado appear; then back to Khari Bazaar / further into Khari Crossing"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.activate-molten-one-s-gift-enter-the-skullmaw-stairway-in-the-molten-shr",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5046,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "Activate Molten One\u0027s Gift â€” enter the Skullmaw Stairway in the Molten Shrine (NE; Galai Gate is the northern landmark); find seals, reset instance if bugged +5% Maximum Life",
+                           "rewards":  [
+                                           "+5% Maximum Life"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  16
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "P2_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Activate Molten One\u0027s Gift â€” enter the Skullmaw Stairway in the Molten Shrine (NE; Galai Gate is the northern landmark); find seals, reset instance if bugged +5% Maximum Life"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.enter-qimah",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5047,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "Enter Qimah",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  17
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Qimah",
+                                          "allowedAreaCodes":  [
+                                                                   "P2_2"
+                                                               ],
+                                          "destinationAreaCode":  "P2_6",
+                                          "validated":  false,
+                                          "guidance":  "Enter Qimah"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "P2_6",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.use-orbala-s-pillar-pick-1-of-7-boons-swap-anytime-permanent-boon",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5048,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "use Orbala\u0027s Pillar â€” pick 1 of 7 Boons (swap anytime) Permanent Boon",
+                           "rewards":  [
+                                           "Permanent Boon"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  17
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "P2_6"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "use Orbala\u0027s Pillar â€” pick 1 of 7 Boons (swap anytime) Permanent Boon"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.summon-jado-to-open-the-entrance-to-qimah-reservoir-if-jado-is-absent-fi",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5049,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "Summon Jado to open the entrance to Qimah Reservoir (if Jado is absent, finish the Sel Khari Sanctuary quest first)",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  18
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "P2_6"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Summon Jado to open the entrance to Qimah Reservoir (if Jado is absent, finish the Sel Khari Sanctuary quest first)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.opt-qimah-reservoir-2-sacred-wells-loot-vials-of-sacred-water-use-in-wel",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5050,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "(Opt) Qimah Reservoir â€” 2Ã— Sacred Wells (loot Vials of Sacred Water, use in wells) Currency (Regal/Exalt/Alchemy)",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Currency (Regal/Exalt/Alchemy)"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  19
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "P2_6"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "(Opt) Qimah Reservoir â€” 2Ã— Sacred Wells (loot Vials of Sacred Water, use in wells) Currency (Regal/Exalt/Alchemy)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.opt-rare-bloodbilge-qimah-reservoir-click-the-giant-vase-to-spawn-it-saf",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5051,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "(Opt) rare Bloodbilge (Qimah Reservoir) â€” click the giant vase to spawn it; safe to skip Exalt + Vaal Orb + Skill Gem",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Exalt + Vaal Orb + Skill Gem"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  20
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) rare Bloodbilge (Qimah Reservoir) â€” click the giant vase to spawn it; safe to skip Exalt + Vaal Orb + Skill Gem"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.slay-final-boss-azmadi-the-faridun-prince-70-hp-zarokh-appears-and-stops",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5052,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "Slay final boss Azmadi, the Faridun Prince (â‰ˆ70% HP: Zarokh appears and stops time)",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  21
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "final boss Azmadi, the Faridun Prince (â‰ˆ70% HP: Zarokh appears and stops time)",
+                                          "allowedAreaCodes":  [
+                                                                   "P2_6"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Slay final boss Azmadi, the Faridun Prince (â‰ˆ70% HP: Zarokh appears and stops time)"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.interact-with-the-grand-barya",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5053,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "interact with the Grand Barya",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  21
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "P2_6"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "interact with the Grand Barya"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.jado-asala",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5054,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "Jado / Asala",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  21
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Jado / Asala"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.interlude-5-2-khari-bazaar.complete-interlude-5-2-return-to-town",
+                           "chapter":  "interludes",
+                           "branch":  "interlude-5.2",
+                           "order":  5055,
+                           "areaName":  "Interlude 5.2 â€” Khari Bazaar",
+                           "text":  "Complete interlude 5.2, return to town",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  22
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Complete interlude 5.2, return to town"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.completion-2-sp-final.after-all-3-interludes-talk-to-the-hooded-one-in-kingsmarch-2-skill-poin",
+                           "chapter":  "interludes",
+                           "order":  5056,
+                           "areaName":  "Completion +2 SP Final",
+                           "text":  "After all 3 interludes, talk to The Hooded One in Kingsmarch +2 Skill Points",
+                           "rewards":  [
+                                           "+2 Skill Points"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  33
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "After all 3 interludes, talk to The Hooded One in Kingsmarch +2 Skill Points"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.maps-endgame.travel-to-oriath",
+                           "chapter":  "interludes",
+                           "order":  5057,
+                           "areaName":  "Maps / Endgame",
+                           "text":  "Travel to Oriath",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  34
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Travel to Oriath"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.maps-endgame.speak-to-farrow-then-the-hooded-one-found-lying-down-then-doryani",
+                           "chapter":  "interludes",
+                           "order":  5058,
+                           "areaName":  "Maps / Endgame",
+                           "text":  "Speak to Farrow , then The Hooded One (found lying down), then Doryani",
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  35
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Speak to Farrow , then The Hooded One (found lying down), then Doryani"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "interludes.maps-endgame.endgame-atlas-maps-unlock-start-your-first-map-lvl-58-60-endgame-begins",
+                           "chapter":  "interludes",
+                           "order":  5059,
+                           "areaName":  "Maps / Endgame",
+                           "text":  "Endgame Atlas / Maps unlock â€” start your first map (Lvl 58â€“60) Endgame begins",
+                           "rewards":  [
+                                           "Endgame begins"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "interludes",
+                                              "row":  36
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Endgame Atlas / Maps unlock â€” start your first map (Lvl 58â€“60) Endgame begins"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       }
+                   ]
+}

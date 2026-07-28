@@ -5,6 +5,7 @@ using POE2Radar.Core.Pathfinding;
 using POE2Radar.Overlay.Navigation;
 using POE2Radar.Overlay.Web;
 using POE2Radar.Overlay.Config;
+using POE2Radar.Overlay.Campaign;
 
 namespace POE2Radar.Overlay;
 
@@ -32,6 +33,8 @@ public sealed partial class RadarApp
         {
             ClearAmanamuAlerts();
             _snapshot = WorldSnapshot.Empty;
+            _campaignView = CampaignView.Empty;
+            _campaignPath = CampaignPathView.Empty;
             _state = RadarState.Empty;
             _worldTickMs = 0;
             if (_atlasOpen) CloseAtlasSession();
@@ -66,6 +69,7 @@ public sealed partial class RadarApp
         _atlasUpdateMs = (float)System.Diagnostics.Stopwatch.GetElapsedTime(atlasStart).TotalMilliseconds;
 
         var entities = new List<Poe2Live.EntityDot>();
+        var rawEntities = Array.Empty<Poe2Live.EntityDot>();
         var sekhemaEntities = Array.Empty<Poe2Live.EntityDot>();
         IReadOnlyList<Poe2Live.Landmark> landmarks = Array.Empty<Poe2Live.Landmark>();
         var hpSpecs = new List<HpBarSpec>();
@@ -74,6 +78,9 @@ public sealed partial class RadarApp
         {
             _worldTerrain ??= _worldLive.Terrain(areaInstance);
             var (entityDots, awakeCount, sleepingCount) = _worldLive.Entities(areaInstance);
+            rawEntities = localPlayer == 0
+                ? entityDots.ToArray()
+                : entityDots.Where(e => e.Address != localPlayer).ToArray();
             entities = entityDots;
             _worldDoorOverrides = BuildDoorOverrides(entities);
             sekhemaEntities = entityDots
@@ -130,6 +137,19 @@ public sealed partial class RadarApp
             _serverIcons = serverIcons;
             hpSpecs = BuildHpSpecsFrom(entities);
 
+            var campaignFrame = new CampaignFrame(
+                _areaCode,
+                charLevel,
+                player,
+                _worldLive.LeagueName(areaInstance),
+                _worldLive.PlayerName(localPlayer),
+                rawEntities,
+                landmarks,
+                serverIcons);
+            lock (_campaignGate)
+                _campaignView = _campaignSession.Update(campaignFrame, _settings.Campaign);
+            WorldMaintainCampaignRoute(player);
+
             _navTargets = BuildNavTargets(player);
             RefreshTargetSnapshots(_navTargets);
 
@@ -164,7 +184,7 @@ public sealed partial class RadarApp
 
         _snapshot = new WorldSnapshot(
             true, areaHash, areaLevel, _areaCode, charLevel,
-            entityArray, sekhemaEntities, _worldDoorOverrides, landmarkArray, _worldTerrain, navTargetArray, hpSpecArray, legendArray,
+            entityArray, rawEntities, sekhemaEntities, _worldDoorOverrides, landmarkArray, _worldTerrain, navTargetArray, hpSpecArray, legendArray,
             selectedIds, _renderPathSnapshot, mapEntities, mapLandmarks, serverIconArray, mapServerIcons);
 
         _state = new RadarState(inGame, areaHash, areaLevel, false, 0, player, entityArray, landmarkArray,
@@ -202,11 +222,67 @@ public sealed partial class RadarApp
         }
     }
 
+    private void WorldMaintainCampaignRoute(NumVec2 player)
+    {
+        var view = _campaignView;
+        var objective = view.Current;
+        var targetGrid = view.Target.Grid;
+        var shouldRoute = _settings.Campaign.Enabled
+                          && _settings.Campaign.AutoRoute
+                          && view.Visible
+                          && objective is not null
+                          && targetGrid.HasValue;
+        lock (_trackerGate)
+        {
+            if (!shouldRoute)
+            {
+                _campaignRouteTargetId = "";
+                _campaignRouteTracker = new RouteTracker();
+                _campaignPath = CampaignPathView.Empty;
+                return;
+            }
+
+            var id = $"campaign:{objective!.Id}";
+            if (!string.Equals(_campaignRouteTargetId, id, StringComparison.Ordinal))
+            {
+                _campaignRouteTargetId = id;
+                _campaignRouteTracker = new RouteTracker();
+                _campaignPath = CampaignPathView.Empty;
+            }
+
+            if (_worldTerrain is not { } terrain)
+            {
+                _campaignRouteTracker.MarkWaitingForTerrain();
+                return;
+            }
+
+            var goal = targetGrid!.Value;
+            if (!_campaignRouteTracker.ReplanInFlight && _campaignRouteTracker.ShouldReplan(player, goal))
+            {
+                _campaignRouteTracker.MarkReplanRequested();
+                _replanner.Enqueue(new BackgroundReplanner.Request(
+                    id,
+                    terrain,
+                    ((int)MathF.Round(player.X), (int)MathF.Round(player.Y)),
+                    ((int)MathF.Round(goal.X), (int)MathF.Round(goal.Y)),
+                    12,
+                    Array.Empty<PathCell>(),
+                    _worldDoorOverrides,
+                    AllowPartialPath: true));
+            }
+        }
+    }
+
     private void DrainReplannerResults(NumVec2 player)
     {
         if (!_replanner.TryDrainResults(out var results)) return;
         foreach (var r in results)
         {
+            if (string.Equals(r.TargetId, _campaignRouteTargetId, StringComparison.Ordinal))
+            {
+                _campaignRouteTracker.ApplyResult(r, player);
+                continue;
+            }
             if (!_trackers.TryGetValue(r.TargetId, out var tracker)) continue;
             tracker.ApplyResult(r, player);
             if (_settings.ShowPerfStats)
@@ -222,6 +298,31 @@ public sealed partial class RadarApp
                     Console.WriteLine($"  diag: targetSleeping={targetSleeping} playerGrid=({player.X:F1},{player.Y:F1}) start=({r.StartCell.x},{r.StartCell.y}) goal=({r.GoalCell.x},{r.GoalCell.y}) dist={dist:F1} candidates={r.CandidateCount} terrain={r.TerrainWidth}x{r.TerrainHeight} startSnapped={r.StartSnapped}");
                 }
             }
+        }
+    }
+
+    private void BuildCampaignRenderPath(NumVec2 player)
+    {
+        lock (_trackerGate)
+        {
+            if (_campaignRouteTargetId.Length == 0)
+            {
+                _campaignPath = CampaignPathView.Empty;
+                return;
+            }
+
+            _campaignRouteTracker.Maintain(player);
+            var current = _campaignRouteTracker.CurrentPoints;
+            var full = _campaignRouteTracker.Status == RoutePlanStatus.Planned
+                ? _campaignRouteTracker.AllWaypoints.ToArray()
+                : Array.Empty<(int, int)>();
+            _campaignPath = new CampaignPathView(
+                _campaignRouteTargetId["campaign:".Length..],
+                current.ToArray(),
+                full,
+                _campaignRouteTracker.ResolvedGoal,
+                _campaignRouteTracker.Status,
+                _campaignRouteTracker.FailureReason);
         }
     }
 

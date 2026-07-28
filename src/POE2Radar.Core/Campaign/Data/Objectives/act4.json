@@ -1,0 +1,2164 @@
+﻿{
+    "objectives":  [
+                       {
+                           "id":  "act4.kingsmarch-hub.talk-to-doryani",
+                           "chapter":  "act4",
+                           "order":  4001,
+                           "areaName":  "Kingsmarch HUB",
+                           "text":  "Talk to Doryani",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  1
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Dialogue",
+                                          "guidance":  "Talk to Doryani"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.kingsmarch-hub.continue-to-town-talk-to-alva-with-rog",
+                           "chapter":  "act4",
+                           "order":  4002,
+                           "areaName":  "Kingsmarch HUB",
+                           "text":  "Continue to town, talk to Alva (with Rog)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  2
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Dialogue",
+                                          "guidance":  "Continue to town, talk to Alva (with Rog)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.kingsmarch-hub.talk-to-tujen",
+                           "chapter":  "act4",
+                           "order":  4003,
+                           "areaName":  "Kingsmarch HUB",
+                           "text":  "Talk to Tujen",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  3
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Dialogue",
+                                          "guidance":  "Talk to Tujen"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.kingsmarch-hub.accept-quest",
+                           "chapter":  "act4",
+                           "order":  4004,
+                           "areaName":  "Kingsmarch HUB",
+                           "text":  "accept quest",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  3
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "accept quest"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "0.5 Rog does nothing this patch — the boat charter is handled by Makoru (step below)."
+                       },
+                       {
+                           "id":  "act4.kingsmarch-hub.talk-to-farrow",
+                           "chapter":  "act4",
+                           "order":  4005,
+                           "areaName":  "Kingsmarch HUB",
+                           "text":  "Talk to Farrow",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  4
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Dialogue",
+                                          "guidance":  "Talk to Farrow"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.kingsmarch-hub.accept-quest-4-unlocks-13-ancient-runes-via-remnants",
+                           "chapter":  "act4",
+                           "order":  4006,
+                           "areaName":  "Kingsmarch HUB",
+                           "text":  "accept Quest 4 Unlocks 13 Ancient Runes via Remnants",
+                           "rewards":  [
+                                           "Unlocks 13 Ancient Runes via Remnants"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  4
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "accept Quest 4 Unlocks 13 Ancient Runes via Remnants"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "0.5 New Farrow\u0027s Act 4 quest unlocks the 13 Ancient Runes — powerful weapon-type-specific runes crafted at Remnant encounters. Crafting detail in the Codex.\nHeads-up Farrow does nothing further here for now — his quest only completes later at the Plunder\u0027s Point Deserted Post .\nRuneforging ladder One tier unlocks per act: Act 1 Armour Runeforging → Act 2 Runic Inscriptions → Act 3 Unique Runeforging → Act 4 Ancient Runes . Act 4 has no Runestones — collect the Torn Map Pieces (4 in total) instead."
+                       },
+                       {
+                           "id":  "act4.kingsmarch-hub.talk-to-makoru-on-ship-choose-destination",
+                           "chapter":  "act4",
+                           "order":  4007,
+                           "areaName":  "Kingsmarch HUB",
+                           "text":  "Talk to Makoru on ship, choose destination",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  5
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Dialogue",
+                                          "guidance":  "Talk to Makoru on ship, choose destination"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.whakapanu-island-frag-matiki-map.opt-petrified-pirate-on-coast-torn-map-4-in-total",
+                           "chapter":  "act4",
+                           "order":  4008,
+                           "areaName":  "Whakapanu Island FRAG/MATIKI? MAP",
+                           "text":  "(Opt) Petrified Pirate on coast Torn Map (4 in total)",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Torn Map (4 in total)"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  6
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Petrified Pirate on coast Torn Map (4 in total)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.whakapanu-island-frag-matiki-map.opt-shark-pit-great-white-one-shark-fin",
+                           "chapter":  "act4",
+                           "order":  4009,
+                           "areaName":  "Whakapanu Island FRAG/MATIKI? MAP",
+                           "text":  "(Opt) Shark Pit: Great White One Shark Fin",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Shark Fin"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  7
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Shark Pit: Great White One Shark Fin"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "Shark Fin Hand the Shark Fin to Kaimana to complete Tribal Medicine — at Ngakanu early, or on the docks after defeating Tavakai if the islands are already corrupted. Reward: choice of Uncut Gem Lv11 (Skill / Spirit / Support) + a permanent Tukuama stat blessing."
+                       },
+                       {
+                           "id":  "act4.whakapanu-island-frag-matiki-map.opt-crabshell-cavern-clawcrunch-support-gem-4",
+                           "chapter":  "act4",
+                           "order":  4010,
+                           "areaName":  "Whakapanu Island FRAG/MATIKI? MAP",
+                           "text":  "(Opt) Crabshell Cavern: Clawcrunch Support Gem 4",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Support Gem 4"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  8
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Crabshell Cavern: Clawcrunch Support Gem 4"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.whakapanu-island-frag-matiki-map.enter-singing-caverns",
+                           "chapter":  "act4",
+                           "order":  4011,
+                           "areaName":  "Whakapanu Island FRAG/MATIKI? MAP",
+                           "text":  "Enter Singing Caverns",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  9
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Singing Caverns",
+                                          "destinationAreaCode":  "G4_3_2",
+                                          "validated":  false,
+                                          "guidance":  "Enter Singing Caverns"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G4_3_2",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act4.singing-caverns.opt-beckoning-clam",
+                           "chapter":  "act4",
+                           "order":  4012,
+                           "areaName":  "Singing Caverns",
+                           "text":  "(Opt) Beckoning Clam",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  10
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Beckoning Clam"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.singing-caverns.humming-pearl-give-to-rog",
+                           "chapter":  "act4",
+                           "order":  4013,
+                           "areaName":  "Singing Caverns",
+                           "text":  "Humming Pearl (give to Rog)",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  10
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Humming Pearl (give to Rog)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.singing-caverns.kill-diamora-song-of-death-fragment",
+                           "chapter":  "act4",
+                           "order":  4014,
+                           "areaName":  "Singing Caverns",
+                           "text":  "Kill Diamora, Song of Death Fragment?",
+                           "rewards":  [
+                                           "Fragment?"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  11
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Diamora, Song of Death Fragment?",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_3_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Diamora, Song of Death Fragment?"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act4.singing-caverns.talk-to-hooded-one-tp-to-town",
+                           "chapter":  "act4",
+                           "order":  4015,
+                           "areaName":  "Singing Caverns",
+                           "text":  "Talk to Hooded One , TP to town",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  12
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_3_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Hooded One , TP to town"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.kingsmarch-hideout.talk-to-ange",
+                           "chapter":  "act4",
+                           "order":  4016,
+                           "areaName":  "Kingsmarch â€” Hideout",
+                           "text":  "Talk to Ange",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  13
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Ange"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.kingsmarch-hideout.shoreline-hideout",
+                           "chapter":  "act4",
+                           "order":  4017,
+                           "areaName":  "Kingsmarch â€” Hideout",
+                           "text":  "Shoreline Hideout",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  13
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Shoreline Hideout"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.kingsmarch-hideout.clear-hideout-talk-to-ange-hideout-trading",
+                           "chapter":  "act4",
+                           "order":  4018,
+                           "areaName":  "Kingsmarch â€” Hideout",
+                           "text":  "Clear hideout, talk to Ange Hideout + Trading",
+                           "rewards":  [
+                                           "Hideout + Trading"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  14
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Clear hideout, talk to Ange Hideout + Trading"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.shrike-island-frag-matiki-map.opt-corpse-nest-impaled-karui-torn-map-4-in-total",
+                           "chapter":  "act4",
+                           "order":  4019,
+                           "areaName":  "Shrike Island FRAG/MATIKI? MAP",
+                           "text":  "(Opt) Corpse Nest (Impaled Karui) Torn Map (4 in total)",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Torn Map (4 in total)"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  15
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Corpse Nest (Impaled Karui) Torn Map (4 in total)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.shrike-island-frag-matiki-map.kill-scourge-of-the-skies-fragment",
+                           "chapter":  "act4",
+                           "order":  4020,
+                           "areaName":  "Shrike Island FRAG/MATIKI? MAP",
+                           "text":  "Kill Scourge of the Skies Fragment?",
+                           "rewards":  [
+                                           "Fragment?"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  16
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Scourge of the Skies Fragment?",
+                                          "guidance":  "Kill Scourge of the Skies Fragment?"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.shrike-island-frag-matiki-map.talk-to-hooded-one-tp-sail-next",
+                           "chapter":  "act4",
+                           "order":  4021,
+                           "areaName":  "Shrike Island FRAG/MATIKI? MAP",
+                           "text":  "Talk to Hooded One , TP, sail next",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  17
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Dialogue",
+                                          "guidance":  "Talk to Hooded One , TP, sail next"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.abandoned-prison-frag-matiki.kill-mobs-until-chapel-key-drops",
+                           "chapter":  "act4",
+                           "order":  4022,
+                           "areaName":  "Abandoned Prison FRAG/MATIKI?",
+                           "text":  "Kill mobs until Chapel Key drops",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  18
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "mobs until Chapel Key drops",
+                                          "guidance":  "Kill mobs until Chapel Key drops"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.abandoned-prison-frag-matiki.opt-side-areas-armoury-kill-the-elite-for-a-jewel-blackstone-and-forgott",
+                           "chapter":  "act4",
+                           "order":  4023,
+                           "areaName":  "Abandoned Prison FRAG/MATIKI?",
+                           "text":  "(Opt) Side areas: Armoury (kill the elite for a Jewel + Blackstone) \u0026 Forgotten Cells (loot)",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  19
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "the elite for a Jewel + Blackstone) \u0026 Forgotten Cells (loot)",
+                                          "guidance":  "(Opt) Side areas: Armoury (kill the elite for a Jewel + Blackstone) \u0026 Forgotten Cells (loot)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.abandoned-prison-frag-matiki.open-chapel-kill-forael-use-goddess-of-justice-flask-choice",
+                           "chapter":  "act4",
+                           "order":  4024,
+                           "areaName":  "Abandoned Prison FRAG/MATIKI?",
+                           "text":  "Open Chapel, kill Forael , use Goddess of Justice Flask choice",
+                           "rewards":  [
+                                           "Flask choice"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  20
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Forael , use Goddess of Justice Flask choice",
+                                          "guidance":  "Open Chapel, kill Forael , use Goddess of Justice Flask choice"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.abandoned-prison-frag-matiki.enter-solitary-confinement",
+                           "chapter":  "act4",
+                           "order":  4025,
+                           "areaName":  "Abandoned Prison FRAG/MATIKI?",
+                           "text":  "Enter Solitary Confinement",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  21
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Solitary Confinement",
+                                          "destinationAreaCode":  "G4_5_2",
+                                          "validated":  false,
+                                          "guidance":  "Enter Solitary Confinement"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G4_5_2",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act4.solitary-confinement.kill-the-prisoner-fragment",
+                           "chapter":  "act4",
+                           "order":  4026,
+                           "areaName":  "Solitary Confinement",
+                           "text":  "Kill The Prisoner Fragment?",
+                           "rewards":  [
+                                           "Fragment?"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  22
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Prisoner",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_5_2"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/Monsters/PrisonerBoss/PrisonerBoss",
+                                                                "Metadata/Monsters/PrisonerBoss"
+                                                            ],
+                                          "validated":  false,
+                                          "guidance":  "Kill The Prisoner Fragment?"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act4.solitary-confinement.talk-to-hooded-one-sail-to-isle-of-kin",
+                           "chapter":  "act4",
+                           "order":  4027,
+                           "areaName":  "Solitary Confinement",
+                           "text":  "Talk to Hooded One , sail to Isle of Kin",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  23
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_5_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Hooded One , sail to Isle of Kin"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.isle-of-kin-matiki-map.opt-flayed-sailor-near-shore-torn-map-4-in-total",
+                           "chapter":  "act4",
+                           "order":  4028,
+                           "areaName":  "Isle of Kin MATIKI? MAP",
+                           "text":  "(Opt) Flayed Sailor near shore Torn Map (4 in total)",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Torn Map (4 in total)"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  24
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Flayed Sailor near shore Torn Map (4 in total)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.isle-of-kin-matiki-map.opt-doomed-mine-abandoned-delving-site-fossilised-formation-lesser-jewel",
+                           "chapter":  "act4",
+                           "order":  4029,
+                           "areaName":  "Isle of Kin MATIKI? MAP",
+                           "text":  "(Opt) Doomed Mine â€” abandoned delving site (Fossilised Formation) Lesser Jeweller\u0027s Orb",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Lesser Jeweller\u0027s Orb"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  25
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Doomed Mine â€” abandoned delving site (Fossilised Formation) Lesser Jeweller\u0027s Orb"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.isle-of-kin-matiki-map.opt-beast-pen-skill-support-gem",
+                           "chapter":  "act4",
+                           "order":  4030,
+                           "areaName":  "Isle of Kin MATIKI? MAP",
+                           "text":  "(Opt) Beast Pen Skill + Support Gem",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Skill + Support Gem"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  26
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Beast Pen Skill + Support Gem"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.isle-of-kin-matiki-map.kill-mimok-the-enslaved-beast-pen-boss-tier-4-support-gem",
+                           "chapter":  "act4",
+                           "order":  4031,
+                           "areaName":  "Isle of Kin MATIKI? MAP",
+                           "text":  "Kill Mimok the Enslaved (Beast Pen boss) Tier 4 Support Gem",
+                           "rewards":  [
+                                           "Tier 4 Support Gem"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  27
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Mimok the Enslaved (Beast Pen boss) Tier 4 Support Gem",
+                                          "guidance":  "Kill Mimok the Enslaved (Beast Pen boss) Tier 4 Support Gem"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.isle-of-kin-matiki-map.opt-primal-arena-blind-beast-greater-blank-rune",
+                           "chapter":  "act4",
+                           "order":  4032,
+                           "areaName":  "Isle of Kin MATIKI? MAP",
+                           "text":  "(Opt) Primal Arena: Blind Beast Greater Blank Rune",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Greater Blank Rune"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  28
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Primal Arena: Blind Beast Greater Blank Rune"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.isle-of-kin-matiki-map.enter-volcanic-warrens",
+                           "chapter":  "act4",
+                           "order":  4033,
+                           "areaName":  "Isle of Kin MATIKI? MAP",
+                           "text":  "Enter Volcanic Warrens",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  29
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Volcanic Warrens",
+                                          "destinationAreaCode":  "G4_1_2",
+                                          "validated":  false,
+                                          "guidance":  "Enter Volcanic Warrens"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G4_1_2",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act4.volcanic-warrens.opt-volcanic-nest-magma-twins-kill-order-matters-lightning-first",
+                           "chapter":  "act4",
+                           "order":  4034,
+                           "areaName":  "Volcanic Warrens",
+                           "text":  "(Opt) Volcanic Nest: Magma Twins â€” kill order matters : Lightning first",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  30
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "order matters : Lightning first",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_1_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "(Opt) Volcanic Nest: Magma Twins â€” kill order matters : Lightning first"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act4.volcanic-warrens.ruby-ring-fire-first",
+                           "chapter":  "act4",
+                           "order":  4035,
+                           "areaName":  "Volcanic Warrens",
+                           "text":  "Ruby Ring Â· Fire first",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  30
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Ruby Ring Â· Fire first"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.volcanic-warrens.topaz-ring-ruby-topaz-ring",
+                           "chapter":  "act4",
+                           "order":  4036,
+                           "areaName":  "Volcanic Warrens",
+                           "text":  "Topaz Ring Ruby / Topaz Ring",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Ruby / Topaz Ring"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  30
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Topaz Ring Ruby / Topaz Ring"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.volcanic-warrens.kill-krutog-lord-of-kin-the-tyrant-throne",
+                           "chapter":  "act4",
+                           "order":  4037,
+                           "areaName":  "Volcanic Warrens",
+                           "text":  "Kill Krutog, Lord of Kin ( The Tyrant Throne )",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  31
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Krutog, Lord of Kin ( The Tyrant Throne )",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_1_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Krutog, Lord of Kin ( The Tyrant Throne )"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act4.volcanic-warrens.tp-to-kingsmarch",
+                           "chapter":  "act4",
+                           "order":  4038,
+                           "areaName":  "Volcanic Warrens",
+                           "text":  "TP to Kingsmarch",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  32
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Kingsmarch",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_1_2"
+                                                               ],
+                                          "destinationAreaCode":  "G4_town",
+                                          "validated":  false,
+                                          "guidance":  "TP to Kingsmarch"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G4_town",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act4.eye-of-hinekora.talk-to-matiki-at-the-well-he-s-at-the-well-not-in-town-click-well",
+                           "chapter":  "act4",
+                           "order":  4039,
+                           "areaName":  "Eye of Hinekora",
+                           "text":  "Talk to Matiki at the well (he\u0027s at the well, not in town), click well",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  33
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_4_1"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Matiki at the well (he\u0027s at the well, not in town), click well"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.eye-of-hinekora.opt-chest-behind-waterfall-spirit-gem-12",
+                           "chapter":  "act4",
+                           "order":  4040,
+                           "areaName":  "Eye of Hinekora",
+                           "text":  "(Opt) Chest behind waterfall Spirit Gem 12",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Spirit Gem 12"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  34
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Chest behind waterfall Spirit Gem 12"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.eye-of-hinekora.complete-3-tests-fire-nature-cold",
+                           "chapter":  "act4",
+                           "order":  4041,
+                           "areaName":  "Eye of Hinekora",
+                           "text":  "Complete 3 Tests: Fire , Nature , Cold",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  35
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Complete 3 Tests: Fire , Nature , Cold"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.eye-of-hinekora.silent-hall-altar-pay-respects-talk-to-navali-5-max-mana",
+                           "chapter":  "act4",
+                           "order":  4042,
+                           "areaName":  "Eye of Hinekora",
+                           "text":  "Silent Hall altar (Pay Respects), talk to Navali +5% Max Mana",
+                           "rewards":  [
+                                           "+5% Max Mana"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  36
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_4_1"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Silent Hall altar (Pay Respects), talk to Navali +5% Max Mana"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.eye-of-hinekora.enter-halls-of-the-dead",
+                           "chapter":  "act4",
+                           "order":  4043,
+                           "areaName":  "Eye of Hinekora",
+                           "text":  "Enter Halls of the Dead",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  37
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Halls of the Dead",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_4_1"
+                                                               ],
+                                          "destinationAreaCode":  "G4_4_2",
+                                          "validated":  false,
+                                          "guidance":  "Enter Halls of the Dead"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G4_4_2",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act4.halls-of-the-dead.trial-of-ngakanu-3-tests-in-clover-leaf-loot-tattoos-choose-5-fire-cold",
+                           "chapter":  "act4",
+                           "order":  4044,
+                           "areaName":  "Halls of the Dead",
+                           "text":  "Trial of Ngakanu (3 tests in clover-leaf), loot Tattoos â€” choose +5% Fire/Cold/Lightning Res (recommended) or +5 Str/Dex/Int",
+                           "rewards":  [
+                                           "+5% Fire/Cold/Lightning Res (recommended)"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  38
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_4_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Trial of Ngakanu (3 tests in clover-leaf), loot Tattoos â€” choose +5% Fire/Cold/Lightning Res (recommended) or +5 Str/Dex/Int"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.halls-of-the-dead.fight-yama-the-white-low-life-pool-easy-stun",
+                           "chapter":  "act4",
+                           "order":  4045,
+                           "areaName":  "Halls of the Dead",
+                           "text":  "Fight Yama the White (low life pool â€” easy stun)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  39
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Fight Yama the White (low life pool â€” easy stun)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.halls-of-the-dead.enter-trial-of-ancestors",
+                           "chapter":  "act4",
+                           "order":  4046,
+                           "areaName":  "Halls of the Dead",
+                           "text":  "Enter Trial of Ancestors",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  40
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Enter Trial of Ancestors"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.trial-of-the-ancestors.talk-to-navali-and-hinekora-2-skill-points",
+                           "chapter":  "act4",
+                           "order":  4047,
+                           "areaName":  "Trial of the Ancestors",
+                           "text":  "Talk to Navali \u0026 Hinekora +2 Skill Points",
+                           "rewards":  [
+                                           "+2 Skill Points"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  41
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_4_3"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Navali \u0026 Hinekora +2 Skill Points"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.trial-of-the-ancestors.tp-sail-to-kedge-bay",
+                           "chapter":  "act4",
+                           "order":  4048,
+                           "areaName":  "Trial of the Ancestors",
+                           "text":  "TP, sail to Kedge Bay",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  42
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Kedge Bay",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_4_3"
+                                                               ],
+                                          "destinationAreaCode":  "G4_2_1",
+                                          "validated":  false,
+                                          "guidance":  "TP, sail to Kedge Bay"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G4_2_1",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act4.kedge-bay-map.opt-dead-man-s-chest-smuggler-s-stash-torn-map-4-in-total",
+                           "chapter":  "act4",
+                           "order":  4049,
+                           "areaName":  "Kedge Bay MAP",
+                           "text":  "(Opt) Dead Man\u0027s Chest / Smuggler\u0027s Stash Torn Map (4 in total)",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Torn Map (4 in total)"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  43
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Dead Man\u0027s Chest / Smuggler\u0027s Stash Torn Map (4 in total)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.kedge-bay-map.opt-abandoned-ship-loot",
+                           "chapter":  "act4",
+                           "order":  4050,
+                           "areaName":  "Kedge Bay MAP",
+                           "text":  "(Opt) Abandoned Ship (loot)",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  44
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Abandoned Ship (loot)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.kedge-bay-map.opt-tidal-cay-with-tombgrowl-loot",
+                           "chapter":  "act4",
+                           "order":  4051,
+                           "areaName":  "Kedge Bay MAP",
+                           "text":  "(Opt) Tidal Cay with Tombgrowl (loot)",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  45
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Tidal Cay with Tombgrowl (loot)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.kedge-bay-map.opt-doran-the-deft-challenging-highly-mobile-rogue-exile-near-the-entran",
+                           "chapter":  "act4",
+                           "order":  4052,
+                           "areaName":  "Kedge Bay MAP",
+                           "text":  "(Opt) Doran, the Deft â€” challenging, highly mobile Rogue Exile near the entrance (loot)",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  47
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Doran, the Deft â€” challenging, highly mobile Rogue Exile near the entrance (loot)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.kedge-bay-map.enter-journey-s-end",
+                           "chapter":  "act4",
+                           "order":  4053,
+                           "areaName":  "Kedge Bay MAP",
+                           "text":  "Enter Journey\u0027s End",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  46
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Journey\u0027s End",
+                                          "destinationAreaCode":  "G4_2_2",
+                                          "validated":  false,
+                                          "guidance":  "Enter Journey\u0027s End"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G4_2_2",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act4.journey-s-end.talk-to-tujen",
+                           "chapter":  "act4",
+                           "order":  4054,
+                           "areaName":  "Journey\u0027s End",
+                           "text":  "Talk to Tujen",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  48
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_2_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Tujen"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.journey-s-end.kill-captain-harlin-loot-verisium",
+                           "chapter":  "act4",
+                           "order":  4055,
+                           "areaName":  "Journey\u0027s End",
+                           "text":  "Kill Captain Harlin , loot Verisium",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  49
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Captain Harlin , loot Verisium",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_2_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Captain Harlin , loot Verisium"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act4.journey-s-end.talk-to-freya-hartlin",
+                           "chapter":  "act4",
+                           "order":  4056,
+                           "areaName":  "Journey\u0027s End",
+                           "text":  "Talk to Freya Hartlin",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  50
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_2_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Freya Hartlin"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.journey-s-end.town",
+                           "chapter":  "act4",
+                           "order":  4057,
+                           "areaName":  "Journey\u0027s End",
+                           "text":  "Town",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  51
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Town"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.journey-s-end.dannig",
+                           "chapter":  "act4",
+                           "order":  4058,
+                           "areaName":  "Journey\u0027s End",
+                           "text":  "Dannig",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  51
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Dannig"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.journey-s-end.verisium-spikes",
+                           "chapter":  "act4",
+                           "order":  4059,
+                           "areaName":  "Journey\u0027s End",
+                           "text":  "Verisium Spikes",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  51
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Verisium Spikes"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.journey-s-end.back-to-journey-s-end",
+                           "chapter":  "act4",
+                           "order":  4060,
+                           "areaName":  "Journey\u0027s End",
+                           "text":  "Back to Journey\u0027s End",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  52
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Back to Journey\u0027s End"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.journey-s-end.freya",
+                           "chapter":  "act4",
+                           "order":  4061,
+                           "areaName":  "Journey\u0027s End",
+                           "text":  "Freya",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  52
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Freya"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.journey-s-end.totem",
+                           "chapter":  "act4",
+                           "order":  4062,
+                           "areaName":  "Journey\u0027s End",
+                           "text":  "Totem",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  53
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Totem"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.journey-s-end.kill-omniphobia",
+                           "chapter":  "act4",
+                           "order":  4063,
+                           "areaName":  "Journey\u0027s End",
+                           "text":  "kill Omniphobia",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  53
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Omniphobia",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_2_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "kill Omniphobia"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act4.journey-s-end.talk-to-tujen-in-town-for-reward-2-skill-points",
+                           "chapter":  "act4",
+                           "order":  4064,
+                           "areaName":  "Journey\u0027s End",
+                           "text":  "Talk to Tujen in town for reward +2 Skill Points",
+                           "rewards":  [
+                                           "+2 Skill Points"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  54
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_2_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Tujen in town for reward +2 Skill Points"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.plunder-s-point.give-4-maps-to-makoru",
+                           "chapter":  "act4",
+                           "order":  4065,
+                           "areaName":  "Plunder\u0027s Point",
+                           "text":  "Give 4 maps to Makoru",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  55
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Give 4 maps to Makoru"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.plunder-s-point.sail",
+                           "chapter":  "act4",
+                           "order":  4066,
+                           "areaName":  "Plunder\u0027s Point",
+                           "text":  "sail",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  55
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "sail"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.plunder-s-point.dannig",
+                           "chapter":  "act4",
+                           "order":  4067,
+                           "areaName":  "Plunder\u0027s Point",
+                           "text":  "Dannig",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  55
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Dannig"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.plunder-s-point.expedition",
+                           "chapter":  "act4",
+                           "order":  4068,
+                           "areaName":  "Plunder\u0027s Point",
+                           "text":  "Expedition",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  55
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Expedition"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.plunder-s-point.deserted-post",
+                           "chapter":  "act4",
+                           "order":  4069,
+                           "areaName":  "Plunder\u0027s Point",
+                           "text":  "Deserted Post",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  55
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Deserted Post"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.plunder-s-point.summon-farrow",
+                           "chapter":  "act4",
+                           "order":  4070,
+                           "areaName":  "Plunder\u0027s Point",
+                           "text":  "summon Farrow",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  55
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_13"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "summon Farrow"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.arastas.missionari-lorandis",
+                           "chapter":  "act4",
+                           "order":  4071,
+                           "areaName":  "Arastas",
+                           "text":  "Missionari Lorandis",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  56
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Missionari Lorandis"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.arastas.follow",
+                           "chapter":  "act4",
+                           "order":  4072,
+                           "areaName":  "Arastas",
+                           "text":  "follow",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  56
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "follow"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.arastas.destroy-shield",
+                           "chapter":  "act4",
+                           "order":  4073,
+                           "areaName":  "Arastas",
+                           "text":  "destroy shield",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  56
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_8a"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "destroy shield"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.arastas.opt-evening-morning-bells-evening",
+                           "chapter":  "act4",
+                           "order":  4074,
+                           "areaName":  "Arastas",
+                           "text":  "(Opt) Evening / Morning Bells Evening",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  57
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Evening / Morning Bells Evening"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.arastas.3-exalted-morning",
+                           "chapter":  "act4",
+                           "order":  4075,
+                           "areaName":  "Arastas",
+                           "text":  "3 Exalted Â· Morning",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  57
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "3 Exalted Â· Morning"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.arastas.3-regal",
+                           "chapter":  "act4",
+                           "order":  4076,
+                           "areaName":  "Arastas",
+                           "text":  "3 Regal",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Evening â†’ 3 Exalted Â· Morning â†’ 3 Regal"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  57
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "3 Regal"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.arastas.kill-torvian",
+                           "chapter":  "act4",
+                           "order":  4077,
+                           "areaName":  "Arastas",
+                           "text":  "Kill Torvian",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  58
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Torvian",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_8a"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Torvian"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act4.arastas.enter-excavation",
+                           "chapter":  "act4",
+                           "order":  4078,
+                           "areaName":  "Arastas",
+                           "text":  "enter Excavation",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  58
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "enter Excavation"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "Tactic Let Torvian throw stones at the 2 priests above to break the fight open."
+                       },
+                       {
+                           "id":  "act4.the-excavation.kill-benedictus-precursor-forge-talk-to-hooded-one",
+                           "chapter":  "act4",
+                           "order":  4079,
+                           "areaName":  "The Excavation",
+                           "text":  "Kill Benedictus ( Precursor Forge ), talk to Hooded One",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  59
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Benedictus ( Precursor Forge ), talk to Hooded One",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_10"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Benedictus ( Precursor Forge ), talk to Hooded One"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act4.the-excavation.opt-excavated-cache-at-the-checkpoint-loot",
+                           "chapter":  "act4",
+                           "order":  4080,
+                           "areaName":  "The Excavation",
+                           "text":  "(Opt) Excavated Cache at the checkpoint (loot)",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  60
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_10"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "(Opt) Excavated Cache at the checkpoint (loot)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.the-excavation.tp-to-kingsmarch",
+                           "chapter":  "act4",
+                           "order":  4081,
+                           "areaName":  "The Excavation",
+                           "text":  "TP to Kingsmarch",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  61
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Kingsmarch",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_10"
+                                                               ],
+                                          "destinationAreaCode":  "G4_town",
+                                          "validated":  false,
+                                          "guidance":  "TP to Kingsmarch"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G4_town",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act4.the-excavation.sail-to-ngakanu",
+                           "chapter":  "act4",
+                           "order":  4082,
+                           "areaName":  "The Excavation",
+                           "text":  "sail to Ngakanu",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  61
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Ngakanu",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_town"
+                                                               ],
+                                          "destinationAreaCode":  "G4_11_1a",
+                                          "validated":  false,
+                                          "guidance":  "sail to Ngakanu"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G4_11_1a",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act4.ngakanu.opt-abyss",
+                           "chapter":  "act4",
+                           "order":  4083,
+                           "areaName":  "Ngakanu",
+                           "text":  "(Opt) Abyss",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  63
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Abyss"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.ngakanu.abyssal-depths-loot",
+                           "chapter":  "act4",
+                           "order":  4084,
+                           "areaName":  "Ngakanu",
+                           "text":  "Abyssal Depths (loot)",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  63
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_11_1a"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Abyssal Depths (loot)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.ngakanu.opt-mad-butcher-in-the-large-hut-loot",
+                           "chapter":  "act4",
+                           "order":  4085,
+                           "areaName":  "Ngakanu",
+                           "text":  "(Opt) Mad Butcher in the large hut (loot)",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  64
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_11_1a"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "(Opt) Mad Butcher in the large hut (loot)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.ngakanu.enter-heart-of-the-tribe",
+                           "chapter":  "act4",
+                           "order":  4086,
+                           "areaName":  "Ngakanu",
+                           "text":  "Enter Heart of the Tribe",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  62
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Heart of the Tribe",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_11_1a"
+                                                               ],
+                                          "destinationAreaCode":  "G4_11_2",
+                                          "validated":  false,
+                                          "guidance":  "Enter Heart of the Tribe"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G4_11_2",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act4.heart-of-the-tribe.opt-meeting-house-in-the-heart-of-the-tribe-has-chests-loot",
+                           "chapter":  "act4",
+                           "order":  4087,
+                           "areaName":  "Heart of the Tribe",
+                           "text":  "(Opt) Meeting House in the Heart of the Tribe has chests (loot)",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  65
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_11_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "(Opt) Meeting House in the Heart of the Tribe has chests (loot)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.heart-of-the-tribe.kill-tavakai-final-act-4-boss-talk-to-him",
+                           "chapter":  "act4",
+                           "order":  4088,
+                           "areaName":  "Heart of the Tribe",
+                           "text":  "Kill Tavakai (Final Act 4 Boss), talk to him",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  66
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Tavakai (Final Act 4 Boss), talk to him",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_11_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Tavakai (Final Act 4 Boss), talk to him"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act4.heart-of-the-tribe.return-talk-to-hooded-one",
+                           "chapter":  "act4",
+                           "order":  4089,
+                           "areaName":  "Heart of the Tribe",
+                           "text":  "Return, talk to Hooded One",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  67
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G4_11_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Return, talk to Hooded One"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act4.heart-of-the-tribe.unlocks-interludes",
+                           "chapter":  "act4",
+                           "order":  4090,
+                           "areaName":  "Heart of the Tribe",
+                           "text":  "unlocks Interludes",
+                           "source":  [
+                                          {
+                                              "chapter":  "act4",
+                                              "row":  67
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "unlocks Interludes"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       }
+                   ]
+}

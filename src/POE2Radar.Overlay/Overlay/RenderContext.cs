@@ -1,5 +1,6 @@
 using POE2Radar.Core.Game;
 using POE2Radar.Core.Pathfinding;
+using POE2Radar.Overlay.Campaign;
 using POE2Radar.Overlay.Config;
 using NumVec2 = System.Numerics.Vector2;
 
@@ -527,6 +528,8 @@ public sealed record RenderContext(
     bool HpBarUnique,
     // Smoothed guidance route per selected target, each carrying its selection-order color slot.
     SelectedPath[] SelectedPaths,
+    CampaignView Campaign,
+    CampaignPathView CampaignPath,
     string[] SelectedIds,
     // Legend rows (one per unified navigation target) for the HUD panel; never null.
     IReadOnlyList<LegendEntry> Legend,

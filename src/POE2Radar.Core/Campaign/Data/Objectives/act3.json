@@ -1,0 +1,3065 @@
+﻿{
+    "objectives":  [
+                       {
+                           "id":  "act3.sandswept-marsh.talk-to-the-hooded-one",
+                           "chapter":  "act3",
+                           "order":  3001,
+                           "areaName":  "Sandswept Marsh",
+                           "text":  "Talk to The Hooded One",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  1
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_1"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to The Hooded One"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.sandswept-marsh.opt-kill-rootdredge-skill-gem-lv9",
+                           "chapter":  "act3",
+                           "order":  3002,
+                           "areaName":  "Sandswept Marsh",
+                           "text":  "(Opt) Kill Rootdredge Skill Gem Lv9",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Skill Gem Lv9"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  2
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Rootdredge Skill Gem Lv9",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_1"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "(Opt) Kill Rootdredge Skill Gem Lv9"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act3.sandswept-marsh.opt-basket-at-orok-campsite-lesser-jeweller-s-orb",
+                           "chapter":  "act3",
+                           "order":  3003,
+                           "areaName":  "Sandswept Marsh",
+                           "text":  "(Opt) Basket at Orok Campsite Lesser Jeweller\u0027s Orb",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Lesser Jeweller\u0027s Orb"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  3
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Basket at Orok Campsite Lesser Jeweller\u0027s Orb"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.sandswept-marsh.opt-hanging-tree-corpse-magic-ring-skill-gem-lv9",
+                           "chapter":  "act3",
+                           "order":  3004,
+                           "areaName":  "Sandswept Marsh",
+                           "text":  "(Opt) Hanging tree corpse Magic Ring Skill Gem Lv9",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Magic Ring",
+                                           "Skill Gem Lv9"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  4
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Hanging tree corpse Magic Ring Skill Gem Lv9"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.sandswept-marsh.enter-ziggurat-encampment",
+                           "chapter":  "act3",
+                           "order":  3005,
+                           "areaName":  "Sandswept Marsh",
+                           "text":  "Enter Ziggurat Encampment",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  5
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Ziggurat Encampment",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_1"
+                                                               ],
+                                          "destinationAreaCode":  "G3_town",
+                                          "validated":  false,
+                                          "guidance":  "Enter Ziggurat Encampment"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_town",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.talk-alva-oswald-the-hooded-one",
+                           "chapter":  "act3",
+                           "order":  3006,
+                           "areaName":  "Ziggurat Encampment",
+                           "text":  "Talk Alva , Oswald , The Hooded One",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  6
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk Alva , Oswald , The Hooded One"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.lvl-30-flask-upgrade-from-the-town-vendor-servi-increased-recovery-charg",
+                           "chapter":  "act3",
+                           "order":  3007,
+                           "areaName":  "Ziggurat Encampment",
+                           "text":  "Lvl 30 flask upgrade from the town vendor ( Servi ) â€” increased recovery + charges",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  7
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Lvl 30 flask upgrade from the town vendor ( Servi ) â€” increased recovery + charges"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.enter-jungle-ruins-top-exit",
+                           "chapter":  "act3",
+                           "order":  3008,
+                           "areaName":  "Ziggurat Encampment",
+                           "text":  "Enter Jungle Ruins (top exit)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  8
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Jungle Ruins",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_town"
+                                                               ],
+                                          "destinationAreaCode":  "G3_3",
+                                          "validated":  false,
+                                          "guidance":  "Enter Jungle Ruins (top exit)"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_3",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.jungle-ruins.talk-to-farrow-at-the-start",
+                           "chapter":  "act3",
+                           "order":  3009,
+                           "areaName":  "Jungle Ruins",
+                           "text":  "Talk to Farrow at the start",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  9
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_3"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Farrow at the start"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jungle-ruins.runes-of-aldur-runeseeker-unlocks-unique-verisium-runeforging",
+                           "chapter":  "act3",
+                           "order":  3010,
+                           "areaName":  "Jungle Ruins",
+                           "text":  "Runes of Aldur / Runeseeker Unlocks Unique Verisium Runeforging",
+                           "rewards":  [
+                                           "Unlocks Unique Verisium Runeforging"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  9
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Runes of Aldur / Runeseeker Unlocks Unique Verisium Runeforging"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "0.5 Fate of the Vaal A Vaal Beacon appears in the jungle — your first Fate-of-the-Vaal encounter (a red-stone ring that empowers the pack around it; that dense corrupted pack is the \"warning\"). Clear the pack to light a crystal — this is beacon 1 of 6 . Six beacons across Act 3 open a portal to the Vaal Ruins . See the endgame guide →"
+                       },
+                       {
+                           "id":  "act3.jungle-ruins.kill-mighty-silverfist-2-skill-points",
+                           "chapter":  "act3",
+                           "order":  3011,
+                           "areaName":  "Jungle Ruins",
+                           "text":  "Kill Mighty Silverfist +2 Skill Points",
+                           "rewards":  [
+                                           "+2 Skill Points"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  10
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Mighty Silverfist",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_3"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/Monsters/MastodonBoss",
+                                                                "Metadata/Monsters/MastodonBoss/MastodonBoss"
+                                                            ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Mighty Silverfist +2 Skill Points"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          },
+                           "note":  "Dodge slam SIDEWAYS (not backwards) — wave travels in attack direction"
+                       },
+                       {
+                           "id":  "act3.jungle-ruins.jungle-grave-ravaged-corpse",
+                           "chapter":  "act3",
+                           "order":  3012,
+                           "areaName":  "Jungle Ruins",
+                           "text":  "Jungle Grave (ravaged corpse)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  11
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Jungle Grave (ravaged corpse)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jungle-ruins.servi-gives-rare-belt-choice",
+                           "chapter":  "act3",
+                           "order":  3013,
+                           "areaName":  "Jungle Ruins",
+                           "text":  "Servi gives Rare Belt (choice)",
+                           "rewards":  [
+                                           "Rare Belt (choice)"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  11
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Servi gives Rare Belt (choice)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jungle-ruins.opt-troubled-camp-gwendolyn-albright-guaranteed-rare-gloves",
+                           "chapter":  "act3",
+                           "order":  3014,
+                           "areaName":  "Jungle Ruins",
+                           "text":  "(Opt) Troubled Camp ( Gwendolyn Albright ) Guaranteed Rare Gloves",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Guaranteed Rare Gloves"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  12
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Troubled Camp ( Gwendolyn Albright ) Guaranteed Rare Gloves"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jungle-ruins.opt-activate-the-jungle-ruins-runestone-runes-of-aldur",
+                           "chapter":  "act3",
+                           "order":  3015,
+                           "areaName":  "Jungle Ruins",
+                           "text":  "(Opt) Activate the Jungle Ruins Runestone (Runes of Aldur)",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  13
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_3"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "(Opt) Activate the Jungle Ruins Runestone (Runes of Aldur)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jungle-ruins.find-wp-near-venom-crypts",
+                           "chapter":  "act3",
+                           "order":  3016,
+                           "areaName":  "Jungle Ruins",
+                           "text":  "Find WP near Venom Crypts",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  14
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "WaypointIcon",
+                                          "label":  "Waypoint",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_3"
+                                                               ],
+                                          "serverIconNames":  [
+                                                                  "Waypoint"
+                                                              ],
+                                          "validated":  true,
+                                          "guidance":  "Find WP near Venom Crypts"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jungle-ruins.enter-the-venom-crypts",
+                           "chapter":  "act3",
+                           "order":  3017,
+                           "areaName":  "Jungle Ruins",
+                           "text":  "Enter The Venom Crypts",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  14
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "The Venom Crypts",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_3"
+                                                               ],
+                                          "destinationAreaCode":  "G3_4",
+                                          "validated":  false,
+                                          "guidance":  "Enter The Venom Crypts"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_4",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-venom-crypts-area.opt-sarcophagus-event-guaranteed-lv3-support",
+                           "chapter":  "act3",
+                           "order":  3018,
+                           "areaName":  "The Venom Crypts âš  Area",
+                           "text":  "(Opt) Sarcophagus event Guaranteed Lv3 Support",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Guaranteed Lv3 Support"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  15
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Sarcophagus event Guaranteed Lv3 Support"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-venom-crypts-area.find-corpse",
+                           "chapter":  "act3",
+                           "order":  3019,
+                           "areaName":  "The Venom Crypts âš  Area",
+                           "text":  "Find corpse",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  16
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Find corpse"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-venom-crypts-area.loot-orok-poison",
+                           "chapter":  "act3",
+                           "order":  3020,
+                           "areaName":  "The Venom Crypts âš  Area",
+                           "text":  "loot Orok Poison",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  16
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "loot Orok Poison"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-venom-crypts-area.head-to-the-safe-zone-a-reprieve",
+                           "chapter":  "act3",
+                           "order":  3021,
+                           "areaName":  "The Venom Crypts âš  Area",
+                           "text":  "head to the safe zone A Reprieve",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  16
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "head to the safe zone A Reprieve"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-venom-crypts-area.opt-activate-the-venom-crypts-runestone-runes-of-aldur",
+                           "chapter":  "act3",
+                           "order":  3022,
+                           "areaName":  "The Venom Crypts âš  Area",
+                           "text":  "(Opt) Activate the Venom Crypts Runestone (Runes of Aldur)",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  17
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_4"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "(Opt) Activate the Venom Crypts Runestone (Runes of Aldur)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-venom-crypts-area.tp-back-to-town",
+                           "chapter":  "act3",
+                           "order":  3023,
+                           "areaName":  "The Venom Crypts âš  Area",
+                           "text":  "TP back to town",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  18
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "TP back to town"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.hand-orok-poison-to-servi-permanent-choice-artificer-s-orb",
+                           "chapter":  "act3",
+                           "order":  3024,
+                           "areaName":  "Ziggurat Encampment",
+                           "text":  "Hand Orok Poison to Servi PERMANENT CHOICE Artificer\u0027s Orb",
+                           "rewards":  [
+                                           "PERMANENT CHOICE",
+                                           "Artificer\u0027s Orb"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  19
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Hand Orok Poison to Servi PERMANENT CHOICE Artificer\u0027s Orb"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "PERMANENT — cannot change later! • +25% Stun Threshold (popular — logout cures bleeds/freeze) • +30% Elemental Ailment Threshold (good if tree lacks it) • +25% Mana Regeneration (rarely picked)"
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.head-to-the-infested-barrens-via-the-jungle-ruins-for-now",
+                           "chapter":  "act3",
+                           "order":  3025,
+                           "areaName":  "Ziggurat Encampment",
+                           "text":  "Head to the Infested Barrens (via the Jungle Ruins for now)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  20
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Jungle Ruins",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_town"
+                                                               ],
+                                          "destinationAreaCode":  "G3_3",
+                                          "validated":  false,
+                                          "guidance":  "Head to the Infested Barrens (via the Jungle Ruins for now)"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_3",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.infested-barrens.find-talk-alva-take-wp-near-her",
+                           "chapter":  "act3",
+                           "order":  3026,
+                           "areaName":  "Infested Barrens",
+                           "text":  "Find/talk Alva , take WP near her",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  21
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "WaypointIcon",
+                                          "label":  "Waypoint",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_2_1"
+                                                               ],
+                                          "serverIconNames":  [
+                                                                  "Waypoint"
+                                                              ],
+                                          "validated":  true,
+                                          "guidance":  "Find/talk Alva , take WP near her"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.infested-barrens.opt-troubled-camp-sebastian-carroway-guaranteed-rare-boots",
+                           "chapter":  "act3",
+                           "order":  3027,
+                           "areaName":  "Infested Barrens",
+                           "text":  "(Opt) Troubled Camp ( Sebastian Carroway ) Guaranteed Rare Boots",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Guaranteed Rare Boots"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  22
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Troubled Camp ( Sebastian Carroway ) Guaranteed Rare Boots"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.infested-barrens.enter-chimeral-wetlands",
+                           "chapter":  "act3",
+                           "order":  3028,
+                           "areaName":  "Infested Barrens",
+                           "text":  "Enter Chimeral Wetlands",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  23
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Chimeral Wetlands",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_2_1"
+                                                               ],
+                                          "destinationAreaCode":  "G3_5",
+                                          "validated":  false,
+                                          "guidance":  "Enter Chimeral Wetlands"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_5",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.chimeral-wetlands.opt-ravaged-camp",
+                           "chapter":  "act3",
+                           "order":  3029,
+                           "areaName":  "Chimeral Wetlands",
+                           "text":  "(Opt) Ravaged Camp",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  26
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Ravaged Camp"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.chimeral-wetlands.lost-temple-logbook-reveals-the-temple-of-chaos-gold-chest-guaranteed-ra",
+                           "chapter":  "act3",
+                           "order":  3030,
+                           "areaName":  "Chimeral Wetlands",
+                           "text":  "Lost Temple Logbook (reveals the Temple of Chaos) + gold chest Guaranteed Rare Armour",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Guaranteed Rare Armour"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  26
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Lost Temple Logbook (reveals the Temple of Chaos) + gold chest Guaranteed Rare Armour"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.chimeral-wetlands.opt-toxic-bloom-point-of-interest-noxious-behemoth-magic-amulet",
+                           "chapter":  "act3",
+                           "order":  3031,
+                           "areaName":  "Chimeral Wetlands",
+                           "text":  "(Opt) Toxic Bloom point of interest ( Noxious Behemoth ) Magic Amulet",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Magic Amulet"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  27
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Toxic Bloom point of interest ( Noxious Behemoth ) Magic Amulet"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.chimeral-wetlands.opt-league-mech-skill-gem-lv9",
+                           "chapter":  "act3",
+                           "order":  3032,
+                           "areaName":  "Chimeral Wetlands",
+                           "text":  "(Opt) League mech Skill Gem Lv9",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Skill Gem Lv9"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  28
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) League mech Skill Gem Lv9"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.chimeral-wetlands.enter-temple-of-chaos",
+                           "chapter":  "act3",
+                           "order":  3033,
+                           "areaName":  "Chimeral Wetlands",
+                           "text":  "Enter Temple of Chaos",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  29
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Temple of Chaos",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_5"
+                                                               ],
+                                          "destinationAreaCode":  "G3_10_Airlock",
+                                          "validated":  false,
+                                          "guidance":  "Enter Temple of Chaos"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_10_Airlock",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.chimeral-wetlands.take-wp",
+                           "chapter":  "act3",
+                           "order":  3034,
+                           "areaName":  "Chimeral Wetlands",
+                           "text":  "take WP",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  29
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "WaypointIcon",
+                                          "label":  "Waypoint",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_10_Airlock"
+                                                               ],
+                                          "serverIconNames":  [
+                                                                  "Waypoint"
+                                                              ],
+                                          "validated":  true,
+                                          "guidance":  "take WP"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.chimeral-wetlands.return-2nd-ascendancy",
+                           "chapter":  "act3",
+                           "order":  3035,
+                           "areaName":  "Chimeral Wetlands",
+                           "text":  "return 2nd Ascendancy",
+                           "rewards":  [
+                                           "2nd Ascendancy"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  29
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "return 2nd Ascendancy"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.chimeral-wetlands.kill-xyclucian-the-chimera",
+                           "chapter":  "act3",
+                           "order":  3036,
+                           "areaName":  "Chimeral Wetlands",
+                           "text":  "Kill Xyclucian, the Chimera",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  30
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Chimera",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_5"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/Monsters/ChimeraWetlandsBoss",
+                                                                "Metadata/Monsters/ChimeraWetlandsBoss/ChimeraWetlandsBoss"
+                                                            ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Xyclucian, the Chimera"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act3.chimeral-wetlands.loot-inscribed-ultimatum",
+                           "chapter":  "act3",
+                           "order":  3037,
+                           "areaName":  "Chimeral Wetlands",
+                           "text":  "loot Inscribed Ultimatum",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  30
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_5"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "loot Inscribed Ultimatum"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.chimeral-wetlands.enter-jiquani-s-machinarium-behind-boss",
+                           "chapter":  "act3",
+                           "order":  3038,
+                           "areaName":  "Chimeral Wetlands",
+                           "text":  "Enter Jiquani\u0027s Machinarium behind boss",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  31
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Jiquani\u0027s Machinarium",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_5"
+                                                               ],
+                                          "destinationAreaCode":  "G3_6_1",
+                                          "validated":  false,
+                                          "guidance":  "Enter Jiquani\u0027s Machinarium behind boss"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_6_1",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.trial-of-chaos.use-inscribed-ultimatum-at-trial-entrance",
+                           "chapter":  "act3",
+                           "order":  3039,
+                           "areaName":  "Trial of Chaos",
+                           "text":  "Use Inscribed Ultimatum at trial entrance",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  32
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_10"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Use Inscribed Ultimatum at trial entrance"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.trial-of-chaos.pick-favorable-mods-avoid-lightning-runes-if-low-lightning-res",
+                           "chapter":  "act3",
+                           "order":  3040,
+                           "areaName":  "Trial of Chaos",
+                           "text":  "Pick favorable mods (avoid lightning runes if low Lightning Res)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  33
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Pick favorable mods (avoid lightning runes if low Lightning Res)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "Soul Core skip: dodge roll between slam \u0026 twist of placement animation — duplicates core into all sockets"
+                       },
+                       {
+                           "id":  "act3.trial-of-chaos.complete-trial",
+                           "chapter":  "act3",
+                           "order":  3041,
+                           "areaName":  "Trial of Chaos",
+                           "text":  "Complete trial",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  34
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Complete trial"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.trial-of-chaos.2nd-ascendancy",
+                           "chapter":  "act3",
+                           "order":  3042,
+                           "areaName":  "Trial of Chaos",
+                           "text":  "2nd Ascendancy",
+                           "rewards":  [
+                                           "2nd Ascendancy"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  34
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "2nd Ascendancy"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jiquani-s-machinarium.summon-talk-alva",
+                           "chapter":  "act3",
+                           "order":  3043,
+                           "areaName":  "Jiquani\u0027s Machinarium",
+                           "text":  "Summon/talk Alva",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  35
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_6_1"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Summon/talk Alva"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jiquani-s-machinarium.loot-small-soul-core",
+                           "chapter":  "act3",
+                           "order":  3044,
+                           "areaName":  "Jiquani\u0027s Machinarium",
+                           "text":  "Loot Small Soul Core",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  36
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_6_1"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Loot Small Soul Core"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jiquani-s-machinarium.use-on-stone-altar-next-to-alva",
+                           "chapter":  "act3",
+                           "order":  3045,
+                           "areaName":  "Jiquani\u0027s Machinarium",
+                           "text":  "use on Stone Altar next to Alva",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  36
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_6_1"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "use on Stone Altar next to Alva"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jiquani-s-machinarium.loot-the-remaining-small-soul-cores-4-total-1-opens-jiquani-s-sanctum-2",
+                           "chapter":  "act3",
+                           "order":  3046,
+                           "areaName":  "Jiquani\u0027s Machinarium",
+                           "text":  "Loot the remaining Small Soul Cores ( 4 total ) â€” 1 opens Jiquani\u0027s Sanctum, 2 for the optional Blackjaw door or a secret loot room",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  37
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_6_1"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Loot the remaining Small Soul Cores ( 4 total ) â€” 1 opens Jiquani\u0027s Sanctum, 2 for the optional Blackjaw door or a secret loot room"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jiquani-s-machinarium.open-the-blackjaw-door",
+                           "chapter":  "act3",
+                           "order":  3047,
+                           "areaName":  "Jiquani\u0027s Machinarium",
+                           "text":  "Open the Blackjaw door",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  38
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_6_1"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Open the Blackjaw door"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jiquani-s-machinarium.kill-blackjaw-the-remnant",
+                           "chapter":  "act3",
+                           "order":  3048,
+                           "areaName":  "Jiquani\u0027s Machinarium",
+                           "text":  "kill Blackjaw, the Remnant",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  38
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Blackjaw",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_6_1"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/Monsters/BlackjawSuperUnique",
+                                                                "Metadata/Monsters/BlackjawSuperUnique/BlackjawLightning"
+                                                            ],
+                                          "validated":  false,
+                                          "guidance":  "kill Blackjaw, the Remnant"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jiquani-s-machinarium.use-flame-core-10-fire-res",
+                           "chapter":  "act3",
+                           "order":  3049,
+                           "areaName":  "Jiquani\u0027s Machinarium",
+                           "text":  "use Flame Core +10% Fire Res",
+                           "rewards":  [
+                                           "+10% Fire Res"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  38
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_6_1"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "use Flame Core +10% Fire Res"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jiquani-s-machinarium.open-another-door",
+                           "chapter":  "act3",
+                           "order":  3050,
+                           "areaName":  "Jiquani\u0027s Machinarium",
+                           "text":  "Open another door",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  39
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_6_1"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Open another door"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jiquani-s-machinarium.enter-jiquani-s-sanctum",
+                           "chapter":  "act3",
+                           "order":  3051,
+                           "areaName":  "Jiquani\u0027s Machinarium",
+                           "text":  "enter Jiquani\u0027s Sanctum",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  39
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Jiquani\u0027s Sanctum",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_6_1"
+                                                               ],
+                                          "destinationAreaCode":  "G3_6_2",
+                                          "validated":  false,
+                                          "guidance":  "enter Jiquani\u0027s Sanctum"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_6_2",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.jiquani-s-sanctum.summon-talk-alva",
+                           "chapter":  "act3",
+                           "order":  3052,
+                           "areaName":  "Jiquani\u0027s Sanctum",
+                           "text":  "Summon/talk Alva",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  40
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_6_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Summon/talk Alva"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jiquani-s-sanctum.loot-2-medium-soul-cores-place-in-generators",
+                           "chapter":  "act3",
+                           "order":  3053,
+                           "areaName":  "Jiquani\u0027s Sanctum",
+                           "text":  "Loot 2 Medium Soul Cores , place in Generators",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  41
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_6_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Loot 2 Medium Soul Cores , place in Generators"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jiquani-s-sanctum.back-to-start",
+                           "chapter":  "act3",
+                           "order":  3054,
+                           "areaName":  "Jiquani\u0027s Sanctum",
+                           "text":  "Back to start",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  42
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Back to start"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jiquani-s-sanctum.click-large-soul-core",
+                           "chapter":  "act3",
+                           "order":  3055,
+                           "areaName":  "Jiquani\u0027s Sanctum",
+                           "text":  "click Large Soul Core",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  42
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "click Large Soul Core"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jiquani-s-sanctum.kill-zicoatl-warden-of-the-core",
+                           "chapter":  "act3",
+                           "order":  3056,
+                           "areaName":  "Jiquani\u0027s Sanctum",
+                           "text":  "kill Zicoatl, Warden of the Core",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  42
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Zicoatl, Warden of the Core",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_6_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "kill Zicoatl, Warden of the Core"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jiquani-s-sanctum.loot-core",
+                           "chapter":  "act3",
+                           "order":  3057,
+                           "areaName":  "Jiquani\u0027s Sanctum",
+                           "text":  "loot core",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  42
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_6_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "loot core"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "0.5 Fate of the Vaal A Vaal Beacon spawns in the Sanctum ( 5 of 6 ) — clear its pack toward the six needed for the Vaal Ruins.\nPaquate\u0027s Mechanism (corruption altar) sits in the Sanctum — Vaal-orb-style item corruption while you clear."
+                       },
+                       {
+                           "id":  "act3.jiquani-s-sanctum.tp-to-the-jungle-ruins",
+                           "chapter":  "act3",
+                           "order":  3058,
+                           "areaName":  "Jiquani\u0027s Sanctum",
+                           "text":  "TP to the Jungle Ruins",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  43
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Jungle Ruins",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_6_2"
+                                                               ],
+                                          "destinationAreaCode":  "G3_3",
+                                          "validated":  false,
+                                          "guidance":  "TP to the Jungle Ruins"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_3",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.jungle-ruins.use-the-large-soul-core-on-the-stone-altar",
+                           "chapter":  "act3",
+                           "order":  3059,
+                           "areaName":  "Jungle Ruins (Return)",
+                           "text":  "Use the Large Soul Core on the Stone Altar",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  44
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_3"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Use the Large Soul Core on the Stone Altar"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jungle-ruins.resurfaces-the-matlan-waterways-entrance",
+                           "chapter":  "act3",
+                           "order":  3060,
+                           "areaName":  "Jungle Ruins (Return)",
+                           "text":  "resurfaces the Matlan Waterways entrance",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  44
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "resurfaces the Matlan Waterways entrance"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.jungle-ruins.enter-the-matlan-waterways",
+                           "chapter":  "act3",
+                           "order":  3061,
+                           "areaName":  "Jungle Ruins (Return)",
+                           "text":  "Enter The Matlan Waterways",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  45
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "The Matlan Waterways",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_3"
+                                                               ],
+                                          "destinationAreaCode":  "G3_2_2",
+                                          "validated":  false,
+                                          "guidance":  "Enter The Matlan Waterways"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_2_2",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-matlan-waterways.opt-narag-s-hut",
+                           "chapter":  "act3",
+                           "order":  3062,
+                           "areaName":  "The Matlan Waterways",
+                           "text":  "(Opt) Narag\u0027s Hut",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  46
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Narag\u0027s Hut"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-matlan-waterways.kill-narag-of-the-vile-word-rare-weapon-blacksmith-s-whetstone",
+                           "chapter":  "act3",
+                           "order":  3063,
+                           "areaName":  "The Matlan Waterways",
+                           "text":  "kill Narag of the Vile Word Rare Weapon Blacksmith\u0027s Whetstone",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Rare Weapon",
+                                           "Blacksmith\u0027s Whetstone"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  46
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Narag of the Vile Word Rare Weapon Blacksmith\u0027s Whetstone",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_2_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "kill Narag of the Vile Word Rare Weapon Blacksmith\u0027s Whetstone"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-matlan-waterways.walk-over-pressure-pads-6-8-per-layout-auto-activate-on-contact",
+                           "chapter":  "act3",
+                           "order":  3064,
+                           "areaName":  "The Matlan Waterways",
+                           "text":  "Walk over pressure pads (6â€“8 per layout) â€” auto-activate on contact",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  47
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_2_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Walk over pressure pads (6â€“8 per layout) â€” auto-activate on contact"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-matlan-waterways.proceed-to-end-of-zone-final-section-is-now-pre-drained",
+                           "chapter":  "act3",
+                           "order":  3065,
+                           "areaName":  "The Matlan Waterways",
+                           "text":  "Proceed to end of zone â€” final section is now pre-drained",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  48
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Proceed to end of zone â€” final section is now pre-drained"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "0.5 QoL Levers became walk-over pressure pads , and the final canal section ships pre-drained . The old portal-skip is no longer needed — just walk straight through.\n0.5 Fate of the Vaal The 6th and final Vaal Beacon spawns here — energising it completes the set and opens the portal to the Vaal Ruins (enter promptly; the entrance can disappear and stall the quest). The storyline continues in the Interludes (6 more beacons) and becomes a full endgame storyline. See the endgame guide\u0027s Fate of the Vaal section →"
+                       },
+                       {
+                           "id":  "act3.the-matlan-waterways.opt-ravaged-corpse-at-the-azak-bog-entrance",
+                           "chapter":  "act3",
+                           "order":  3066,
+                           "areaName":  "The Matlan Waterways",
+                           "text":  "(Opt) Ravaged Corpse at the Azak Bog entrance",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  88
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Ravaged Corpse at the Azak Bog entrance"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-matlan-waterways.summon-servi-unidentified-rare-belt",
+                           "chapter":  "act3",
+                           "order":  3067,
+                           "areaName":  "The Matlan Waterways",
+                           "text":  "summon Servi Unidentified Rare Belt",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Unidentified Rare Belt"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  88
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_2_2"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "summon Servi Unidentified Rare Belt"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "Servi appears here at the entrance only — she is not inside Azak Bog ( Farrow holds the Runestone in there)."
+                       },
+                       {
+                           "id":  "act3.the-matlan-waterways.take-the-azak-bog-side-entrance-off-the-waterways",
+                           "chapter":  "act3",
+                           "order":  3068,
+                           "areaName":  "The Matlan Waterways",
+                           "text":  "Take the Azak Bog side entrance (off the Waterways)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  49
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "The Azak Bog",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_2_2"
+                                                               ],
+                                          "destinationAreaCode":  "G3_7",
+                                          "validated":  false,
+                                          "guidance":  "Take the Azak Bog side entrance (off the Waterways)"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_7",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.azak-bog.talk-to-farrow-at-the-start",
+                           "chapter":  "act3",
+                           "order":  3069,
+                           "areaName":  "Azak Bog",
+                           "text":  "Talk to Farrow at the start",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  55
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_7"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Farrow at the start"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.azak-bog.runes-of-aldur-runeseeker",
+                           "chapter":  "act3",
+                           "order":  3070,
+                           "areaName":  "Azak Bog",
+                           "text":  "Runes of Aldur / Runeseeker",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  55
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Runes of Aldur / Runeseeker"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.azak-bog.opt-flameskin-rituals-ignagduk-s-harvest-fire-res-rarity",
+                           "chapter":  "act3",
+                           "order":  3071,
+                           "areaName":  "Azak Bog",
+                           "text":  "(Opt) Flameskin rituals Ignagduk\u0027s Harvest (Fire Res + Rarity)",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Ignagduk\u0027s Harvest (Fire Res + Rarity)"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  56
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Flameskin rituals Ignagduk\u0027s Harvest (Fire Res + Rarity)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "Boss arena always top-right; rotation depends on entrance side. Reset farm magic packs around fire shrine for XP"
+                       },
+                       {
+                           "id":  "act3.azak-bog.kill-ignagduk-the-bog-witch",
+                           "chapter":  "act3",
+                           "order":  3072,
+                           "areaName":  "Azak Bog",
+                           "text":  "Kill Ignagduk, the Bog Witch",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  57
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Ignagduk",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_7"
+                                                               ],
+                                          "metadataGlobs":  [
+                                                                "Metadata/Monsters/IgnagdukBogWitch"
+                                                            ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Ignagduk, the Bog Witch"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act3.azak-bog.use-gemrot-skull-30-spirit-uncut-spirit-gem-lv10",
+                           "chapter":  "act3",
+                           "order":  3073,
+                           "areaName":  "Azak Bog",
+                           "text":  "use Gemrot Skull +30 Spirit Uncut Spirit Gem Lv10",
+                           "rewards":  [
+                                           "+30 Spirit",
+                                           "Uncut Spirit Gem Lv10"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  57
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_7"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "use Gemrot Skull +30 Spirit Uncut Spirit Gem Lv10"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.azak-bog.opt-activate-the-azak-bog-runestone-runes-of-aldur-3rd-of-3",
+                           "chapter":  "act3",
+                           "order":  3074,
+                           "areaName":  "Azak Bog",
+                           "text":  "(Opt) Activate the Azak Bog Runestone (Runes of Aldur) â€” 3rd of 3",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  89
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_7"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "(Opt) Activate the Azak Bog Runestone (Runes of Aldur) â€” 3rd of 3"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "0.5 League With all three Runestones collected, return to the Infested Barrens and enter the Mystic Refuge (the locked jungle vault) → clear it → talk to Farrow to unlock Unique Verisium Runeforging ."
+                       },
+                       {
+                           "id":  "act3.azak-bog.return-ignagduk-s-ghastly-spear-to-servi-in-town-charm-choice-of-3",
+                           "chapter":  "act3",
+                           "order":  3075,
+                           "areaName":  "Azak Bog",
+                           "text":  "Return Ignagduk\u0027s Ghastly Spear to Servi in town Charm (choice of 3)",
+                           "rewards":  [
+                                           "Charm (choice of 3)"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  58
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Return Ignagduk\u0027s Ghastly Spear to Servi in town Charm (choice of 3)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.azak-bog.tp-back-to-town",
+                           "chapter":  "act3",
+                           "order":  3076,
+                           "areaName":  "Azak Bog",
+                           "text":  "TP back to town",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  59
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "TP back to town"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.downstairs",
+                           "chapter":  "act3",
+                           "order":  3077,
+                           "areaName":  "Ziggurat Encampment",
+                           "text":  "Downstairs",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  50
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Downstairs"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.talk-alva",
+                           "chapter":  "act3",
+                           "order":  3078,
+                           "areaName":  "Ziggurat Encampment",
+                           "text":  "talk Alva",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  50
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "talk Alva"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.enter-the-drowned-city-bottom-exit",
+                           "chapter":  "act3",
+                           "order":  3079,
+                           "areaName":  "Ziggurat Encampment",
+                           "text":  "Enter The Drowned City (bottom exit)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  51
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "The Drowned City",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_town"
+                                                               ],
+                                          "destinationAreaCode":  "G3_8",
+                                          "validated":  false,
+                                          "guidance":  "Enter The Drowned City (bottom exit)"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_8",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-drowned-city.find-apex-of-filth",
+                           "chapter":  "act3",
+                           "order":  3080,
+                           "areaName":  "The Drowned City",
+                           "text":  "Find Apex of Filth",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  52
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_8"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Find Apex of Filth"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-drowned-city.take-wp",
+                           "chapter":  "act3",
+                           "order":  3081,
+                           "areaName":  "The Drowned City",
+                           "text":  "take WP",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  52
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "WaypointIcon",
+                                          "label":  "Waypoint",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_8"
+                                                               ],
+                                          "serverIconNames":  [
+                                                                  "Waypoint"
+                                                              ],
+                                          "validated":  true,
+                                          "guidance":  "take WP"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-drowned-city.return",
+                           "chapter":  "act3",
+                           "order":  3082,
+                           "areaName":  "The Drowned City",
+                           "text":  "return",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  52
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "return"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-drowned-city.find-the-molten-vault",
+                           "chapter":  "act3",
+                           "order":  3083,
+                           "areaName":  "The Drowned City",
+                           "text":  "Find The Molten Vault",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  53
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_8"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Find The Molten Vault"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-drowned-city.take-wp-part-2",
+                           "chapter":  "act3",
+                           "order":  3084,
+                           "areaName":  "The Drowned City",
+                           "text":  "take WP",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  53
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "WaypointIcon",
+                                          "label":  "Waypoint",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_8"
+                                                               ],
+                                          "serverIconNames":  [
+                                                                  "Waypoint"
+                                                              ],
+                                          "validated":  true,
+                                          "guidance":  "take WP"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-drowned-city.return-part-2",
+                           "chapter":  "act3",
+                           "order":  3085,
+                           "areaName":  "The Drowned City",
+                           "text":  "return",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  53
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "return"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-drowned-city.opt-drowned-quarters-hidden-rooms-doors-with-rare-monsters-gold-and-ches",
+                           "chapter":  "act3",
+                           "order":  3086,
+                           "areaName":  "The Drowned City",
+                           "text":  "(Opt) Drowned Quarters â€” hidden rooms/doors with rare monsters, gold \u0026 chests Rune drops",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Rune drops"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  90
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Drowned Quarters â€” hidden rooms/doors with rare monsters, gold \u0026 chests Rune drops"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "A Crawler swarm ambushes a chokepoint just after a bridge-with-checkpoint — has loot. Drowning orbs (teal) cut vision and kill if you linger; keep moving."
+                       },
+                       {
+                           "id":  "act3.the-drowned-city.tp-to-the-molten-vault-1st-char-or-town",
+                           "chapter":  "act3",
+                           "order":  3087,
+                           "areaName":  "The Drowned City",
+                           "text":  "TP to The Molten Vault (1st char) or town",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  54
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "The Molten Vault",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_8"
+                                                               ],
+                                          "destinationAreaCode":  "G3_9",
+                                          "validated":  false,
+                                          "guidance":  "TP to The Molten Vault (1st char) or town"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_9",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-molten-vault.1st-char-kill-mektul-the-forgemaster-reforging-bench-uncut-skill-gem-lv1",
+                           "chapter":  "act3",
+                           "order":  3088,
+                           "areaName":  "The Molten Vault",
+                           "text":  "(1st char) Kill Mektul, the Forgemaster Reforging Bench Uncut Skill Gem Lv10 Artificer\u0027s Orb",
+                           "rewards":  [
+                                           "Reforging Bench",
+                                           "Uncut Skill Gem Lv10",
+                                           "Artificer\u0027s Orb"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  60
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Mektul, the Forgemaster Reforging Bench Uncut Skill Gem Lv10 Artificer\u0027s Orb",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_9"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "(1st char) Kill Mektul, the Forgemaster Reforging Bench Uncut Skill Gem Lv10 Artificer\u0027s Orb"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          },
+                           "note":  "Return Hammer of Kamasa to Oswald in town to unlock the bench. Skip on alt characters\nMektul has a ~4-minute molten-flood timer — overlevel and bring Fire Res.\n(Opt) Frost Cores → Stone Altars clear the Molten Flow blockages → Gold Chests."
+                       },
+                       {
+                           "id":  "act3.the-molten-vault.tp-back-to-town",
+                           "chapter":  "act3",
+                           "order":  3089,
+                           "areaName":  "The Molten Vault",
+                           "text":  "TP back to town",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  61
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "TP back to town"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.talk-to-oswald",
+                           "chapter":  "act3",
+                           "order":  3090,
+                           "areaName":  "Ziggurat Encampment",
+                           "text":  "Talk to Oswald",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  62
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Oswald"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.tp-to-apex-of-filth",
+                           "chapter":  "act3",
+                           "order":  3091,
+                           "areaName":  "Ziggurat Encampment",
+                           "text":  "TP to Apex of Filth",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  63
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Apex of Filth",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_town"
+                                                               ],
+                                          "destinationAreaCode":  "G3_11",
+                                          "validated":  false,
+                                          "guidance":  "TP to Apex of Filth"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_11",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.apex-of-filth.opt-find-3-mushrooms",
+                           "chapter":  "act3",
+                           "order":  3092,
+                           "areaName":  "Apex of Filth",
+                           "text":  "(Opt) Find 3 Mushrooms",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  64
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_11"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "(Opt) Find 3 Mushrooms"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.apex-of-filth.use-the-cauldron-cauldron-keeper-quality-life-mana-flasks",
+                           "chapter":  "act3",
+                           "order":  3093,
+                           "areaName":  "Apex of Filth",
+                           "text":  "use the Cauldron ( Cauldron Keeper ) Quality Life/Mana Flasks",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Quality Life/Mana Flasks"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  64
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_11"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "use the Cauldron ( Cauldron Keeper ) Quality Life/Mana Flasks"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "Pass through bottleneck-with-checkpoint, then check the back corners. The Cauldron Keeper is also a secret vendor — caster gear + jewellery."
+                       },
+                       {
+                           "id":  "act3.apex-of-filth.kill-queen-of-filth",
+                           "chapter":  "act3",
+                           "order":  3094,
+                           "areaName":  "Apex of Filth",
+                           "text":  "Kill Queen of Filth",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  65
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Queen of Filth",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_11"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Queen of Filth"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          }
+                       },
+                       {
+                           "id":  "act3.apex-of-filth.loot-temple-door-idol",
+                           "chapter":  "act3",
+                           "order":  3095,
+                           "areaName":  "Apex of Filth",
+                           "text":  "loot Temple Door Idol",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  65
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_11"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "loot Temple Door Idol"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "Stay close to her — moving away triggers ultimate rolling slam"
+                       },
+                       {
+                           "id":  "act3.apex-of-filth.tp-back-to-town",
+                           "chapter":  "act3",
+                           "order":  3096,
+                           "areaName":  "Apex of Filth",
+                           "text":  "TP back to town",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  66
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "TP back to town"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.downstairs-part-2",
+                           "chapter":  "act3",
+                           "order":  3097,
+                           "areaName":  "Ziggurat Encampment",
+                           "text":  "Downstairs",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  67
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Downstairs"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.talk-alva-part-2",
+                           "chapter":  "act3",
+                           "order":  3098,
+                           "areaName":  "Ziggurat Encampment",
+                           "text":  "talk Alva",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  67
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "talk Alva"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.door-behind-her",
+                           "chapter":  "act3",
+                           "order":  3099,
+                           "areaName":  "Ziggurat Encampment",
+                           "text":  "Door behind her",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  68
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Door behind her"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.enter-temple-of-kopec",
+                           "chapter":  "act3",
+                           "order":  3100,
+                           "areaName":  "Ziggurat Encampment",
+                           "text":  "enter Temple of Kopec",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  68
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Temple of Kopec",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_town"
+                                                               ],
+                                          "destinationAreaCode":  "G3_12",
+                                          "validated":  false,
+                                          "guidance":  "enter Temple of Kopec"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_12",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.temple-of-kopec.kill-ketzuli-high-priest-of-the-sun-upstairs",
+                           "chapter":  "act3",
+                           "order":  3101,
+                           "areaName":  "Temple of Kopec",
+                           "text":  "Kill Ketzuli, High Priest of the Sun (upstairs)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  69
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Ketzuli, High Priest of the Sun (upstairs)",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_12"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Ketzuli, High Priest of the Sun (upstairs)"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          },
+                           "note":  "Indoors the sunlight stacks a burning debuff — stay in the shade between packs."
+                       },
+                       {
+                           "id":  "act3.temple-of-kopec.talk-alva-wait-for-lore",
+                           "chapter":  "act3",
+                           "order":  3102,
+                           "areaName":  "Temple of Kopec",
+                           "text":  "Talk Alva , wait for lore",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  70
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_12"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk Alva , wait for lore"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.take-the-gateway",
+                           "chapter":  "act3",
+                           "order":  3103,
+                           "areaName":  "Ziggurat Encampment",
+                           "text":  "Take the Gateway",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  71
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Take the Gateway"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.downstairs-part-3",
+                           "chapter":  "act3",
+                           "order":  3104,
+                           "areaName":  "Ziggurat Encampment",
+                           "text":  "Downstairs",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  72
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Downstairs"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.enter-utzaal",
+                           "chapter":  "act3",
+                           "order":  3105,
+                           "areaName":  "Ziggurat Encampment",
+                           "text":  "enter Utzaal",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  72
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Utzaal",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_town"
+                                                               ],
+                                          "destinationAreaCode":  "G3_14",
+                                          "validated":  false,
+                                          "guidance":  "enter Utzaal"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_14",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.utzaal.opt-farm-sacrificial-heart-from-vaal-goliaths-canister-on-shoulder",
+                           "chapter":  "act3",
+                           "order":  3106,
+                           "areaName":  "Utzaal",
+                           "text":  "(Opt) Farm Sacrificial Heart from Vaal Goliaths (canister on shoulder)",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  73
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Farm Sacrificial Heart from Vaal Goliaths (canister on shoulder)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "Can also drop in Aggorat — only specific monster type drops it"
+                       },
+                       {
+                           "id":  "act3.utzaal.opt-side-doors-for-idols-sell-to-oswald-for-gold",
+                           "chapter":  "act3",
+                           "order":  3107,
+                           "areaName":  "Utzaal",
+                           "text":  "(Opt) Side doors for idols (sell to Oswald for gold)",
+                           "optional":  true,
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  76
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) Side doors for idols (sell to Oswald for gold)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "(Opt) A Chaos Statue here grants an Inscribed Ultimatum usable in the Temple of Chaos."
+                       },
+                       {
+                           "id":  "act3.utzaal.kill-viper-napuatzi",
+                           "chapter":  "act3",
+                           "order":  3108,
+                           "areaName":  "Utzaal",
+                           "text":  "Kill Viper Napuatzi",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  77
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Viper Napuatzi",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_14"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Viper Napuatzi"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          },
+                           "note":  "Highly mobile + evasive — bait first attack cycle from consistent position to predict her"
+                       },
+                       {
+                           "id":  "act3.utzaal.enter-aggorat",
+                           "chapter":  "act3",
+                           "order":  3109,
+                           "areaName":  "Utzaal",
+                           "text":  "Enter Aggorat",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  78
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "Aggorat",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_14"
+                                                               ],
+                                          "destinationAreaCode":  "G3_16",
+                                          "validated":  false,
+                                          "guidance":  "Enter Aggorat"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_16",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.aggorat.find-sacrificial-altar-top-right-of-map",
+                           "chapter":  "act3",
+                           "order":  3110,
+                           "areaName":  "Aggorat",
+                           "text":  "Find Sacrificial Altar (top right of map)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  79
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_16"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Find Sacrificial Altar (top right of map)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.aggorat.place-sacrificial-heart",
+                           "chapter":  "act3",
+                           "order":  3111,
+                           "areaName":  "Aggorat",
+                           "text":  "Place Sacrificial Heart",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  80
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_16"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Place Sacrificial Heart"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.aggorat.stab-with-dagger-2-skill-points",
+                           "chapter":  "act3",
+                           "order":  3112,
+                           "areaName":  "Aggorat",
+                           "text":  "stab with Dagger +2 Skill Points",
+                           "rewards":  [
+                                           "+2 Skill Points"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  80
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "stab with Dagger +2 Skill Points"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.aggorat.opt-league-mech-crag-tooth-vaal-orb",
+                           "chapter":  "act3",
+                           "order":  3113,
+                           "areaName":  "Aggorat",
+                           "text":  "(Opt) League mech (Crag Tooth) Vaal Orb",
+                           "optional":  true,
+                           "rewards":  [
+                                           "Vaal Orb"
+                                       ],
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  81
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "(Opt) League mech (Crag Tooth) Vaal Orb"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.aggorat.enter-the-black-chambers-top-left-of-map",
+                           "chapter":  "act3",
+                           "order":  3114,
+                           "areaName":  "Aggorat",
+                           "text":  "Enter The Black Chambers (top left of map)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  82
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "AreaTransition",
+                                          "label":  "The Black Chambers",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_16"
+                                                               ],
+                                          "destinationAreaCode":  "G3_17",
+                                          "validated":  false,
+                                          "guidance":  "Enter The Black Chambers (top left of map)"
+                                      },
+                           "completion":  {
+                                              "kind":  "StableAreaEntry",
+                                              "expectedAreaCode":  "G3_17",
+                                              "stableTicks":  2
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-black-chambers.kill-doryani-royal-thaumaturge-act-boss",
+                           "chapter":  "act3",
+                           "order":  3115,
+                           "areaName":  "The Black Chambers",
+                           "text":  "Kill Doryani, Royal Thaumaturge (Act Boss)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  83
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Boss",
+                                          "label":  "Doryani, Royal Thaumaturge (Act Boss)",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_17"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Kill Doryani, Royal Thaumaturge (Act Boss)"
+                                      },
+                           "completion":  {
+                                              "kind":  "BossDefeated"
+                                          },
+                           "note":  "Three phases: caster → Doryani\u0027s Triumph mech below 50% (rage → fortifying buff before engaging) → airborne phase."
+                       },
+                       {
+                           "id":  "act3.the-black-chambers.wait-for-loot-30s",
+                           "chapter":  "act3",
+                           "order":  3116,
+                           "areaName":  "The Black Chambers",
+                           "text":  "Wait for loot (~30s)",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  84
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "QuestObject",
+                                          "label":  "Quest objective",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_17"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Wait for loot (~30s)"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.the-black-chambers.tp-back-to-town",
+                           "chapter":  "act3",
+                           "order":  3117,
+                           "areaName":  "The Black Chambers",
+                           "text":  "TP back to town",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  85
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "TP back to town"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.talk-to-doryani",
+                           "chapter":  "act3",
+                           "order":  3118,
+                           "areaName":  "Ziggurat Encampment (End of Act)",
+                           "text":  "Talk to Doryani",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  86
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk to Doryani"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.talk-doryani-again",
+                           "chapter":  "act3",
+                           "order":  3119,
+                           "areaName":  "Ziggurat Encampment (End of Act)",
+                           "text":  "Talk Doryani again",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  87
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "Npc",
+                                          "label":  "Quest NPC",
+                                          "allowedAreaCodes":  [
+                                                                   "G3_town"
+                                                               ],
+                                          "validated":  false,
+                                          "guidance":  "Talk Doryani again"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.alva",
+                           "chapter":  "act3",
+                           "order":  3120,
+                           "areaName":  "Ziggurat Encampment (End of Act)",
+                           "text":  "Alva",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  87
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Alva"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.hooded-one",
+                           "chapter":  "act3",
+                           "order":  3121,
+                           "areaName":  "Ziggurat Encampment (End of Act)",
+                           "text":  "Hooded One",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  87
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Hooded One"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          }
+                       },
+                       {
+                           "id":  "act3.ziggurat-encampment.alva-part-2",
+                           "chapter":  "act3",
+                           "order":  3122,
+                           "areaName":  "Ziggurat Encampment (End of Act)",
+                           "text":  "Alva",
+                           "source":  [
+                                          {
+                                              "chapter":  "act3",
+                                              "row":  87
+                                          }
+                                      ],
+                           "target":  {
+                                          "kind":  "NonSpatial",
+                                          "label":  "Campaign instruction",
+                                          "guidance":  "Alva"
+                                      },
+                           "completion":  {
+                                              "kind":  "Manual"
+                                          },
+                           "note":  "Act III Complete — proceed to Act IV (Kingsmarch)"
+                       }
+                   ]
+}

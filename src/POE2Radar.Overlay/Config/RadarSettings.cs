@@ -145,6 +145,7 @@ public sealed class RadarSettings
     public WaystoneAlchemySettings WaystoneAlchemy { get; set; } = new();
     public PickupHelperSettings PickupHelper { get; set; } = new();
     public LootTrackerSettings LootTracker { get; set; } = new();
+    public CampaignSettings Campaign { get; set; } = new();
 
     // ── Global multiplier on map icon sprite scale (PNG from icons.png). ──
     public float GlobalIconScale { get; set; } = 1.25f;
@@ -432,6 +433,7 @@ public sealed class RadarSettings
             var json = File.ReadAllText(FilePath);
             var loaded = JsonSerializer.Deserialize<RadarSettings>(json, Json) ?? new RadarSettings();
             loaded.Amanamu ??= new AmanamuSettings();
+            loaded.Campaign ??= new CampaignSettings();
             // Existing configs are loaded verbatim (never re-seeded from defaults), so repair stale
             // patterns shipped by older builds in place, then persist the upgrade.
             if (loaded.Migrate())
@@ -861,6 +863,29 @@ public sealed class RadarSettings
             Console.Error.WriteLine($"Settings save failed: {ex.Message}");
         }
     }
+}
+
+/// <summary>Campaign helper behavior and compact widget presentation.</summary>
+public enum CampaignGuideMode
+{
+    Required,
+    FullClear,
+}
+
+public sealed class CampaignSettings
+{
+    public bool Enabled { get; set; } = true;
+    public bool AutoActivate { get; set; } = true;
+    public bool AutoRoute { get; set; } = true;
+    public bool SafeAutoCheck { get; set; } = true;
+    public CampaignGuideMode GuideMode { get; set; } = CampaignGuideMode.FullClear;
+    public bool ShowCompletedObjectives { get; set; } = true;
+    public bool WidgetCollapsed { get; set; }
+    public float WidgetX { get; set; } = -1f;
+    public float WidgetY { get; set; } = -1f;
+    public float WidgetScale { get; set; } = 1f;
+    public float WidgetOpacity { get; set; } = 0.94f;
+    public bool ShowDiagnosticTargetStatus { get; set; } = true;
 }
 
 public sealed class AtlasMapGroupSettings

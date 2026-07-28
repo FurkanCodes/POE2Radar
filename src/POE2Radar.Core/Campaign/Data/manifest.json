@@ -1,0 +1,35 @@
+﻿{
+    "schemaVersion":  1,
+    "guideVersion":  "patch-0.5-complete",
+    "sourceRepository":  "https://github.com/domistae/poe2-leveling",
+    "sourceCommit":  "90739c2",
+    "sourceLicense":  "MIT; Copyright (c) 2026 domistae",
+    "sourceRowCount":  333,
+    "sourceChapters":  [
+                           {
+                               "id":  "act1",
+                               "rowCount":  66,
+                               "implemented":  true
+                           },
+                           {
+                               "id":  "act2",
+                               "rowCount":  78,
+                               "implemented":  true
+                           },
+                           {
+                               "id":  "act3",
+                               "rowCount":  86,
+                               "implemented":  true
+                           },
+                           {
+                               "id":  "act4",
+                               "rowCount":  67,
+                               "implemented":  true
+                           },
+                           {
+                               "id":  "interludes",
+                               "rowCount":  36,
+                               "implemented":  true
+                           }
+                       ]
+}

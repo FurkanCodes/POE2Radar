@@ -39,6 +39,10 @@ public sealed class ClassicUiSmokeTests
                 Render(settingsForm, "settings-radar-details");
                 Assert.True(settingsForm.SelectPageForPreview("Pickup Helper"));
                 Render(settingsForm, "settings-pickup-helper");
+                Assert.True(settingsForm.SelectPageForPreview("Campaign Helper"));
+                Render(settingsForm, "settings-campaign-helper");
+                Assert.True(settingsForm.SelectPageForPreview("Character Progress"));
+                Render(settingsForm, "settings-campaign-progress");
                 Assert.True(settingsForm.SelectPageForPreview("Stash Utility"));
                 Render(settingsForm, "settings-stash-utility");
                 Assert.True(settingsForm.SelectPageForPreview("Mod Tables"));

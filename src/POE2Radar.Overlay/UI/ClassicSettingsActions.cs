@@ -7,7 +7,39 @@ internal sealed record ClassicSettingsActions(
     Action NewLootSession,
     Action StartWaystoneCrafting,
     Action StopWaystoneCrafting,
-    Action PlanExpedition);
+    Action PlanExpedition,
+    Action CompleteCampaignObjective,
+    Action BackCampaignObjective,
+    Action RestoreCampaignWidget,
+    Action ResetCampaignCharacter,
+    Action ExportCampaignProgress,
+    Action ImportCampaignProgress)
+{
+    public ClassicSettingsActions(
+        Action toggleRendering,
+        Action addNearestRoute,
+        Action clearRoutes,
+        Action newLootSession,
+        Action startWaystoneCrafting,
+        Action stopWaystoneCrafting,
+        Action planExpedition)
+        : this(
+            toggleRendering,
+            addNearestRoute,
+            clearRoutes,
+            newLootSession,
+            startWaystoneCrafting,
+            stopWaystoneCrafting,
+            planExpedition,
+            static () => { },
+            static () => { },
+            static () => { },
+            static () => { },
+            static () => { },
+            static () => { })
+    {
+    }
+}
 
 internal sealed class ClassicActionControl : UserControl
 {

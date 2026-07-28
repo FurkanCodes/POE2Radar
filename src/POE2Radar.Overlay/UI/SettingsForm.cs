@@ -376,6 +376,21 @@ internal sealed class SettingsForm : Form
             "Auto-flask thresholds, cooldowns, and key bindings.", property => FlaskNames.Contains(property.Name));
 
         var plugins = _navigation.Nodes.Add("PLUGINS");
+        var campaign = AddPage(plugins, "Campaign Helper", _settings.Campaign,
+            "Full-clear campaign guidance, exact-target routing, safe checkmarks, and widget layout.");
+        if (_actions is not null)
+            AddControlPage(
+                campaign,
+                "Character Progress",
+                "Check, undo, or reset the current character without storing its raw name.",
+                new ClassicActionControl(
+                    "Only the SHA-256 profile key is persisted. Reset affects the current character only.",
+                    ("Check Current", "Mark the displayed campaign objective complete.", _actions.CompleteCampaignObjective),
+                    ("Back / Uncheck", "Reopen the most recently completed objective.", _actions.BackCampaignObjective),
+                    ("Show Widget", "Restore the compact guide if it was dismissed for this character.", _actions.RestoreCampaignWidget),
+                    ("Export Progress", "Copy a privacy-safe progress code to the clipboard.", _actions.ExportCampaignProgress),
+                    ("Import Progress", "Import a POE2Radar progress code from the clipboard.", _actions.ImportCampaignProgress),
+                    ("Reset Character", "Clear all campaign progress and dismissal state for this character.", _actions.ResetCampaignCharacter)));
         var pickup = AddPage(plugins, "Pickup Helper", _settings.PickupHelper,
             "Foreground-gated item pickup assistance and item policy.",
             property => property.Name != nameof(PickupHelperSettings.Policy));
@@ -612,6 +627,7 @@ internal sealed class SettingsForm : Form
             and not nameof(RadarSettings.WaystoneAlchemy)
             and not nameof(RadarSettings.PickupHelper)
             and not nameof(RadarSettings.LootTracker)
+            and not nameof(RadarSettings.Campaign)
             and not nameof(RadarSettings.Styles)
             and not nameof(RadarSettings.HpBars)
             and not nameof(RadarSettings.Terrain);

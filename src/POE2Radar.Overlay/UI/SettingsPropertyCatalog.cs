@@ -125,7 +125,26 @@ internal static partial class SettingsPropertyCatalog
             HpBarSettings => HpBarCategory(name),
             TerrainSettings => TerrainCategory(name),
             IconStyle => IconStyleCategory(name),
+            CampaignSettings => CampaignCategory(name),
             RadarSettings => RadarCategory(page, name),
+            _ => General,
+        };
+
+    private static string CampaignCategory(string name)
+        => name switch
+        {
+            nameof(CampaignSettings.Enabled)
+                or nameof(CampaignSettings.AutoActivate)
+                or nameof(CampaignSettings.AutoRoute)
+                or nameof(CampaignSettings.SafeAutoCheck)
+                or nameof(CampaignSettings.GuideMode)
+                or nameof(CampaignSettings.ShowCompletedObjectives) => "01 · Operation",
+            nameof(CampaignSettings.WidgetX)
+                or nameof(CampaignSettings.WidgetY)
+                or nameof(CampaignSettings.WidgetScale)
+                or nameof(CampaignSettings.WidgetOpacity)
+                or nameof(CampaignSettings.WidgetCollapsed) => "02 · Widget",
+            nameof(CampaignSettings.ShowDiagnosticTargetStatus) => "03 · Diagnostics",
             _ => General,
         };
 
