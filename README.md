@@ -59,7 +59,7 @@ quality-of-life feature.
 ## Download (no build required)
 
 Grab the latest **`POE2Radar-vX.Y.Z-win-x64.zip`** from the
-[Releases page](https://github.com/FurkanCodes/POE2Radar/releases), unzip, and run `POE2Radar.Overlay.exe`
+[Releases page](https://github.com/FurkanCodes/POE2Radar/releases), unzip, and run `AppHost.exe`
 **as Administrator** (reading another process's memory requires it) with PoE2 already running.
 The build is self-contained — no .NET install needed.
 
@@ -88,7 +88,7 @@ Use `-c Release` for a local optimized build in `bin\Release\...`. Dev output is
 ```
 ./release.ps1
 # or pin an explicit version:
-./release.ps1 -Version 0.15.2
+./release.ps1 -Version 0.16.0
 ```
 
 On Windows, double-click **`release.bat`** instead of `release.ps1` — the console stays open so you can read errors. From a terminal, either command works.
@@ -96,7 +96,7 @@ On Windows, double-click **`release.bat`** instead of `release.ps1` — the cons
 This writes a complete folder to `release/POE2Radar-vX.Y.Z-win-x64/` and a matching zip beside it:
 
 ```
-POE2Radar.Overlay.exe
+AppHost.exe
 Overlay/icons.png
 Overlay/Textures/full_bar.png, hollow_bar.png
 icons/*.svg
