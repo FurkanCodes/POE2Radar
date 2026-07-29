@@ -20,6 +20,12 @@ public static class AtlasRitualPrediction
 
     public static IReadOnlyList<RitualMod> Mods => Pool.Value;
 
+    /// <summary>
+    /// The Atlas panel uses zero for normal navigation and a nonzero page state while the Rite line
+    /// selector is active. The concrete nonzero value is not stable across client/plugin revisions.
+    /// </summary>
+    public static bool IsLineModeActive(byte mode) => mode != 0;
+
     /// <summary>TinyMT32 as used by PoE2's ritual line, bit-exact with Atlas2's reversed client model.</summary>
     public static class TinyMt32
     {

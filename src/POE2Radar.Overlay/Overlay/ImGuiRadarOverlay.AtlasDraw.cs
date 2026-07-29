@@ -16,6 +16,7 @@ public sealed partial class ImGuiRadarOverlay
     private string? _atlasHoverTooltipName;
     private string? _atlasHoverTooltipDesc;
     private readonly Dictionary<string, int> _atlasRitualSelected = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, AtlasRitualPlannerRow> _atlasRitualSelectedRows = new(StringComparer.Ordinal);
     private static readonly string[] AtlasRitualPalette =
     [
         "#FFD933", "#FF8026", "#FF4D4D", "#4DD9FF", "#73FF73", "#E673FF",
@@ -84,6 +85,8 @@ public sealed partial class ImGuiRadarOverlay
                 DrawAtlasNode(dl, ctx, n, W, H, uiScale, mousePos);
         }
 
+        DrawAtlasRitualSearchHighlights(dl, ctx, uiScale);
+
         var hoveredShip = DrawAtlasFogShipsAndLeylines(dl, ctx, mousePos, uiScale);
 
         if (ctx.AtlasShowRitualPrediction && ctx.AtlasRitualPredictions is { Count: > 0 } preds)
@@ -98,7 +101,7 @@ public sealed partial class ImGuiRadarOverlay
 
         dl.ChannelsMerge();
 
-        if (ctx.AtlasShowRitualPlanner && ctx.AtlasRitualLineActive && ctx.AtlasRitualPlannerRows is { Count: > 0 })
+        if (ctx.AtlasShowRitualPlanner)
             DrawAtlasRitualPlannerWindow(ctx);
 
         if (ctx.AtlasShowIslandRumours && hoveredShip?.Manifest is { } manifest)
@@ -275,82 +278,283 @@ public sealed partial class ImGuiRadarOverlay
 
     private void DrawAtlasRitualPlannerWindow(RenderContext ctx)
     {
-        var open = true;
-        ImGui.SetNextWindowSize(new NumVec2(760, 500), ImGuiCond.FirstUseEver);
-        if (!ImGui.Begin("Ritual line rewards", ref open, ImGuiWindowFlags.None))
+        ImGui.SetNextWindowSize(new NumVec2(980, 560), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowSizeConstraints(new NumVec2(680, 360), new NumVec2(1280, 800));
+        if (!ImGui.Begin("Ritual predictions", ImGuiWindowFlags.NoCollapse))
         {
             ImGui.End();
             return;
         }
-        ImGui.TextDisabled(ctx.AtlasRitualLineActive ? "Ritual line mode active" : "Open ritual line on the atlas");
-        var rows = ctx.AtlasRitualPlannerRows ?? Array.Empty<AtlasRitualPlannerRow>();
-        var alive = rows.Select(row => row.Key).ToHashSet(StringComparer.Ordinal);
-        foreach (var stale in _atlasRitualSelected.Keys.Where(key => !alive.Contains(key)).ToArray())
-            _atlasRitualSelected.Remove(stale);
-        var filter = (_settings.AtlasRitualRewardFilter ?? "")
-            .Split(['|', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var visible = rows.Where(row => _atlasRitualSelected.ContainsKey(row.Key)
-            || filter.Length == 0
-            || filter.Any(term => row.ModsLine.Contains(term, StringComparison.OrdinalIgnoreCase)))
-            .ToArray();
-        ImGui.TextDisabled($"Shown: {visible.Length}  |  Chains: {rows.Count}");
-        ImGui.Separator();
-        if (ImGui.BeginTable("ritualPlanner", 4,
-            ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.Resizable,
-            new NumVec2(0, 410)))
+
+        ImGui.SetWindowFontScale(Math.Clamp(ctx.AtlasRitualPlannerFontScale, 0.75f, 1.75f));
+        ImGui.TextColored(new System.Numerics.Vector4(1f, 0.82f, 0.25f, 1f), "RITE OF THE NAMELESS");
+        ImGui.SameLine();
+        if (ctx.AtlasRitualLineActive)
         {
-            ImGui.TableSetupColumn("", ImGuiTableColumnFlags.WidthFixed, 28f);
-            ImGui.TableSetupColumn("Path", ImGuiTableColumnFlags.WidthStretch);
-            ImGui.TableSetupColumn("Rewards", ImGuiTableColumnFlags.WidthStretch);
-            ImGui.TableSetupColumn("Wt", ImGuiTableColumnFlags.WidthFixed, 36f);
-            ImGui.TableHeadersRow();
-            foreach (var row in visible)
+            var totalMaps = Math.Max(ctx.AtlasRitualLineLength, 1);
+            ImGui.TextDisabled($"  {totalMaps}-map line  |  {ctx.AtlasRitualCommittedMaps}/{totalMaps} chosen");
+        }
+        else
+        {
+            ImGui.TextDisabled("  Waiting for Ritual line mode");
+        }
+
+        var rewardSearch = _settings.AtlasRitualRewardFilter ?? "";
+        ImGui.Spacing();
+        ImGui.PushStyleColor(ImGuiCol.FrameBg, new System.Numerics.Vector4(0.025f, 0.028f, 0.024f, 1f));
+        ImGui.PushStyleColor(ImGuiCol.Border, new System.Numerics.Vector4(0.84f, 0.69f, 0.35f, 0.72f));
+        ImGui.PushStyleVar(ImGuiStyleVar.FrameBorderSize, 1f);
+        ImGui.SetNextItemWidth(-72f);
+        var searchEdited = ImGui.InputTextWithHint(
+            "##ritualRewardSearch",
+            "Paste a reward modifier, e.g. Rerolling Favours costs 20% reduced Tribute",
+            ref rewardSearch,
+            512);
+        var searchFinished = ImGui.IsItemDeactivatedAfterEdit();
+        ImGui.PopStyleVar();
+        ImGui.PopStyleColor(2);
+        if (searchEdited)
+            _settings.AtlasRitualRewardFilter = rewardSearch;
+        if (searchFinished)
+            _settings.Save();
+        ImGui.SameLine();
+        var hasSearch = !string.IsNullOrWhiteSpace(rewardSearch);
+        if (!hasSearch)
+            ImGui.BeginDisabled();
+        if (ImGui.Button("Clear"))
+        {
+            rewardSearch = "";
+            _settings.AtlasRitualRewardFilter = "";
+            _settings.Save();
+        }
+        if (!hasSearch)
+            ImGui.EndDisabled();
+
+        var rows = ctx.AtlasRitualPlannerRows ?? Array.Empty<AtlasRitualPlannerRow>();
+
+        if (!ctx.AtlasRitualLineActive)
+        {
+            _atlasRitualSelected.Clear();
+            _atlasRitualSelectedRows.Clear();
+            ImGui.Separator();
+            ImGui.Spacing();
+            ImGui.TextWrapped("Open the Atlas and activate the Ritual line. Predictions will appear here as complete selectable map lines.");
+            ImGui.End();
+            return;
+        }
+
+        var cap = ctx.AtlasRitualPlannerCapped ? "+" : "";
+        ImGui.TextDisabled(
+            $"Showing {rows.Count} choices from {ctx.AtlasRitualPlannerTotalChains}{cap} valid lines. "
+            + "Tick a line to draw it on the Atlas.");
+        if (_atlasRitualSelected.Count > 0)
+        {
+            ImGui.SameLine();
+            if (ImGui.SmallButton($"Clear selected ({_atlasRitualSelected.Count})"))
             {
-                ImGui.TableNextRow();
+                _atlasRitualSelected.Clear();
+                _atlasRitualSelectedRows.Clear();
+            }
+        }
+        if (hasSearch)
+        {
+            var matchCount = AtlasRitualPresentation.FindRewardMatches(rows, rewardSearch).Length;
+            ImGui.TextColored(
+                new System.Numerics.Vector4(0.84f, 0.69f, 0.35f, 1f),
+                $"{matchCount} matching reward node{(matchCount == 1 ? "" : "s")} highlighted in the shown lines");
+        }
+        ImGui.Separator();
+
+        if (rows.Count == 0)
+        {
+            ImGui.Spacing();
+            ImGui.TextWrapped(string.IsNullOrWhiteSpace(rewardSearch)
+                ? "No complete line is currently available. Move the Atlas to the Ritual region or choose another starting map."
+                : "No complete line matches this reward search. Clear the search or paste a shorter part of the modifier.");
+            ImGui.End();
+            return;
+        }
+
+        var mapColumns = Math.Max(2, rows.Max(row => row.MapNames.Count));
+        var tableFlags = ImGuiTableFlags.Borders
+            | ImGuiTableFlags.RowBg
+            | ImGuiTableFlags.ScrollX
+            | ImGuiTableFlags.ScrollY
+            | ImGuiTableFlags.Resizable;
+        ImGui.PushStyleColor(ImGuiCol.TableHeaderBg, new System.Numerics.Vector4(0.12f, 0.13f, 0.11f, 1f));
+        ImGui.PushStyleColor(ImGuiCol.TableRowBg, new System.Numerics.Vector4(0.045f, 0.05f, 0.04f, 0.98f));
+        ImGui.PushStyleColor(ImGuiCol.TableRowBgAlt, new System.Numerics.Vector4(0.075f, 0.08f, 0.065f, 0.98f));
+        ImGui.PushStyleColor(ImGuiCol.Border, new System.Numerics.Vector4(0.23f, 0.24f, 0.20f, 1f));
+        ImGui.PushStyleColor(ImGuiCol.FrameBg, new System.Numerics.Vector4(0.025f, 0.028f, 0.024f, 1f));
+        ImGui.PushStyleColor(ImGuiCol.CheckMark, new System.Numerics.Vector4(0.84f, 0.69f, 0.35f, 1f));
+        if (ImGui.BeginTable("ritualPlanner", mapColumns + 2, tableFlags, new NumVec2(0, -1)))
+        {
+            ImGui.TableSetupScrollFreeze(1, 1);
+            ImGui.TableSetupColumn("", ImGuiTableColumnFlags.WidthFixed, 30f);
+            for (var step = 0; step < mapColumns; step++)
+                ImGui.TableSetupColumn($"Map {step + 1}", ImGuiTableColumnFlags.WidthFixed, 138f);
+            ImGui.TableSetupColumn("Score", ImGuiTableColumnFlags.WidthFixed, 48f);
+            ImGui.TableHeadersRow();
+            foreach (var row in rows)
+            {
+                ImGui.TableNextRow(ImGuiTableRowFlags.None, 78f);
                 ImGui.TableSetColumnIndex(0);
                 var selected = _atlasRitualSelected.ContainsKey(row.Key);
                 if (ImGui.Checkbox($"##ritual-{row.Key}", ref selected))
                 {
                     if (selected)
+                    {
                         _atlasRitualSelected[row.Key] = NextAtlasRitualPaletteSlot();
+                        _atlasRitualSelectedRows[row.Key] = row;
+                    }
                     else
+                    {
                         _atlasRitualSelected.Remove(row.Key);
+                        _atlasRitualSelectedRows.Remove(row.Key);
+                    }
                 }
-                ImGui.TableSetColumnIndex(1);
-                ImGui.TextWrapped(row.PathLine);
-                ImGui.TableSetColumnIndex(2);
-                ImGui.TextWrapped(row.ModsLine);
-                ImGui.TableSetColumnIndex(3);
-                ImGui.TextUnformatted(row.Weight.ToString());
+
+                for (var step = 0; step < mapColumns; step++)
+                {
+                    ImGui.TableSetColumnIndex(step + 1);
+                    if (step >= row.MapNames.Count)
+                    {
+                        ImGui.TextDisabled("-");
+                        continue;
+                    }
+
+                    ImGui.PushStyleColor(ImGuiCol.Text, new System.Numerics.Vector4(0.93f, 0.90f, 0.83f, 1f));
+                    ImGui.TextWrapped(row.MapNames[step]);
+                    ImGui.PopStyleColor();
+                    var reward = step == 0
+                        ? (ctx.AtlasRitualCommittedMaps > 0 ? "Current" : "Start")
+                        : step - 1 < row.Rewards.Count ? row.Rewards[step - 1] : "";
+                    var rewardMatch = step > 0
+                        && step - 1 < row.RewardSearchTexts.Count
+                        && AtlasRitualPlanner.MatchesRewardQuery(
+                            [row.RewardSearchTexts[step - 1]],
+                            rewardSearch);
+                    if (rewardMatch)
+                        ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ColorU32("#493A16", 0.96f));
+                    if (!string.IsNullOrEmpty(reward))
+                    {
+                        ImGui.PushStyleColor(
+                            ImGuiCol.Text,
+                            rewardMatch
+                                ? new System.Numerics.Vector4(1f, 0.86f, 0.36f, 1f)
+                                : new System.Numerics.Vector4(0.84f, 0.69f, 0.35f, 1f));
+                        ImGui.TextWrapped(reward);
+                        ImGui.PopStyleColor();
+                    }
+                }
+
+                ImGui.TableSetColumnIndex(mapColumns + 1);
+                ImGui.TextUnformatted(row.Weight == 0 ? "-" : row.Weight.ToString("+0;-0"));
             }
             ImGui.EndTable();
         }
+        ImGui.PopStyleColor(6);
         ImGui.End();
+    }
+
+    private void DrawAtlasRitualSearchHighlights(ImDrawListPtr dl, RenderContext ctx, float uiScale)
+    {
+        var query = _settings.AtlasRitualRewardFilter;
+        if (string.IsNullOrWhiteSpace(query)
+            || !ctx.AtlasRitualLineActive
+            || ctx.AtlasRitualPlannerRows is not { Count: > 0 } rows
+            || ctx.AtlasRitualNodeCenters is not { Count: > 0 } centers)
+            return;
+
+        var matches = AtlasRitualPresentation.FindRewardMatches(rows, query);
+        foreach (var match in matches)
+        {
+            if (!centers.TryGetValue((match.Grid.X, match.Grid.Y), out var center)
+                || !float.IsFinite(center.X)
+                || !float.IsFinite(center.Y))
+                continue;
+
+            var radius = MathF.Max(11f, 13f * uiScale);
+            dl.ChannelsSetCurrent(AtlasChannelDots);
+            dl.AddCircle(
+                center,
+                radius + 2f * uiScale,
+                ColorU32("#080908", 0.96f),
+                24,
+                MathF.Max(4f, 5f * uiScale));
+            dl.AddCircle(
+                center,
+                radius,
+                ColorU32("#E2B84F", 1f),
+                24,
+                MathF.Max(2f, 2.5f * uiScale));
+            dl.AddCircle(
+                center,
+                radius - 4f * uiScale,
+                ColorU32("#FFF0A6", 0.92f),
+                24,
+                MathF.Max(1f, 1.25f * uiScale));
+
+            dl.ChannelsSetCurrent(AtlasChannelLabels);
+            var labelSize = ImGui.CalcTextSize(match.Label);
+            var padding = new NumVec2(5f, 3f) * uiScale;
+            var labelPos = center + new NumVec2(-labelSize.X * 0.5f, radius + 7f * uiScale);
+            dl.AddRectFilled(
+                labelPos - padding,
+                labelPos + labelSize + padding,
+                ColorU32("#080908", 0.98f),
+                3f * uiScale);
+            dl.AddRect(
+                labelPos - padding,
+                labelPos + labelSize + padding,
+                ColorU32("#E2B84F", 1f),
+                3f * uiScale);
+            dl.AddText(labelPos, ColorU32("#F8EBC8", 1f), match.Label);
+        }
     }
 
     private void DrawAtlasRitualSelectedPaths(ImDrawListPtr dl, RenderContext ctx, float uiScale)
     {
-        if (_atlasRitualSelected.Count == 0 || ctx.AtlasRitualPlannerRows is not { Count: > 0 } rows)
-            return;
-        foreach (var row in rows)
+        if (!ctx.AtlasRitualLineActive)
         {
-            if (!_atlasRitualSelected.TryGetValue(row.Key, out var slot) || row.Points.Count < 2)
+            _atlasRitualSelected.Clear();
+            _atlasRitualSelectedRows.Clear();
+            return;
+        }
+        if (_atlasRitualSelected.Count == 0
+            || ctx.AtlasRitualNodeCenters is not { Count: > 0 } centers)
+            return;
+
+        if (ctx.AtlasRitualPlannerRows is { Count: > 0 } currentRows)
+        {
+            foreach (var row in currentRows)
+                if (_atlasRitualSelected.ContainsKey(row.Key))
+                    _atlasRitualSelectedRows[row.Key] = row;
+        }
+
+        foreach (var pair in _atlasRitualSelectedRows)
+        {
+            var row = pair.Value;
+            if (!_atlasRitualSelected.TryGetValue(row.Key, out var slot))
+                continue;
+            var points = AtlasRitualPresentation.ResolveRoutePoints(row, centers);
+            if (points.Length < 2)
                 continue;
             var colorHex = AtlasRitualPalette[slot % AtlasRitualPalette.Length];
             var color = ColorU32(colorHex, 0.95f);
-            DrawAtlasNodePath(dl, row.Points, color, MathF.Max(2f, 2.5f * uiScale), uiScale,
+            DrawAtlasNodePath(dl, points, color, MathF.Max(2f, 2.5f * uiScale), uiScale,
                 spacingMul: 24f, chevrons: true, phaseIndex: slot);
 
             dl.ChannelsSetCurrent(AtlasChannelLabels);
-            for (var index = 1; index < row.Points.Count && index - 1 < row.Rewards.Count; index++)
+            for (var index = 1; index < points.Length && index - 1 < row.Rewards.Count; index++)
             {
                 var label = row.Rewards[index - 1];
                 var size = ImGui.CalcTextSize(label);
                 var padding = new NumVec2(4f, 2f) * uiScale;
-                var position = row.Points[index] - new NumVec2(size.X * 0.5f, size.Y + 12f * uiScale);
-                dl.AddRectFilled(position - padding, position + size + padding, ColorU32("#0D0D0D", 0.92f), 3f * uiScale);
+                var position = points[index] - new NumVec2(size.X * 0.5f, size.Y + 12f * uiScale);
+                dl.AddRectFilled(position - padding, position + size + padding, ColorU32("#080908", 0.98f), 3f * uiScale);
                 dl.AddRect(position - padding, position + size + padding, color, 3f * uiScale);
-                dl.AddText(position, color, label);
+                dl.AddText(position, ColorU32("#F2E9D2", 1f), label);
             }
         }
     }

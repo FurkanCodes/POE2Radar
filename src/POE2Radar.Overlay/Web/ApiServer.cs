@@ -170,6 +170,11 @@ public sealed class ApiServer : IDisposable
                     pathLayersEnabled = s.PathLayersEnabled,
                     cameraMatrixOk = s.CameraMatrixOk,
                     pathDiag = s.PathDiag,
+                    atlasOpen = s.AtlasOpen,
+                    atlasRitualLineActive = s.AtlasRitualLineActive,
+                    atlasRitualChoiceCount = s.AtlasRitualChoiceCount,
+                    atlasRitualCompleteLineCount = s.AtlasRitualCompleteLineCount,
+                    atlasRitualDiagnostic = s.AtlasRitualDiagnostic,
                     gameFocused = s.GameFocused, overlayActive = s.OverlayActive,
                     overlayW = s.OverlayW, overlayH = s.OverlayH, gameHwnd = s.GameHwnd.ToInt64(),
                     hpPct = s.HpPct, manaPct = s.ManaPct, esPct = s.EsPct, autoFlask = s.AutoFlask, flask = s.FlaskNote,
@@ -1665,7 +1670,12 @@ public sealed record RadarState(
     int PathTargetCount = 0,
     bool PathLayersEnabled = false,
     bool CameraMatrixOk = false,
-    string PathDiag = "")
+    string PathDiag = "",
+    bool AtlasOpen = false,
+    bool AtlasRitualLineActive = false,
+    int AtlasRitualChoiceCount = 0,
+    int AtlasRitualCompleteLineCount = 0,
+    string AtlasRitualDiagnostic = "atlas closed")
 {
     public static readonly RadarState Empty =
         new(false, 0, 0, false, 0, System.Numerics.Vector2.Zero,

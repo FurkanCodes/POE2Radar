@@ -33,6 +33,71 @@ public static class AtlasRitualPlanner
         bool Capped,
         int LineLength);
 
+    /// <summary>
+    /// Select the small set of complete lines shown by the overlay. The plan is already ordered by
+    /// configured reward weight, so presentation must preserve that order instead of re-ranking it.
+    /// </summary>
+    public static IReadOnlyList<Chain> SelectDisplayChains(
+        Plan plan,
+        int maxChoices,
+        Func<Chain, bool>? predicate = null,
+        IReadOnlySet<(int X, int Y)>? priorityNodes = null)
+    {
+        if (maxChoices <= 0 || plan.Chains.Count == 0)
+            return Array.Empty<Chain>();
+
+        var candidates = plan.Chains
+            .Where(chain => chain.Nodes.Count >= 2
+                && chain.Rewards.Count == chain.Nodes.Count - 1
+                && (predicate is null || predicate(chain)))
+            .Select((chain, index) => new
+            {
+                Chain = chain,
+                OriginalIndex = index,
+                RootVisible = priorityNodes?.Contains(chain.Nodes[0]) == true,
+                VisibleNodeCount = priorityNodes is null
+                    ? 0
+                    : chain.Nodes.Count(priorityNodes.Contains),
+            });
+
+        if (priorityNodes is { Count: > 0 })
+        {
+            candidates = candidates
+                .OrderByDescending(candidate => candidate.RootVisible)
+                .ThenByDescending(candidate => candidate.VisibleNodeCount)
+                .ThenBy(candidate => candidate.OriginalIndex);
+        }
+
+        return candidates
+            .Select(candidate => candidate.Chain)
+            .Take(maxChoices)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Matches pasted in-game modifier text as well as the compact labels used by the planner UI.
+    /// Comma and pipe separated terms are OR alternatives.
+    /// </summary>
+    public static bool MatchesRewardQuery(Chain chain, string? query)
+        => MatchesRewardQuery(
+            chain.Rewards.SelectMany(reward => new[] { reward.First, reward.Second, reward.Display }),
+            query);
+
+    public static bool MatchesRewardQuery(IEnumerable<string?> rewardTexts, string? query)
+    {
+        var terms = (query ?? "")
+            .Split(['|', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (terms.Length == 0)
+            return false;
+
+        var texts = rewardTexts
+            .Where(text => !string.IsNullOrWhiteSpace(text))
+            .Select(text => text!)
+            .ToArray();
+        return terms.Any(term => texts.Any(text =>
+            text.Contains(term, StringComparison.OrdinalIgnoreCase)));
+    }
+
     public static IReadOnlyDictionary<(int X, int Y), Reward> BuildHoverPredictions(
         Poe2Atlas.RitualLineSnapshot state,
         (int X, int Y) start,

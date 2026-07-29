@@ -964,7 +964,12 @@ public sealed partial class RadarApp : IDisposable
             PathTargetCount: _renderPathSnapshot.Length,
             PathLayersEnabled: _settings.AnyPathLayerEnabled,
             CameraMatrixOk: live.CameraMatrix is { Length: >= 16 },
-            PathDiag: pathDiag);
+            PathDiag: pathDiag,
+            AtlasOpen: _atlasOpen,
+            AtlasRitualLineActive: _atlasRitualLineActive,
+            AtlasRitualChoiceCount: _atlasRitualPlannerPublish.Length,
+            AtlasRitualCompleteLineCount: _atlasRitualPlannerTotalChains,
+            AtlasRitualDiagnostic: _atlasRitualDiagnostic);
 
         var atlasProj = AtlasProjection();
         var mapFrame = BuildLargeMapFrame(
@@ -1163,10 +1168,15 @@ public sealed partial class RadarApp : IDisposable
             AtlasIslandRumourPriorityColor: _settings.AtlasIslandRumourPriorityColor,
             AtlasRitualPredictions: (_atlasOpen && _atlasRitualPredPublish.Length > 0) ? _atlasRitualPredPublish : null,
             AtlasRitualPlannerRows: (_atlasOpen && _atlasRitualPlannerPublish.Length > 0) ? _atlasRitualPlannerPublish : null,
+            AtlasRitualNodeCenters: _atlasOpen ? _atlasRitualNodeCentersPublish : null,
             AtlasShowRitualPrediction: _settings.AtlasShowRitualPrediction,
             AtlasShowRitualPlanner: _settings.AtlasShowRitualPlanner,
             AtlasRitualLineActive: _atlasRitualLineActive,
             AtlasRitualPlannerFontScale: _settings.AtlasRitualPlannerFontScale,
+            AtlasRitualLineLength: _atlasRitualLineLength,
+            AtlasRitualCommittedMaps: _atlasRitualCommittedMaps,
+            AtlasRitualPlannerTotalChains: _atlasRitualPlannerTotalChains,
+            AtlasRitualPlannerCapped: _atlasRitualPlannerCapped,
             CursorInspectTitle: _cursorInspectTitle,
             CursorInspectMeta: _cursorInspectMeta,
             MapDiag: _mapDiag,
@@ -2835,6 +2845,13 @@ public sealed partial class RadarApp : IDisposable
         ResetAtlasIslandRumours();
         _atlasRitualPredPublish = Array.Empty<AtlasRitualPredictionMark>();
         _atlasRitualPlannerPublish = Array.Empty<AtlasRitualPlannerRow>();
+        _atlasRitualNodeCentersPublish = new Dictionary<(int X, int Y), NumVec2>();
+        _atlasRitualLineActive = false;
+        _atlasRitualLineLength = 0;
+        _atlasRitualCommittedMaps = 0;
+        _atlasRitualPlannerTotalChains = 0;
+        _atlasRitualPlannerCapped = false;
+        _atlasRitualDiagnostic = "atlas closed";
         _atlasRitualSpecialCache.Clear();
         _atlasRitualPlanCache = null;
         _atlasRitualPlanSignature = null;

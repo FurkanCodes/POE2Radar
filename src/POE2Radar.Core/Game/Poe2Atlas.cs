@@ -895,6 +895,13 @@ public sealed class Poe2Atlas
     /// Candidate ordering is preserved because its index is part of the deterministic reward seed.
     /// </summary>
     public bool TryReadRitualLine(out RitualLineSnapshot snapshot)
+        => TryReadRitualLine(out snapshot, out _);
+
+    /// <summary>
+    /// Diagnostic overload used by the overlay and Research tooling. The status identifies the first
+    /// failed boundary without publishing addresses outside the local process.
+    /// </summary>
+    public bool TryReadRitualLine(out RitualLineSnapshot snapshot, out string status)
     {
         snapshot = new RitualLineSnapshot(
             0,
@@ -907,20 +914,40 @@ public sealed class Poe2Atlas
         {
             var panel = _nodeCanvas;
             if (panel == 0 || !HierarchicallyVisible(panel))
+            {
+                status = panel == 0 ? "atlas node canvas unavailable" : "atlas node canvas hidden";
                 return false;
-            if (!_reader.TryReadStruct<byte>(panel + Poe2.AtlasGraph.RitualPanelLineMode, out var mode)
-                || mode != Poe2.AtlasGraph.RitualLineModeValue)
+            }
+            if (!_reader.TryReadStruct<byte>(panel + Poe2.AtlasGraph.RitualPanelLineMode, out var mode))
+            {
+                status = "ritual line mode unreadable";
                 return false;
+            }
+            if (!AtlasRitualPrediction.IsLineModeActive(mode))
+            {
+                status = $"ritual line inactive (mode={mode})";
+                return false;
+            }
             if (!_reader.TryReadStruct<uint>(panel + Poe2.AtlasGraph.RitualPanelLineId, out var lineId))
+            {
+                status = $"ritual line id unreadable (mode={mode})";
                 return false;
+            }
 
             var pending = ReadRitualGridVector(panel + Poe2.AtlasGraph.RitualPanelPendingVec);
             var committed = ReadRitualGridVector(panel + Poe2.AtlasGraph.RitualPanelCommittedVec);
+            var tableBegin = Ptr(panel + Poe2.AtlasGraph.RitualCandTableBegin);
+            var tableEnd = Ptr(panel + Poe2.AtlasGraph.RitualCandTableEnd);
+            var tableBytes = tableBegin == 0 || tableEnd == 0 ? 0L : (long)tableEnd - (long)tableBegin;
             var candidates = ReadRitualCandidateTable(panel);
             if (candidates.Count == 0)
+            {
+                status = $"candidate table empty (mode={mode}, bytes={tableBytes}, pending={pending.Count}, committed={committed.Count})";
                 return false;
+            }
             var stats = ReadRitualStats(panel);
             snapshot = new RitualLineSnapshot(lineId, pending, committed, candidates, stats);
+            status = $"ritual state ready (mode={mode}, candidates={candidates.Count}, pending={pending.Count}, committed={committed.Count}, stats={stats.Count})";
             return true;
         }
     }

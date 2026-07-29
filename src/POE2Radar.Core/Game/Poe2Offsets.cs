@@ -610,14 +610,13 @@ public static class Poe2
 
         // Ritual atlas line (Atlas2 / yokkenUA) — fields on the node-list / panel container.
         // Re-validate with Research after patches; values from GameHelper Atlas2 RitualFeatures.
-        public const int RitualPanelLineMode = 0x637; // u8 — page mode 6 = ritual line
+        public const int RitualPanelLineMode = 0x637; // u8 — zero=normal atlas, nonzero=ritual line
         public const int RitualPanelLineId = 0x63C;   // u32 TinyMT seed word 0
         public const int RitualPanelPendingVec = 0x648;
         public const int RitualPanelCommittedVec = 0x660;
         public const int RitualCandTableBegin = 0x590;
         public const int RitualCandTableEnd = 0x598;
         public const int RitualCandEntryStride = 0x44;
-        public const byte RitualLineModeValue = 6;
         public const int RitualStatsRoot = 0x320;
         public const int RitualStatsRootNext = 0x1B0;
         public const int RitualStatsHolder = 0x3A20;

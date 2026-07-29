@@ -21,6 +21,13 @@ public class Atlas2DefaultsTests
     }
 
     [Fact]
+    public void RitualLineMode_CurrentLiveValueOne_IsActive()
+    {
+        Assert.True(AtlasRitualPrediction.IsLineModeActive(1));
+        Assert.False(AtlasRitualPrediction.IsLineModeActive(0));
+    }
+
+    [Fact]
     public void TinyMt_SeedAndJump_MatchesAtlas2GoldenVectors()
     {
         Assert.Equal(0x8D15DD1Eu, AtlasRitualPrediction.TinyMt32.SeedAndJump(1, 2, 3, 4));
@@ -76,6 +83,76 @@ public class Atlas2DefaultsTests
         var chain = Assert.Single(plan.Chains);
         Assert.Equal([(0, 0), (1, 0), (2, 0), (3, 0)], chain.Nodes);
         Assert.DoesNotContain((0, 1), chain.Nodes);
+    }
+
+    [Fact]
+    public void RitualPlanner_SelectDisplayChains_ReturnsSixCompleteChoices()
+    {
+        var chains = Enumerable.Range(1, 9)
+            .Select(index => new AtlasRitualPlanner.Chain(
+                $"line-{index}",
+                Enumerable.Range(1, 6).Select(step => (index, step)).ToArray(),
+                Enumerable.Range(1, 5)
+                    .Select(step => new AtlasRitualPlanner.Reward($"Reward {index}.{step}", ""))
+                    .ToArray(),
+                $"Line {index}",
+                $"Rewards {index}",
+                100 - index))
+            .ToArray();
+        var plan = new AtlasRitualPlanner.Plan(chains, 9, 9, false, 6);
+
+        var displayed = AtlasRitualPlanner.SelectDisplayChains(plan, 6);
+
+        Assert.Equal(6, displayed.Count);
+        Assert.All(displayed, chain => Assert.Equal(6, chain.Nodes.Count));
+        Assert.Equal(chains.Take(6).Select(chain => chain.Key), displayed.Select(chain => chain.Key));
+    }
+
+    [Fact]
+    public void RitualPlanner_SelectDisplayChains_PrioritizesCurrentViewport()
+    {
+        var chains = Enumerable.Range(1, 8)
+            .Select(index => new AtlasRitualPlanner.Chain(
+                $"line-{index}",
+                [(index, 0), (index, 1)],
+                [new AtlasRitualPlanner.Reward($"Reward {index}", "")],
+                $"Line {index}",
+                $"Reward {index}",
+                0))
+            .ToArray();
+        var plan = new AtlasRitualPlanner.Plan(chains, 8, 8, false, 2);
+
+        var leftViewport = AtlasRitualPlanner.SelectDisplayChains(
+            plan,
+            6,
+            priorityNodes: new HashSet<(int X, int Y)> { (2, 0) });
+        var rightViewport = AtlasRitualPlanner.SelectDisplayChains(
+            plan,
+            6,
+            priorityNodes: new HashSet<(int X, int Y)> { (8, 0) });
+
+        Assert.Equal("line-2", leftViewport[0].Key);
+        Assert.Equal("line-8", rightViewport[0].Key);
+        Assert.NotEqual(
+            leftViewport.Select(chain => chain.Key),
+            rightViewport.Select(chain => chain.Key));
+    }
+
+    [Fact]
+    public void RitualPlanner_RewardQuery_MatchesFullUnshortenedModifier()
+    {
+        const string fullModifier = "Rerolling Favours costs 20% reduced Tribute";
+        var chain = new AtlasRitualPlanner.Chain(
+            "line",
+            [(1, 1), (2, 2)],
+            [new AtlasRitualPlanner.Reward(fullModifier, "")],
+            "One > Two",
+            "-Reroll Cost",
+            0);
+
+        Assert.True(AtlasRitualPlanner.MatchesRewardQuery(
+            chain,
+            "rerolling favours costs 20% reduced tribute"));
     }
 
     [Fact]

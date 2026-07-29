@@ -5905,7 +5905,11 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             ImGuiTheme.Tooltip(SettingHints.Atlas.ShowRitualPlanner);
             var rf = s.AtlasRitualRewardFilter ?? "";
             ImGui.SetNextItemWidth(-1f);
-            if (ImGui.InputTextWithHint("##ritFilter", "Reward filter (comma)…", ref rf, 256))
+            if (ImGui.InputTextWithHint(
+                    "##ritFilter",
+                    "Reward search (paste full modifier; comma or | for alternatives)…",
+                    ref rf,
+                    512))
                 s.AtlasRitualRewardFilter = rf;
             ImGuiTheme.Tooltip(SettingHints.Atlas.RitualRewardFilter);
         }

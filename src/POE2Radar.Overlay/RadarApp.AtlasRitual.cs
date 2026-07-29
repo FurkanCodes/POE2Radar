@@ -8,10 +8,17 @@ public sealed partial class RadarApp
 {
     private AtlasRitualPredictionMark[] _atlasRitualPredPublish = Array.Empty<AtlasRitualPredictionMark>();
     private AtlasRitualPlannerRow[] _atlasRitualPlannerPublish = Array.Empty<AtlasRitualPlannerRow>();
+    private IReadOnlyDictionary<(int X, int Y), NumVec2> _atlasRitualNodeCentersPublish =
+        new Dictionary<(int X, int Y), NumVec2>();
     private readonly Dictionary<nint, bool> _atlasRitualSpecialCache = new();
     private AtlasRitualPlanner.Plan? _atlasRitualPlanCache;
     private string? _atlasRitualPlanSignature;
     private bool _atlasRitualLineActive;
+    private int _atlasRitualLineLength;
+    private int _atlasRitualCommittedMaps;
+    private int _atlasRitualPlannerTotalChains;
+    private bool _atlasRitualPlannerCapped;
+    private string _atlasRitualDiagnostic = "atlas closed";
 
     /// <summary>
     /// Exact Atlas2 ritual-line prediction. Before the first pick, hovering an eligible start previews
@@ -21,12 +28,21 @@ public sealed partial class RadarApp
     private void UpdateAtlasRitualLine(IReadOnlyList<Poe2Atlas.AtlasNodeLive> nodes)
     {
         _atlasRitualLineActive = false;
+        _atlasRitualLineLength = 0;
+        _atlasRitualCommittedMaps = 0;
+        _atlasRitualPlannerTotalChains = 0;
+        _atlasRitualPlannerCapped = false;
+        _atlasRitualDiagnostic = "ritual reader idle";
         _atlasRitualPredPublish = Array.Empty<AtlasRitualPredictionMark>();
         _atlasRitualPlannerPublish = Array.Empty<AtlasRitualPlannerRow>();
+        _atlasRitualNodeCentersPublish = new Dictionary<(int X, int Y), NumVec2>();
 
         if (!_settings.AtlasShowRitualPrediction && !_settings.AtlasShowRitualPlanner)
+        {
+            _atlasRitualDiagnostic = "ritual features disabled";
             return;
-        if (!_atlas.TryReadRitualLine(out var state))
+        }
+        if (!_atlas.TryReadRitualLine(out var state, out _atlasRitualDiagnostic))
         {
             _atlasRitualPlanCache = null;
             _atlasRitualPlanSignature = null;
@@ -35,10 +51,16 @@ public sealed partial class RadarApp
 
         _atlasRitualLineActive = true;
         var pool = AtlasRitualPrediction.FilterPool(state.Stats);
-        if (pool.Count == 0) return;
+        if (pool.Count == 0)
+        {
+            _atlasRitualDiagnostic = "ritual modifier pool empty";
+            return;
+        }
         var additionalMaps = Math.Max(0,
             AtlasRitualPrediction.StatValue(state.Stats, AtlasRitualPrediction.StatAdditionalMaps));
         var lineLength = AtlasRitualPrediction.BaseLineLength + additionalMaps;
+        _atlasRitualLineLength = lineLength;
+        _atlasRitualCommittedMaps = state.Committed.Count;
         var secondChance = Math.Clamp(
             AtlasRitualPrediction.StatValue(state.Stats, AtlasRitualPrediction.StatSecondModChance),
             0,
@@ -110,39 +132,46 @@ public sealed partial class RadarApp
         }
 
         var plan = _atlasRitualPlanCache;
-        if (plan is null || plan.Chains.Count == 0) return;
+        if (plan is null || plan.Chains.Count == 0)
+        {
+            _atlasRitualDiagnostic =
+                $"no complete ritual lines (nodes={nodeInfos.Count}, accessible={nodeInfos.Count(node => node.Accessible)}, "
+                + $"blocked={nodeInfos.Count(node => node.Blocked)}, lineLength={lineLength})";
+            return;
+        }
+        _atlasRitualPlannerTotalChains = plan.Chains.Count;
+        _atlasRitualPlannerCapped = plan.Capped;
         var centers = nodes.ToDictionary(node => node.Grid, node =>
         {
             var center = node.ScreenCenter;
             return new NumVec2(center.X, center.Y);
         });
-        var rows = new List<AtlasRitualPlannerRow>(200);
-        foreach (var chain in plan.Chains)
-        {
-            var points = new List<NumVec2>(chain.Nodes.Count);
-            var complete = true;
-            foreach (var grid in chain.Nodes)
+        _atlasRitualNodeCentersPublish = centers;
+        var names = nodeInfos.ToDictionary(node => node.Grid, node => node.Name);
+        var viewportNodes = nodes
+            .Where(node =>
             {
-                if (!centers.TryGetValue(grid, out var center)
-                    || !float.IsFinite(center.X)
-                    || !float.IsFinite(center.Y))
-                {
-                    complete = false;
-                    break;
-                }
-                points.Add(center);
-            }
-            if (!complete || points.Count < 2) continue;
-            rows.Add(new AtlasRitualPlannerRow(
-                chain.Key,
-                chain.PathLine,
-                chain.ModsLine,
-                chain.Weight,
-                points.ToArray(),
-                chain.Rewards.Select(reward => reward.Display).ToArray()));
-            if (rows.Count >= 200) break;
-        }
-        _atlasRitualPlannerPublish = rows.ToArray();
+                var center = node.ScreenCenter;
+                return float.IsFinite(center.X)
+                    && float.IsFinite(center.Y)
+                    && center.X >= 0f
+                    && center.X <= OverlayWidth
+                    && center.Y >= 0f
+                    && center.Y <= OverlayHeight;
+            })
+            .Select(node => node.Grid)
+            .ToHashSet();
+        var rewardQuery = _settings.AtlasRitualRewardFilter?.Trim() ?? "";
+        var displayChains = AtlasRitualPlanner.SelectDisplayChains(
+            plan,
+            maxChoices: 6,
+            predicate: rewardQuery.Length == 0
+                ? null
+                : chain => AtlasRitualPlanner.MatchesRewardQuery(chain, rewardQuery),
+            priorityNodes: viewportNodes);
+        _atlasRitualPlannerPublish = AtlasRitualPresentation.BuildRows(displayChains, names, centers);
+        _atlasRitualDiagnostic =
+            $"ritual predictions ready (choices={_atlasRitualPlannerPublish.Length}, completeLines={plan.Chains.Count}, lineLength={lineLength})";
     }
 
     private (int X, int Y)? RitualHoverGrid(
@@ -207,10 +236,19 @@ public readonly record struct AtlasRitualPredictionMark(
     int GridX,
     int GridY);
 
+public readonly record struct AtlasRitualGridNode(int X, int Y);
+
+public readonly record struct AtlasRitualRewardMatch(
+    AtlasRitualGridNode Grid,
+    string Label);
+
 public readonly record struct AtlasRitualPlannerRow(
     string Key,
     string PathLine,
     string ModsLine,
     int Weight,
+    IReadOnlyList<string> MapNames,
     IReadOnlyList<NumVec2> Points,
-    IReadOnlyList<string> Rewards);
+    IReadOnlyList<string> Rewards,
+    IReadOnlyList<AtlasRitualGridNode> GridNodes,
+    IReadOnlyList<string> RewardSearchTexts);
