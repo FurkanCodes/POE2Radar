@@ -1425,10 +1425,6 @@ async function loadSettings(){
 async function saveSetting(key,val){
   try{
     const body={[key]:val};
-    if(key==='autoPathNavigable'&&val){
-      body.showPath=true; body.showPathWorld=true; body.showGroundWaypoints=true;
-      body.showPathMap=true; body.showPathMinimap=true;
-    }
     if(key==='showPathGround'){
       body.showPathWorld=val; body.showGroundWaypoints=val;
     }
@@ -1436,11 +1432,6 @@ async function saveSetting(key,val){
     const m=$('#savedMsg'); m.classList.add('show'); clearTimeout(m._t); m._t=setTimeout(()=>m.classList.remove('show'),1100);
     markStamp('stampSettings'); toast('Settings saved','ok');
     if(key==='hideJunk') updateHeaderQuick();
-    if(key==='autoPathNavigable'&&val){
-      const pg=$('[data-set="showPathGround"]'); if(pg) pg.checked=true;
-      const spm=$('[data-set="showPathMap"]'); if(spm) spm.checked=true;
-      const spmi=$('[data-set="showPathMinimap"]'); if(spmi) spmi.checked=true;
-    }
     if(key==='showPathGround'&&_settingsCache){
       _settingsCache.showPathWorld=val; _settingsCache.showGroundWaypoints=val;
     }

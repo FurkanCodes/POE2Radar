@@ -755,7 +755,6 @@ public sealed class ApiServer : IDisposable
             case "showPathMinimap" when TryBool(p.Value, out var b): _settings.ShowPathMinimap = b; applied.Add(p.Name); break;
             case "autoPathNavigable" when TryBool(p.Value, out var b):
                     _settings.AutoPathNavigable = b;
-                    if (b) _settings.SetAllPathLayers(true);
                     applied.Add(p.Name);
                     break;
                 case "importantOnly" when TryBool(p.Value, out var b): _settings.ImportantOnly = b; applied.Add(p.Name); break;

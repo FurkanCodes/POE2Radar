@@ -48,7 +48,7 @@ internal static class SettingHints
     internal static class Entities
     {
         public const string DetectionRadius = "Max grid distance from player for entity dots, nav targets, and API list. 0 = no limit.";
-        public const string AutoPathNearest = "Continuously draw paths to the nearest navigation targets — endgame mechanics, rares, uniques, POIs by default.";
+        public const string AutoPathNearest = "Continuously add nearby navigation targets. Turning this off preserves existing routes; path-layer controls decide where routes are drawn.";
         public const string ShowAllMonsters = "Show normal/magic grey monsters and other map clutter on the radar.";
         public const string NeverShowPattern = "Substring or glob (* ?) — not on map, not in lists, not for paths.";
         public const string NeverShowAdd = "Add this pattern to the never-show list.";

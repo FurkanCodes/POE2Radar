@@ -3629,10 +3629,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
 
             bool ap = s.AutoPathNavigable;
             if (ImGui.Checkbox("Auto-path to nearest targets", ref ap))
-            {
                 s.AutoPathNavigable = ap;
-                if (ap) s.SetAllPathLayers(true);
-            }
             ImGuiTheme.Tooltip(SettingHints.Entities.AutoPathNearest);
 
             bool showAll = !s.ImportantOnly;
@@ -3970,7 +3967,7 @@ public sealed partial class ImGuiRadarOverlay : ClickableTransparentOverlay.Over
             ImGuiTheme.Tooltip(SettingHints.Radar.ShowPathMinimap);
 
             ImGui.PushStyleColor(ImGuiCol.Text, ImGuiTheme.TextMuted);
-            ImGui.TextWrapped("Auto-path (Entities tab) turns on all three layers. Per-target paths: display rules or nav menu.");
+            ImGui.TextWrapped("Auto-path only adds nearby targets. These three controls independently decide where selected routes are drawn.");
             ImGui.PopStyleColor();
         }
         ImGuiTheme.EndAccordionSection(pathsOpen);

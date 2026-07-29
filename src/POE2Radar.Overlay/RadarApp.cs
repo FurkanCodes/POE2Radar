@@ -1614,7 +1614,6 @@ public sealed partial class RadarApp : IDisposable
         if (HotkeyPressed(_settings.AutoPathToggleHotkey, ref _nextAutoPathToggleAt, requireGameFocus: true))
         {
             _settings.AutoPathNavigable = !_settings.AutoPathNavigable;
-            if (_settings.AutoPathNavigable) _settings.SetAllPathLayers(true);
             _settings.Save();
             Console.WriteLine($"\nAuto-path: {(_settings.AutoPathNavigable ? "ON" : "OFF")}");
         }
@@ -2110,11 +2109,7 @@ public sealed partial class RadarApp : IDisposable
         {
             if (_autoSelectedIds.Count == 0) return;
             lock (_navLock)
-            {
-                foreach (var id in _autoSelectedIds)
-                    _selectedIds.Remove(id);
-                _autoSelectedIds.Clear();
-            }
+                StopAutomaticTargetDiscovery(_autoSelectedIds);
             return;
         }
 
@@ -2156,6 +2151,13 @@ public sealed partial class RadarApp : IDisposable
                 _autoSelectedIds.Add(id);
             }
         }
+    }
+
+    internal static void StopAutomaticTargetDiscovery(ISet<string> automaticallySelectedIds)
+    {
+        // Disabling discovery freezes the current selection. Routes remain selected and visible
+        // until the user explicitly removes or clears them.
+        automaticallySelectedIds.Clear();
     }
 
     /// <summary>Store a copy of <paramref name="ids"/> under <paramref name="hash"/>, evicting the
